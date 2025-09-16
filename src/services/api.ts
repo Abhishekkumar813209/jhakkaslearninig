@@ -205,6 +205,13 @@ export const analyticsAPI = {
   getRankPrediction: () => makeRequest('/analytics/rank-prediction'),
 };
 
+// Dashboard APIs
+export const dashboardAPI = {
+  getOverview: () => makeRequest('/dashboard/overview'),
+  getSchedule: () => makeRequest('/dashboard/schedule'),
+  getAchievements: () => makeRequest('/dashboard/achievements'),
+};
+
 export default {
   auth: authAPI,
   courses: coursesAPI,
@@ -212,4 +219,5 @@ export default {
   tests: testsAPI,
   users: usersAPI,
   analytics: analyticsAPI,
+  dashboard: dashboardAPI,
 };

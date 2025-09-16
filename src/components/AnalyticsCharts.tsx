@@ -78,9 +78,14 @@ const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
 
 interface AnalyticsChartsProps {
   activeTab: string;
+  subjectPerformance?: Array<{ subject: string; score: number }>;
+  performanceTrend?: Array<{ month: string; score: number }>;
 }
 
-const AnalyticsCharts = ({ activeTab }: AnalyticsChartsProps) => {
+const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: AnalyticsChartsProps) => {
+  // Use real data if available, otherwise fall back to mock data
+  const chartSubjectData = subjectPerformance || subjectPerformanceData;
+  const chartTrendData = performanceTrend || performanceTrendData;
   if (activeTab === "overview") {
     return (
       <div className="grid lg:grid-cols-2 gap-6">
@@ -93,7 +98,7 @@ const AnalyticsCharts = ({ activeTab }: AnalyticsChartsProps) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={subjectPerformanceData}>
+              <RadarChart data={chartSubjectData}>
                 <PolarGrid />
                 <PolarAngleAxis dataKey="subject" />
                 <PolarRadiusAxis domain={[0, 100]} />
@@ -118,7 +123,7 @@ const AnalyticsCharts = ({ activeTab }: AnalyticsChartsProps) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={performanceTrendData}>
+              <LineChart data={chartTrendData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />

@@ -17,6 +17,7 @@ import courseRoutes from '@/routes/courses';
 import videoRoutes from '@/routes/videos';
 import testRoutes from '@/routes/tests';
 import analyticsRoutes from '@/routes/analytics';
+import dashboardRoutes from '@/routes/dashboard';
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

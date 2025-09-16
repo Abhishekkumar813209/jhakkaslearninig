@@ -19,29 +19,6 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-<<<<<<< HEAD
-          <div className="hidden md:flex items-center space-x-4">
-            <Link to="/courses">
-              <Button variant="nav" size="sm">
-                Courses
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button variant="nav" size="sm">
-                Dashboard
-              </Button>
-            </Link>
-            <Link to="/quiz">
-              <Button variant="nav" size="sm">
-                Practice
-              </Button>
-            </Link>
-            <Link to="/about">
-              <Button variant="nav" size="sm">
-                About Us
-              </Button>
-            </Link>
-=======
           <div className="hidden md:flex items-center space-x-2">
             {!user ? (
               // Guest Navigation
@@ -107,7 +84,6 @@ const Navbar = () => {
                 </Button>
               </>
             ) : null}
->>>>>>> 3ce8b3c43aab02f06ce8cdc5ce0144df8ff322f8
           </div>
 
           {/* Desktop Actions */}

@@ -17,13 +17,19 @@ const Analytics = () => {
   const [loading, setLoading] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [leaderboardData, setLeaderboardData] = useState<any>(null);
+  const [students, setStudents] = useState<{ id: string; name: string }[]>([]);
 
   const mockStudents = [
     { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Priya Patel' },
     { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Rahul Sharma' },
     { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Anita Gupta' },
     { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Vikram Singh' },
+    { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Kavya Reddy' },
+    { id: '550e8400-e29b-41d4-a716-446655440006', name: 'Arjun Kumar' },
     { id: '550e8400-e29b-41d4-a716-446655440007', name: 'Sneha Joshi' },
+    { id: '550e8400-e29b-41d4-a716-446655440008', name: 'Rohit Mehta' },
+    { id: '550e8400-e29b-41d4-a716-446655440009', name: 'Pooja Agarwal' },
+    { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Karthik Rao' },
   ];
 
   const fetchAnalytics = async () => {
@@ -53,6 +59,29 @@ const Analytics = () => {
     }
   };
 
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/student-analytics`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setStudents(json.data.map((s: any) => ({ id: s.id, name: s.name })));
+        // Ensure selected student exists; otherwise choose the first
+        const exists = json.data.find((s: any) => s.id === selectedStudent);
+        if (!exists && json.data.length > 0) {
+          setSelectedStudent(json.data[0].id);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading students:', e);
+      // fallback
+      if (!students.length) setStudents(mockStudents);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
   useEffect(() => {
     fetchAnalytics();
     fetchLeaderboard();
@@ -79,7 +108,7 @@ const Analytics = () => {
                 <SelectValue placeholder="Select Student" />
               </SelectTrigger>
               <SelectContent>
-                {mockStudents.map((student) => (
+                {(students.length ? students : mockStudents).map((student) => (
                   <SelectItem key={student.id} value={student.id}>
                     {student.name}
                   </SelectItem>

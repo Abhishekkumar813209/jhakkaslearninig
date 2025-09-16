@@ -35,17 +35,32 @@ serve(async (req) => {
       { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Karthik Rao', email: 'karthik.rao@example.com', avatar: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150' }
     ];
 
+    // Different analytics data for each student
     const mockAnalytics = {
       '550e8400-e29b-41d4-a716-446655440001': { total_study_time_minutes: 8520, streak_days: 12, average_score: 87.5, tests_attempted: 15, batch_rank: 4, overall_rank: 24 },
-      '550e8400-e29b-41d4-a716-446655440002': { total_study_time_minutes: 9240, streak_days: 18, average_score: 92.3, tests_attempted: 18, batch_rank: 1, overall_rank: 8 },
-      '550e8400-e29b-41d4-a716-446655440003': { total_study_time_minutes: 7890, streak_days: 9, average_score: 78.9, tests_attempted: 12, batch_rank: 6, overall_rank: 45 },
-      '550e8400-e29b-41d4-a716-446655440004': { total_study_time_minutes: 8760, streak_days: 15, average_score: 89.1, tests_attempted: 16, batch_rank: 2, overall_rank: 15 },
-      '550e8400-e29b-41d4-a716-446655440005': { total_study_time_minutes: 6540, streak_days: 7, average_score: 73.4, tests_attempted: 10, batch_rank: 8, overall_rank: 67 },
-      '550e8400-e29b-41d4-a716-446655440006': { total_study_time_minutes: 8100, streak_days: 11, average_score: 85.2, tests_attempted: 14, batch_rank: 5, overall_rank: 32 },
-      '550e8400-e29b-41d4-a716-446655440007': { total_study_time_minutes: 9600, streak_days: 21, average_score: 94.7, tests_attempted: 20, batch_rank: 1, overall_rank: 3 },
-      '550e8400-e29b-41d4-a716-446655440008': { total_study_time_minutes: 7200, streak_days: 8, average_score: 81.3, tests_attempted: 11, batch_rank: 3, overall_rank: 38 },
-      '550e8400-e29b-41d4-a716-446655440009': { total_study_time_minutes: 8820, streak_days: 14, average_score: 88.6, tests_attempted: 17, batch_rank: 2, overall_rank: 18 },
-      '550e8400-e29b-41d4-a716-446655440010': { total_study_time_minutes: 6900, streak_days: 6, average_score: 76.8, tests_attempted: 9, batch_rank: 4, overall_rank: 52 }
+      '550e8400-e29b-41d4-a716-446655440002': { total_study_time_minutes: 7200, streak_days: 8, average_score: 81.3, tests_attempted: 12, batch_rank: 12, overall_rank: 38 },
+      '550e8400-e29b-41d4-a716-446655440003': { total_study_time_minutes: 9600, streak_days: 15, average_score: 90.0, tests_attempted: 18, batch_rank: 2, overall_rank: 12 },
+      '550e8400-e29b-41d4-a716-446655440004': { total_study_time_minutes: 5700, streak_days: 5, average_score: 72.1, tests_attempted: 8, batch_rank: 35, overall_rank: 68 },
+      '550e8400-e29b-41d4-a716-446655440005': { total_study_time_minutes: 7800, streak_days: 10, average_score: 85.4, tests_attempted: 14, batch_rank: 9, overall_rank: 28 },
+      '550e8400-e29b-41d4-a716-446655440006': { total_study_time_minutes: 9300, streak_days: 14, average_score: 88.7, tests_attempted: 17, batch_rank: 3, overall_rank: 15 },
+      '550e8400-e29b-41d4-a716-446655440007': { total_study_time_minutes: 6600, streak_days: 6, average_score: 79.2, tests_attempted: 10, batch_rank: 20, overall_rank: 45 },
+      '550e8400-e29b-41d4-a716-446655440008': { total_study_time_minutes: 8400, streak_days: 11, average_score: 86.1, tests_attempted: 16, batch_rank: 6, overall_rank: 22 },
+      '550e8400-e29b-41d4-a716-446655440009': { total_study_time_minutes: 6000, streak_days: 7, average_score: 75.6, tests_attempted: 9, batch_rank: 28, overall_rank: 52 },
+      '550e8400-e29b-41d4-a716-446655440010': { total_study_time_minutes: 8100, streak_days: 9, average_score: 83.3, tests_attempted: 13, batch_rank: 11, overall_rank: 32 }
+    };
+
+    // Different subject scores for each student
+    const mockSubjectScores = {
+      '550e8400-e29b-41d4-a716-446655440001': [85, 78, 92, 74, 88],
+      '550e8400-e29b-41d4-a716-446655440002': [80, 76, 84, 70, 82],
+      '550e8400-e29b-41d4-a716-446655440003': [92, 88, 94, 81, 90],
+      '550e8400-e29b-41d4-a716-446655440004': [68, 71, 75, 65, 70],
+      '550e8400-e29b-41d4-a716-446655440005': [86, 82, 87, 78, 85],
+      '550e8400-e29b-41d4-a716-446655440006': [90, 86, 91, 80, 88],
+      '550e8400-e29b-41d4-a716-446655440007': [78, 74, 80, 69, 76],
+      '550e8400-e29b-41d4-a716-446655440008': [88, 83, 89, 77, 86],
+      '550e8400-e29b-41d4-a716-446655440009': [74, 70, 76, 66, 72],
+      '550e8400-e29b-41d4-a716-446655440010': [84, 81, 86, 75, 82]
     };
 
     if (!studentId) {
@@ -84,11 +99,12 @@ serve(async (req) => {
       });
     }
 
-    // Subject performance based on student's overall score
+    // Subject performance specific to each student
     const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English'];
-    const subjectPerformance = subjects.map(subject => ({
+    const studentScores = mockSubjectScores[studentId] || [85, 78, 92, 74, 88];
+    const subjectPerformance = subjects.map((subject, index) => ({
       subject,
-      score: Math.round(analytics.average_score + (Math.random() - 0.5) * 15)
+      score: studentScores[index]
     }));
 
     // Recent activity (mock)

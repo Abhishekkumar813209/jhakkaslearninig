@@ -20,18 +20,18 @@ serve(async (req) => {
     const url = new URL(req.url);
     const type = url.searchParams.get('type') || 'overall'; // overall, subject, streak, batch
 
-    // Mock student data with leaderboard information
+    // Mock student data with individual rankings by score
     const mockStudents = [
-      { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Rahul Sharma', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', score: 92.3, streak: 18, tests: 18, batch: 'JEE Advanced 2024', rank: 1, change: 2 },
-      { id: '550e8400-e29b-41d4-a716-446655440007', name: 'Sneha Joshi', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', score: 94.7, streak: 21, tests: 20, batch: 'NEET Foundation', rank: 2, change: 1 },
-      { id: '550e8400-e29b-41d4-a716-446655440009', name: 'Pooja Agarwal', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150', score: 88.6, streak: 14, tests: 17, batch: 'NEET Foundation', rank: 3, change: 3 },
-      { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Vikram Singh', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', score: 89.1, streak: 15, tests: 16, batch: 'JEE Advanced 2024', rank: 4, change: -1 },
-      { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Priya Patel', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b190?w=150', score: 87.5, streak: 12, tests: 15, batch: 'JEE Advanced 2024', rank: 5, change: 1 },
-      { id: '550e8400-e29b-41d4-a716-446655440006', name: 'Arjun Kumar', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', score: 85.2, streak: 11, tests: 14, batch: 'JEE Advanced 2024', rank: 6, change: -2 },
-      { id: '550e8400-e29b-41d4-a716-446655440008', name: 'Rohit Mehta', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150', score: 81.3, streak: 8, tests: 11, batch: 'NEET Foundation', rank: 7, change: 1 },
-      { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Anita Gupta', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150', score: 78.9, streak: 9, tests: 12, batch: 'JEE Advanced 2024', rank: 8, change: -1 },
-      { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Karthik Rao', avatar: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150', score: 76.8, streak: 6, tests: 9, batch: 'NEET Foundation', rank: 9, change: 0 },
-      { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Kavya Reddy', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150', score: 73.4, streak: 7, tests: 10, batch: 'JEE Advanced 2024', rank: 10, change: -3 }
+      { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Anita Gupta', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150', score: 90, streak: 15, tests: 18, batch: 'JEE Advanced 2024', rank: 1, change: 1 },
+      { id: '550e8400-e29b-41d4-a716-446655440006', name: 'Arjun Kumar', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', score: 88, streak: 14, tests: 17, batch: 'JEE Advanced 2024', rank: 2, change: -1 },
+      { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Priya Patel', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b190?w=150', score: 87, streak: 12, tests: 15, batch: 'JEE Advanced 2024', rank: 3, change: 0 },
+      { id: '550e8400-e29b-41d4-a716-446655440008', name: 'Rohit Mehta', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150', score: 86, streak: 11, tests: 16, batch: 'NEET Foundation', rank: 4, change: 2 },
+      { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Kavya Reddy', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150', score: 85, streak: 10, tests: 14, batch: 'JEE Advanced 2024', rank: 5, change: -1 },
+      { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Karthik Rao', avatar: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150', score: 83, streak: 9, tests: 13, batch: 'NEET Foundation', rank: 6, change: 1 },
+      { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Rahul Sharma', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', score: 81, streak: 8, tests: 12, batch: 'JEE Advanced 2024', rank: 7, change: -2 },
+      { id: '550e8400-e29b-41d4-a716-446655440007', name: 'Sneha Joshi', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', score: 79, streak: 6, tests: 10, batch: 'NEET Foundation', rank: 8, change: 0 },
+      { id: '550e8400-e29b-41d4-a716-446655440009', name: 'Pooja Agarwal', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150', score: 75, streak: 7, tests: 9, batch: 'NEET Foundation', rank: 9, change: 1 },
+      { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Vikram Singh', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', score: 72, streak: 5, tests: 8, batch: 'JEE Advanced 2024', rank: 10, change: -1 }
     ];
 
     let leaderboardData = {};

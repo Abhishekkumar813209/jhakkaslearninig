@@ -35,6 +35,7 @@ const Dashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState("current");
   const [timePeriod, setTimePeriod] = useState("30");
   const [students, setStudents] = useState<{ id: string; name: string }[]>([]);
+  const [studentAnalytics, setStudentAnalytics] = useState<any>(null);
   
   const { 
     overview, 
@@ -73,9 +74,27 @@ const Dashboard = () => {
     }
   };
 
+  const fetchStudentAnalytics = async () => {
+    if (selectedStudent === "current" || !selectedStudent) return;
+    
+    try {
+      const res = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/student-analytics?studentId=${selectedStudent}`);
+      const json = await res.json();
+      if (json.success) {
+        setStudentAnalytics(json.data);
+      }
+    } catch (e) {
+      console.error('Error loading student analytics:', e);
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  useEffect(() => {
+    fetchStudentAnalytics();
+  }, [selectedStudent]);
   const enrolledCourses = [
     {
       id: "1",
@@ -215,8 +234,48 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             ))
+          ) : (selectedStudent !== "current" && studentAnalytics) ? (
+            // Show selected student's data
+            <>
+              <ProgressCard
+                title="Total Study Time"
+                value={studentAnalytics.stats.totalStudyTime.value}
+                change={studentAnalytics.stats.totalStudyTime.change}
+                changeType={studentAnalytics.stats.totalStudyTime.changeType}
+                description={studentAnalytics.stats.totalStudyTime.description}
+                icon={<Clock className="h-5 w-5" />}
+                color="primary"
+              />
+              <ProgressCard
+                title="Average Score"
+                value={studentAnalytics.stats.averageScore.value}
+                change={studentAnalytics.stats.averageScore.change}
+                changeType={studentAnalytics.stats.averageScore.changeType}
+                description={studentAnalytics.stats.averageScore.description}
+                icon={<Target className="h-5 w-5" />}
+                color="success"
+              />
+              <ProgressCard
+                title="Current Streak"
+                value={studentAnalytics.stats.currentStreak.value}
+                change={studentAnalytics.stats.currentStreak.change}
+                changeType={studentAnalytics.stats.currentStreak.changeType}
+                description={studentAnalytics.stats.currentStreak.description}
+                icon={<TrendingUp className="h-5 w-5" />}
+                color="warning"
+              />
+              <ProgressCard
+                title="Batch Rank"
+                value={studentAnalytics.stats.batchRank.value}
+                change={studentAnalytics.stats.batchRank.change}
+                changeType={studentAnalytics.stats.batchRank.changeType}
+                description={studentAnalytics.stats.batchRank.description}
+                icon={<Trophy className="h-5 w-5" />}
+                color="primary"
+              />
+            </>
           ) : overview ? (
-            // Actual data
+            // Actual current user data
             <>
               <ProgressCard
                 title="Total Study Time"

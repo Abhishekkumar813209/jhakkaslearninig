@@ -8,10 +8,8 @@ const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const courseRoutes = require('./routes/courses');
+const videoRoutes = require('./routes/videos');
 const testRoutes = require('./routes/tests');
-const analyticsRoutes = require('./routes/analytics');
-const paymentRoutes = require('./routes/payments');
-const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -36,14 +34,15 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Static file serving for uploads
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/videos', videoRoutes);
 app.use('/api/tests', testRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -9,6 +9,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { RefreshCw, TrendingUp, Clock, Target, Award, BookOpen, Users, Brain } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
+import AnalyticsCharts from '@/components/AnalyticsCharts';
 
 const Analytics = () => {
   const [selectedStudent, setSelectedStudent] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -212,26 +213,21 @@ const Analytics = () => {
             )}
           </TabsContent>
 
-          {['performance', 'comparison', 'predictive'].map((tab) => (
-            <TabsContent key={tab} value={tab}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{tab.charAt(0).toUpperCase() + tab.slice(1)} Analytics</CardTitle>
-                  <CardDescription>
-                    {tab === 'performance' && 'Detailed performance metrics and trends'}
-                    {tab === 'comparison' && 'Compare student performance with peers'}
-                    {tab === 'predictive' && 'AI-powered predictions and insights'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>✅ {tab.charAt(0).toUpperCase() + tab.slice(1)} API ready - Supabase Edge Function deployed</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Data will be loaded from database with 10 mock students for testing
-                  </p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
+          <TabsContent value="performance">
+            <AnalyticsCharts
+              activeTab="performance"
+              subjectPerformance={analyticsData?.subjectPerformance}
+              performanceTrend={analyticsData?.performanceTrend}
+            />
+          </TabsContent>
+
+          <TabsContent value="comparison">
+            <AnalyticsCharts activeTab="comparison" />
+          </TabsContent>
+
+          <TabsContent value="predictive">
+            <AnalyticsCharts activeTab="predictive" />
+          </TabsContent>
         </Tabs>
       </div>
     </div>

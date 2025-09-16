@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import CourseCard from "@/components/CourseCard";
@@ -34,6 +34,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedStudent, setSelectedStudent] = useState("current");
   const [timePeriod, setTimePeriod] = useState("30");
+  const [students, setStudents] = useState<{ id: string; name: string }[]>([]);
   
   const { 
     overview, 
@@ -43,6 +44,38 @@ const Dashboard = () => {
     error, 
     refreshDashboard 
   } = useDashboard();
+
+  const mockStudents = [
+    { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Priya Patel' },
+    { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Rahul Sharma' },
+    { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Anita Gupta' },
+    { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Vikram Singh' },
+    { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Kavya Reddy' },
+    { id: '550e8400-e29b-41d4-a716-446655440006', name: 'Arjun Kumar' },
+    { id: '550e8400-e29b-41d4-a716-446655440007', name: 'Sneha Joshi' },
+    { id: '550e8400-e29b-41d4-a716-446655440008', name: 'Rohit Mehta' },
+    { id: '550e8400-e29b-41d4-a716-446655440009', name: 'Pooja Agarwal' },
+    { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Karthik Rao' },
+  ];
+
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/student-analytics`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setStudents(json.data.map((s: any) => ({ id: s.id, name: s.name })));
+      } else if (!students.length) {
+        setStudents(mockStudents);
+      }
+    } catch (e) {
+      console.error('Error loading students:', e);
+      if (!students.length) setStudents(mockStudents);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
   const enrolledCourses = [
     {
       id: "1",
@@ -104,8 +137,9 @@ const Dashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="current">Current Student</SelectItem>
-                  <SelectItem value="student1">Arjun Sharma</SelectItem>
-                  <SelectItem value="student2">Priya Patel</SelectItem>
+                  {(students.length ? students : mockStudents).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={timePeriod} onValueChange={setTimePeriod}>

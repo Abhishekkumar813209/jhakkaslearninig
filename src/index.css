@@ -2,41 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Educational Learning Platform Design System */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core educational color palette */
+    --background: 249 250 251;
+    --foreground: 15 23 42;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Educational primary - deep blue for trust and learning */
+    --primary: 219 84% 50%;
+    --primary-foreground: 255 255 255;
+    --primary-hover: 219 84% 45%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Success green for achievements */
+    --success: 142 76% 45%;
+    --success-foreground: 255 255 255;
+    --success-light: 142 76% 95%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Warning orange for attention */
+    --warning: 38 92% 50%;
+    --warning-foreground: 255 255 255;
+    --warning-light: 38 92% 95%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Secondary soft blue */
+    --secondary: 219 84% 95%;
+    --secondary-foreground: 219 84% 20%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 100 7% 40%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --accent: 142 76% 95%;
+    --accent-foreground: 142 76% 20%;
 
-    --radius: 0.5rem;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 255 255 255;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 219 84% 50%;
+
+    --radius: 0.75rem;
+
+    /* Educational gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(219 84% 50%), hsl(219 84% 60%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(219 84% 50%) 0%, hsl(142 76% 45%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(255 255 255) 0%, hsl(249 250 251) 100%);
+
+    /* Educational shadows */
+    --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-medium: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-large: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px hsl(219 84% 50% / 0.3);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +128,61 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* Educational component styles */
+@layer components {
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+  
+  .card-gradient {
+    background: var(--gradient-card);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-medium {
+    box-shadow: var(--shadow-medium);
+  }
+  
+  .shadow-large {
+    box-shadow: var(--shadow-large);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-bounce {
+    transition: var(--transition-bounce);
+  }
+  
+  /* Progress bar styles */
+  .progress-bar {
+    @apply bg-secondary rounded-full h-2 overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: var(--gradient-success);
+  }
+  
+  /* Quiz card styles */
+  .quiz-card {
+    @apply card-gradient shadow-medium hover:shadow-large transition-smooth;
+  }
+  
+  /* Course card styles */
+  .course-card {
+    @apply card-gradient shadow-medium hover:shadow-large hover:-translate-y-1 transition-smooth;
   }
 }

@@ -92,148 +92,32 @@ export const useDashboard = () => {
       setIsLoading(true);
       setError(null);
 
-      // For now, using mock data since backend isn't running
-      // TODO: Replace with real Supabase queries when backend is set up
+      // Call Supabase Edge Functions for dashboard data
+      const { supabase } = await import('@/integrations/supabase/client');
       
-      // Mock overview data
-      const mockOverview: DashboardOverview = {
-        stats: {
-          totalStudyTime: {
-            value: "142h",
-            change: 8,
-            changeType: "increase",
-            description: "This month"
-          },
-          averageScore: {
-            value: "87%",
-            change: 5,
-            changeType: "increase", 
-            description: "Across all subjects"
-          },
-          currentStreak: {
-            value: "12 days",
-            change: 15,
-            changeType: "increase",
-            description: "Consecutive study days"
-          },
-          batchRank: {
-            value: "#4",
-            change: 2,
-            changeType: "increase",
-            description: "Out of 150 students"
-          }
-        },
-        subjectPerformance: [
-          { subject: "Mathematics", score: 85 },
-          { subject: "Physics", score: 78 },
-          { subject: "Chemistry", score: 92 },
-          { subject: "Biology", score: 74 },
-          { subject: "English", score: 88 }
-        ],
-        recentActivity: [
-          {
-            type: "test",
-            title: "Completed Quiz: Thermodynamics",
-            description: "Score: 92%",
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            icon: "CheckCircle",
-            color: "success"
-          },
-          {
-            type: "video",
-            title: "Watched: Vector Calculus Lecture", 
-            description: "Duration: 45 minutes",
-            timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            icon: "PlayCircle",
-            color: "primary"
-          },
-          {
-            type: "test",
-            title: "Earned Badge: Quiz Master",
-            description: "For scoring 90%+ in 10 quizzes",
-            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            icon: "Award",
-            color: "warning"
-          }
-        ],
-        performanceTrend: [
-          { month: "Jan", score: 65 },
-          { month: "Feb", score: 72 },
-          { month: "Mar", score: 68 },
-          { month: "Apr", score: 78 },
-          { month: "May", score: 85 },
-          { month: "Jun", score: 82 }
-        ],
-        weeklyGoal: {
-          current: 12,
-          target: 15,
-          progress: 80,
-          description: "You're 80% towards your weekly goal. Keep it up!"
-        }
-      };
+      const [overviewRes, scheduleRes, achievementsRes] = await Promise.all([
+        supabase.functions.invoke('dashboard-overview'),
+        supabase.functions.invoke('dashboard-schedule'),
+        supabase.functions.invoke('dashboard-achievements')
+      ]);
 
-      // Mock upcoming classes
-      const mockClasses: UpcomingClass[] = [
-        {
-          id: 1,
-          title: "Quantum Mechanics - Wave Function",
-          instructor: "Dr. Rajesh Kumar",
-          time: "Today, 4:00 PM",
-          duration: "1.5 hours",
-          subject: "Physics",
-          meetingLink: "https://zoom.us/j/123456789"
-        },
-        {
-          id: 2,
-          title: "Calculus - Integration by Parts",
-          instructor: "Prof. Priya Sharma",
-          time: "Tomorrow, 2:00 PM", 
-          duration: "2 hours",
-          subject: "Mathematics",
-          meetingLink: "https://zoom.us/j/987654321"
-        },
-        {
-          id: 3,
-          title: "Organic Chemistry - Reaction Mechanisms",
-          instructor: "Dr. Amit Verma",
-          time: "Friday, 3:30 PM",
-          duration: "1.5 hours",
-          subject: "Chemistry",
-          meetingLink: "https://zoom.us/j/456789123"
-        }
-      ];
+      if (overviewRes.data?.success) {
+        setOverview(overviewRes.data.data);
+      } else {
+        console.error('Overview error:', overviewRes.error);
+      }
 
-      // Mock achievements
-      const mockAchievements: Achievement[] = [
-        {
-          title: "Quiz Master",
-          description: "Scored 90%+ in 10 quizzes",
-          icon: "Trophy",
-          earnedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          category: "performance"
-        },
-        {
-          title: "Consistent Learner", 
-          description: "12-day learning streak",
-          icon: "Target",
-          earnedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          category: "consistency"
-        },
-        {
-          title: "Fast Learner",
-          description: "Completed 5 chapters this week",
-          icon: "TrendingUp",
-          earnedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          category: "engagement"
-        }
-      ];
+      if (scheduleRes.data?.success) {
+        setUpcomingClasses(scheduleRes.data.data);
+      } else {
+        console.error('Schedule error:', scheduleRes.error);
+      }
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setOverview(mockOverview);
-      setUpcomingClasses(mockClasses);
-      setAchievements(mockAchievements);
+      if (achievementsRes.data?.success) {
+        setAchievements(achievementsRes.data.data);
+      } else {
+        console.error('Achievements error:', achievementsRes.error);
+      }
 
     } catch (err: any) {
       console.error('Dashboard fetch error:', err);

@@ -6,55 +6,55 @@
 
 @layer base {
   :root {
-    /* Core educational color palette */
-    --background: 249 250 251;
-    --foreground: 15 23 42;
+    /* Blue and White Theme */
+    --background: 0 0% 100%;
+    --foreground: 222 84% 4.9%;
 
-    --card: 255 255 255;
-    --card-foreground: 15 23 42;
+    --card: 0 0% 100%;
+    --card-foreground: 222 84% 4.9%;
 
-    --popover: 255 255 255;
-    --popover-foreground: 15 23 42;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 84% 4.9%;
 
-    /* Educational primary - deep blue for trust and learning */
-    --primary: 219 84% 50%;
-    --primary-foreground: 255 255 255;
-    --primary-hover: 219 84% 45%;
+    /* Primary Blue */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 221 83% 48%;
 
-    /* Success green for achievements */
-    --success: 142 76% 45%;
-    --success-foreground: 255 255 255;
-    --success-light: 142 76% 95%;
+    /* Success Blue-Green */
+    --success: 200 98% 39%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 200 98% 95%;
 
-    /* Warning orange for attention */
-    --warning: 38 92% 50%;
-    --warning-foreground: 255 255 255;
-    --warning-light: 38 92% 95%;
+    /* Warning Blue */
+    --warning: 213 93% 68%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 213 93% 95%;
 
-    /* Secondary soft blue */
-    --secondary: 219 84% 95%;
-    --secondary-foreground: 219 84% 20%;
+    /* Secondary Light Blue */
+    --secondary: 210 40% 98%;
+    --secondary-foreground: 221 83% 20%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 100 7% 40%;
+    --muted: 210 40% 98%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 142 76% 95%;
-    --accent-foreground: 142 76% 20%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 221 83% 20%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 255 255 255;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 219 84% 50%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
 
     --radius: 0.75rem;
 
-    /* Educational gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(219 84% 50%), hsl(219 84% 60%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
-    --gradient-hero: linear-gradient(135deg, hsl(219 84% 50%) 0%, hsl(142 76% 45%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(255 255 255) 0%, hsl(249 250 251) 100%);
+    /* Blue gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(221 83% 63%));
+    --gradient-success: linear-gradient(135deg, hsl(200 98% 39%), hsl(200 98% 49%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(200 98% 39%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
 
     /* Educational shadows */
     --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);

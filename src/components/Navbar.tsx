@@ -17,15 +17,26 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link to="/courses" className="text-foreground hover:text-primary transition-smooth">
-              Courses
+          <div className="hidden md:flex items-center space-x-2">
+            <Link to="/courses">
+              <Button variant="nav" size="sm">
+                Courses
+              </Button>
             </Link>
-            <Link to="/dashboard" className="text-foreground hover:text-primary transition-smooth">
-              Dashboard
+            <Link to="/dashboard">
+              <Button variant="nav" size="sm">
+                Dashboard
+              </Button>
             </Link>
-            <Link to="/quiz" className="text-foreground hover:text-primary transition-smooth">
-              Practice
+            <Link to="/quiz">
+              <Button variant="nav" size="sm">
+                Practice
+              </Button>
+            </Link>
+            <Link to="/about">
+              <Button variant="nav" size="sm">
+                About Us
+              </Button>
             </Link>
           </div>
 
@@ -57,26 +68,25 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col space-y-3">
-              <Link
-                to="/courses"
-                className="text-foreground hover:text-primary transition-smooth px-3 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Courses
+              <Link to="/courses" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="nav" size="sm" className="w-full justify-start">
+                  Courses
+                </Button>
               </Link>
-              <Link
-                to="/dashboard"
-                className="text-foreground hover:text-primary transition-smooth px-3 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Dashboard
+              <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="nav" size="sm" className="w-full justify-start">
+                  Dashboard
+                </Button>
               </Link>
-              <Link
-                to="/quiz"
-                className="text-foreground hover:text-primary transition-smooth px-3 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Practice
+              <Link to="/quiz" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="nav" size="sm" className="w-full justify-start">
+                  Practice
+                </Button>
+              </Link>
+              <Link to="/about" onClick={() => setIsMenuOpen(false)}>
+                <Button variant="nav" size="sm" className="w-full justify-start">
+                  About Us
+                </Button>
               </Link>
               <div className="flex flex-col space-y-2 px-3 pt-4">
                 <Button variant="outline" className="w-full">

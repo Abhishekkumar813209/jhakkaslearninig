@@ -13,11 +13,11 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-foreground">EduPlatform</span>
+            <span className="text-xl font-bold text-foreground">Jhakkas</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className="hidden md:flex items-center space-x-4">
             <Link to="/courses">
               <Button variant="nav" size="sm">
                 Courses

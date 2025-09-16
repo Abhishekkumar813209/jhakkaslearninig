@@ -136,13 +136,12 @@ const Register = () => {
           <p className="text-muted-foreground">Join Jhakkas today</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="phone">Phone</TabsTrigger>
+          <Tabs defaultValue="signup" className="w-full">
+            <TabsList className="grid w-full grid-cols-1">
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="email" className="space-y-4">
+            <TabsContent value="signup" className="space-y-4">
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
                   <div className="relative">
@@ -167,6 +166,18 @@ const Register = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
                       required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="tel"
+                      placeholder="Phone Number (Optional)"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="pl-10"
                     />
                   </div>
                 </div>
@@ -228,76 +239,6 @@ const Register = () => {
               </Button>
             </TabsContent>
 
-            <TabsContent value="phone" className="space-y-4">
-              <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP} className="space-y-4">
-                <div className="space-y-2">
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Full Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="tel"
-                      placeholder="Phone Number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="pl-10"
-                      disabled={otpSent}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                {!otpSent ? (
-                  <Button 
-                    type="button" 
-                    className="w-full" 
-                    disabled={otpLoading}
-                    onClick={handleSendOTP}
-                  >
-                    {otpLoading ? 'Sending OTP...' : 'Send OTP'}
-                  </Button>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          type="text"
-                          placeholder="Enter OTP"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value)}
-                          className="pl-10"
-                          maxLength={6}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Verifying...' : 'Verify OTP'}
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      className="w-full" 
-                      onClick={() => setOtpSent(false)}
-                    >
-                      Change Phone Number
-                    </Button>
-                  </>
-                )}
-              </form>
-            </TabsContent>
           </Tabs>
 
           <div className="text-center text-sm">

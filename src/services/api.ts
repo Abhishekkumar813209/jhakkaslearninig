@@ -197,10 +197,19 @@ export const usersAPI = {
     }),
 };
 
+// Analytics APIs
+export const analyticsAPI = {
+  getStudentAnalytics: () => makeRequest('/analytics/student'),
+  getAdminAnalytics: () => makeRequest('/analytics/admin'),
+  getTeacherAnalytics: () => makeRequest('/analytics/teacher'),
+  getRankPrediction: () => makeRequest('/analytics/rank-prediction'),
+};
+
 export default {
   auth: authAPI,
   courses: coursesAPI,
   videos: videosAPI,
   tests: testsAPI,
   users: usersAPI,
+  analytics: analyticsAPI,
 };

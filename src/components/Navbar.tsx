@@ -66,22 +66,26 @@ const Navbar = () => {
             ) : isAdmin ? (
               // Admin Navigation
               <>
-                <Link to="/dashboard">
+                <Link to="/admin">
                   <Button variant="nav" size="sm">
                     Admin Dashboard
                   </Button>
                 </Link>
                 <Link to="/courses">
                   <Button variant="nav" size="sm">
-                    Manage Courses
+                    Courses
                   </Button>
                 </Link>
-                <Button variant="nav" size="sm">
-                  Manage Students
-                </Button>
-                <Button variant="nav" size="sm">
-                  Reports
-                </Button>
+                <Link to="/tests">
+                  <Button variant="nav" size="sm">
+                    Tests
+                  </Button>
+                </Link>
+                <Link to="/analytics">
+                  <Button variant="nav" size="sm">
+                    Analytics
+                  </Button>
+                </Link>
               </>
             ) : null}
           </div>
@@ -209,7 +213,7 @@ const Navbar = () => {
               ) : isAdmin ? (
                 // Admin Mobile Navigation
                 <>
-                  <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Settings className="h-4 w-4 mr-2" />
                       Admin Dashboard
@@ -218,17 +222,21 @@ const Navbar = () => {
                   <Link to="/courses" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <BookOpen className="h-4 w-4 mr-2" />
-                      Manage Courses
+                      Courses
                     </Button>
                   </Link>
-                  <Button variant="nav" size="sm" className="w-full justify-start" onClick={() => setIsMenuOpen(false)}>
-                    <User className="h-4 w-4 mr-2" />
-                    Manage Students
-                  </Button>
-                  <Button variant="nav" size="sm" className="w-full justify-start" onClick={() => setIsMenuOpen(false)}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Reports
-                  </Button>
+                  <Link to="/tests" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Tests
+                    </Button>
+                  </Link>
+                  <Link to="/analytics" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Analytics
+                    </Button>
+                  </Link>
                   <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <User className="h-4 w-4 mr-2" />

@@ -46,3 +46,15 @@ verify_jwt = false
 
 [functions.auth-login]
 verify_jwt = false
+
+[functions.batch-management]
+verify_jwt = true
+
+[functions.enrollment-api]
+verify_jwt = true
+
+[functions.student-management]
+verify_jwt = true
+
+[functions.admin-analytics]
+verify_jwt = true

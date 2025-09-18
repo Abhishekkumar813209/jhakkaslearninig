@@ -1,35 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { supabase } from '@/integrations/supabase/client';
 
-// Helper function to get auth token
+// Helper function to get auth token from Supabase
 const getAuthToken = () => {
-  return localStorage.getItem('token');
+  return supabase.auth.getSession();
 };
 
-// Helper function to make API requests
-const makeRequest = async (endpoint: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
-  
-  const defaultHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+// Generic request handler for Supabase functions
+const makeSupabaseRequest = async (functionName: string, body?: any) => {
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    body
+  });
 
-  if (token) {
-    defaultHeaders.Authorization = `Bearer ${token}`;
-  }
-
-  const config: RequestInit = {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-  };
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || 'API request failed');
+  if (error) {
+    throw new Error(error.message);
   }
 
   return data;
@@ -38,178 +21,480 @@ const makeRequest = async (endpoint: string, options: RequestInit = {}) => {
 // Auth API
 export const authAPI = {
   login: (credentials: { email: string; password: string }) =>
-    makeRequest('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    }),
+    makeSupabaseRequest('auth-login', credentials),
 
   register: (userData: { name: string; email: string; password: string; role?: string }) =>
-    makeRequest('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
+    makeSupabaseRequest('auth-register', { 
+      full_name: userData.name, 
+      email: userData.email, 
+      password: userData.password,
+      role: userData.role || 'student'
     }),
 
-  logout: () =>
-    makeRequest('/auth/logout', {
-      method: 'POST',
-    }),
+  logout: async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
+    return { message: 'Logout successful' };
+  },
 
-  getProfile: () => makeRequest('/auth/me'),
+  getProfile: async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw new Error(error.message);
+    
+    if (!user) throw new Error('No user logged in');
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*, user_roles!inner(role), batches(name, level)')
+      .eq('id', user.id)
+      .single();
+    
+    // Get role from user_roles table
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+    
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: profile?.full_name,
+        avatar_url: profile?.avatar_url,
+        role: userRole?.role || 'student',
+        batch: profile?.batches
+      }
+    };
+  },
 
-  updateProfile: (userData: any) =>
-    makeRequest('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    }),
+  updateProfile: async (userData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(userData)
+      .eq('id', user?.id)
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return { profile: data };
+  },
 };
 
 // Courses API
 export const coursesAPI = {
-  getCourses: (params?: URLSearchParams) =>
-    makeRequest(`/courses${params ? `?${params.toString()}` : ''}`),
+  getCourses: async (params?: URLSearchParams) => {
+    const { data, error } = await supabase
+      .from('courses')
+      .select(`
+        *,
+        profiles:instructor_id (full_name)
+      `)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false });
 
-  getCourse: (id: string) => makeRequest(`/courses/${id}`),
+    if (error) throw new Error(error.message);
+    return { courses: data };
+  },
 
-  createCourse: (courseData: any) =>
-    makeRequest('/courses', {
-      method: 'POST',
-      body: JSON.stringify(courseData),
-    }),
+  getCourse: async (id: string) => {
+    const { data, error } = await supabase
+      .from('courses')
+      .select(`
+        *,
+        profiles:instructor_id (full_name),
+        videos (id, title, duration_minutes, order_num),
+        tests (id, title, total_marks, time_limit_minutes)
+      `)
+      .eq('id', id)
+      .eq('is_published', true)
+      .single();
 
-  updateCourse: (id: string, courseData: any) =>
-    makeRequest(`/courses/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(courseData),
-    }),
+    if (error) throw new Error(error.message);
+    return { course: data };
+  },
 
-  deleteCourse: (id: string) =>
-    makeRequest(`/courses/${id}`, {
-      method: 'DELETE',
-    }),
+  createCourse: async (courseData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('courses')
+      .insert([{ ...courseData, instructor_id: user?.id }])
+      .select()
+      .single();
 
-  enrollInCourse: (id: string) =>
-    makeRequest(`/courses/${id}/enroll`, {
-      method: 'POST',
-    }),
+    if (error) throw new Error(error.message);
+    return { course: data };
+  },
 
-  getEnrolledCourses: () => makeRequest('/courses/enrolled/my-courses'),
+  updateCourse: async (id: string, courseData: any) => {
+    const { data, error } = await supabase
+      .from('courses')
+      .update(courseData)
+      .eq('id', id)
+      .select()
+      .single();
 
-  getCourseVideos: (id: string) => makeRequest(`/courses/${id}/videos`),
+    if (error) throw new Error(error.message);
+    return { course: data };
+  },
+
+  deleteCourse: async (id: string) => {
+    const { error } = await supabase
+      .from('courses')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return { message: 'Course deleted successfully' };
+  },
+
+  enrollInCourse: async (id: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('enrollments')
+      .insert({ student_id: user?.id, course_id: id })
+      .select()
+      .single();
+    
+    if (error) throw new Error(error.message);
+    return { enrollment: data };
+  },
+
+  getEnrolledCourses: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('*, courses(*)')
+      .eq('student_id', user?.id);
+    
+    if (error) throw new Error(error.message);
+    return { courses: data.map(enrollment => enrollment.courses) };
+  },
+
+  getCourseVideos: async (id: string) => {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('course_id', id)
+      .order('order_num');
+    
+    if (error) throw new Error(error.message);
+    return { videos: data };
+  },
 };
 
 // Videos API
 export const videosAPI = {
-  getVideos: (params?: URLSearchParams) =>
-    makeRequest(`/videos${params ? `?${params.toString()}` : ''}`),
+  getVideos: async (params?: URLSearchParams) => {
+    const { data, error } = await supabase
+      .from('videos')
+      .select(`
+        *,
+        courses (title, subject)
+      `)
+      .order('created_at', { ascending: false });
 
-  getVideo: (id: string) => makeRequest(`/videos/${id}`),
+    if (error) throw new Error(error.message);
+    return { videos: data };
+  },
 
-  createVideo: (formData: FormData) =>
-    fetch(`${API_BASE_URL}/videos`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
-      body: formData,
-    }).then(async (response) => {
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Video upload failed');
-      }
-      return data;
-    }),
+  getVideo: async (id: string) => {
+    const { data, error } = await supabase
+      .from('videos')
+      .select(`
+        *,
+        courses (title, subject)
+      `)
+      .eq('id', id)
+      .single();
 
-  updateVideo: (id: string, videoData: any) =>
-    makeRequest(`/videos/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(videoData),
-    }),
+    if (error) throw new Error(error.message);
+    return { video: data };
+  },
 
-  deleteVideo: (id: string) =>
-    makeRequest(`/videos/${id}`, {
-      method: 'DELETE',
-    }),
+  createVideo: async (videoData: any) => {
+    const { data, error } = await supabase
+      .from('videos')
+      .insert([videoData])
+      .select()
+      .single();
 
-  trackProgress: (videoId: string, progressData: { watchTime: number; isCompleted: boolean }) =>
-    makeRequest(`/videos/${videoId}/progress`, {
-      method: 'POST',
-      body: JSON.stringify(progressData),
-    }),
+    if (error) throw new Error(error.message);
+    return { video: data };
+  },
+
+  updateVideo: async (id: string, videoData: any) => {
+    const { data, error } = await supabase
+      .from('videos')
+      .update(videoData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { video: data };
+  },
+
+  deleteVideo: async (id: string) => {
+    const { error } = await supabase
+      .from('videos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return { message: 'Video deleted successfully' };
+  },
+
+  trackProgress: async (videoId: string, progressData: { watchTime: number; isCompleted: boolean }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get enrollment first
+    const { data: enrollment } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('student_id', user?.id)
+      .limit(1)
+      .single();
+    
+    const { data, error } = await supabase
+      .from('video_progress')
+      .upsert({
+        enrollment_id: enrollment?.id,
+        video_id: videoId,
+        watch_time_seconds: progressData.watchTime,
+        is_completed: progressData.isCompleted,
+        last_watched_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { progress: data };
+  },
 };
 
 // Tests API
 export const testsAPI = {
-  getTests: (params?: URLSearchParams) =>
-    makeRequest(`/tests${params ? `?${params.toString()}` : ''}`),
+  getTests: async (params?: URLSearchParams) => {
+    const { data, error } = await supabase
+      .from('tests')
+      .select(`
+        *,
+        courses (title, subject)
+      `)
+      .order('created_at', { ascending: false });
 
-  getTest: (id: string) => makeRequest(`/tests/${id}`),
+    if (error) throw new Error(error.message);
+    return { tests: data };
+  },
 
-  createTest: (testData: any) =>
-    makeRequest('/tests', {
-      method: 'POST',
-      body: JSON.stringify(testData),
-    }),
+  getTest: async (id: string) => {
+    const { data, error } = await supabase
+      .from('tests')
+      .select(`
+        *,
+        questions (*),
+        courses (title)
+      `)
+      .eq('id', id)
+      .single();
 
-  updateTest: (id: string, testData: any) =>
-    makeRequest(`/tests/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(testData),
-    }),
+    if (error) throw new Error(error.message);
+    return { test: data };
+  },
 
-  deleteTest: (id: string) =>
-    makeRequest(`/tests/${id}`, {
-      method: 'DELETE',
-    }),
+  createTest: async (testData: any) => {
+    const { data, error } = await supabase
+      .from('tests')
+      .insert([testData])
+      .select()
+      .single();
 
-  attemptTest: (id: string, attemptData: { answers: any[]; timeTaken?: number }) =>
-    makeRequest(`/tests/${id}/attempt`, {
-      method: 'POST',
-      body: JSON.stringify(attemptData),
-    }),
+    if (error) throw new Error(error.message);
+    return { test: data };
+  },
 
-  getTestAttempts: (id: string) => makeRequest(`/tests/${id}/attempts`),
+  updateTest: async (id: string, testData: any) => {
+    const { data, error } = await supabase
+      .from('tests')
+      .update(testData)
+      .eq('id', id)
+      .select()
+      .single();
 
-  getMyTestAttempts: () => makeRequest('/tests/attempts/my-attempts'),
+    if (error) throw new Error(error.message);
+    return { test: data };
+  },
+
+  deleteTest: async (id: string) => {
+    const { error } = await supabase
+      .from('tests')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return { message: 'Test deleted successfully' };
+  },
+
+  attemptTest: async (id: string, attemptData: { answers: any[]; timeTaken?: number }) => {
+    // Get test questions
+    const { data: test } = await supabase
+      .from('tests')
+      .select('*, questions (*)')
+      .eq('id', id)
+      .single();
+
+    // Calculate score
+    let score = 0;
+    let total_marks = 0;
+    const results = [];
+
+    for (const question of test.questions) {
+      total_marks += question.marks;
+      const userAnswer = attemptData.answers.find(a => a.questionId === question.id)?.answer;
+      const isCorrect = userAnswer === question.correct_answer;
+      
+      if (isCorrect) {
+        score += question.marks;
+      }
+
+      results.push({
+        question_id: question.id,
+        user_answer: userAnswer,
+        is_correct: isCorrect,
+        marks_obtained: isCorrect ? question.marks : 0
+      });
+    }
+
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Save attempt
+    const { data: attempt, error } = await supabase
+      .from('test_attempts')
+      .insert({
+        student_id: user?.id,
+        test_id: id,
+        score,
+        total_marks,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    
+    return { 
+      attempt,
+      score,
+      total_marks,
+      percentage: (score / total_marks) * 100
+    };
+  },
+
+  getTestAttempts: async (id: string) => {
+    const { data, error } = await supabase
+      .from('test_attempts')
+      .select('*, profiles(full_name)')
+      .eq('test_id', id)
+      .order('completed_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return { attempts: data };
+  },
+
+  getMyTestAttempts: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('test_attempts')
+      .select('*, tests(title, subject)')
+      .eq('student_id', user?.id)
+      .order('completed_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return { attempts: data };
+  },
 };
 
 // Users API
 export const usersAPI = {
-  getUsers: (params?: URLSearchParams) =>
-    makeRequest(`/users${params ? `?${params.toString()}` : ''}`),
+  getUsers: async (params?: URLSearchParams) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        user_roles!inner (role),
+        batches (name, level)
+      `)
+      .eq('user_roles.role', 'student')
+      .order('created_at', { ascending: false });
 
-  getUser: (id: string) => makeRequest(`/users/${id}`),
+    if (error) throw new Error(error.message);
+    return { users: data };
+  },
 
-  updateUser: (id: string, userData: any) =>
-    makeRequest(`/users/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    }),
+  getUser: async (id: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        user_roles (role),
+        batches (name, level)
+      `)
+      .eq('id', id)
+      .single();
 
-  deleteUser: (id: string) =>
-    makeRequest(`/users/${id}`, {
-      method: 'DELETE',
-    }),
+    if (error) throw new Error(error.message);
+    return { user: data };
+  },
 
-  updateProfile: (userData: any) =>
-    makeRequest('/users/profile', {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    }),
+  updateUser: async (id: string, userData: any) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(userData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { user: data };
+  },
+
+  deleteUser: async (id: string) => {
+    const { error } = await supabase.auth.admin.deleteUser(id);
+    if (error) throw new Error(error.message);
+    return { message: 'User deleted successfully' };
+  },
+
+  updateProfile: async (userData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(userData)
+      .eq('id', user?.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { profile: data };
+  },
 };
 
 // Analytics APIs
 export const analyticsAPI = {
-  getStudentAnalytics: () => makeRequest('/analytics/student'),
-  getAdminAnalytics: () => makeRequest('/analytics/admin'),
-  getTeacherAnalytics: () => makeRequest('/analytics/teacher'),
-  getRankPrediction: () => makeRequest('/analytics/rank-prediction'),
+  getStudentAnalytics: () => makeSupabaseRequest('student-analytics'),
+  getAdminAnalytics: () => makeSupabaseRequest('admin-analytics'),
+  getTeacherAnalytics: () => makeSupabaseRequest('teacher-analytics'),
+  getRankPrediction: () => makeSupabaseRequest('predictive-analytics'),
 };
 
 // Dashboard APIs
 export const dashboardAPI = {
-  getOverview: () => makeRequest('/dashboard/overview'),
-  getSchedule: () => makeRequest('/dashboard/schedule'),
-  getAchievements: () => makeRequest('/dashboard/achievements'),
+  getOverview: () => makeSupabaseRequest('dashboard-overview'),
+  getSchedule: () => makeSupabaseRequest('dashboard-schedule'),
+  getAchievements: () => makeSupabaseRequest('dashboard-achievements'),
 };
 
 export default {

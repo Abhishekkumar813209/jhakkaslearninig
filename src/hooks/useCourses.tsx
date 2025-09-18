@@ -3,33 +3,46 @@ import { coursesAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Course {
-  _id: string;
+  id: string;
   title: string;
   description: string;
-  thumbnail: string;
+  thumbnail?: string;
   subject: string;
-  level: string;
-  price: number;
-  originalPrice: number;
-  instructor: {
-    _id: string;
-    name: string;
-    email: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | string;
+  price?: number;
+  is_paid?: boolean;
+  instructor_id: string;
+  duration_hours?: number;
+  total_videos?: number;
+  tags?: string[];
+  enrollment_count?: number;
+  rating?: number;
+  is_published?: boolean;
+  is_enrolled?: boolean;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    full_name?: string;
+  };
+  videos?: any[];
+  tests?: any[];
+  // Legacy fields for backward compatibility
+  _id?: string;
+  originalPrice?: number;
+  instructor?: {
+    _id?: string;
+    name?: string;
+    email?: string;
     avatar?: string;
   };
   lessons?: any[];
-  totalDuration: number;
-  enrollmentCount: number;
-  rating: {
-    average: number;
-    count: number;
-  };
-  requirements: string[];
-  whatYouWillLearn: string[];
-  isPublished: boolean;
-  isEnrolled?: boolean;
-  createdAt: string;
-  updatedAt: string;
+  totalDuration?: number;
+  enrollmentCount?: number;
+  requirements?: string[];
+  whatYouWillLearn?: string[];
+  isPublished?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const useCourses = () => {
@@ -43,7 +56,7 @@ export const useCourses = () => {
       setLoading(true);
       setError(null);
       const response = await coursesAPI.getCourses(params);
-      setCourses(response.data);
+      setCourses(response.courses as Course[]);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch courses';
       setError(errorMessage);
@@ -60,7 +73,7 @@ export const useCourses = () => {
   const getCourse = async (id: string) => {
     try {
       const response = await coursesAPI.getCourse(id);
-      return response.data;
+      return response.course;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch course';
       toast({
@@ -75,12 +88,12 @@ export const useCourses = () => {
   const createCourse = async (courseData: Partial<Course>) => {
     try {
       const response = await coursesAPI.createCourse(courseData);
-      setCourses(prev => [response.data, ...prev]);
+      setCourses(prev => [response.course as Course, ...prev]);
       toast({
         title: "Success",
         description: "Course created successfully",
       });
-      return response.data;
+      return response.course;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create course';
       toast({
@@ -96,13 +109,13 @@ export const useCourses = () => {
     try {
       const response = await coursesAPI.updateCourse(id, courseData);
       setCourses(prev => prev.map(course => 
-        course._id === id ? response.data : course
+        course.id === id ? response.course as Course : course
       ));
       toast({
         title: "Success",
         description: "Course updated successfully",
       });
-      return response.data;
+      return response.course;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update course';
       toast({
@@ -117,7 +130,7 @@ export const useCourses = () => {
   const deleteCourse = async (id: string) => {
     try {
       await coursesAPI.deleteCourse(id);
-      setCourses(prev => prev.filter(course => course._id !== id));
+      setCourses(prev => prev.filter(course => course.id !== id));
       toast({
         title: "Success",
         description: "Course deleted successfully",
@@ -137,7 +150,7 @@ export const useCourses = () => {
     try {
       await coursesAPI.enrollInCourse(id);
       setCourses(prev => prev.map(course => 
-        course._id === id ? { ...course, isEnrolled: true } : course
+        course.id === id ? { ...course, is_enrolled: true } : course
       ));
       toast({
         title: "Success",
@@ -182,7 +195,7 @@ export const useEnrolledCourses = () => {
       setLoading(true);
       setError(null);
       const response = await coursesAPI.getEnrolledCourses();
-      setEnrolledCourses(response.data);
+      setEnrolledCourses(response.courses);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch enrolled courses';
       setError(errorMessage);

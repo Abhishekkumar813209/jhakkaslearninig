@@ -40,3 +40,9 @@ verify_jwt = false
 
 [functions.student-leaderboard]
 verify_jwt = false
+
+[functions.auth-register]
+verify_jwt = false
+
+[functions.auth-login]
+verify_jwt = false

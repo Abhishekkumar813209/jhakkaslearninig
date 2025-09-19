@@ -24,23 +24,44 @@ serve(async (req: Request) => {
     switch (req.method) {
       case 'GET':
         if (courseId && courseId !== 'courses-api') {
-          // Get single course
-          const { data: course, error } = await supabase
+          // Get single course (avoid relational selects to prevent FK/column issues)
+          const { data: baseCourse, error: courseError } = await supabase
             .from('courses')
-            .select(`
-              *,
-              videos (id, title, duration_minutes, order_num),
-              tests (id, title, total_marks, time_limit_minutes)
-            `)
+            .select('*')
             .eq('id', courseId)
             .eq('is_published', true)
-            .single()
+            .maybeSingle()
 
-          if (error) {
+          if (courseError || !baseCourse) {
             return new Response(
               JSON.stringify({ error: 'Course not found' }),
               { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
+          }
+
+          // Fetch related videos separately
+          const { data: videos, error: videosError } = await supabase
+            .from('videos')
+            .select('id, title, duration_seconds, order_num')
+            .eq('course_id', courseId)
+            .eq('is_published', true)
+            .order('order_num', { ascending: true })
+
+          // Fetch related tests separately
+          const { data: tests, error: testsError } = await supabase
+            .from('tests')
+            .select('id, title, total_marks, duration_minutes')
+            .eq('course_id', courseId)
+            .eq('is_published', true)
+            .order('created_at', { ascending: true })
+
+          if (videosError) console.error('Error fetching videos for course', courseId, videosError)
+          if (testsError) console.error('Error fetching tests for course', courseId, testsError)
+
+          const course = {
+            ...baseCourse,
+            videos: videos ?? [],
+            tests: tests ?? [],
           }
 
           return new Response(

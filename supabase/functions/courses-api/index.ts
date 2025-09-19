@@ -18,7 +18,8 @@ serve(async (req: Request) => {
     )
 
     const url = new URL(req.url)
-    const courseId = url.pathname.split('/').pop()
+    const pathParts = url.pathname.split('/')
+    const courseId = pathParts[pathParts.length - 1]
 
     switch (req.method) {
       case 'GET':

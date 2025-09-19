@@ -18,12 +18,13 @@ serve(async (req: Request) => {
     )
 
     const url = new URL(req.url)
-    const pathParts = url.pathname.split('/')
-    const courseId = pathParts[pathParts.length - 1]
+    const segments = url.pathname.split('/').filter(Boolean)
+    const last = segments[segments.length - 1]
+    const courseId = last !== 'courses-api' ? last : undefined
 
     switch (req.method) {
       case 'GET':
-        if (courseId && courseId !== 'courses-api') {
+        if (courseId) {
           // Get single course (avoid relational selects to prevent FK/column issues)
           const { data: baseCourse, error: courseError } = await supabase
             .from('courses')

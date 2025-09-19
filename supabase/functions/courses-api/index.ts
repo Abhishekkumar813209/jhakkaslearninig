@@ -99,21 +99,8 @@ serve(async (req: Request) => {
           )
         }
 
-        // Build an authed client using the passed JWT (support both Authorization and X-Supabase-Authorization)
-        const userAuthHeader = req.headers.get('X-Supabase-Authorization') || authHeader;
-        const token = userAuthHeader?.startsWith('Bearer ')
-          ? userAuthHeader.slice(7)
-          : userAuthHeader || undefined;
-
-        const authed = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: token ? { Authorization: `Bearer ${token}` } : {} } }
-        )
-
         const body = await req.json()
-        const client = authed ?? supabase
-        const { data: newCourse, error: createError } = await client
+        const { data: newCourse, error: createError } = await supabase
           .from('courses')
           .insert([body])
           .select()

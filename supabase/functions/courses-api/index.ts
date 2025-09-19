@@ -28,7 +28,6 @@ serve(async (req: Request) => {
             .from('courses')
             .select(`
               *,
-              profiles:instructor_id (full_name),
               videos (id, title, duration_minutes, order_num),
               tests (id, title, total_marks, time_limit_minutes)
             `)
@@ -51,10 +50,7 @@ serve(async (req: Request) => {
           // Get all courses
           const { data: courses, error } = await supabase
             .from('courses')
-            .select(`
-              *,
-              profiles:instructor_id (full_name)
-            `)
+            .select('*')
             .eq('is_published', true)
             .order('created_at', { ascending: false })
 

@@ -91,18 +91,45 @@ serve(async (req: Request) => {
         }
 
       case 'POST':
-        const authHeader = req.headers.get('authorization')
-        if (!authHeader) {
+        // Accept user token from standard Authorization header (or X-Supabase-Authorization)
+        const userAuthHeader = req.headers.get('x-supabase-authorization') || req.headers.get('authorization')
+        if (!userAuthHeader) {
           return new Response(
             JSON.stringify({ error: 'Authorization required' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
 
-        const body = await req.json()
-        const { data: newCourse, error: createError } = await supabase
+        const token = userAuthHeader.startsWith('Bearer ')
+          ? userAuthHeader.slice(7)
+          : userAuthHeader
+
+        // Create a client that forwards the user JWT so RLS uses auth.uid()
+        const authed = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: `Bearer ${token}` } } }
+        )
+
+        const body = await req.json().catch(() => ({}))
+
+        // Get current user id to satisfy RLS and NOT NULL instructor_id
+        const { data: userData, error: userErr } = await authed.auth.getUser(token)
+        if (userErr || !userData?.user) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid user token' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const payload = {
+          ...body,
+          instructor_id: body?.instructor_id ?? userData.user.id,
+        }
+
+        const { data: newCourse, error: createError } = await authed
           .from('courses')
-          .insert([body])
+          .insert([payload])
           .select()
           .single()
 

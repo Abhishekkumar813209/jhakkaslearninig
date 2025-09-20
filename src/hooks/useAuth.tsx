@@ -111,6 +111,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     // Always call direct logout as fallback
     await supabase.auth.signOut();
+    
+    // Clear all auth state
+    setUser(null);
+    setSession(null);
     setUserRole(null);
   };
 

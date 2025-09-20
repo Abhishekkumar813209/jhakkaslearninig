@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
 }
 
 serve(async (req: Request) => {
@@ -41,6 +41,7 @@ serve(async (req: Request) => {
     const userId = userData.user.id
 
     switch (req.method) {
+      case 'POST': // Treat POST like GET for compatibility with supabase.functions.invoke
       case 'GET':
         // Get user profile with role
         const { data: profile, error: profileError } = await supabase

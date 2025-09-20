@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
+import TestSettingsDialog from './TestSettingsDialog';
 
 interface Question {
   id?: string;
@@ -73,9 +74,9 @@ const TestBuilderPortal: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showQuestionDialog, setShowQuestionDialog] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [showTestSettings, setShowTestSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showTestSettings, setShowTestSettings] = useState(false);
   const { toast } = useToast();
 
   const [newQuestion, setNewQuestion] = useState<Question>({
@@ -906,6 +907,14 @@ const TestBuilderPortal: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Test Settings Dialog */}
+      <TestSettingsDialog
+        open={showTestSettings}
+        onOpenChange={setShowTestSettings}
+        testId={testId || ''}
+        onSettingsUpdate={fetchTestData}
+      />
     </div>
   );
 };

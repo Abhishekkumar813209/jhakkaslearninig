@@ -6,45 +6,61 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Users, TrendingUp, Award } from "lucide-react";
-
-// Mock batch data
-const mockBatches = [
-  {
-    id: "1",
-    name: "JEE Main 2024",
-    level: "Advanced",
-    students: 450,
-    avgScore: 82.5,
-    createdDate: "2024-01-01",
-    status: "active",
-    description: "Preparation for JEE Main examination"
-  },
-  {
-    id: "2",
-    name: "NEET 2024",
-    level: "Advanced", 
-    students: 320,
-    avgScore: 85.2,
-    createdDate: "2024-01-15",
-    status: "active",
-    description: "Medical entrance exam preparation"
-  },
-  {
-    id: "3",
-    name: "Foundation Class 10",
-    level: "Foundation",
-    students: 197,
-    avgScore: 75.8,
-    createdDate: "2024-02-01",
-    status: "active",
-    description: "Foundation course for Class 10 students"
-  }
-];
+import { Plus, Edit, Trash2, Users, TrendingUp, Award, Loader2 } from "lucide-react";
+import { useBatches } from "@/hooks/useBatches";
+import { useToast } from "@/hooks/use-toast";
 
 const BatchManagement = () => {
-  const [batches, setBatches] = useState(mockBatches);
+  const { batches, loading, createBatch, updateBatch, deleteBatch } = useBatches();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingBatch, setEditingBatch] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    level: '',
+    start_date: '',
+    end_date: '',
+    max_capacity: 50
+  });
+  const { toast } = useToast();
+
+  const handleSubmit = async () => {
+    try {
+      if (editingBatch) {
+        await updateBatch(editingBatch.id, formData);
+      } else {
+        await createBatch(formData);
+      }
+      setShowAddDialog(false);
+      setEditingBatch(null);
+      setFormData({ name: '', description: '', level: '', start_date: '', end_date: '', max_capacity: 50 });
+    } catch (error) {
+      console.error('Error saving batch:', error);
+    }
+  };
+
+  const handleEdit = (batch) => {
+    setEditingBatch(batch);
+    setFormData({
+      name: batch.name,
+      description: batch.description || '',
+      level: batch.level,
+      start_date: batch.start_date,
+      end_date: batch.end_date || '',
+      max_capacity: batch.max_capacity
+    });
+    setShowAddDialog(true);
+  };
+
+  const handleDelete = async (batchId) => {
+    if (window.confirm('Are you sure you want to delete this batch?')) {
+      try {
+        await deleteBatch(batchId);
+      } catch (error) {
+        console.error('Error deleting batch:', error);
+      }
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -81,24 +97,58 @@ const BatchManagement = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Batch</DialogTitle>
+              <DialogTitle>{editingBatch ? 'Edit Batch' : 'Create New Batch'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <Input placeholder="Batch Name" />
-              <Select>
+              <Input 
+                placeholder="Batch Name" 
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+              />
+              <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="foundation">Foundation</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="Foundation">Foundation</SelectItem>
+                  <SelectItem value="Intermediate">Intermediate</SelectItem>
+                  <SelectItem value="Advanced">Advanced</SelectItem>
+                  <SelectItem value="Crash Course">Crash Course</SelectItem>
                 </SelectContent>
               </Select>
-              <Input placeholder="Description" />
+              <Input 
+                placeholder="Description" 
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+              />
+              <Input 
+                type="date" 
+                placeholder="Start Date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+              />
+              <Input 
+                type="date" 
+                placeholder="End Date"
+                value={formData.end_date}
+                onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+              />
+              <Input 
+                type="number" 
+                placeholder="Max Capacity"
+                value={formData.max_capacity}
+                onChange={(e) => setFormData({...formData, max_capacity: parseInt(e.target.value) || 50})}
+              />
               <div className="flex gap-2">
-                <Button className="flex-1">Create Batch</Button>
-                <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleSubmit} disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingBatch ? 'Update Batch' : 'Create Batch'}
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setShowAddDialog(false);
+                  setEditingBatch(null);
+                  setFormData({ name: '', description: '', level: '', start_date: '', end_date: '', max_capacity: 50 });
+                }}>Cancel</Button>
               </div>
             </div>
           </DialogContent>
@@ -112,7 +162,7 @@ const BatchManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Batches</p>
-                <p className="text-2xl font-bold text-foreground">{batches.length}</p>
+                <p className="text-2xl font-bold text-foreground">{batches?.length || 0}</p>
               </div>
               <div className="p-3 rounded-full bg-blue-50">
                 <Users className="h-6 w-6 text-blue-600" />
@@ -126,7 +176,7 @@ const BatchManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-                <p className="text-2xl font-bold text-foreground">{batches.reduce((sum, batch) => sum + batch.students, 0)}</p>
+                <p className="text-2xl font-bold text-foreground">{batches?.reduce((sum, batch) => sum + (batch.student_count || 0), 0) || 0}</p>
               </div>
               <div className="p-3 rounded-full bg-green-50">
                 <TrendingUp className="h-6 w-6 text-green-600" />
@@ -141,7 +191,7 @@ const BatchManagement = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg Performance</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {((batches.reduce((sum, batch) => sum + batch.avgScore, 0)) / batches.length).toFixed(1)}%
+                  {batches?.length ? ((batches.reduce((sum, batch) => sum + (batch.avg_score || 0), 0)) / batches.length).toFixed(1) : '0.0'}%
                 </p>
               </div>
               <div className="p-3 rounded-full bg-purple-50">
@@ -172,50 +222,65 @@ const BatchManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {batches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-foreground">{batch.name}</div>
-                        <div className="text-sm text-muted-foreground">{batch.description}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className={`px-2 py-1 rounded text-xs font-medium ${getLevelBadge(batch.level)}`}>
-                        {batch.level}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{batch.students}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium text-foreground">{batch.avgScore}%</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(batch.createdDate).toLocaleDateString()}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(batch.status)}`}>
-                        {batch.status}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      Loading batches...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : batches?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      No batches found. Create your first batch!
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  batches?.map((batch) => (
+                    <TableRow key={batch.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-foreground">{batch.name}</div>
+                          <div className="text-sm text-muted-foreground">{batch.description}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${getLevelBadge(batch.level)}`}>
+                          {batch.level}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{batch.current_strength || 0} / {batch.max_capacity}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-foreground">{batch.avg_score || 0}%</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(batch.created_at).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(batch.is_active ? 'active' : 'inactive')}`}>
+                          {batch.is_active ? 'active' : 'inactive'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handleEdit(batch)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDelete(batch.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

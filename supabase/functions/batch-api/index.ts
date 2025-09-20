@@ -61,8 +61,7 @@ serve(async (req: Request) => {
             .from('batches')
             .select(`
               *,
-              student_count:profiles!batch_id(count),
-              avg_score:student_analytics!profiles!batch_id(average_score.avg())
+              student_count:profiles!batch_id(count)
             `)
             .order('created_at', { ascending: false })
 
@@ -77,7 +76,7 @@ serve(async (req: Request) => {
           const processedBatches = batches?.map(batch => ({
             ...batch,
             student_count: batch.student_count?.[0]?.count || 0,
-            avg_score: batch.avg_score?.[0]?.avg || 0
+            avg_score: 0 // We'll calculate this separately if needed
           })) || []
 
           return new Response(

@@ -27,27 +27,27 @@ const CourseManagement = () => {
   }, []); // Empty dependency array to run only once
   const [formData, setFormData] = useState({
     title: '',
-    subject: '',
+    subject: 'Mathematics',
     description: '',
     price: '',
-    level: '',
+    level: 'beginner',
     thumbnail: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop' // Default thumbnail
   });
 
   const resetForm = () => {
     setFormData({
       title: '',
-      subject: '',
+      subject: 'Mathematics',
       description: '',
       price: '',
-      level: '',
+      level: 'beginner',
       thumbnail: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop' // Default thumbnail
     });
   };
 
   const handleCreateCourse = async () => {
     try {
-      if (!formData.title || !formData.subject || !formData.description) {
+      if (!formData.title || !formData.subject || !formData.description || !formData.level) {
         toast({
           title: "Error",
           description: "Please fill in all required fields",
@@ -55,7 +55,9 @@ const CourseManagement = () => {
         });
         return;
       }
-
+      
+      console.log('Form data being sent:', formData);
+      
       await createCourse({
         ...formData,
         price: parseFloat(formData.price) || 0,

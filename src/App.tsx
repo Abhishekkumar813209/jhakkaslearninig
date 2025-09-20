@@ -13,6 +13,7 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import StudentDashboardPage from "./pages/StudentDashboard";
 import Tests from "./pages/Tests";
 import Leaderboard from "./pages/Leaderboard";
 import Analytics from "./pages/Analytics";
@@ -47,9 +48,9 @@ const App = () => (
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/admin/test-builder/:testId" element={<TestBuilderPortal />} />
-            <Route path="/take-test/:testId" element={<OnlineTestInterface />} />
+            <Route path="/student/test/:testId" element={<OnlineTestInterface />} />
+            <Route path="/student" element={<StudentDashboardPage />} />
             <Route path="/student-tests" element={<StudentTests />} />
-            <Route path="/student-dashboard" element={<StudentDashboard />} />
             <Route path="/test/:testId" element={<TakeTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

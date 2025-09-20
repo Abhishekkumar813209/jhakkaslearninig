@@ -315,6 +315,72 @@ const TestBuilderPortal: React.FC = () => {
     }
   };
 
+  const exportToPDF = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('export-test-pdf', {
+        body: { testId }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        // Create and download HTML file that can be printed as PDF
+        const blob = new Blob([data.htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${test?.title || 'test'}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Success",
+          description: "Test exported! Open the HTML file and print as PDF."
+        });
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to export test. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleTestSettings = async (settings: any) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('test-settings', {
+        body: { 
+          testId, 
+          action: 'updateSettings',
+          settings 
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setTest(prev => prev ? { ...prev, ...settings } : null);
+        setShowTestSettings(false);
+
+        toast({
+          title: "Success",
+          description: "Test settings updated successfully!"
+        });
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update settings. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const updateOptionCorrectness = (optionIndex: number) => {
     if (newQuestion.allow_multiple_correct) {
       // Allow multiple correct answers
@@ -525,7 +591,7 @@ const TestBuilderPortal: React.FC = () => {
           <Settings className="h-4 w-4 mr-2" />
           Test Settings
         </Button>
-        <Button variant="outline">
+        <Button variant="outline" onClick={exportToPDF}>
           <Download className="h-4 w-4 mr-2" />
           Export PDF
         </Button>

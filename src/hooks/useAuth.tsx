@@ -37,36 +37,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('AuthProvider: Initializing auth state...');
+    
+    // First get the current session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('AuthProvider: Initial session check:', { session, error });
+        
+        if (error) {
+          console.error('AuthProvider: Error getting session:', error);
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          console.log('AuthProvider: Found existing session for user:', session.user.id);
+          fetchUserRole(session.user.id);
+        } else {
+          console.log('AuthProvider: No existing session found');
+          setUserRole(null);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('AuthProvider: Error initializing auth:', error);
+        setLoading(false);
+      }
+    };
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('AuthProvider: Auth state changed:', { event, session });
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         // Fetch user role when session changes
         if (session?.user) {
+          console.log('AuthProvider: Session exists, fetching user role for:', session.user.id);
           setTimeout(() => {
             fetchUserRole(session.user.id);
           }, 0);
         } else {
+          console.log('AuthProvider: No session, clearing user role');
           setUserRole(null);
         }
+        
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-      }
-      setLoading(false);
-    });
+    // Initialize auth state
+    initializeAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('AuthProvider: Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchUserRole = async (userId: string) => {
+    console.log('AuthProvider: Fetching user role for:', userId);
+    
     try {
       // Try using edge function for profile
       const { data } = await supabase.functions.invoke('profile-management', {
@@ -74,11 +109,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (data?.profile?.role) {
+        console.log('AuthProvider: Got role from edge function:', data.profile.role);
         setUserRole(data.profile.role);
         return;
       }
     } catch (error) {
-      console.log('Edge function failed, using direct query');
+      console.log('AuthProvider: Edge function failed, using direct query:', error);
     }
 
     // Fallback to direct query
@@ -90,13 +126,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
       
       if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching user role:', error);
+        console.error('AuthProvider: Error fetching user role from DB:', error);
+        setUserRole('student'); // Default fallback
         return;
       }
       
-      setUserRole(data?.role || 'student');
+      const role = data?.role || 'student';
+      console.log('AuthProvider: Got role from DB:', role);
+      setUserRole(role);
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('AuthProvider: Error in role fetch fallback:', error);
       setUserRole('student');
     }
   };

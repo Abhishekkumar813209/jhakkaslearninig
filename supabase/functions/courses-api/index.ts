@@ -130,7 +130,7 @@ serve(async (req: Request) => {
           title: body.title,
           description: body.description,
           subject: body.subject,
-          level: body.level || 'Beginner',
+          level: body.level || 'beginner',
           price: body.price || 0,
           thumbnail: body.thumbnail || '',
           instructor_id: userData.user.id,

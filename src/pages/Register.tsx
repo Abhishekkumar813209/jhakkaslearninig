@@ -90,45 +90,25 @@ const Register = () => {
 
   const handleGoogleRegister = async () => {
     try {
-      const result = await authAPI.googleAuth(`${window.location.origin}/`);
-      const url = (result as any)?.url;
-      if (!url) throw new Error('Failed to initiate Google OAuth');
-
-      // Try popup first
-      const popup = window.open(url, '_blank', 'width=500,height=600,scrollbars=yes,resizable=yes');
-      
-      if (popup && !popup.closed) {
-        // Popup opened successfully
-        toast({
-          title: 'Continue in the new tab',
-          description: 'Complete Google sign-in, then return here.',
-        });
-        
-        // Check if popup gets blocked after a short delay
-        setTimeout(() => {
-          if (popup.closed || !popup.location) {
-            // Popup was blocked or closed, fallback to redirect
-            if (window.top && window.top !== window) {
-              (window.top as Window).location.href = url;
-            } else {
-              window.location.href = url;
-            }
-          }
-        }, 1000);
-      } else {
-        // Popup failed immediately, use redirect
-        if (window.top && window.top !== window) {
-          (window.top as Window).location.href = url;
-        } else {
-          window.location.href = url;
+      // Use direct Supabase signInWithOAuth for same-window experience
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`
         }
+      });
+
+      if (error) {
+        throw error;
       }
+
+      // This will redirect in the same window
     } catch (error: any) {
       console.error('Google auth error:', error);
       toast({
         variant: 'destructive',
         title: 'Google Registration Failed',
-        description: error?.message || 'Please allow pop-ups and try again.',
+        description: error?.message || 'Failed to initiate Google sign-in.',
       });
     }
   };

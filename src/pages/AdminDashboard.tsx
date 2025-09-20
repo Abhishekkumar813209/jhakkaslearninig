@@ -30,7 +30,7 @@ import AdminSettings from "@/components/admin/AdminSettings";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("tests"); // Start with tests tab for debugging
 
   if (loading) {
     return (

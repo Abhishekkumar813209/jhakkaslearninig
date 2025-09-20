@@ -62,6 +62,8 @@ const TestManagement: React.FC = () => {
   const fetchTests = async () => {
     try {
       setLoading(true);
+      console.log('TestManagement: Starting to fetch tests...');
+      
       const { data, error } = await supabase
         .from('tests')
         .select(`
@@ -69,31 +71,33 @@ const TestManagement: React.FC = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('TestManagement: Tests query result:', { data, error });
 
-      // Count questions and attempts for each test
-      const testsWithCounts = await Promise.all(
-        (data || []).map(async (test) => {
-          const [questionsResult, attemptsResult] = await Promise.all([
-            supabase.from('questions').select('id', { count: 'exact' }).eq('test_id', test.id),
-            supabase.from('test_attempts').select('id', { count: 'exact' }).eq('test_id', test.id)
-          ]);
+      if (error) {
+        console.error('TestManagement: Error fetching tests:', error);
+        throw error;
+      }
 
-          return {
-            ...test,
-            question_count: questionsResult.count || 0,
-            attempt_count: attemptsResult.count || 0,
-            status: test.is_published ? 'published' : 'draft'
-          };
-        })
-      );
+      // Count questions and attempts for each test - simplified for debugging
+      console.log('TestManagement: Fetching counts for', data?.length || 0, 'tests');
+      const testsWithCounts = (data || []).map((test) => {
+        console.log('TestManagement: Processing test:', test.id, test.title);
+        
+        return {
+          ...test,
+          question_count: 0, // Temporarily hardcode to isolate issue
+          attempt_count: 0,  // Temporarily hardcode to isolate issue
+          status: test.is_published ? 'published' : 'draft'
+        };
+      });
 
+      console.log('TestManagement: Final tests with counts:', testsWithCounts);
       setTests(testsWithCounts);
     } catch (error) {
-      console.error('Error fetching tests:', error);
+      console.error('TestManagement: Error in fetchTests:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch tests. Please try again.",
+        description: `Failed to fetch tests: ${error.message}`,
         variant: "destructive"
       });
     } finally {

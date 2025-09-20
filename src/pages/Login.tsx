@@ -148,8 +148,12 @@ const Login = () => {
       // Open in a new tab/window to bypass iframe navigation restrictions
       const popup = window.open(url, '_blank', 'noopener,noreferrer');
       if (!popup) {
-        // Fallback to same-frame navigation (may be blocked in preview)
-        window.location.href = url;
+        // If pop-up blocked, force top-level navigation (escapes preview iframe)
+        if (window.top && window.top !== window) {
+          (window.top as Window).location.href = url;
+        } else {
+          window.location.href = url;
+        }
       } else {
         toast({
           title: 'Continue in the new tab',

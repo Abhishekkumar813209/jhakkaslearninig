@@ -18,6 +18,12 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
+    // Service client to bypass RLS for aggregate counts only
+    const service = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
     const url = new URL(req.url)
     const segments = url.pathname.split('/').filter(Boolean)
     const last = segments[segments.length - 1]
@@ -26,30 +32,53 @@ serve(async (req: Request) => {
     switch (req.method) {
       case 'GET':
         if (batchId) {
-          // Get single batch with student count
-          const { data: batch, error: batchError } = await supabase
+          // Get single batch with student count (using service role for counts)
+          const { data: batchRow, error: batchError } = await supabase
             .from('batches')
-            .select(`
-              *,
-              current_strength,
-              profiles:profiles!batch_id(count)
-            `)
+            .select('*')
             .eq('id', batchId)
             .maybeSingle()
 
           if (batchError) {
+            console.log(batchError)
             return new Response(
               JSON.stringify({ error: batchError.message }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
 
-          if (!batch) {
+          if (!batchRow) {
             return new Response(
               JSON.stringify({ error: 'Batch not found' }),
               { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
+
+          const { data: studentProfiles, error: countErr } = await service
+            .from('profiles')
+            .select('id')
+            .eq('batch_id', batchId)
+
+          if (countErr) {
+            console.log(countErr)
+            return new Response(
+              JSON.stringify({ error: countErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const ids = studentProfiles?.map((p: any) => p.id) || []
+
+          const { data: analytics } = await service
+            .from('student_analytics')
+            .select('average_score')
+            .in('student_id', ids)
+
+          const avgScore = analytics?.length > 0
+            ? Math.round(analytics.reduce((sum: number, a: any) => sum + (a.average_score || 0), 0) / analytics.length)
+            : 0
+
+          const batch = { ...batchRow, student_count: ids.length, avg_score: avgScore }
 
           return new Response(
             JSON.stringify({ batch }),
@@ -75,24 +104,26 @@ serve(async (req: Request) => {
           // For each batch, get the actual student count from profiles table
           const processedBatches = await Promise.all(
             (batches || []).map(async (batch) => {
-              // Count actual students assigned to this batch
-              const { data: studentProfiles, error: countError } = await supabase
+              // Count actual students assigned to this batch (service role bypasses RLS for aggregate)
+              const { data: studentProfiles, error: countError } = await service
                 .from('profiles')
                 .select('id')
                 .eq('batch_id', batch.id)
 
-              console.log(`Batch ${batch.name} (${batch.id}): Found ${studentProfiles?.length || 0} students`)
-              
+              if (countError) {
+                console.log(countError)
+              }
+
               const actualStudentCount = studentProfiles?.length || 0
 
               // Get average score from student_analytics for students in this batch
-              const { data: analytics } = await supabase
+              const { data: analytics } = await service
                 .from('student_analytics')
                 .select('average_score')
-                .in('student_id', studentProfiles?.map(p => p.id) || [])
+                .in('student_id', studentProfiles?.map((p: any) => p.id) || [])
 
               const avgScore = analytics?.length > 0 
-                ? Math.round(analytics.reduce((sum, a) => sum + (a.average_score || 0), 0) / analytics.length)
+                ? Math.round(analytics.reduce((sum: number, a: any) => sum + (a.average_score || 0), 0) / analytics.length)
                 : 0
 
               return {
@@ -279,7 +310,7 @@ serve(async (req: Request) => {
         )
 
         // Check if batch has students assigned and reassign them to null
-        const { data: studentsInBatch, error: studentsError } = await deleteClient
+        const { data: studentsInBatch, error: studentsError } = await service
           .from('profiles')
           .select('id')
           .eq('batch_id', batchId)
@@ -294,7 +325,7 @@ serve(async (req: Request) => {
 
         // If there are students in this batch, reassign them to null (no batch)
         if (studentsInBatch && studentsInBatch.length > 0) {
-          const { error: reassignError } = await deleteClient
+          const { error: reassignError } = await service
             .from('profiles')
             .update({ batch_id: null })
             .eq('batch_id', batchId)

@@ -456,6 +456,22 @@ export const testsAPI = {
 
 // Users API
 export const usersAPI = {
+  seedStudents: async () => {
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/student-management/seed-students`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getAuthToken()}`,
+      }
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || 'Failed to seed students')
+    }
+
+    return await response.json()
+  },
   getStudents: async (search?: string) => {
     const token = await getAuthToken();
     if (!token) throw new Error('No authentication token');

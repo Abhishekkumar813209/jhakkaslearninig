@@ -88,6 +88,24 @@ const StudentManagement = () => {
     }
   };
 
+  const handleSeedStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await usersAPI.seedStudents();
+      toast({ 
+        title: "Success", 
+        description: `${response.message}. Created ${response.students?.length || 0} students.` 
+      });
+      fetchStudents(); // Refresh the list
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to seed students";
+      console.error("Seed students error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -96,13 +114,23 @@ const StudentManagement = () => {
           <h2 className="text-2xl font-bold text-foreground">Student Management</h2>
           <p className="text-muted-foreground">Manage all students and their batch assignments</p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Student
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleSeedStudents}
+            disabled={loading}
+            className="gap-2"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Seed 50 Students
+          </Button>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Student
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Student</DialogTitle>
@@ -127,6 +155,7 @@ const StudentManagement = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}

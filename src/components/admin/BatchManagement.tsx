@@ -11,7 +11,7 @@ import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 
 const BatchManagement = () => {
-  const { batches, loading, createBatch, updateBatch, deleteBatch } = useBatches();
+  const { batches, loading, createBatch, updateBatch, deleteBatch, totalStudents, avgPerformance } = useBatches();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
   const [formData, setFormData] = useState({
@@ -176,7 +176,7 @@ const BatchManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-                <p className="text-2xl font-bold text-foreground">{batches?.reduce((sum, batch) => sum + (batch.student_count || 0), 0) || 0}</p>
+                <p className="text-2xl font-bold text-foreground">{totalStudents || 0}</p>
               </div>
               <div className="p-3 rounded-full bg-green-50">
                 <TrendingUp className="h-6 w-6 text-green-600" />
@@ -190,9 +190,7 @@ const BatchManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg Performance</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {batches?.length ? ((batches.reduce((sum, batch) => sum + (batch.avg_score || 0), 0)) / batches.length).toFixed(1) : '0.0'}%
-                </p>
+                <p className="text-2xl font-bold text-foreground">{avgPerformance || 0}%</p>
               </div>
               <div className="p-3 rounded-full bg-purple-50">
                 <Award className="h-6 w-6 text-purple-600" />

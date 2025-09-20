@@ -276,25 +276,34 @@ serve(async (req: Request) => {
           { global: { headers: { Authorization: `Bearer ${deleteToken}` } } }
         )
 
-        // Check if batch has students assigned
+        // Check if batch has students assigned and reassign them to null
         const { data: studentsInBatch, error: studentsError } = await deleteClient
           .from('profiles')
           .select('id')
           .eq('batch_id', batchId)
-          .limit(1)
 
         if (studentsError) {
+          console.log(studentsError)
           return new Response(
             JSON.stringify({ error: studentsError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
 
+        // If there are students in this batch, reassign them to null (no batch)
         if (studentsInBatch && studentsInBatch.length > 0) {
-          return new Response(
-            JSON.stringify({ error: 'Cannot delete batch with assigned students. Please reassign students first.' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
+          const { error: reassignError } = await deleteClient
+            .from('profiles')
+            .update({ batch_id: null })
+            .eq('batch_id', batchId)
+
+          if (reassignError) {
+            console.log(reassignError)
+            return new Response(
+              JSON.stringify({ error: 'Failed to reassign students: ' + reassignError.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
         }
 
         const { error: deleteError } = await deleteClient

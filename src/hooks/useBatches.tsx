@@ -23,6 +23,8 @@ export const useBatches = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [avgPerformance, setAvgPerformance] = useState(0);
   const { toast } = useToast();
 
   const fetchBatches = async () => {
@@ -31,6 +33,8 @@ export const useBatches = () => {
       setError(null);
       const response = await batchAPI.getBatches();
       setBatches(response.batches as Batch[]);
+      setTotalStudents(response.totalStudents || 0);
+      setAvgPerformance(response.avgPerformance || 0);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch batches';
       setError(errorMessage);
@@ -143,6 +147,8 @@ export const useBatches = () => {
     batches,
     loading,
     error,
+    totalStudents,
+    avgPerformance,
     fetchBatches,
     getBatch,
     createBatch,

@@ -43,7 +43,7 @@ serve(async (req: Request) => {
     switch (req.method) {
       case 'POST': // Treat POST like GET for compatibility with supabase.functions.invoke
       case 'GET':
-        // Get user profile with role
+        // Get user profile
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select(`
@@ -53,11 +53,10 @@ serve(async (req: Request) => {
             avatar_url,
             batch_id,
             created_at,
-            updated_at,
-            user_roles(role)
+            updated_at
           `)
           .eq('id', userId)
-          .single()
+          .maybeSingle()
 
         if (profileError) {
           return new Response(
@@ -66,14 +65,21 @@ serve(async (req: Request) => {
           )
         }
 
+        // Get role separately
+        const { data: roleRow } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle()
+
         // Get batch info if user has batch_id
         let batchInfo = null
-        if (profile.batch_id) {
+        if (profile?.batch_id) {
           const { data: batch } = await supabase
             .from('batches')
             .select('id, name, level')
             .eq('id', profile.batch_id)
-            .single()
+            .maybeSingle()
           batchInfo = batch
         }
 
@@ -81,13 +87,12 @@ serve(async (req: Request) => {
           JSON.stringify({ 
             profile: {
               ...profile,
-              role: profile.user_roles?.role || 'student',
+              role: roleRow?.role || 'student',
               batch: batchInfo
             }
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
-
       case 'PUT':
         // Update user profile
         const updateData = await req.json()
@@ -121,10 +126,9 @@ serve(async (req: Request) => {
             avatar_url,
             batch_id,
             created_at,
-            updated_at,
-            user_roles(role)
+            updated_at
           `)
-          .single()
+          .maybeSingle()
 
         if (updateError) {
           return new Response(
@@ -133,12 +137,18 @@ serve(async (req: Request) => {
           )
         }
 
+        const { data: updatedRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle()
+
         return new Response(
           JSON.stringify({ 
             message: 'Profile updated successfully',
             profile: {
               ...updatedProfile,
-              role: updatedProfile.user_roles?.role || 'student'
+              role: updatedRole?.role || 'student'
             }
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

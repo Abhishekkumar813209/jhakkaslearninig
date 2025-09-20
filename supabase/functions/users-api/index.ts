@@ -68,12 +68,12 @@ serve(async (req: Request) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } else if (path.includes('/students')) {
-          // Admin-only: list students with optional search
+          // Admin-only: list students with optional search (avoid PostgREST relationship to user_roles)
           const { data: roleRow, error: roleErr } = await supabase
             .from('user_roles')
             .select('role')
             .eq('user_id', user?.id)
-            .single()
+            .maybeSingle()
 
           if (roleErr || roleRow?.role !== 'admin') {
             return new Response(
@@ -89,14 +89,36 @@ serve(async (req: Request) => {
 
           const search = url.searchParams.get('search')?.trim()
 
+          // 1) Get IDs of users with 'student' role
+          const { data: studentIdsRows, error: roleListErr } = await service
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'student')
+
+          if (roleListErr) {
+            console.error('users-api: role list error', roleListErr)
+            return new Response(
+              JSON.stringify({ error: roleListErr.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const studentIds = (studentIdsRows || []).map((r: any) => r.user_id)
+          if (studentIds.length === 0) {
+            return new Response(
+              JSON.stringify({ students: [] }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          // 2) Fetch profiles for those IDs (with batch info)
           let query = service
             .from('profiles')
             .select(`
               *,
-              user_roles!inner (role),
               batches (id, name, level)
             `)
-            .eq('user_roles.role', 'student')
+            .in('id', studentIds)
             .order('created_at', { ascending: false })
 
           if (search) {
@@ -106,6 +128,7 @@ serve(async (req: Request) => {
           const { data: students, error } = await query
 
           if (error) {
+            console.error('users-api: profiles fetch error', error)
             return new Response(
               JSON.stringify({ error: error.message }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

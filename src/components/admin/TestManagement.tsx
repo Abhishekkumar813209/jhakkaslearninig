@@ -82,7 +82,8 @@ const TestManagement: React.FC = () => {
           return {
             ...test,
             question_count: questionsResult.count || 0,
-            attempt_count: attemptsResult.count || 0
+            attempt_count: attemptsResult.count || 0,
+            status: test.is_published ? 'published' : 'draft'
           };
         })
       );

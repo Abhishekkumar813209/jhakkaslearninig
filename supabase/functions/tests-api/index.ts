@@ -21,10 +21,17 @@ serve(async (req: Request) => {
     const testId = url.pathname.split('/')[1]
     const action = url.pathname.split('/')[2]
 
-    // Get auth token
+    // Get auth token and set session
     const authHeader = req.headers.get('authorization')
     if (authHeader) {
-      supabase.auth.setAuth(authHeader.replace('Bearer ', ''))
+      const token = authHeader.replace('Bearer ', '')
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     switch (req.method) {

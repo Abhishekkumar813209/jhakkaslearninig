@@ -63,8 +63,9 @@
     --shadow-glow: 0 0 20px hsl(219 84% 50% / 0.3);
 
     /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.25s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 
@@ -164,6 +165,10 @@
   
   .transition-bounce {
     transition: var(--transition-bounce);
+  }
+  
+  .transition-fast {
+    transition: var(--transition-fast);
   }
   
   /* Progress bar styles */

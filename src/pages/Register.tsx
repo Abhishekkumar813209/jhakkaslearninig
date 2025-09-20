@@ -36,48 +36,85 @@ const Register = () => {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: {
+    try {
+      // Try using edge function first
+      const { data } = await supabase.functions.invoke('auth-register', {
+        body: { 
+          email, 
+          password, 
           full_name: name,
-        },
-      },
-    });
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Registration Failed',
-        description: error.message,
+          role: 'student'
+        }
       });
-    } else {
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       toast({
         title: 'Registration Successful!',
-        description: 'Please check your email to verify your account.',
+        description: 'Your account has been created successfully.',
       });
       navigate('/login');
+    } catch (error: any) {
+      // Fallback to direct Supabase auth
+      const { error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: name,
+          },
+        },
+      });
+
+      if (authError) {
+        toast({
+          variant: 'destructive',
+          title: 'Registration Failed',
+          description: authError.message,
+        });
+      } else {
+        toast({
+          title: 'Registration Successful!',
+          description: 'Please check your email to verify your account.',
+        });
+        navigate('/login');
+      }
     }
 
     setLoading(false);
   };
 
   const handleGoogleRegister = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
-    });
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Google Registration Failed',
-        description: error.message,
+    try {
+      // Try using edge function first
+      const { data } = await supabase.functions.invoke('auth-google', {
+        body: { redirectTo: `${window.location.origin}/` }
       });
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (data.error) {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      // Fallback to direct Supabase auth
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (authError) {
+        toast({
+          variant: 'destructive',
+          title: 'Google Registration Failed',
+          description: authError.message,
+        });
+      }
     }
   };
 

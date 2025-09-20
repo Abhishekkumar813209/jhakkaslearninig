@@ -19,101 +19,183 @@ const makeSupabaseRequest = async (functionName: string, body?: any) => {
   return data;
 };
 
-// Auth API
+// Auth API using edge functions with fallbacks
 export const authAPI = {
-  login: (credentials: { email: string; password: string }) =>
-    makeSupabaseRequest('auth-login', credentials),
+  login: async (credentials: { email: string; password: string }) => {
+    try {
+      const { data, error } = await makeSupabaseRequest('auth-login', credentials);
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Login edge function failed:', error);
+      throw error;
+    }
+  },
 
-  register: (userData: { name: string; email: string; password: string; role?: string }) =>
-    makeSupabaseRequest('auth-register', { 
-      full_name: userData.name, 
-      email: userData.email, 
-      password: userData.password,
-      role: userData.role || 'student'
-    }),
+  register: async (userData: { name: string; email: string; password: string; role?: string }) => {
+    try {
+      const { data, error } = await makeSupabaseRequest('auth-register', {
+        email: userData.email,
+        password: userData.password,
+        full_name: userData.name,
+        role: userData.role || 'student'
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Registration edge function failed:', error);
+      throw error;
+    }
+  },
 
   logout: async () => {
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        await makeSupabaseRequest('auth-logout', {});
+      }
+    } catch (error) {
+      console.log('Edge function logout failed');
+    }
+    
+    // Always call direct logout as fallback
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
     return { message: 'Logout successful' };
   },
 
+  googleAuth: async (redirectTo?: string) => {
+    try {
+      const { data, error } = await makeSupabaseRequest('auth-google', { redirectTo });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Google auth failed:', error);
+      throw error;
+    }
+  },
+
   getProfile: async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw new Error(error.message);
-    
-    if (!user) throw new Error('No user logged in');
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*, user_roles!inner(role), batches(name, level)')
-      .eq('id', user.id)
-      .single();
-    
-    // Get role from user_roles table
-    const { data: userRole } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-    
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: profile?.full_name,
-        avatar_url: profile?.avatar_url,
-        role: userRole?.role || 'student',
-        batch: profile?.batches
-      }
-    };
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/profile-management`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Get profile failed, using fallback:', error);
+      
+      // Fallback to direct query
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw new Error(userError.message);
+      
+      if (!user) throw new Error('No user logged in');
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          email,
+          full_name,
+          avatar_url,
+          batch_id,
+          created_at,
+          updated_at
+        `)
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) throw new Error(profileError.message);
+      
+      // Get role separately
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      return { profile: { ...profile, role: roleData?.role || 'student' } };
+    }
   },
 
   updateProfile: async (userData: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(userData)
-      .eq('id', user?.id)
-      .select()
-      .single();
-    
-    if (error) throw new Error(error.message);
-    return { profile: data };
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/profile-management`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(userData),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Update profile failed, using fallback:', error);
+      
+      // Fallback to direct query
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      const { data, error: updateError } = await supabase
+        .from('profiles')
+        .update(userData)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (updateError) throw new Error(updateError.message);
+      return { profile: data };
+    }
   },
 };
 
 // Courses API
 export const coursesAPI = {
   getCourses: async (params?: URLSearchParams) => {
-    const { data, error } = await supabase
-      .from('courses')
-      .select(`
-        *,
-        profiles:instructor_id (full_name)
-      `)
-      .eq('is_published', true)
-      .order('created_at', { ascending: false });
+    try {
+      const { data: courses, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
-    return { courses: data };
+      if (error) throw new Error(error.message);
+      return { courses };
+    } catch (error) {
+      console.error('Get courses failed:', error);
+      throw error;
+    }
   },
 
   getCourse: async (id: string) => {
-    const { data, error } = await supabase
-      .from('courses')
-      .select(`
-        *,
-        profiles:instructor_id (full_name),
-        videos (id, title, duration_minutes, order_num),
-        tests (id, title, total_marks, time_limit_minutes)
-      `)
-      .eq('id', id)
-      .eq('is_published', true)
-      .single();
+    try {
+      const { data: course, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', id)
+        .eq('is_published', true)
+        .single();
 
-    if (error) throw new Error(error.message);
-    return { course: data };
+      if (error) throw new Error(error.message);
+      return { course };
+    } catch (error) {
+      console.error('Get course failed:', error);
+      throw error;
+    }
   },
 
   createCourse: async (courseData: any) => {
@@ -172,72 +254,79 @@ export const coursesAPI = {
 
   enrollInCourse: async (id: string) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No authenticated user');
+
     const { data, error } = await supabase
       .from('enrollments')
-      .insert({ student_id: user?.id, course_id: id })
+      .insert([{ student_id: user.id, course_id: id }])
       .select()
       .single();
-    
+
     if (error) throw new Error(error.message);
     return { enrollment: data };
   },
 
   getEnrolledCourses: async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
+    if (!user) throw new Error('No authenticated user');
+
+    const { data: enrollments, error } = await supabase
       .from('enrollments')
-      .select('*, courses(*)')
-      .eq('student_id', user?.id);
-    
+      .select(`
+        course_id,
+        progress,
+        is_completed,
+        enrolled_at,
+        courses (*)
+      `)
+      .eq('student_id', user.id);
+
     if (error) throw new Error(error.message);
-    return { courses: data.map(enrollment => enrollment.courses) };
+    return { courses: enrollments?.map(e => e.courses) || [] };
   },
 
   getCourseVideos: async (id: string) => {
-    const { data, error } = await supabase
+    const { data: videos, error } = await supabase
       .from('videos')
       .select('*')
       .eq('course_id', id)
-      .order('order_num');
-    
+      .eq('is_published', true)
+      .order('order_num', { ascending: true });
+
     if (error) throw new Error(error.message);
-    return { videos: data };
+    return { videos };
   },
 };
 
 // Videos API
 export const videosAPI = {
   getVideos: async (params?: URLSearchParams) => {
-    const { data, error } = await supabase
+    const { data: videos, error } = await supabase
       .from('videos')
-      .select(`
-        *,
-        courses (title, subject)
-      `)
-      .order('created_at', { ascending: false });
+      .select('*')
+      .eq('is_published', true);
 
     if (error) throw new Error(error.message);
-    return { videos: data };
+    return { videos };
   },
 
   getVideo: async (id: string) => {
-    const { data, error } = await supabase
+    const { data: video, error } = await supabase
       .from('videos')
-      .select(`
-        *,
-        courses (title, subject)
-      `)
+      .select('*')
       .eq('id', id)
+      .eq('is_published', true)
       .single();
 
     if (error) throw new Error(error.message);
-    return { video: data };
+    return { video };
   },
 
   createVideo: async (videoData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('videos')
-      .insert([videoData])
+      .insert([{ ...videoData, uploaded_by: user?.id }])
       .select()
       .single();
 
@@ -266,69 +355,40 @@ export const videosAPI = {
     if (error) throw new Error(error.message);
     return { message: 'Video deleted successfully' };
   },
-
-  trackProgress: async (videoId: string, progressData: { watchTime: number; isCompleted: boolean }) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // Get enrollment first
-    const { data: enrollment } = await supabase
-      .from('enrollments')
-      .select('id')
-      .eq('student_id', user?.id)
-      .limit(1)
-      .single();
-    
-    const { data, error } = await supabase
-      .from('video_progress')
-      .upsert({
-        enrollment_id: enrollment?.id,
-        video_id: videoId,
-        watch_time_seconds: progressData.watchTime,
-        is_completed: progressData.isCompleted,
-        last_watched_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { progress: data };
-  },
 };
 
 // Tests API
 export const testsAPI = {
   getTests: async (params?: URLSearchParams) => {
-    const { data, error } = await supabase
+    const { data: tests, error } = await supabase
       .from('tests')
-      .select(`
-        *,
-        courses (title, subject)
-      `)
-      .order('created_at', { ascending: false });
+      .select('*')
+      .eq('is_published', true);
 
     if (error) throw new Error(error.message);
-    return { tests: data };
+    return { tests };
   },
 
   getTest: async (id: string) => {
-    const { data, error } = await supabase
+    const { data: test, error } = await supabase
       .from('tests')
       .select(`
         *,
-        questions (*),
-        courses (title)
+        questions (*)
       `)
       .eq('id', id)
+      .eq('is_published', true)
       .single();
 
     if (error) throw new Error(error.message);
-    return { test: data };
+    return { test };
   },
 
   createTest: async (testData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('tests')
-      .insert([testData])
+      .insert([{ ...testData, created_by: user?.id }])
       .select()
       .single();
 
@@ -359,116 +419,48 @@ export const testsAPI = {
   },
 
   attemptTest: async (id: string, attemptData: { answers: any[]; timeTaken?: number }) => {
-    // Get test questions
-    const { data: test } = await supabase
-      .from('tests')
-      .select('*, questions (*)')
-      .eq('id', id)
-      .single();
-
-    // Calculate score
-    let score = 0;
-    let total_marks = 0;
-    const results = [];
-
-    for (const question of test.questions) {
-      total_marks += question.marks;
-      const userAnswer = attemptData.answers.find(a => a.questionId === question.id)?.answer;
-      const isCorrect = userAnswer === question.correct_answer;
-      
-      if (isCorrect) {
-        score += question.marks;
-      }
-
-      results.push({
-        question_id: question.id,
-        user_answer: userAnswer,
-        is_correct: isCorrect,
-        marks_obtained: isCorrect ? question.marks : 0
-      });
-    }
-
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No authenticated user');
 
-    // Save attempt
-    const { data: attempt, error } = await supabase
+    const { data, error } = await supabase
       .from('test_attempts')
       .insert({
-        student_id: user?.id,
         test_id: id,
-        score,
-        total_marks,
+        student_id: user.id,
+        time_taken_minutes: attemptData.timeTaken || 0,
+        status: 'submitted' as any,
         started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        total_marks: 0,
       })
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    
-    return { 
-      attempt,
-      score,
-      total_marks,
-      percentage: (score / total_marks) * 100
-    };
-  },
-
-  getTestAttempts: async (id: string) => {
-    const { data, error } = await supabase
-      .from('test_attempts')
-      .select('*, profiles(full_name)')
-      .eq('test_id', id)
-      .order('completed_at', { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return { attempts: data };
-  },
-
-  getMyTestAttempts: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('test_attempts')
-      .select('*, tests(title, subject)')
-      .eq('student_id', user?.id)
-      .order('completed_at', { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return { attempts: data };
+    return { attempt: data };
   },
 };
 
 // Users API
 export const usersAPI = {
   getUsers: async (params?: URLSearchParams) => {
-    const { data, error } = await supabase
+    const { data: users, error } = await supabase
       .from('profiles')
-      .select(`
-        *,
-        user_roles!inner (role),
-        batches (name, level)
-      `)
-      .eq('user_roles.role', 'student')
-      .order('created_at', { ascending: false });
+      .select('*');
 
     if (error) throw new Error(error.message);
-    return { users: data };
+    return { users };
   },
 
   getUser: async (id: string) => {
-    const { data, error } = await supabase
+    const { data: user, error } = await supabase
       .from('profiles')
-      .select(`
-        *,
-        user_roles (role),
-        batches (name, level)
-      `)
+      .select('*, user_roles(role)')
       .eq('id', id)
       .single();
 
     if (error) throw new Error(error.message);
-    return { user: data };
+    return { user: { ...user, role: user.user_roles?.role } };
   },
 
   updateUser: async (id: string, userData: any) => {
@@ -484,17 +476,23 @@ export const usersAPI = {
   },
 
   deleteUser: async (id: string) => {
-    const { error } = await supabase.auth.admin.deleteUser(id);
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+
     if (error) throw new Error(error.message);
     return { message: 'User deleted successfully' };
   },
 
   updateProfile: async (userData: any) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No authenticated user');
+
     const { data, error } = await supabase
       .from('profiles')
       .update(userData)
-      .eq('id', user?.id)
+      .eq('id', user.id)
       .select()
       .single();
 
@@ -503,7 +501,7 @@ export const usersAPI = {
   },
 };
 
-// Analytics APIs
+// Analytics API
 export const analyticsAPI = {
   getStudentAnalytics: () => makeSupabaseRequest('student-analytics'),
   getAdminAnalytics: () => makeSupabaseRequest('admin-analytics'),
@@ -511,13 +509,14 @@ export const analyticsAPI = {
   getRankPrediction: () => makeSupabaseRequest('predictive-analytics'),
 };
 
-// Dashboard APIs
+// Dashboard API
 export const dashboardAPI = {
   getOverview: () => makeSupabaseRequest('dashboard-overview'),
   getSchedule: () => makeSupabaseRequest('dashboard-schedule'),
   getAchievements: () => makeSupabaseRequest('dashboard-achievements'),
 };
 
+// Export all APIs
 export default {
   auth: authAPI,
   courses: coursesAPI,

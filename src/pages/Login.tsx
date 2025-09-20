@@ -25,23 +25,41 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: error.message,
+    try {
+      // Try using edge function first
+      const { data } = await supabase.functions.invoke('auth-login', {
+        body: { email, password }
       });
-    } else {
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       toast({
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',
       });
       navigate('/');
+    } catch (error: any) {
+      // Fallback to direct Supabase auth
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: authError.message,
+        });
+      } else {
+        toast({
+          title: 'Welcome back!',
+          description: 'You have been logged in successfully.',
+        });
+        navigate('/');
+      }
     }
 
     setLoading(false);
@@ -121,19 +139,33 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
-    });
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Google Login Failed',
-        description: error.message,
+    try {
+      // Try using edge function first
+      const { data } = await supabase.functions.invoke('auth-google', {
+        body: { redirectTo: `${window.location.origin}/` }
       });
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (data.error) {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      // Fallback to direct Supabase auth
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (authError) {
+        toast({
+          variant: 'destructive',
+          title: 'Google Login Failed',
+          description: authError.message,
+        });
+      }
     }
   };
 

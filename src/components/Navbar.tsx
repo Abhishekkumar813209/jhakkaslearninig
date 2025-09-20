@@ -1,12 +1,35 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { authAPI } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isAdmin, isStudent, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+      toast({
+        title: 'Logged out successfully',
+        description: 'See you again soon!',
+      });
+      navigate('/');
+    } catch (error) {
+      // Fallback to local signOut
+      await signOut();
+      toast({
+        title: 'Logged out',
+        description: 'You have been logged out.',
+      });
+      navigate('/');
+    }
+  };
 
   return (
     <nav className="bg-card border-b border-border shadow-soft sticky top-0 z-50">

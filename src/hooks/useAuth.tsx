@@ -68,6 +68,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     try {
+      // Try using edge function for profile
+      const { data } = await supabase.functions.invoke('profile-management', {
+        body: {}
+      });
+      
+      if (data?.profile?.role) {
+        setUserRole(data.profile.role);
+        return;
+      }
+    } catch (error) {
+      console.log('Edge function failed, using direct query');
+    }
+
+    // Fallback to direct query
+    try {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -87,6 +102,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
+    try {
+      // Try using edge function first
+      await supabase.functions.invoke('auth-logout', { body: {} });
+    } catch (error) {
+      console.log('Edge function logout failed, using direct method');
+    }
+    
+    // Always call direct logout as fallback
     await supabase.auth.signOut();
     setUserRole(null);
   };

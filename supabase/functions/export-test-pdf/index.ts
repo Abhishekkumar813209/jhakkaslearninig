@@ -90,7 +90,7 @@ function generateTestHTML(test: any) {
   const generateQuestionHTML = (question: any, index: number) => `
     <div class="question">
       <div class="question-header">
-        <span class="question-number">Q${index + 1}.</span>
+        <span class="question-line">Q${index + 1}. ${question.question_text}</span>
         <span class="marks">[${question.marks} marks]</span>
       </div>
       
@@ -99,8 +99,6 @@ function generateTestHTML(test: any) {
           <img src="${question.image_url}" alt="Question image">
         </div>
       ` : ''}
-      
-      <div class="question-text">${question.question_text}</div>
       
       ${question.question_type === 'mcq' && question.options ? `
         <div class="options">
@@ -135,10 +133,12 @@ function generateTestHTML(test: any) {
         * { box-sizing: border-box; }
         body { 
           font-family: 'Times New Roman', serif; 
-          margin: 15mm; 
-          line-height: 1.4; 
-          font-size: 11pt;
+          margin: 20mm 15mm; 
+          line-height: 1.3; 
+          font-size: 10.5pt;
           color: #000;
+          width: 210mm;
+          min-height: 297mm;
         }
         
         .header { 
@@ -195,26 +195,22 @@ function generateTestHTML(test: any) {
         }
         
         .question { 
-          margin-bottom: 18px; 
+          margin-bottom: 15px; 
           page-break-inside: avoid; 
-          border-bottom: 1px dotted #ccc;
-          padding-bottom: 12px;
-        }
-        
-        .question:last-child {
-          border-bottom: none;
         }
         
         .question-header { 
           display: flex; 
           justify-content: space-between; 
-          margin-bottom: 8px; 
-          font-weight: bold;
+          align-items: flex-start;
+          margin-bottom: 6px; 
         }
         
-        .question-number { 
+        .question-line { 
           font-weight: bold; 
           font-size: 11pt;
+          flex: 1;
+          margin-right: 10px;
         }
         
         .marks { 
@@ -234,10 +230,6 @@ function generateTestHTML(test: any) {
           border: 1px solid #ddd;
         }
         
-        .question-text {
-          margin-bottom: 8px;
-          font-weight: 500;
-        }
         
         .options { 
           margin-left: 15px; 
@@ -286,8 +278,13 @@ function generateTestHTML(test: any) {
         }
         
         @media print { 
-          body { margin: 10mm; }
+          body { 
+            margin: 15mm; 
+            width: auto;
+            min-height: auto;
+          }
           .content-container { min-height: auto; }
+          .question { page-break-inside: avoid; }
         }
       </style>
     </head>

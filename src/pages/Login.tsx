@@ -140,27 +140,36 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      // Use direct Supabase auth instead of edge function for better compatibility
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Request URL only, then force top-level redirect to escape iframe
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-          }
+          },
+          skipBrowserRedirect: true,
         },
       });
 
-      if (error) {
-        throw new Error(error.message);
+      if (error) throw new Error(error.message);
+
+      const url = data?.url;
+      if (!url) throw new Error('Failed to initiate Google OAuth');
+
+      // If running inside Lovable preview (iframe), redirect parent window
+      if (window.top && window.top !== window) {
+        window.top.location.href = url;
+      } else {
+        window.location.href = url;
       }
     } catch (error: any) {
       console.error('Google auth error:', error);
       toast({
         variant: 'destructive',
         title: 'Google Login Failed',
-        description: error.message || 'Failed to connect to Google. Please check your internet connection and try again.',
+        description: error.message || 'Failed to connect to Google. Please try again.',
       });
     }
   };

@@ -14,25 +14,17 @@ serve(async (req: Request) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization') ?? '' },
+        },
+      }
     )
 
     const url = new URL(req.url)
     const testId = url.pathname.split('/')[1]
     const action = url.pathname.split('/')[2]
-
-    // Get auth token and set session
-    const authHeader = req.headers.get('authorization')
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '')
-      const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-      if (userError || !user) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid or expired token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-    }
 
     switch (req.method) {
       case 'GET':
@@ -49,6 +41,7 @@ serve(async (req: Request) => {
             .single()
 
           if (error) {
+            console.error('Error fetching test:', error)
             return new Response(
               JSON.stringify({ error: 'Test not found' }),
               { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -70,6 +63,7 @@ serve(async (req: Request) => {
             .order('created_at', { ascending: false })
 
           if (error) {
+            console.error('Error fetching tests:', error)
             return new Response(
               JSON.stringify({ error: error.message }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -83,9 +77,13 @@ serve(async (req: Request) => {
         }
 
       case 'POST':
-        if (!authHeader) {
+        // Get current user to check authentication
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          console.error('Auth error:', userError)
           return new Response(
-            JSON.stringify({ error: 'Authorization required' }),
+            JSON.stringify({ error: 'Authentication required' }),
             { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
@@ -100,6 +98,13 @@ serve(async (req: Request) => {
             .select('*, questions (*)')
             .eq('id', testId)
             .single()
+
+          if (!test) {
+            return new Response(
+              JSON.stringify({ error: 'Test not found' }),
+              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
 
           // Calculate score
           let score = 0
@@ -123,24 +128,24 @@ serve(async (req: Request) => {
             })
           }
 
-          // Get current user
-          const { data: { user } } = await supabase.auth.getUser()
-
           // Save attempt
           const { data: attempt, error: attemptError } = await supabase
             .from('test_attempts')
             .insert({
-              student_id: user?.id,
+              student_id: user.id,
               test_id: testId,
               score,
               total_marks,
-              answers: results,
-              completed_at: new Date().toISOString()
+              percentage: Math.round((score / total_marks) * 100),
+              started_at: new Date().toISOString(),
+              submitted_at: new Date().toISOString(),
+              status: 'submitted'
             })
             .select()
             .single()
 
           if (attemptError) {
+            console.error('Error saving attempt:', attemptError)
             return new Response(
               JSON.stringify({ error: attemptError.message }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -152,7 +157,7 @@ serve(async (req: Request) => {
               attempt,
               score,
               total_marks,
-              percentage: (score / total_marks) * 100
+              percentage: Math.round((score / total_marks) * 100)
             }),
             { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
@@ -161,11 +166,15 @@ serve(async (req: Request) => {
           const body = await req.json()
           const { data: newTest, error: createError } = await supabase
             .from('tests')
-            .insert([body])
+            .insert([{
+              ...body,
+              created_by: user.id
+            }])
             .select()
             .single()
 
           if (createError) {
+            console.error('Error creating test:', createError)
             return new Response(
               JSON.stringify({ error: createError.message }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -188,7 +197,7 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('Tests API error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useCourses } from "@/hooks/useCourses";
 import { 
   Search, 
   Filter, 
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 const Courses = () => {
+  const { courses, loading, error } = useCourses();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedLevel, setSelectedLevel] = useState("All");
@@ -22,91 +24,9 @@ const Courses = () => {
   const categories = ["All", "Physics", "Mathematics", "Chemistry", "Biology", "Computer Science"];
   const levels = ["All", "Beginner", "Intermediate", "Advanced"];
 
-  const courses = [
-    {
-      id: "1",
-      title: "Complete Physics for JEE Main & Advanced",
-      instructor: "Dr. Rajesh Kumar",
-      thumbnail: "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=400&h=300&fit=crop",
-      price: 4999,
-      originalPrice: 9999,
-      rating: 4.9,
-      studentsEnrolled: 15420,
-      duration: "120 hours",
-      level: "Advanced" as const,
-      category: "Physics"
-    },
-    {
-      id: "2",
-      title: "Mathematics Foundation for Class 10th",
-      instructor: "Prof. Priya Sharma", 
-      thumbnail: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop",
-      price: 2999,
-      originalPrice: 5999,
-      rating: 4.8,
-      studentsEnrolled: 23150,
-      duration: "80 hours",
-      level: "Intermediate" as const,
-      category: "Mathematics"
-    },
-    {
-      id: "3",
-      title: "Chemistry Organic Reactions Masterclass",
-      instructor: "Dr. Amit Verma",
-      thumbnail: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop",
-      price: 3999,
-      originalPrice: 7999,
-      rating: 4.7,
-      studentsEnrolled: 8760,
-      duration: "95 hours",
-      level: "Advanced" as const,
-      category: "Chemistry"
-    },
-    {
-      id: "4",
-      title: "Biology NEET Complete Course",
-      instructor: "Dr. Sunita Rani",
-      thumbnail: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop",
-      price: 5999,
-      originalPrice: 11999,
-      rating: 4.9,
-      studentsEnrolled: 12340,
-      duration: "150 hours",
-      level: "Advanced" as const,
-      category: "Biology"
-    },
-    {
-      id: "5",
-      title: "Programming Fundamentals with Python",
-      instructor: "Rohit Singh",
-      thumbnail: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=400&h=300&fit=crop",
-      price: 3499,
-      originalPrice: 6999,
-      rating: 4.6,
-      studentsEnrolled: 18750,
-      duration: "60 hours",
-      level: "Beginner" as const,
-      category: "Computer Science"
-    },
-    {
-      id: "6",
-      title: "Advanced Calculus and Differential Equations",
-      instructor: "Prof. Mukesh Gupta",
-      thumbnail: "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=400&h=300&fit=crop",
-      price: 4499,
-      originalPrice: 8999,
-      rating: 4.8,
-      studentsEnrolled: 9650,
-      duration: "110 hours",
-      level: "Advanced" as const,
-      category: "Mathematics"
-    }
-  ];
-
   const filteredCourses = courses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.instructor.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || course.category === selectedCategory;
+    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || course.subject === selectedCategory;
     const matchesLevel = selectedLevel === "All" || course.level === selectedLevel;
     
     return matchesSearch && matchesCategory && matchesLevel;
@@ -201,10 +121,42 @@ const Courses = () => {
             </div>
           </div>
           
-          {filteredCourses.length > 0 ? (
+          {loading ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-6">
+                  <div className="animate-pulse">
+                    <div className="bg-muted h-40 rounded mb-4"></div>
+                    <div className="bg-muted h-4 rounded mb-2"></div>
+                    <div className="bg-muted h-4 rounded w-3/4"></div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : error ? (
+            <Card className="p-12 text-center">
+              <div className="space-y-4">
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto" />
+                <h3 className="text-xl font-semibold">Error loading courses</h3>
+                <p className="text-muted-foreground">{error}</p>
+              </div>
+            </Card>
+          ) : filteredCourses.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredCourses.map(course => (
-                <CourseCard key={course.id} {...course} />
+                <CourseCard 
+                  key={course.id} 
+                  id={course.id}
+                  title={course.title}
+                  instructor={course.instructor_id}
+                  thumbnail={course.thumbnail}
+                  price={course.price}
+                  rating={course.rating || 4.5}
+                  studentsEnrolled={course.enrollment_count || 0}
+                  duration={`${course.duration_hours || 0} hours`}
+                  level={course.level as "Beginner" | "Intermediate" | "Advanced"}
+                  category={course.subject}
+                />
               ))}
             </div>
           ) : (

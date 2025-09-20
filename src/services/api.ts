@@ -166,11 +166,18 @@ export const authAPI = {
 export const coursesAPI = {
   getCourses: async (params?: URLSearchParams) => {
     try {
-      const { data: courses, error } = await supabase
+      let query = supabase
         .from('courses')
         .select('*')
-        .eq('is_published', true)
         .order('created_at', { ascending: false });
+
+      // Only filter by published status if not admin view
+      const showAll = params?.get('showAll');
+      if (!showAll) {
+        query = query.eq('is_published', true);
+      }
+
+      const { data: courses, error } = await query;
 
       if (error) throw new Error(error.message);
       return { courses };

@@ -18,6 +18,13 @@ const CourseManagement = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+
+  // Fetch all courses (including unpublished) for admin
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('showAll', 'true');
+    fetchCourses(params);
+  }, [fetchCourses]);
   const [formData, setFormData] = useState({
     title: '',
     subject: '',

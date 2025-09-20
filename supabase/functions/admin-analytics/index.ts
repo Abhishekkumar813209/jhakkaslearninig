@@ -94,26 +94,33 @@ serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    // Get batch performance
+    // Get batch performance with proper relationship
     const { data: batchPerformance } = await supabase
       .from('batches')
       .select(`
         id, name, current_strength,
-        profiles!profiles_batch_id_fkey (
-          student_analytics (average_score, tests_attempted)
+        profiles:profiles!profiles_batch_id_fkey (
+          id,
+          student_analytics:student_analytics!student_analytics_student_id_fkey (
+            average_score, tests_attempted
+          )
         )
       `)
 
     const batchStats = batchPerformance?.map(batch => {
       const students = batch.profiles || []
-      const totalScore = students.reduce((sum: number, student: any) => 
-        sum + (student.student_analytics?.average_score || 0), 0)
-      const totalTests = students.reduce((sum: number, student: any) => 
-        sum + (student.student_analytics?.tests_attempted || 0), 0)
+      const analyticsData = students
+        .map((student: any) => student.student_analytics)
+        .filter(Boolean)
+      
+      const totalScore = analyticsData.reduce((sum: number, analytics: any) => 
+        sum + (analytics.average_score || 0), 0)
+      const totalTests = analyticsData.reduce((sum: number, analytics: any) => 
+        sum + (analytics.tests_attempted || 0), 0)
       
       return {
         ...batch,
-        averageScore: students.length > 0 ? totalScore / students.length : 0,
+        averageScore: analyticsData.length > 0 ? totalScore / analyticsData.length : 0,
         totalTestsAttempted: totalTests,
         activeStudents: students.length
       }

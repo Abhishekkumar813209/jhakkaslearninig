@@ -455,12 +455,20 @@ export const usersAPI = {
   getUser: async (id: string) => {
     const { data: user, error } = await supabase
       .from('profiles')
-      .select('*, user_roles(role)')
+      .select('*')
       .eq('id', id)
       .single();
 
     if (error) throw new Error(error.message);
-    return { user: { ...user, role: user.user_roles?.role } };
+    
+    // Get role separately
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', id)
+      .single();
+    
+    return { user: { ...user, role: roleData?.role || 'student' } };
   },
 
   updateUser: async (id: string, userData: any) => {

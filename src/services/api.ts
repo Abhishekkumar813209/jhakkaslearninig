@@ -547,3 +547,100 @@ export default {
   analytics: analyticsAPI,
   dashboard: dashboardAPI,
 };
+
+// Batch API
+export const batchAPI = {
+  getBatches: async () => {
+    try {
+      const { data, error } = await makeSupabaseRequest('batch-api');
+      if (error) {
+        console.error('Get batches API error:', error);
+        throw error;
+      }
+      console.log('Batches fetched successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Batch fetch failed:', error);
+      throw error;
+    }
+  },
+
+  getBatch: async (id: string) => {
+    try {
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api/${id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${await getAuthToken()}`,
+        },
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Get batch failed:', error);
+      throw error;
+    }
+  },
+
+  createBatch: async (batchData: any) => {
+    try {
+      console.log('Creating batch with data:', batchData);
+      
+      // Get current session to ensure we have proper auth
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('User not authenticated');
+      }
+      
+      const { data, error } = await makeSupabaseRequest('batch-api', batchData);
+      if (error) {
+        console.error('Batch creation API error:', error);
+        throw error;
+      }
+      console.log('Batch created successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Batch creation failed:', error);
+      throw error;
+    }
+  },
+
+  updateBatch: async (id: string, batchData: any) => {
+    try {
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await getAuthToken()}`,
+        },
+        body: JSON.stringify(batchData),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Batch update failed:', error);
+      throw error;
+    }
+  },
+
+  deleteBatch: async (id: string) => {
+    try {
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await getAuthToken()}`,
+        },
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Batch deletion failed:', error);
+      throw error;
+    }
+  },
+};

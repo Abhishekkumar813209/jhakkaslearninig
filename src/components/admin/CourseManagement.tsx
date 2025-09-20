@@ -19,12 +19,12 @@ const CourseManagement = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
-  // Fetch all courses (including unpublished) for admin
+  // Fetch all courses (including unpublished) for admin on component mount
   useEffect(() => {
     const params = new URLSearchParams();
     params.set('showAll', 'true');
     fetchCourses(params);
-  }, [fetchCourses]);
+  }, []); // Empty dependency array to run only once
   const [formData, setFormData] = useState({
     title: '',
     subject: '',

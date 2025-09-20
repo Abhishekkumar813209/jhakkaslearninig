@@ -34,7 +34,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 interface Question {
   id?: string;
   question_text: string;
-  question_type: 'multiple_choice' | 'text';
+  question_type: 'mcq' | 'subjective';
   options?: { text: string; isCorrect: boolean }[];
   correct_answer?: string;
   marks: number;
@@ -74,7 +74,7 @@ const TestBuilderPortal: React.FC = () => {
 
   const [newQuestion, setNewQuestion] = useState<Question>({
     question_text: '',
-    question_type: 'multiple_choice',
+    question_type: 'mcq',
     options: [
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -112,7 +112,7 @@ const TestBuilderPortal: React.FC = () => {
         const transformedQuestions = (data.questions || []).map((q: any) => ({
           ...q,
           options: q.options ? JSON.parse(q.options) : null,
-          question_type: q.question_type || 'multiple_choice'
+          question_type: q.question_type || 'mcq'
         }));
         setQuestions(transformedQuestions);
       }
@@ -134,7 +134,7 @@ const TestBuilderPortal: React.FC = () => {
         ...newQuestion,
         test_id: testId,
         position: questions.length + 1,
-        qtype: newQuestion.question_type === 'multiple_choice' ? 'mcq' : 'subjective'
+        qtype: newQuestion.question_type
       };
 
       console.log('Adding question:', questionData);
@@ -179,7 +179,7 @@ const TestBuilderPortal: React.FC = () => {
           questionId: editingQuestion.id,
           updates: {
             ...newQuestion,
-            qtype: newQuestion.question_type === 'multiple_choice' ? 'mcq' : 'subjective'
+            qtype: newQuestion.question_type
           }
         }
       });
@@ -246,7 +246,7 @@ const TestBuilderPortal: React.FC = () => {
   const resetQuestionForm = () => {
     setNewQuestion({
       question_text: '',
-      question_type: 'multiple_choice',
+      question_type: 'mcq',
       options: [
         { text: '', isCorrect: true },
         { text: '', isCorrect: false },
@@ -465,13 +465,13 @@ const TestBuilderPortal: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="outline">Q{index + 1}</Badge>
-                          <Badge variant={question.question_type === 'multiple_choice' ? 'default' : 'secondary'}>
-                            {question.question_type === 'multiple_choice' ? 'MCQ' : 'Subjective'}
+                          <Badge variant={question.question_type === 'mcq' ? 'default' : 'secondary'}>
+                            {question.question_type === 'mcq' ? 'MCQ' : 'Subjective'}
                           </Badge>
                           <Badge variant="outline">{question.marks} marks</Badge>
                         </div>
                         <p className="font-medium mb-2">{question.question_text}</p>
-                        {question.question_type === 'multiple_choice' && question.options && (
+                        {question.question_type === 'mcq' && question.options && (
                           <div className="space-y-1">
                             {question.options.map((option, optIndex) => (
                               <div key={optIndex} className={`text-sm p-2 rounded ${option.isCorrect ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50'}`}>
@@ -512,7 +512,7 @@ const TestBuilderPortal: React.FC = () => {
               <Label htmlFor="question-type">Question Type</Label>
               <Select 
                 value={newQuestion.question_type} 
-                onValueChange={(value: 'multiple_choice' | 'text') => 
+                onValueChange={(value: 'mcq' | 'subjective') => 
                   setNewQuestion(prev => ({ ...prev, question_type: value }))
                 }
               >
@@ -520,8 +520,8 @@ const TestBuilderPortal: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="multiple_choice">Multiple Choice (MCQ)</SelectItem>
-                  <SelectItem value="text">Subjective/Text Answer</SelectItem>
+                  <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
+                  <SelectItem value="subjective">Subjective/Text Answer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -537,7 +537,7 @@ const TestBuilderPortal: React.FC = () => {
               />
             </div>
 
-            {newQuestion.question_type === 'multiple_choice' && (
+            {newQuestion.question_type === 'mcq' && (
               <div>
                 <Label>Answer Options</Label>
                 <div className="space-y-2">
@@ -566,7 +566,7 @@ const TestBuilderPortal: React.FC = () => {
               </div>
             )}
 
-            {newQuestion.question_type === 'text' && (
+            {newQuestion.question_type === 'subjective' && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="word-limit">Word Limit (Optional)</Label>
@@ -596,7 +596,7 @@ const TestBuilderPortal: React.FC = () => {
               </div>
             )}
 
-            {newQuestion.question_type === 'multiple_choice' && (
+            {newQuestion.question_type === 'mcq' && (
               <div>
                 <Label htmlFor="marks">Marks</Label>
                 <Input

@@ -267,14 +267,9 @@ const Register = () => {
                 variant="outline"
                 className="w-full"
                 onClick={handleGoogleRegister}
-                disabled={true}
               >
-                Continue with Google (Coming Soon)
+                Continue with Google
               </Button>
-
-              <div className="text-center text-xs text-muted-foreground">
-                <span>Google OAuth is being configured. Please use email/password registration for now.</span>
-              </div>
             </TabsContent>
 
           </Tabs>

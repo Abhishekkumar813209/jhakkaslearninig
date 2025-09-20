@@ -328,14 +328,9 @@ const Login = () => {
                 variant="outline"
                 className="w-full"
                 onClick={handleGoogleLogin}
-                disabled={true}
               >
-                Continue with Google (Coming Soon)
+                Continue with Google
               </Button>
-
-              <div className="text-center text-xs text-muted-foreground">
-                <span>Google OAuth is being configured. Please use email/password login for now.</span>
-              </div>
 
               <div className="text-center text-sm">
                 <span className="text-muted-foreground">Don't have an account? </span>

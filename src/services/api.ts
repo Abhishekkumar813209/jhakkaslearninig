@@ -207,6 +207,13 @@ export const coursesAPI = {
   createCourse: async (courseData: any) => {
     try {
       console.log('Creating course with data:', courseData);
+      
+      // Get current session to ensure we have proper auth
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('User not authenticated');
+      }
+      
       const { data, error } = await makeSupabaseRequest('courses-api', courseData);
       if (error) {
         console.error('Course creation API error:', error);

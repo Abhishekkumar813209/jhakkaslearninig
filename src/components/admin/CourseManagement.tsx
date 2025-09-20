@@ -31,7 +31,7 @@ const CourseManagement = () => {
     description: '',
     price: '',
     level: '',
-    thumbnail: ''
+    thumbnail: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop' // Default thumbnail
   });
 
   const resetForm = () => {
@@ -41,7 +41,7 @@ const CourseManagement = () => {
       description: '',
       price: '',
       level: '',
-      thumbnail: ''
+      thumbnail: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop' // Default thumbnail
     });
   };
 
@@ -77,7 +77,7 @@ const CourseManagement = () => {
       description: course.description,
       price: course.price.toString(),
       level: course.level,
-      thumbnail: course.thumbnail
+      thumbnail: course.thumbnail || 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop'
     });
     setShowEditDialog(true);
   };
@@ -215,8 +215,20 @@ const CourseManagement = () => {
                     id="thumbnail"
                     value={formData.thumbnail}
                     onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
-                    placeholder="Enter thumbnail URL" 
+                    placeholder="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop" 
                   />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Sample URLs: 
+                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=400&h=300&fit=crop'})}>
+                      Physics
+                    </button>,
+                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop'})}>
+                      Mathematics
+                    </button>,
+                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop'})}>
+                      Chemistry
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -442,15 +454,27 @@ const CourseManagement = () => {
                      </SelectContent>
                    </Select>
                  </div>
-                 <div>
-                   <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
-                   <Input 
-                     id="edit-thumbnail"
-                     value={formData.thumbnail}
-                     onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
-                     placeholder="Enter thumbnail URL" 
-                   />
-                 </div>
+                <div>
+                  <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
+                  <Input 
+                    id="edit-thumbnail"
+                    value={formData.thumbnail}
+                    onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
+                    placeholder="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop" 
+                  />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Sample URLs: 
+                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=400&h=300&fit=crop'})}>
+                      Physics
+                    </button>,
+                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop'})}>
+                      Mathematics
+                    </button>,
+                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop'})}>
+                      Chemistry
+                    </button>
+                  </div>
+                </div>
                </div>
                
                <div className="flex gap-2">

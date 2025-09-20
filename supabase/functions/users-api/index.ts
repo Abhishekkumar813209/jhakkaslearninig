@@ -98,13 +98,16 @@ serve(async (req: Request) => {
           if (roleListErr) {
             console.error('users-api: role list error', roleListErr)
             return new Response(
-              JSON.stringify({ error: roleListErr.message }),
+              JSON.stringify({ error: `Role fetch error: ${roleListErr.message}` }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
 
+          console.log(`users-api: Found ${studentIdsRows?.length || 0} student roles`)
+
           const studentIds = (studentIdsRows || []).map((r: any) => r.user_id)
           if (studentIds.length === 0) {
+            console.log('users-api: No students found in user_roles')
             return new Response(
               JSON.stringify({ students: [] }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -115,8 +118,13 @@ serve(async (req: Request) => {
           let query = service
             .from('profiles')
             .select(`
-              *,
-              batches (id, name, level)
+              id,
+              email,
+              full_name,
+              avatar_url,
+              batch_id,
+              created_at,
+              batches!profiles_batch_id_fkey (id, name, level)
             `)
             .in('id', studentIds)
             .order('created_at', { ascending: false })
@@ -130,10 +138,12 @@ serve(async (req: Request) => {
           if (error) {
             console.error('users-api: profiles fetch error', error)
             return new Response(
-              JSON.stringify({ error: error.message }),
+              JSON.stringify({ error: `Profiles fetch error: ${error.message}` }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
+
+          console.log(`users-api: Successfully fetched ${students?.length || 0} student profiles`)
 
           return new Response(
             JSON.stringify({ students }),

@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
 }
 
 serve(async (req: Request) => {
@@ -67,16 +68,42 @@ serve(async (req: Request) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } else if (path.includes('/students')) {
-          // Get all students (admin only)
-          const { data: students, error } = await supabase
+          // Admin-only: list students with optional search
+          const { data: roleRow, error: roleErr } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user?.id)
+            .single()
+
+          if (roleErr || roleRow?.role !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Admin access required' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const service = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          const search = url.searchParams.get('search')?.trim()
+
+          let query = service
             .from('profiles')
             .select(`
               *,
               user_roles!inner (role),
-              batches (name, level)
+              batches (id, name, level)
             `)
             .eq('user_roles.role', 'student')
             .order('created_at', { ascending: false })
+
+          if (search) {
+            query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`)
+          }
+
+          const { data: students, error } = await query
 
           if (error) {
             return new Response(
@@ -94,7 +121,7 @@ serve(async (req: Request) => {
 
       case 'PUT':
         if (path.includes('/profile')) {
-          // Update profile
+          // Update profile (self)
           const body = await req.json()
           const { data: updatedProfile, error } = await supabase
             .from('profiles')
@@ -112,6 +139,56 @@ serve(async (req: Request) => {
 
           return new Response(
             JSON.stringify({ profile: updatedProfile }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } else if (/\/students\/.+\/batch$/.test(path)) {
+          // Assign a student to a batch (admin only)
+          const { data: roleRow } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user?.id)
+            .single()
+
+          if (roleRow?.role !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Admin access required' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const segments = path.split('/').filter(Boolean)
+          const targetUserId = segments[segments.length - 2]
+          const body = await req.json().catch(() => ({}))
+          const batchId = body.batch_id || body.batchId
+
+          if (!batchId) {
+            return new Response(
+              JSON.stringify({ error: 'batch_id is required' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const service = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          const { data: updated, error } = await service
+            .from('profiles')
+            .update({ batch_id: batchId })
+            .eq('id', targetUserId)
+            .select('*')
+            .single()
+
+          if (error) {
+            return new Response(
+              JSON.stringify({ error: error.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          return new Response(
+            JSON.stringify({ profile: updated, success: true }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }

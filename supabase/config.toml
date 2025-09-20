@@ -61,3 +61,9 @@ verify_jwt = true
 
 [functions.courses-api]
 verify_jwt = false
+
+[functions.users-api]
+verify_jwt = true
+
+[functions.batch-api]
+verify_jwt = true

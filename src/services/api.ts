@@ -456,13 +456,19 @@ export const testsAPI = {
 
 // Users API
 export const usersAPI = {
-  getUsers: async (params?: URLSearchParams) => {
-    const { data: users, error } = await supabase
-      .from('profiles')
-      .select('*');
+  getStudents: async (search?: string) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
 
-    if (error) throw new Error(error.message);
-    return { users };
+    const url = new URL(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students`);
+    if (search) url.searchParams.set('search', search);
+
+    const response = await fetch(url.toString(), {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || 'Failed to fetch students');
+    return result as { students: any[] };
   },
 
   getUser: async (id: string) => {
@@ -474,7 +480,6 @@ export const usersAPI = {
 
     if (error) throw new Error(error.message);
     
-    // Get role separately
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
@@ -520,6 +525,23 @@ export const usersAPI = {
     if (error) throw new Error(error.message);
     return { profile: data };
   },
+
+  assignStudentToBatch: async (studentId: string, batchId: string) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students/${studentId}/batch`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ batch_id: batchId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || 'Failed to assign batch');
+    return result;
+  },
 };
 
 // Analytics API
@@ -552,13 +574,20 @@ export default {
 export const batchAPI = {
   getBatches: async () => {
     try {
-      const { data, error } = await makeSupabaseRequest('batch-api');
-      if (error) {
-        console.error('Get batches API error:', error);
-        throw error;
+      const token = await getAuthToken();
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api`, {
+        method: 'GET',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const msg = result?.error || `Failed to fetch batches (${response.status})`;
+        console.error('Batch API GET error:', { status: response.status, result });
+        throw new Error(msg);
       }
-      console.log('Batches fetched successfully:', data);
-      return data;
+      console.log('Batches fetched successfully:', result);
+      return result;
     } catch (error) {
       console.error('Batch fetch failed:', error);
       throw error;
@@ -586,20 +615,27 @@ export const batchAPI = {
   createBatch: async (batchData: any) => {
     try {
       console.log('Creating batch with data:', batchData);
-      
-      // Get current session to ensure we have proper auth
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('User not authenticated');
+
+      const token = await getAuthToken();
+      if (!token) throw new Error('User not authenticated');
+
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(batchData),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const msg = result?.error || 'Failed to create batch';
+        console.error('Batch creation API error:', { status: response.status, result });
+        throw new Error(msg);
       }
-      
-      const { data, error } = await makeSupabaseRequest('batch-api', batchData);
-      if (error) {
-        console.error('Batch creation API error:', error);
-        throw error;
-      }
-      console.log('Batch created successfully:', data);
-      return data;
+      console.log('Batch created successfully:', result);
+      return result;
     } catch (error) {
       console.error('Batch creation failed:', error);
       throw error;

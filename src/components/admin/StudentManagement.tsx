@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,75 +6,86 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Filter } from "lucide-react";
+import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Filter, Loader2 } from "lucide-react";
+import { useBatches } from "@/hooks/useBatches";
+import { useToast } from "@/hooks/use-toast";
+import { usersAPI } from "@/services/api";
 
-// Mock student data
-const mockStudents = [
-  {
-    id: "1",
-    name: "Rahul Sharma",
-    email: "rahul@example.com",
-    batch: "JEE Main 2024",
-    performance: 85,
-    status: "active",
-    joinDate: "2024-01-15",
-    testsCompleted: 25,
-    avgScore: 82.5,
-    studyStreak: 15
-  },
-  {
-    id: "2", 
-    name: "Priya Patel",
-    email: "priya@example.com",
-    batch: "NEET 2024",
-    performance: 92,
-    status: "active",
-    joinDate: "2024-02-10",
-    testsCompleted: 30,
-    avgScore: 89.2,
-    studyStreak: 22
-  },
-  {
-    id: "3",
-    name: "Arjun Singh",
-    email: "arjun@example.com", 
-    batch: "JEE Advanced",
-    performance: 78,
-    status: "suspended",
-    joinDate: "2024-01-20",
-    testsCompleted: 18,
-    avgScore: 75.8,
-    studyStreak: 0
-  }
-];
+interface Student {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  avatar_url?: string | null;
+  batch_id?: string | null;
+  user_roles?: { role: string } | null;
+  batches?: { id: string; name: string; level: string } | null;
+}
 
 const StudentManagement = () => {
-  const [students, setStudents] = useState(mockStudents);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBatch, setSelectedBatch] = useState("all");
-  const [selectedStudent, setSelectedStudent] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const { batches, fetchBatches } = useBatches();
+  const { toast } = useToast();
 
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBatch = selectedBatch === "all" || student.batch === selectedBatch;
-    return matchesSearch && matchesBatch;
-  });
+  const fetchStudents = async (search?: string) => {
+    try {
+      setLoading(true);
+      const { students } = await usersAPI.getStudents(search);
+      setStudents(students as Student[]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch students";
+      console.error("Students fetch error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+    fetchBatches();
+  }, []);
+
+  // Debounced server-side search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetchStudents(searchTerm.trim() || undefined);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  const filteredStudents = useMemo(() => {
+    const list = students;
+    if (selectedBatch === "all") return list;
+    return list.filter((s) => s.batches?.name === selectedBatch || s.batch_id === selectedBatch);
+  }, [students, selectedBatch]);
 
   const getStatusBadge = (status: string) => {
     const variants = {
       active: "bg-green-100 text-green-800",
       suspended: "bg-red-100 text-red-800",
-      inactive: "bg-gray-100 text-gray-800"
-    };
+      inactive: "bg-gray-100 text-gray-800",
+    } as const;
     return variants[status as keyof typeof variants] || variants.inactive;
   };
 
-  const getPerformanceBadge = (performance: number) => {
-    if (performance >= 90) return "bg-green-100 text-green-800";
-    if (performance >= 75) return "bg-yellow-100 text-yellow-800";
-    return "bg-red-100 text-red-800";
+  const handleAssign = async (studentId: string, batchId: string) => {
+    try {
+      setLoading(true);
+      const res = await usersAPI.assignStudentToBatch(studentId, batchId);
+      toast({ title: "Assigned", description: "Student assigned to batch" });
+      // Refresh list
+      fetchStudents(searchTerm.trim() || undefined);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to assign batch";
+      console.error("Assign batch error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -83,7 +94,7 @@ const StudentManagement = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Student Management</h2>
-          <p className="text-muted-foreground">Manage all students and their progress</p>
+          <p className="text-muted-foreground">Manage all students and their batch assignments</p>
         </div>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
@@ -104,10 +115,9 @@ const StudentManagement = () => {
                   <SelectValue placeholder="Select Batch" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="jee-main">JEE Main 2024</SelectItem>
-                  <SelectItem value="jee-advanced">JEE Advanced</SelectItem>
-                  <SelectItem value="neet">NEET 2024</SelectItem>
-                  <SelectItem value="foundation">Foundation</SelectItem>
+                  {batches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <div className="flex gap-2">
@@ -133,16 +143,15 @@ const StudentManagement = () => {
               />
             </div>
             <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-56">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by batch" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Batches</SelectItem>
-                <SelectItem value="JEE Main 2024">JEE Main 2024</SelectItem>
-                <SelectItem value="JEE Advanced">JEE Advanced</SelectItem>
-                <SelectItem value="NEET 2024">NEET 2024</SelectItem>
-                <SelectItem value="Foundation">Foundation</SelectItem>
+                {batches.map((b) => (
+                  <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -161,70 +170,64 @@ const StudentManagement = () => {
                 <TableRow>
                   <TableHead>Student</TableHead>
                   <TableHead>Batch</TableHead>
-                  <TableHead>Performance</TableHead>
-                  <TableHead>Tests</TableHead>
-                  <TableHead>Streak</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Assign to Batch</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-foreground">{student.name}</div>
-                        <div className="text-sm text-muted-foreground">{student.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{student.batch}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`px-2 py-1 rounded text-xs font-medium ${getPerformanceBadge(student.performance)}`}>
-                          {student.performance}%
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{student.testsCompleted} completed</div>
-                        <div className="text-muted-foreground">Avg: {student.avgScore}%</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={student.studyStreak > 0 ? "default" : "secondary"}>
-                        {student.studyStreak} days
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(student.status)}`}>
-                        {student.status}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className={student.status === "active" ? "text-red-600" : "text-green-600"}
-                        >
-                          {student.status === "active" ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      Loading...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filteredStudents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      No students found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-foreground">{student.full_name || 'Unnamed'}</div>
+                          <div className="text-sm text-muted-foreground">{student.email}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{student.batches?.name || 'Unassigned'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select onValueChange={(val) => handleAssign(student.id, val)}>
+                          <SelectTrigger className="w-56">
+                            <SelectValue placeholder="Select batch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {batches.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-red-600">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

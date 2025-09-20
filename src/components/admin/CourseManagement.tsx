@@ -79,7 +79,7 @@ const CourseManagement = () => {
     if (!editingCourse) return;
 
     try {
-      await updateCourse(editingCourse._id, {
+      await updateCourse(editingCourse.id, {
         ...formData,
         price: parseFloat(formData.price) || 0
       });
@@ -241,7 +241,7 @@ const CourseManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                  <p className="text-sm font-medium text-muted-foreground">Total Videos</p>
-                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.lessons?.length || 0), 0)}</p>
+                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.total_videos || course.lessons?.length || 0), 0)}</p>
               </div>
               <Play className="h-8 w-8 text-green-600" />
             </div>
@@ -253,7 +253,7 @@ const CourseManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                  <p className="text-sm font-medium text-muted-foreground">Total Enrollments</p>
-                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + course.enrollmentCount, 0)}</p>
+                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.enrollment_count || course.enrollmentCount || 0), 0)}</p>
               </div>
               <Users className="h-8 w-8 text-purple-600" />
             </div>
@@ -265,7 +265,7 @@ const CourseManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                  <p className="text-sm font-medium text-muted-foreground">Revenue</p>
-                 <p className="text-2xl font-bold text-foreground">₹{loading ? '...' : (courses.reduce((sum, course) => sum + (course.price * course.enrollmentCount), 0) / 100000).toFixed(1)}L</p>
+                 <p className="text-2xl font-bold text-foreground">₹{loading ? '...' : (courses.reduce((sum, course) => sum + (course.price * (course.enrollment_count || course.enrollmentCount || 0)), 0) / 100000).toFixed(1)}L</p>
               </div>
               <div className="h-8 w-8 text-orange-600">₹</div>
             </div>
@@ -307,57 +307,57 @@ const CourseManagement = () => {
                    </TableRow>
                  ) : (
                    courses.map((course) => (
-                     <TableRow key={course._id}>
-                       <TableCell>
-                         <div>
-                           <div className="font-medium text-foreground">{course.title}</div>
-                           <div className="text-sm text-muted-foreground">{course.description}</div>
-                           <div className="text-xs text-muted-foreground mt-1">
-                             Level: {course.level} | Duration: {course.totalDuration} mins
-                           </div>
-                         </div>
-                       </TableCell>
-                       <TableCell>
-                         <div className={`px-2 py-1 rounded text-xs font-medium ${getSubjectColor(course.subject)}`}>
-                           {course.subject}
-                         </div>
-                       </TableCell>
-                       <TableCell>
-                         <div className="flex items-center gap-1">
-                           <Play className="h-4 w-4 text-muted-foreground" />
-                           <span className="font-medium">{course.lessons?.length || 0}</span>
-                         </div>
-                       </TableCell>
-                       <TableCell>
-                         <div className="flex items-center gap-1">
-                           <Users className="h-4 w-4 text-muted-foreground" />
-                           <span className="font-medium">{course.enrollmentCount}</span>
-                         </div>
-                       </TableCell>
-                       <TableCell>
-                         <div className="font-medium text-foreground">₹{course.price.toLocaleString()}</div>
-                       </TableCell>
-                       <TableCell>
-                         <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(course.isPublished ? 'active' : 'draft')}`}>
-                           {course.isPublished ? 'Published' : 'Draft'}
-                         </div>
-                       </TableCell>
-                       <TableCell>
-                         <div className="flex items-center gap-2">
-                           <Button size="sm" variant="outline" onClick={() => handleEditCourse(course)}>
-                             <Edit className="h-4 w-4" />
-                           </Button>
-                           <Button 
-                             size="sm" 
-                             variant="outline" 
-                             className="text-red-600"
-                             onClick={() => handleDeleteCourse(course._id)}
-                           >
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
-                         </div>
-                       </TableCell>
-                     </TableRow>
+                      <TableRow key={course.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium text-foreground">{course.title}</div>
+                            <div className="text-sm text-muted-foreground">{course.description}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Level: {course.level} | Duration: {course.duration_hours || course.totalDuration || 0} hrs
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className={`px-2 py-1 rounded text-xs font-medium ${getSubjectColor(course.subject)}`}>
+                            {course.subject}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Play className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{course.total_videos || course.lessons?.length || 0}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{course.enrollment_count || course.enrollmentCount || 0}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium text-foreground">₹{course.price.toLocaleString()}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge((course.is_published || course.isPublished) ? 'active' : 'draft')}`}>
+                            {(course.is_published || course.isPublished) ? 'Published' : 'Draft'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleEditCourse(course)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-red-600"
+                              onClick={() => handleDeleteCourse(course.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                    ))
                  )}
                </TableBody>

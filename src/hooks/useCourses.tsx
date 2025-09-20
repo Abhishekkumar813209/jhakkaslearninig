@@ -8,8 +8,8 @@ export interface Course {
   description: string;
   thumbnail?: string;
   subject: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | string;
-  price?: number;
+  level: string;
+  price: number;
   is_paid?: boolean;
   instructor_id: string;
   duration_hours?: number;
@@ -18,14 +18,9 @@ export interface Course {
   enrollment_count?: number;
   rating?: number;
   is_published?: boolean;
-  is_enrolled?: boolean;
-  created_at: string;
-  updated_at: string;
-  profiles?: {
-    full_name?: string;
-  };
-  videos?: any[];
-  tests?: any[];
+  created_at?: string;
+  updated_at?: string;
+  
   // Legacy fields for backward compatibility
   _id?: string;
   originalPrice?: number;

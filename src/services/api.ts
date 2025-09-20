@@ -1,8 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 
 // Helper function to get auth token from Supabase
-const getAuthToken = () => {
-  return supabase.auth.getSession();
+const getAuthToken = async () => {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token;
 };
 
 // Generic request handler for Supabase functions
@@ -116,37 +117,57 @@ export const coursesAPI = {
   },
 
   createCourse: async (courseData: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('courses')
-      .insert([{ ...courseData, instructor_id: user?.id }])
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { course: data };
+    try {
+      console.log('Creating course with data:', courseData);
+      const { data, error } = await makeSupabaseRequest('courses-api', courseData);
+      if (error) {
+        console.error('Course creation API error:', error);
+        throw error;
+      }
+      console.log('Course created successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Course creation failed:', error);
+      throw error;
+    }
   },
 
   updateCourse: async (id: string, courseData: any) => {
-    const { data, error } = await supabase
-      .from('courses')
-      .update(courseData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { course: data };
+    try {
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/courses-api/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await getAuthToken()}`,
+        },
+        body: JSON.stringify(courseData),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Course update failed:', error);
+      throw error;
+    }
   },
 
   deleteCourse: async (id: string) => {
-    const { error } = await supabase
-      .from('courses')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
-    return { message: 'Course deleted successfully' };
+    try {
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/courses-api/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await getAuthToken()}`,
+        },
+      });
+      
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    } catch (error) {
+      console.error('Course deletion failed:', error);
+      throw error;
+    }
   },
 
   enrollInCourse: async (id: string) => {

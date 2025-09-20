@@ -145,20 +145,34 @@ const Login = () => {
       const url = (result as any)?.url;
       if (!url) throw new Error('Failed to initiate Google OAuth');
 
-      // Open in a new tab/window to bypass iframe navigation restrictions
-      const popup = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!popup) {
-        // If pop-up blocked, force top-level navigation (escapes preview iframe)
+      // Try popup first
+      const popup = window.open(url, '_blank', 'width=500,height=600,scrollbars=yes,resizable=yes');
+      
+      if (popup && !popup.closed) {
+        // Popup opened successfully
+        toast({
+          title: 'Continue in the new tab',
+          description: 'Complete Google sign-in, then return here.',
+        });
+        
+        // Check if popup gets blocked after a short delay
+        setTimeout(() => {
+          if (popup.closed || !popup.location) {
+            // Popup was blocked or closed, fallback to redirect
+            if (window.top && window.top !== window) {
+              (window.top as Window).location.href = url;
+            } else {
+              window.location.href = url;
+            }
+          }
+        }, 1000);
+      } else {
+        // Popup failed immediately, use redirect
         if (window.top && window.top !== window) {
           (window.top as Window).location.href = url;
         } else {
           window.location.href = url;
         }
-      } else {
-        toast({
-          title: 'Continue in the new tab',
-          description: 'Complete Google sign-in, then return here.',
-        });
       }
     } catch (error: any) {
       console.error('Google auth error:', error);

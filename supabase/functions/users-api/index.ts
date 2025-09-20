@@ -13,11 +13,6 @@ serve(async (req: Request) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-
     const url = new URL(req.url)
     const path = url.pathname
     
@@ -30,8 +25,23 @@ serve(async (req: Request) => {
       )
     }
 
-    supabase.auth.setAuth(authHeader.replace('Bearer ', ''))
-    const { data: { user } } = await supabase.auth.getUser()
+    const token = authHeader.replace('Bearer ', '')
+
+    // Create client with Authorization header for RLS
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    // Resolve current user
+    const { data: { user }, error: userErr } = await supabase.auth.getUser(token)
+    if (userErr || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     switch (req.method) {
       case 'GET':
@@ -96,7 +106,7 @@ serve(async (req: Request) => {
             .eq('role', 'student')
 
           if (roleListErr) {
-            console.error('users-api: role list error', roleListErr)
+            console.log(roleListErr)
             return new Response(
               JSON.stringify({ error: `Role fetch error: ${roleListErr.message}` }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -136,7 +146,7 @@ serve(async (req: Request) => {
           const { data: students, error } = await query
 
           if (error) {
-            console.error('users-api: profiles fetch error', error)
+            console.log(error)
             return new Response(
               JSON.stringify({ error: `Profiles fetch error: ${error.message}` }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -235,7 +245,7 @@ serve(async (req: Request) => {
     }
 
   } catch (error) {
-    console.error('Users API error:', error)
+    console.log(error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

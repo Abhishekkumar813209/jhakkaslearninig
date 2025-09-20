@@ -83,14 +83,21 @@ export const useCourses = () => {
   const createCourse = async (courseData: Partial<Course>) => {
     try {
       const response = await coursesAPI.createCourse(courseData);
-      setCourses(prev => [response.course as Course, ...prev]);
-      toast({
-        title: "Success",
-        description: "Course created successfully",
-      });
-      return response.course;
+      
+      // Check if response and response.course exist
+      if (response && response.course) {
+        setCourses(prev => [response.course as Course, ...prev]);
+        toast({
+          title: "Success",
+          description: "Course created successfully",
+        });
+        return response.course;
+      } else {
+        throw new Error('Invalid response format from course creation');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create course';
+      console.error('Course creation error:', err);
       toast({
         title: "Error",
         description: errorMessage,
@@ -103,16 +110,23 @@ export const useCourses = () => {
   const updateCourse = async (id: string, courseData: Partial<Course>) => {
     try {
       const response = await coursesAPI.updateCourse(id, courseData);
-      setCourses(prev => prev.map(course => 
-        course.id === id ? response.course as Course : course
-      ));
-      toast({
-        title: "Success",
-        description: "Course updated successfully",
-      });
-      return response.course;
+      
+      // Check if response and response.course exist
+      if (response && response.course) {
+        setCourses(prev => prev.map(course => 
+          course.id === id ? response.course as Course : course
+        ));
+        toast({
+          title: "Success",
+          description: "Course updated successfully",
+        });
+        return response.course;
+      } else {
+        throw new Error('Invalid response format from course update');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update course';
+      console.error('Course update error:', err);
       toast({
         title: "Error",
         description: errorMessage,

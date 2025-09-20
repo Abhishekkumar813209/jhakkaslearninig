@@ -81,6 +81,8 @@ serve(async (req: Request) => {
                 .select('id')
                 .eq('batch_id', batch.id)
 
+              console.log(`Batch ${batch.name} (${batch.id}): Found ${studentProfiles?.length || 0} students`)
+              
               const actualStudentCount = studentProfiles?.length || 0
 
               // Get average score from student_analytics for students in this batch

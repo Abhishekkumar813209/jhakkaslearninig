@@ -249,8 +249,10 @@ const BatchManagement = () => {
                       </TableCell>
                        <TableCell>
                          <div className="flex items-center gap-1">
-                           <Users className="h-4 w-4 text-muted-foreground" />
-                           <span className="font-medium">{batch.student_count ?? 0}</span>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {batch.student_count ?? 0} {batch.student_count !== undefined && batch.student_count > 0 ? 'Students' : 'Students'}
+                            </span>
                          </div>
                        </TableCell>
                       <TableCell>

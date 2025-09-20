@@ -219,9 +219,14 @@ export type Database = {
           marks: number
           options: Json | null
           order_num: number
+          position: number | null
+          qtype: string | null
           question_text: string
           question_type: Database["public"]["Enums"]["question_type"]
+          sample_answer: string | null
+          tags: string[] | null
           test_id: string
+          word_limit: number | null
         }
         Insert: {
           correct_answer?: string | null
@@ -231,9 +236,14 @@ export type Database = {
           marks: number
           options?: Json | null
           order_num: number
+          position?: number | null
+          qtype?: string | null
           question_text: string
           question_type: Database["public"]["Enums"]["question_type"]
+          sample_answer?: string | null
+          tags?: string[] | null
           test_id: string
+          word_limit?: number | null
         }
         Update: {
           correct_answer?: string | null
@@ -243,9 +253,14 @@ export type Database = {
           marks?: number
           options?: Json | null
           order_num?: number
+          position?: number | null
+          qtype?: string | null
           question_text?: string
           question_type?: Database["public"]["Enums"]["question_type"]
+          sample_answer?: string | null
+          tags?: string[] | null
           test_id?: string
+          word_limit?: number | null
         }
         Relationships: [
           {
@@ -415,6 +430,7 @@ export type Database = {
       tests: {
         Row: {
           allow_retakes: boolean | null
+          class: string | null
           course_id: string | null
           created_at: string | null
           created_by: string
@@ -428,6 +444,7 @@ export type Database = {
           max_attempts: number | null
           passing_marks: number
           scheduled_at: string | null
+          status: string | null
           subject: string
           title: string
           total_marks: number
@@ -435,6 +452,7 @@ export type Database = {
         }
         Insert: {
           allow_retakes?: boolean | null
+          class?: string | null
           course_id?: string | null
           created_at?: string | null
           created_by: string
@@ -448,6 +466,7 @@ export type Database = {
           max_attempts?: number | null
           passing_marks: number
           scheduled_at?: string | null
+          status?: string | null
           subject: string
           title: string
           total_marks: number
@@ -455,6 +474,7 @@ export type Database = {
         }
         Update: {
           allow_retakes?: boolean | null
+          class?: string | null
           course_id?: string | null
           created_at?: string | null
           created_by?: string
@@ -468,6 +488,7 @@ export type Database = {
           max_attempts?: number | null
           passing_marks?: number
           scheduled_at?: string | null
+          status?: string | null
           subject?: string
           title?: string
           total_marks?: number

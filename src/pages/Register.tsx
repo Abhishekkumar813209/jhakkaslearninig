@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { authAPI } from '@/services/api';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -89,36 +90,25 @@ const Register = () => {
 
   const handleGoogleRegister = async () => {
     try {
-      // Request URL only, then force top-level redirect to escape iframe
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw new Error(error.message);
-
-      const url = data?.url;
+      const result = await authAPI.googleAuth(`${window.location.origin}/`);
+      const url = (result as any)?.url;
       if (!url) throw new Error('Failed to initiate Google OAuth');
 
-      // If running inside Lovable preview (iframe), redirect parent window
-      if (window.top && window.top !== window) {
-        window.top.location.href = url;
-      } else {
+      const popup = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!popup) {
         window.location.href = url;
+      } else {
+        toast({
+          title: 'Continue in the new tab',
+          description: 'Complete Google sign-in, then return here.',
+        });
       }
     } catch (error: any) {
       console.error('Google auth error:', error);
       toast({
         variant: 'destructive',
         title: 'Google Registration Failed',
-        description: error.message || 'Failed to connect to Google. Please try again.',
+        description: error?.message || 'Please allow pop-ups and try again.',
       });
     }
   };

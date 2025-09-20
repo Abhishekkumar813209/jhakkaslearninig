@@ -66,9 +66,8 @@ export const authAPI = {
 
   googleAuth: async (redirectTo?: string) => {
     try {
-      const { data, error } = await makeSupabaseRequest('auth-google', { redirectTo });
-      if (error) throw error;
-      return data;
+      const result = await makeSupabaseRequest('auth-google', { redirectTo });
+      return result as { message?: string; url: string };
     } catch (error) {
       console.error('Google auth failed:', error);
       throw error;

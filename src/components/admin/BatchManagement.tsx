@@ -250,7 +250,7 @@ const BatchManagement = () => {
                        <TableCell>
                          <div className="flex items-center gap-1">
                            <Users className="h-4 w-4 text-muted-foreground" />
-                           <span className="font-medium">{batch.student_count || 0} / {batch.max_capacity}</span>
+                           <span className="font-medium">{batch.student_count ?? 0}</span>
                          </div>
                        </TableCell>
                       <TableCell>

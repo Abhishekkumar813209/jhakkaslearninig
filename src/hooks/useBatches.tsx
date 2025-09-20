@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { batchAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Batch {
   id: string;
@@ -69,7 +70,7 @@ export const useBatches = () => {
       
       // Check if response and response.batch exist
       if (response && response.batch) {
-        setBatches(prev => [response.batch as Batch, ...prev]);
+        await fetchBatches();
         toast({
           title: "Success",
           description: "Batch created successfully",
@@ -96,9 +97,7 @@ export const useBatches = () => {
       
       // Check if response and response.batch exist
       if (response && response.batch) {
-        setBatches(prev => prev.map(batch => 
-          batch.id === id ? response.batch as Batch : batch
-        ));
+        await fetchBatches();
         toast({
           title: "Success",
           description: "Batch updated successfully",
@@ -122,7 +121,7 @@ export const useBatches = () => {
   const deleteBatch = async (id: string) => {
     try {
       await batchAPI.deleteBatch(id);
-      setBatches(prev => prev.filter(batch => batch.id !== id));
+      await fetchBatches();
       toast({
         title: "Success",
         description: "Batch deleted successfully",
@@ -141,6 +140,22 @@ export const useBatches = () => {
 
   useEffect(() => {
     fetchBatches();
+
+    const channel = supabase
+      .channel('profiles-batch-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        console.log('profiles change');
+        fetchBatches();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' }, () => {
+        console.log('batches change');
+        fetchBatches();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return {

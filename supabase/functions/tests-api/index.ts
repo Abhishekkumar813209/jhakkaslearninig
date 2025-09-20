@@ -22,9 +22,18 @@ serve(async (req: Request) => {
       }
     )
 
+    // Handle both URL path and JSON body methods
     const url = new URL(req.url)
-    const testId = url.pathname.split('/')[1]
-    const action = url.pathname.split('/')[2]
+    let requestData = {}
+    
+    if (req.method === 'POST') {
+      requestData = await req.json()
+    }
+
+    const testId = url.pathname.split('/')[1] !== 'tests-api' ? url.pathname.split('/')[1] : (requestData as any)?.testId
+    const action = (requestData as any)?.action || url.pathname.split('/')[2]
+
+    console.log('Tests API called with:', { method: req.method, testId, action, requestData })
 
     switch (req.method) {
       case 'GET':
@@ -88,103 +97,255 @@ serve(async (req: Request) => {
           )
         }
 
-        if (action === 'attempt') {
-          // Submit test attempt
-          const { answers } = await req.json()
-          
-          // Get test questions
-          const { data: test } = await supabase
-            .from('tests')
-            .select('*, questions (*)')
-            .eq('id', testId)
-            .single()
+        console.log('Authenticated user:', user.id, 'Action:', action)
 
-          if (!test) {
-            return new Response(
-              JSON.stringify({ error: 'Test not found' }),
-              { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-          }
+        // Handle different actions
+        switch (action) {
+          case 'getTestWithQuestions':
+            const { data: testWithQuestions, error: testError } = await supabase
+              .from('tests')
+              .select(`
+                *,
+                questions!questions_test_id_fkey (*)
+              `)
+              .eq('id', testId)
+              .single()
 
-          // Calculate score
-          let score = 0
-          let total_marks = 0
-          const results = []
-
-          for (const question of test.questions) {
-            total_marks += question.marks
-            const userAnswer = answers[question.id]
-            const isCorrect = userAnswer === question.correct_answer
-            
-            if (isCorrect) {
-              score += question.marks
+            if (testError) {
+              console.error('Error fetching test with questions:', testError)
+              return new Response(
+                JSON.stringify({ error: 'Test not found' }),
+                { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
             }
 
-            results.push({
-              question_id: question.id,
-              user_answer: userAnswer,
-              is_correct: isCorrect,
-              marks_obtained: isCorrect ? question.marks : 0
-            })
-          }
-
-          // Save attempt
-          const { data: attempt, error: attemptError } = await supabase
-            .from('test_attempts')
-            .insert({
-              student_id: user.id,
-              test_id: testId,
-              score,
-              total_marks,
-              percentage: Math.round((score / total_marks) * 100),
-              started_at: new Date().toISOString(),
-              submitted_at: new Date().toISOString(),
-              status: 'submitted'
-            })
-            .select()
-            .single()
-
-          if (attemptError) {
-            console.error('Error saving attempt:', attemptError)
             return new Response(
-              JSON.stringify({ error: attemptError.message }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({ 
+                success: true, 
+                test: testWithQuestions, 
+                questions: testWithQuestions.questions || [] 
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
-          }
 
-          return new Response(
-            JSON.stringify({ 
-              attempt,
-              score,
-              total_marks,
-              percentage: Math.round((score / total_marks) * 100)
-            }),
-            { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        } else {
-          // Create new test
-          const body = await req.json()
-          const { data: newTest, error: createError } = await supabase
-            .from('tests')
-            .insert([{
-              ...body,
-              created_by: user.id
-            }])
-            .select()
-            .single()
+          case 'addQuestion':
+            const { questionData } = requestData as any
+            console.log('Adding question:', questionData)
 
-          if (createError) {
-            console.error('Error creating test:', createError)
+            const { data: newQuestion, error: questionError } = await supabase
+              .from('questions')
+              .insert([{
+                test_id: questionData.test_id,
+                question_text: questionData.question_text,
+                question_type: questionData.qtype === 'mcq' ? 'multiple_choice' : 'text',
+                options: questionData.options ? JSON.stringify(questionData.options) : null,
+                correct_answer: questionData.correct_answer || (
+                  questionData.options?.find((opt: any) => opt.isCorrect)?.text || null
+                ),
+                marks: questionData.marks,
+                order_num: questionData.position,
+                explanation: questionData.explanation,
+                sample_answer: questionData.sample_answer,
+                word_limit: questionData.word_limit,
+                tags: questionData.tags || []
+              }])
+              .select()
+              .single()
+
+            if (questionError) {
+              console.error('Error adding question:', questionError)
+              return new Response(
+                JSON.stringify({ error: questionError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
             return new Response(
-              JSON.stringify({ error: createError.message }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({ success: true, question: newQuestion }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
-          }
 
-          return new Response(
-            JSON.stringify({ test: newTest }),
-            { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
+          case 'updateQuestion':
+            const { questionId, updates } = requestData as any
+            console.log('Updating question:', questionId, updates)
+
+            const { data: updatedQuestion, error: updateError } = await supabase
+              .from('questions')
+              .update({
+                question_text: updates.question_text,
+                question_type: updates.qtype === 'mcq' ? 'multiple_choice' : 'text',
+                options: updates.options ? JSON.stringify(updates.options) : null,
+                correct_answer: updates.correct_answer || (
+                  updates.options?.find((opt: any) => opt.isCorrect)?.text || null
+                ),
+                marks: updates.marks,
+                order_num: updates.position,
+                explanation: updates.explanation,
+                sample_answer: updates.sample_answer,
+                word_limit: updates.word_limit,
+                tags: updates.tags || []
+              })
+              .eq('id', questionId)
+              .select()
+              .single()
+
+            if (updateError) {
+              console.error('Error updating question:', updateError)
+              return new Response(
+                JSON.stringify({ error: updateError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            return new Response(
+              JSON.stringify({ success: true, question: updatedQuestion }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+
+          case 'deleteQuestion':
+            const { questionId: deleteId } = requestData as any
+            console.log('Deleting question:', deleteId)
+
+            const { error: deleteError } = await supabase
+              .from('questions')
+              .delete()
+              .eq('id', deleteId)
+
+            if (deleteError) {
+              console.error('Error deleting question:', deleteError)
+              return new Response(
+                JSON.stringify({ error: deleteError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            return new Response(
+              JSON.stringify({ success: true }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+
+          case 'updateTest':
+            const { updates: testUpdates } = requestData as any
+            console.log('Updating test:', testId, testUpdates)
+
+            const { data: updatedTest, error: updateTestError } = await supabase
+              .from('tests')
+              .update(testUpdates)
+              .eq('id', testId)
+              .select()
+              .single()
+
+            if (updateTestError) {
+              console.error('Error updating test:', updateTestError)
+              return new Response(
+                JSON.stringify({ error: updateTestError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            return new Response(
+              JSON.stringify({ success: true, test: updatedTest }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+
+          case 'attempt':
+            // Submit test attempt
+            const { answers } = requestData as any
+            
+            // Get test questions
+            const { data: test } = await supabase
+              .from('tests')
+              .select('*, questions (*)')
+              .eq('id', testId)
+              .single()
+
+            if (!test) {
+              return new Response(
+                JSON.stringify({ error: 'Test not found' }),
+                { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            // Calculate score
+            let score = 0
+            let total_marks = 0
+            const results = []
+
+            for (const question of test.questions) {
+              total_marks += question.marks
+              const userAnswer = answers[question.id]
+              const isCorrect = userAnswer === question.correct_answer
+              
+              if (isCorrect) {
+                score += question.marks
+              }
+
+              results.push({
+                question_id: question.id,
+                user_answer: userAnswer,
+                is_correct: isCorrect,
+                marks_obtained: isCorrect ? question.marks : 0
+              })
+            }
+
+            // Save attempt
+            const { data: attempt, error: attemptError } = await supabase
+              .from('test_attempts')
+              .insert({
+                student_id: user.id,
+                test_id: testId,
+                score,
+                total_marks,
+                percentage: Math.round((score / total_marks) * 100),
+                started_at: new Date().toISOString(),
+                submitted_at: new Date().toISOString(),
+                status: 'submitted'
+              })
+              .select()
+              .single()
+
+            if (attemptError) {
+              console.error('Error saving attempt:', attemptError)
+              return new Response(
+                JSON.stringify({ error: attemptError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            return new Response(
+              JSON.stringify({ 
+                attempt,
+                score,
+                total_marks,
+                percentage: Math.round((score / total_marks) * 100)
+              }),
+              { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+
+          default:
+            // Create new test (fallback for non-action requests)
+            const body = requestData as any
+            const { data: newTest, error: createError } = await supabase
+              .from('tests')
+              .insert([{
+                ...body,
+                created_by: user.id
+              }])
+              .select()
+              .single()
+
+            if (createError) {
+              console.error('Error creating test:', createError)
+              return new Response(
+                JSON.stringify({ error: createError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            return new Response(
+              JSON.stringify({ test: newTest }),
+              { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
         }
 
       default:

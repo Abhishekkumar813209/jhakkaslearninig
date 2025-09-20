@@ -78,18 +78,25 @@ const TestManagement: React.FC = () => {
         throw error;
       }
 
-      // Count questions and attempts for each test - simplified for debugging
+      // Count questions and attempts for each test
       console.log('TestManagement: Fetching counts for', data?.length || 0, 'tests');
-      const testsWithCounts = (data || []).map((test) => {
-        console.log('TestManagement: Processing test:', test.id, test.title);
-        
-        return {
-          ...test,
-          question_count: 0, // Temporarily hardcode to isolate issue
-          attempt_count: 0,  // Temporarily hardcode to isolate issue
-          status: test.is_published ? 'published' : 'draft'
-        };
-      });
+      const testsWithCounts = await Promise.all(
+        (data || []).map(async (test) => {
+          console.log('TestManagement: Processing test:', test.id, test.title);
+          
+          const [questionsResult, attemptsResult] = await Promise.all([
+            supabase.from('questions').select('id', { count: 'exact' }).eq('test_id', test.id),
+            supabase.from('test_attempts').select('id', { count: 'exact' }).eq('test_id', test.id)
+          ]);
+
+          return {
+            ...test,
+            question_count: questionsResult.count || 0,
+            attempt_count: attemptsResult.count || 0,
+            status: test.is_published ? 'published' : 'draft'
+          };
+        })
+      );
 
       console.log('TestManagement: Final tests with counts:', testsWithCounts);
       setTests(testsWithCounts);

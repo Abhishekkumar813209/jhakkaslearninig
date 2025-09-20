@@ -428,12 +428,7 @@ const TestManagement: React.FC = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => {
-                              toast({
-                                title: "Test Builder",
-                                description: "Test builder interface will be available soon!",
-                              });
-                            }}
+                            onClick={() => window.open(`/admin/test-builder/${test.id}`, '_blank')}
                           >
                             <Edit className="h-3 w-3" />
                           </Button>

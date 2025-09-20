@@ -17,6 +17,9 @@ import Tests from "./pages/Tests";
 import Leaderboard from "./pages/Leaderboard";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
+import TestBuilder from "@/components/admin/TestBuilder";
+import StudentTests from "@/components/student/StudentTests";
+import TakeTest from "@/components/student/TakeTest";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +43,9 @@ const App = () => (
             <Route path="/tests" element={<Tests />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/admin/test-builder/:testId" element={<TestBuilder />} />
+            <Route path="/student-tests" element={<StudentTests />} />
+            <Route path="/test/:testId" element={<TakeTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

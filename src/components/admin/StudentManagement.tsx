@@ -60,6 +60,9 @@ const StudentManagement = () => {
   const filteredStudents = useMemo(() => {
     const list = students;
     if (selectedBatch === "all") return list;
+    if (selectedBatch === "unassigned") {
+      return list.filter((s) => !s.batch_id || s.batch_id === null);
+    }
     return list.filter((s) => s.batches?.name === selectedBatch || s.batch_id === selectedBatch);
   }, [students, selectedBatch]);
 
@@ -177,7 +180,8 @@ const StudentManagement = () => {
                 <SelectValue placeholder="Filter by batch" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Batches</SelectItem>
+                <SelectItem value="all">All Students</SelectItem>
+                <SelectItem value="unassigned">Unassigned Students</SelectItem>
                 {batches.map((b) => (
                   <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
                 ))}

@@ -147,7 +147,10 @@ serve(async (req: Request) => {
                 explanation: questionData.explanation,
                 sample_answer: questionData.sample_answer,
                 word_limit: questionData.word_limit,
-                tags: questionData.tags || []
+                tags: questionData.tags || [],
+                allow_multiple_correct: questionData.allow_multiple_correct || false,
+                image_url: questionData.image_url,
+                image_alt: questionData.image_alt
               }])
               .select()
               .single()
@@ -183,7 +186,10 @@ serve(async (req: Request) => {
                 explanation: updates.explanation,
                 sample_answer: updates.sample_answer,
                 word_limit: updates.word_limit,
-                tags: updates.tags || []
+                tags: updates.tags || [],
+                allow_multiple_correct: updates.allow_multiple_correct || false,
+                image_url: updates.image_url,
+                image_alt: updates.image_alt
               })
               .eq('id', questionId)
               .select()

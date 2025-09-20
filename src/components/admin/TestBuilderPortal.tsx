@@ -26,7 +26,10 @@ import {
   BookOpen,
   Target,
   Timer,
-  Award
+  Award,
+  Upload,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -35,7 +38,7 @@ interface Question {
   id?: string;
   question_text: string;
   question_type: 'mcq' | 'subjective';
-  options?: { text: string; isCorrect: boolean }[];
+  options?: { text: string; isCorrect: boolean; image_url?: string }[];
   correct_answer?: string;
   marks: number;
   order_num: number;
@@ -43,6 +46,9 @@ interface Question {
   sample_answer?: string;
   word_limit?: number;
   tags?: string[];
+  allow_multiple_correct?: boolean;
+  image_url?: string;
+  image_alt?: string;
 }
 
 interface Test {
@@ -84,7 +90,8 @@ const TestBuilderPortal: React.FC = () => {
     marks: 1,
     order_num: 0,
     explanation: '',
-    tags: []
+    tags: [],
+    allow_multiple_correct: false
   });
 
   useEffect(() => {
@@ -256,7 +263,10 @@ const TestBuilderPortal: React.FC = () => {
       marks: 1,
       order_num: 0,
       explanation: '',
-      tags: []
+      tags: [],
+      allow_multiple_correct: false,
+      image_url: undefined,
+      image_alt: undefined
     });
   };
 
@@ -306,13 +316,24 @@ const TestBuilderPortal: React.FC = () => {
   };
 
   const updateOptionCorrectness = (optionIndex: number) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options?.map((opt, idx) => ({
-        ...opt,
-        isCorrect: idx === optionIndex
-      })) || []
-    }));
+    if (newQuestion.allow_multiple_correct) {
+      // Allow multiple correct answers
+      setNewQuestion(prev => ({
+        ...prev,
+        options: prev.options?.map((opt, idx) => 
+          idx === optionIndex ? { ...opt, isCorrect: !opt.isCorrect } : opt
+        ) || []
+      }));
+    } else {
+      // Single correct answer (original behavior)
+      setNewQuestion(prev => ({
+        ...prev,
+        options: prev.options?.map((opt, idx) => ({
+          ...opt,
+          isCorrect: idx === optionIndex
+        })) || []
+      }));
+    }
   };
 
   const updateOptionText = (optionIndex: number, text: string) => {
@@ -322,6 +343,79 @@ const TestBuilderPortal: React.FC = () => {
         idx === optionIndex ? { ...opt, text } : opt
       ) || []
     }));
+  };
+
+  const uploadQuestionImage = async (file: File) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `question-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
+
+      setNewQuestion(prev => ({
+        ...prev,
+        image_url: data.publicUrl,
+        image_alt: file.name
+      }));
+
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully!"
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const uploadOptionImage = async (file: File, optionIndex: number) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-option-${optionIndex}.${fileExt}`;
+      const filePath = `question-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
+
+      setNewQuestion(prev => ({
+        ...prev,
+        options: prev.options?.map((opt, idx) => 
+          idx === optionIndex ? { ...opt, image_url: data.publicUrl } : opt
+        ) || []
+      }));
+
+      toast({
+        title: "Success",
+        description: "Option image uploaded successfully!"
+      });
+    } catch (error) {
+      console.error('Error uploading option image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload option image. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
@@ -470,13 +564,28 @@ const TestBuilderPortal: React.FC = () => {
                           </Badge>
                           <Badge variant="outline">{question.marks} marks</Badge>
                         </div>
+                        
+                        {/* Display Question Image */}
+                        {question.image_url && (
+                          <div className="mb-2">
+                            <img 
+                              src={question.image_url} 
+                              alt={question.image_alt || "Question image"} 
+                              className="max-w-md h-auto rounded border"
+                            />
+                          </div>
+                        )}
+                        
                         <p className="font-medium mb-2">{question.question_text}</p>
                         {question.question_type === 'mcq' && question.options && (
                           <div className="space-y-1">
                             {question.options.map((option, optIndex) => (
-                              <div key={optIndex} className={`text-sm p-2 rounded ${option.isCorrect ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50'}`}>
-                                {String.fromCharCode(65 + optIndex)}. {option.text}
-                                {option.isCorrect && <span className="ml-2 text-xs">(Correct)</span>}
+                              <div key={optIndex} className={`text-sm p-2 rounded flex items-center gap-2 ${option.isCorrect ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50'}`}>
+                                {option.image_url && (
+                                  <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
+                                )}
+                                <span>{String.fromCharCode(65 + optIndex)}. {option.text}</span>
+                                {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
                               </div>
                             ))}
                           </div>
@@ -537,31 +646,130 @@ const TestBuilderPortal: React.FC = () => {
               />
             </div>
 
+            {/* Question Image Upload */}
+            <div>
+              <Label>Question Image (Optional)</Label>
+              <div className="flex items-center gap-4">
+                <Label htmlFor="question-image" className="cursor-pointer">
+                  <div className="flex items-center gap-2 px-4 py-2 border rounded hover:bg-gray-50">
+                    <Upload className="h-4 w-4" />
+                    Upload Image
+                  </div>
+                </Label>
+                <input
+                  id="question-image"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadQuestionImage(file);
+                  }}
+                />
+                {newQuestion.image_url && (
+                  <div className="flex items-center gap-2">
+                    <img src={newQuestion.image_url} alt="Question" className="h-16 w-16 object-cover rounded" />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setNewQuestion(prev => ({ 
+                        ...prev, 
+                        image_url: undefined, 
+                        image_alt: undefined 
+                      }))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {newQuestion.question_type === 'mcq' && (
-              <div>
-                <Label>Answer Options</Label>
-                <div className="space-y-2">
-                  {newQuestion.options?.map((option, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-medium">
-                        {String.fromCharCode(65 + index)}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="allow-multiple"
+                    checked={newQuestion.allow_multiple_correct}
+                    onChange={(e) => setNewQuestion(prev => ({ 
+                      ...prev, 
+                      allow_multiple_correct: e.target.checked,
+                      options: e.target.checked ? prev.options : prev.options?.map((opt, idx) => ({
+                        ...opt,
+                        isCorrect: idx === 0
+                      }))
+                    }))}
+                  />
+                  <Label htmlFor="allow-multiple">Allow multiple correct answers</Label>
+                </div>
+
+                <div>
+                  <Label>Answer Options</Label>
+                  <div className="space-y-3">
+                    {newQuestion.options?.map((option, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-medium">
+                            {String.fromCharCode(65 + index)}
+                          </div>
+                          <Input
+                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                            value={option.text}
+                            onChange={(e) => updateOptionText(index, e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={option.isCorrect ? 'default' : 'outline'}
+                            onClick={() => updateOptionCorrectness(index)}
+                          >
+                            {option.isCorrect ? 'Correct' : 'Mark Correct'}
+                          </Button>
+                        </div>
+                        
+                        {/* Option Image Upload */}
+                        <div className="flex items-center gap-2 ml-10">
+                          <Label htmlFor={`option-image-${index}`} className="cursor-pointer">
+                            <div className="flex items-center gap-2 px-3 py-1 border rounded text-sm hover:bg-gray-50">
+                              <ImageIcon className="h-4 w-4" />
+                              Add Image
+                            </div>
+                          </Label>
+                          <input
+                            id={`option-image-${index}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadOptionImage(file, index);
+                            }}
+                          />
+                          {option.image_url && (
+                            <div className="flex items-center gap-2">
+                              <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setNewQuestion(prev => ({
+                                  ...prev,
+                                  options: prev.options?.map((opt, idx) => 
+                                    idx === index ? { ...opt, image_url: undefined } : opt
+                                  ) || []
+                                }))}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <Input
-                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                        value={option.text}
-                        onChange={(e) => updateOptionText(index, e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={option.isCorrect ? 'default' : 'outline'}
-                        onClick={() => updateOptionCorrectness(index)}
-                      >
-                        {option.isCorrect ? 'Correct' : 'Mark Correct'}
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

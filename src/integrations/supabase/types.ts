@@ -176,6 +176,8 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          image_alt: string | null
+          image_url: string | null
           is_correct: boolean
           option_text: string
           order_num: number
@@ -184,6 +186,8 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           is_correct?: boolean
           option_text: string
           order_num?: number
@@ -192,6 +196,8 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           is_correct?: boolean
           option_text?: string
           order_num?: number
@@ -247,10 +253,13 @@ export type Database = {
       }
       questions: {
         Row: {
+          allow_multiple_correct: boolean | null
           correct_answer: string | null
           created_at: string | null
           explanation: string | null
           id: string
+          image_alt: string | null
+          image_url: string | null
           marks: number
           options: Json | null
           order_num: number
@@ -264,10 +273,13 @@ export type Database = {
           word_limit: number | null
         }
         Insert: {
+          allow_multiple_correct?: boolean | null
           correct_answer?: string | null
           created_at?: string | null
           explanation?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           marks: number
           options?: Json | null
           order_num: number
@@ -281,10 +293,13 @@ export type Database = {
           word_limit?: number | null
         }
         Update: {
+          allow_multiple_correct?: boolean | null
           correct_answer?: string | null
           created_at?: string | null
           explanation?: string | null
           id?: string
+          image_alt?: string | null
+          image_url?: string | null
           marks?: number
           options?: Json | null
           order_num?: number

@@ -137,7 +137,7 @@ serve(async (req: Request) => {
               .insert([{
                 test_id: questionData.test_id,
                 question_text: questionData.question_text,
-                question_type: questionData.qtype === 'mcq' ? 'multiple_choice' : 'text',
+                question_type: questionData.qtype === 'mcq' ? 'mcq' : 'subjective',
                 options: questionData.options ? JSON.stringify(questionData.options) : null,
                 correct_answer: questionData.correct_answer || (
                   questionData.options?.find((opt: any) => opt.isCorrect)?.text || null
@@ -173,7 +173,7 @@ serve(async (req: Request) => {
               .from('questions')
               .update({
                 question_text: updates.question_text,
-                question_type: updates.qtype === 'mcq' ? 'multiple_choice' : 'text',
+                question_type: updates.qtype === 'mcq' ? 'mcq' : 'subjective',
                 options: updates.options ? JSON.stringify(updates.options) : null,
                 correct_answer: updates.correct_answer || (
                   updates.options?.find((opt: any) => opt.isCorrect)?.text || null

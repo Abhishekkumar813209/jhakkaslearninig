@@ -172,6 +172,41 @@ export type Database = {
           },
         ]
       }
+      options: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_correct: boolean
+          option_text: string
+          order_num: number
+          question_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean
+          option_text: string
+          order_num?: number
+          question_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean
+          option_text?: string
+          order_num?: number
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -317,6 +352,7 @@ export type Database = {
           id: string
           is_correct: boolean | null
           marks_awarded: number | null
+          option_id: string | null
           question_id: string
           selected_option: string | null
           text_answer: string | null
@@ -327,6 +363,7 @@ export type Database = {
           id?: string
           is_correct?: boolean | null
           marks_awarded?: number | null
+          option_id?: string | null
           question_id: string
           selected_option?: string | null
           text_answer?: string | null
@@ -337,6 +374,7 @@ export type Database = {
           id?: string
           is_correct?: boolean | null
           marks_awarded?: number | null
+          option_id?: string | null
           question_id?: string
           selected_option?: string | null
           text_answer?: string | null
@@ -348,6 +386,13 @@ export type Database = {
             columns: ["attempt_id"]
             isOneToOne: false
             referencedRelation: "test_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_answers_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "options"
             referencedColumns: ["id"]
           },
           {

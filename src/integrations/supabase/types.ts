@@ -620,6 +620,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      has_completed_test: {
+        Args: { test_id_param: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           check_role: Database["public"]["Enums"]["user_role"]

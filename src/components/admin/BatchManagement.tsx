@@ -249,12 +249,12 @@ const BatchManagement = () => {
                           {batch.level}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{batch.current_strength || 0} / {batch.max_capacity}</span>
-                        </div>
-                      </TableCell>
+                       <TableCell>
+                         <div className="flex items-center gap-1">
+                           <Users className="h-4 w-4 text-muted-foreground" />
+                           <span className="font-medium">{batch.student_count || 0} / {batch.max_capacity}</span>
+                         </div>
+                       </TableCell>
                       <TableCell>
                         <div className="font-medium text-foreground">{batch.avg_score || 0}%</div>
                       </TableCell>

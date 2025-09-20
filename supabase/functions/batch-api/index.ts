@@ -56,31 +56,65 @@ serve(async (req: Request) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } else {
-          // Get all batches with student counts and performance data
+          // Get all batches with actual student counts from profiles table
           const { data: batches, error } = await supabase
             .from('batches')
             .select(`
-              *,
-              student_count:profiles!batch_id(count)
+              *
             `)
             .order('created_at', { ascending: false })
 
           if (error) {
+            console.log(error)
             return new Response(
               JSON.stringify({ error: error.message }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
 
-          // Process the data to format properly
-          const processedBatches = batches?.map(batch => ({
-            ...batch,
-            student_count: batch.student_count?.[0]?.count || 0,
-            avg_score: 0 // We'll calculate this separately if needed
-          })) || []
+          // For each batch, get the actual student count from profiles table
+          const processedBatches = await Promise.all(
+            (batches || []).map(async (batch) => {
+              // Count actual students assigned to this batch
+              const { data: studentProfiles, error: countError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('batch_id', batch.id)
+
+              const actualStudentCount = studentProfiles?.length || 0
+
+              // Get average score from student_analytics for students in this batch
+              const { data: analytics } = await supabase
+                .from('student_analytics')
+                .select('average_score')
+                .in('student_id', studentProfiles?.map(p => p.id) || [])
+
+              const avgScore = analytics?.length > 0 
+                ? Math.round(analytics.reduce((sum, a) => sum + (a.average_score || 0), 0) / analytics.length)
+                : 0
+
+              return {
+                ...batch,
+                student_count: actualStudentCount,
+                avg_score: avgScore
+              }
+            })
+          )
+
+          // Calculate total students across all batches
+          const totalStudents = processedBatches.reduce((sum, batch) => sum + batch.student_count, 0)
+          
+          // Calculate average performance across all batches
+          const totalAvgScore = processedBatches.length > 0
+            ? Math.round(processedBatches.reduce((sum, batch) => sum + batch.avg_score, 0) / processedBatches.length)
+            : 0
 
           return new Response(
-            JSON.stringify({ batches: processedBatches }),
+            JSON.stringify({ 
+              batches: processedBatches,
+              totalStudents,
+              avgPerformance: totalAvgScore
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }

@@ -76,45 +76,36 @@ const YouTubeManagement = () => {
 
   const connectYouTube = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('youtube-integration', {
-        body: { action: 'getAuthUrl' }
-      });
+      // For now, we'll use a simpler approach - direct token input
+      // This avoids the popup OAuth issues
+      const token = prompt(`
+YouTube OAuth Setup Required:
 
-      if (error) throw error;
+1. Go to Google Cloud Console (console.cloud.google.com)
+2. Enable YouTube Data API v3
+3. Create OAuth 2.0 credentials
+4. Get your access token from OAuth 2.0 Playground (developers.google.com/oauthplayground)
 
-      // Open YouTube OAuth in popup
-      const popup = window.open(
-        data.authUrl,
-        'youtube-auth',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
-      );
+Scopes needed:
+- https://www.googleapis.com/auth/youtube
+- https://www.googleapis.com/auth/youtube.upload
 
-      // Listen for authorization code
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          // Handle the case where user closed the popup
-        }
-      }, 1000);
+Please paste your access token here:`);
 
-      // This would need to be implemented with a proper OAuth flow
-      // For now, we'll show a manual input for the access token
-      const token = prompt('Please enter your YouTube access token:');
-      if (token) {
-        localStorage.setItem('youtube_access_token', token);
-        setAccessToken(token);
-        fetchPlaylists(token);
+      if (token && token.trim()) {
+        localStorage.setItem('youtube_access_token', token.trim());
+        setAccessToken(token.trim());
+        await fetchPlaylists(token.trim());
         toast({
           title: "Success",
           description: "YouTube connected successfully!",
         });
       }
-
     } catch (error) {
       console.error('YouTube connection failed:', error);
       toast({
         title: "Error",
-        description: "Failed to connect to YouTube",
+        description: "Failed to connect to YouTube. Please check your access token.",
         variant: "destructive",
       });
     }
@@ -308,6 +299,30 @@ const YouTubeManagement = () => {
           </Button>
         ) : (
           <div className="flex gap-2">
+            <Badge variant="outline" className="text-green-600 border-green-600">
+              <Youtube className="h-3 w-3 mr-1" />
+              Connected
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem('youtube_access_token');
+                setAccessToken(null);
+                setPlaylists([]);
+                setPlaylistVideos([]);
+              }}
+            >
+              Disconnect
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {accessToken && (
+        <>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
             <Dialog open={showCreatePlaylistDialog} onOpenChange={setShowCreatePlaylistDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">
@@ -415,11 +430,7 @@ const YouTubeManagement = () => {
               </DialogContent>
             </Dialog>
           </div>
-        )}
-      </div>
 
-      {accessToken && (
-        <>
           {/* Playlist Selection */}
           <Card className="card-gradient shadow-soft">
             <CardHeader>
@@ -549,13 +560,22 @@ const YouTubeManagement = () => {
           <CardContent className="p-12 text-center">
             <Youtube className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">Connect YouTube Account</h3>
-            <p className="text-muted-foreground mb-6">
-              Connect your YouTube account to upload videos directly and manage playlists
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Connect your YouTube account to upload videos directly and manage playlists. 
+              You'll need to get an access token from Google OAuth 2.0 Playground.
             </p>
-            <Button onClick={connectYouTube} className="flex items-center gap-2 mx-auto">
-              <Youtube className="h-4 w-4" />
-              Connect YouTube
-            </Button>
+            <div className="space-y-4">
+              <Button onClick={connectYouTube} className="flex items-center gap-2 mx-auto">
+                <Youtube className="h-4 w-4" />
+                Connect YouTube
+              </Button>
+              <div className="text-xs text-muted-foreground">
+                <p>Quick Setup Guide:</p>
+                <p>1. Go to developers.google.com/oauthplayground</p>
+                <p>2. Select YouTube Data API v3 scopes</p>
+                <p>3. Authorize and get access token</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

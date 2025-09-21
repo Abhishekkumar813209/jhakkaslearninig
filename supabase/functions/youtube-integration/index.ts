@@ -7,8 +7,6 @@ const corsHeaders = {
 };
 
 const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY');
-const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
-const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,35 +14,31 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...data } = await req.json();
+    const { action, accessToken, ...data } = await req.json();
+
+    console.log(`YouTube API action: ${action}`);
 
     switch (action) {
-      case 'getAuthUrl':
-        return handleGetAuthUrl();
-      
-      case 'exchangeCodeForToken':
-        return handleExchangeCode(data.code);
-      
       case 'createPlaylist':
-        return handleCreatePlaylist(data);
+        return await handleCreatePlaylist(data, accessToken);
       
       case 'uploadVideo':
-        return handleUploadVideo(data);
+        return await handleUploadVideo(data, accessToken);
       
       case 'addVideoToPlaylist':
-        return handleAddVideoToPlaylist(data);
+        return await handleAddVideoToPlaylist(data, accessToken);
       
       case 'getPlaylists':
-        return handleGetPlaylists(data.accessToken);
+        return await handleGetPlaylists(accessToken);
       
       case 'getPlaylistVideos':
-        return handleGetPlaylistVideos(data);
+        return await handleGetPlaylistVideos(data, accessToken);
       
       case 'deleteVideo':
-        return handleDeleteVideo(data);
+        return await handleDeleteVideo(data, accessToken);
       
       case 'updateVideo':
-        return handleUpdateVideo(data);
+        return await handleUpdateVideo(data, accessToken);
 
       default:
         throw new Error('Invalid action');
@@ -61,71 +55,22 @@ serve(async (req) => {
   }
 });
 
-function handleGetAuthUrl() {
-  const scopes = [
-    'https://www.googleapis.com/auth/youtube',
-    'https://www.googleapis.com/auth/youtube.upload',
-    'https://www.googleapis.com/auth/youtube.readonly'
-  ].join(' ');
-
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-    `client_id=${GOOGLE_CLIENT_ID}&` +
-    `redirect_uri=${encodeURIComponent('postmessage')}&` +
-    `scope=${encodeURIComponent(scopes)}&` +
-    `response_type=code&` +
-    `access_type=offline&` +
-    `prompt=consent`;
-
-  return new Response(
-    JSON.stringify({ authUrl }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function handleExchangeCode(code: string) {
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID!,
-      client_secret: GOOGLE_CLIENT_SECRET!,
-      code: code,
-      grant_type: 'authorization_code',
-      redirect_uri: 'postmessage'
-    })
-  });
-
-  const tokens = await response.json();
+async function handleCreatePlaylist(data: any, accessToken: string) {
+  const { title, description } = data;
   
-  if (!response.ok) {
-    throw new Error(`Token exchange failed: ${tokens.error_description || tokens.error}`);
-  }
-
-  return new Response(
-    JSON.stringify(tokens),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function handleCreatePlaylist(data: any) {
-  const { title, description, accessToken } = data;
-  
-  const response = await fetch('https://www.googleapis.com/youtube/v3/playlists', {
+  const response = await fetch('https://www.googleapis.com/youtube/v3/playlists?part=snippet,status', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      part: 'snippet,status',
-      resource: {
-        snippet: {
-          title: title,
-          description: description
-        },
-        status: {
-          privacyStatus: 'public'
-        }
+      snippet: {
+        title: title,
+        description: description || ''
+      },
+      status: {
+        privacyStatus: 'public'
       }
     })
   });
@@ -133,6 +78,7 @@ async function handleCreatePlaylist(data: any) {
   const result = await response.json();
   
   if (!response.ok) {
+    console.error('Create playlist error:', result);
     throw new Error(`Failed to create playlist: ${result.error?.message || 'Unknown error'}`);
   }
 
@@ -142,60 +88,85 @@ async function handleCreatePlaylist(data: any) {
   );
 }
 
-async function handleUploadVideo(data: any) {
-  const { title, description, videoData, accessToken } = data;
+async function handleUploadVideo(data: any, accessToken: string) {
+  const { title, description, videoData } = data;
   
-  // Convert base64 to binary
-  const binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
-  
-  // First, upload the video
-  const uploadResponse = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/octet-stream'
-    },
-    body: JSON.stringify({
+  try {
+    // Convert base64 to binary
+    const binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
+    
+    // Create form data for resumable upload
+    const metadata = {
       snippet: {
         title: title,
-        description: description
+        description: description || ''
       },
       status: {
         privacyStatus: 'public'
       }
-    })
-  });
+    };
 
-  const result = await uploadResponse.json();
-  
-  if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload video: ${result.error?.message || 'Unknown error'}`);
+    // First, initiate the upload session
+    const initiateResponse = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Upload-Content-Type': 'video/*'
+      },
+      body: JSON.stringify(metadata)
+    });
+
+    if (!initiateResponse.ok) {
+      const errorData = await initiateResponse.json();
+      throw new Error(`Failed to initiate upload: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const uploadUrl = initiateResponse.headers.get('Location');
+    if (!uploadUrl) {
+      throw new Error('No upload URL received from YouTube');
+    }
+
+    // Upload the video data
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'video/*'
+      },
+      body: binaryData
+    });
+
+    const result = await uploadResponse.json();
+    
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload video: ${result.error?.message || 'Unknown error'}`);
+    }
+
+    return new Response(
+      JSON.stringify({ video: result }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Upload video error:', error);
+    throw error;
   }
-
-  return new Response(
-    JSON.stringify({ video: result }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
 }
 
-async function handleAddVideoToPlaylist(data: any) {
-  const { playlistId, videoId, accessToken } = data;
+async function handleAddVideoToPlaylist(data: any, accessToken: string) {
+  const { playlistId, videoId } = data;
   
-  const response = await fetch('https://www.googleapis.com/youtube/v3/playlistItems', {
+  const response = await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      part: 'snippet',
-      resource: {
-        snippet: {
-          playlistId: playlistId,
-          resourceId: {
-            kind: 'youtube#video',
-            videoId: videoId
-          }
+      snippet: {
+        playlistId: playlistId,
+        resourceId: {
+          kind: 'youtube#video',
+          videoId: videoId
         }
       }
     })
@@ -224,17 +195,18 @@ async function handleGetPlaylists(accessToken: string) {
   const result = await response.json();
   
   if (!response.ok) {
+    console.error('Get playlists error:', result);
     throw new Error(`Failed to get playlists: ${result.error?.message || 'Unknown error'}`);
   }
 
   return new Response(
-    JSON.stringify({ playlists: result.items }),
+    JSON.stringify({ playlists: result.items || [] }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
 
-async function handleGetPlaylistVideos(data: any) {
-  const { playlistId, accessToken } = data;
+async function handleGetPlaylistVideos(data: any, accessToken: string) {
+  const { playlistId } = data;
   
   const response = await fetch(
     `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50`,
@@ -250,13 +222,13 @@ async function handleGetPlaylistVideos(data: any) {
   }
 
   return new Response(
-    JSON.stringify({ videos: result.items }),
+    JSON.stringify({ videos: result.items || [] }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
 
-async function handleDeleteVideo(data: any) {
-  const { videoId, accessToken } = data;
+async function handleDeleteVideo(data: any, accessToken: string) {
+  const { videoId } = data;
   
   const response = await fetch(
     `https://www.googleapis.com/youtube/v3/videos?id=${videoId}`,
@@ -266,8 +238,8 @@ async function handleDeleteVideo(data: any) {
     }
   );
 
-  if (!response.ok) {
-    const result = await response.json();
+  if (!response.ok && response.status !== 204) {
+    const result = await response.json().catch(() => ({}));
     throw new Error(`Failed to delete video: ${result.error?.message || 'Unknown error'}`);
   }
 
@@ -277,17 +249,16 @@ async function handleDeleteVideo(data: any) {
   );
 }
 
-async function handleUpdateVideo(data: any) {
-  const { videoId, title, description, accessToken } = data;
+async function handleUpdateVideo(data: any, accessToken: string) {
+  const { videoId, title, description } = data;
   
-  const response = await fetch('https://www.googleapis.com/youtube/v3/videos', {
+  const response = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet', {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      part: 'snippet',
       id: videoId,
       snippet: {
         title: title,

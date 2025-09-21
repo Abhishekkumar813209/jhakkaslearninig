@@ -298,75 +298,75 @@ export const coursesAPI = {
     return { courses: enrollments?.map(e => e.courses) || [] };
   },
 
-  getCourseLectures: async (id: string) => {
-    const { data: lectures, error } = await supabase
-      .from('lectures')
+  getCourseVideos: async (id: string) => {
+    const { data: videos, error } = await supabase
+      .from('videos')
       .select('*')
       .eq('course_id', id)
       .eq('is_published', true)
       .order('order_num', { ascending: true });
 
     if (error) throw new Error(error.message);
-    return { lectures };
+    return { videos };
   },
 };
 
-// Lectures API
-export const lecturesAPI = {
-  getLectures: async (params?: URLSearchParams) => {
-    const { data: lectures, error } = await supabase
-      .from('lectures')
+// Videos API
+export const videosAPI = {
+  getVideos: async (params?: URLSearchParams) => {
+    const { data: videos, error } = await supabase
+      .from('videos')
       .select('*')
       .eq('is_published', true);
 
     if (error) throw new Error(error.message);
-    return { lectures };
+    return { videos };
   },
 
-  getLecture: async (id: string) => {
-    const { data: lecture, error } = await supabase
-      .from('lectures')
+  getVideo: async (id: string) => {
+    const { data: video, error } = await supabase
+      .from('videos')
       .select('*')
       .eq('id', id)
       .eq('is_published', true)
       .single();
 
     if (error) throw new Error(error.message);
-    return { lecture };
+    return { video };
   },
 
-  createLecture: async (lectureData: any) => {
+  createVideo: async (videoData: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
-      .from('lectures')
-      .insert([{ ...lectureData, uploaded_by: user?.id }])
+      .from('videos')
+      .insert([{ ...videoData, uploaded_by: user?.id }])
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return { lecture: data };
+    return { video: data };
   },
 
-  updateLecture: async (id: string, lectureData: any) => {
+  updateVideo: async (id: string, videoData: any) => {
     const { data, error } = await supabase
-      .from('lectures')
-      .update(lectureData)
+      .from('videos')
+      .update(videoData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return { lecture: data };
+    return { video: data };
   },
 
-  deleteLecture: async (id: string) => {
+  deleteVideo: async (id: string) => {
     const { error } = await supabase
-      .from('lectures')
+      .from('videos')
       .delete()
       .eq('id', id);
 
     if (error) throw new Error(error.message);
-    return { message: 'Lecture deleted successfully' };
+    return { message: 'Video deleted successfully' };
   },
 };
 
@@ -522,7 +522,7 @@ export const dashboardAPI = {
 export default {
   auth: authAPI,
   courses: coursesAPI,
-  lectures: lecturesAPI,
+  videos: videosAPI,
   tests: testsAPI,
   users: usersAPI,
   analytics: analyticsAPI,

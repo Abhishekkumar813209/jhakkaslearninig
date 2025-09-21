@@ -248,12 +248,70 @@ const StudentRoadmap: React.FC = () => {
 
   const addPlaylistToRoadmap = async (playlist: YouTubePlaylist) => {
     try {
-      // Here you would add the playlist to the student's roadmap
+      // Create a new playlist object for the roadmap
+      const newPlaylist: Playlist = {
+        id: playlist.id,
+        title: playlist.title,
+        teacher_id: 'custom-' + playlist.channelId,
+        youtube_playlist_id: playlist.id,
+        chapter: chapterName.trim() || playlist.title,
+        subject: 'Custom',
+        video_count: playlist.videoCount,
+        total_duration_minutes: playlist.videoCount * 30, // Estimate 30 mins per video
+        order_num: 1
+      };
+
+      // Check if there's already a learning path for this teacher/subject
+      const existingPathIndex = learningPaths.findIndex(path => 
+        path.teacher_id === newPlaylist.teacher_id
+      );
+
+      if (existingPathIndex >= 0) {
+        // Add to existing path
+        const updatedPaths = [...learningPaths];
+        updatedPaths[existingPathIndex].playlists.push(newPlaylist);
+        setLearningPaths(updatedPaths);
+      } else {
+        // Create new learning path
+        const newLearningPath: LearningPath = {
+          id: 'custom-' + Date.now(),
+          student_id: 'current-user',
+          subject: 'Custom',
+          teacher_id: newPlaylist.teacher_id,
+          playlists: [newPlaylist],
+          progress: 0,
+          estimated_completion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          is_custom: true
+        };
+
+        setLearningPaths([...learningPaths, newLearningPath]);
+
+        // Add teacher to teachers list if not exists
+        const teacherExists = teachers.some(t => t.id === newPlaylist.teacher_id);
+        if (!teacherExists) {
+          const newTeacher: Teacher = {
+            id: newPlaylist.teacher_id,
+            name: playlist.channelTitle,
+            subject: 'Custom',
+            youtube_channel: playlist.channelTitle
+          };
+          setTeachers([...teachers, newTeacher]);
+        }
+      }
+
       toast({
         title: "Added to Roadmap",
         description: `"${playlist.title}" has been added to your learning path`,
       });
+
+      // Clear search results and close modal
+      setSearchResults([]);
+      setShowSearchPlaylists(false);
+      setTeacherName('');
+      setChapterName('');
+      
     } catch (error) {
+      console.error('Error adding playlist:', error);
       toast({
         title: "Error",
         description: "Failed to add playlist to roadmap",

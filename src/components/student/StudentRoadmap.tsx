@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import LecturePlayer from './LecturePlayer';
 
 interface Teacher {
   id: string;
@@ -81,6 +82,16 @@ interface YouTubePlaylist {
   channelId: string;
 }
 
+interface Lecture {
+  id: string;
+  title: string;
+  youtube_video_id: string;
+  duration_seconds: number;
+  order_num: number;
+  description?: string;
+  chapter: string;
+}
+
 const StudentRoadmap: React.FC = () => {
   const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -93,6 +104,8 @@ const StudentRoadmap: React.FC = () => {
   const [chapterName, setChapterName] = useState('');
   const [searchResults, setSearchResults] = useState<YouTubePlaylist[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedLecture, setSelectedLecture] = useState<Lecture | null>(null);
+  const [currentPlaylist, setCurrentPlaylist] = useState<Playlist | null>(null);
   const { toast } = useToast();
 
   // Sample data for demonstration
@@ -309,6 +322,66 @@ const StudentRoadmap: React.FC = () => {
     }
   };
 
+  // Sample lectures data for demonstration
+  const getSampleLectures = (playlistId: string): Lecture[] => {
+    return [
+      {
+        id: `${playlistId}-1`,
+        title: 'Introduction to Motion',
+        youtube_video_id: 'dQw4w9WgXcQ',
+        duration_seconds: 1800, // 30 minutes
+        order_num: 1,
+        description: 'Basic concepts of motion and displacement',
+        chapter: 'Chapter 1'
+      },
+      {
+        id: `${playlistId}-2`, 
+        title: 'Velocity and Acceleration',
+        youtube_video_id: 'dQw4w9WgXcQ',
+        duration_seconds: 2100, // 35 minutes
+        order_num: 2,
+        description: 'Understanding velocity and acceleration concepts',
+        chapter: 'Chapter 1'
+      },
+      {
+        id: `${playlistId}-3`,
+        title: 'Equations of Motion',
+        youtube_video_id: 'dQw4w9WgXcQ', 
+        duration_seconds: 2400, // 40 minutes
+        order_num: 3,
+        description: 'Kinematic equations and their applications',
+        chapter: 'Chapter 1'
+      }
+    ];
+  };
+
+  const handleWatchLecture = (playlist: Playlist, lectureId?: string) => {
+    const lectures = getSampleLectures(playlist.id);
+    const lecture = lectureId 
+      ? lectures.find(l => l.id === lectureId) 
+      : lectures[0];
+    
+    if (lecture) {
+      setSelectedLecture(lecture);
+      setCurrentPlaylist(playlist);
+    }
+  };
+
+  const handleLectureChange = (lectureId: string) => {
+    if (currentPlaylist) {
+      const lectures = getSampleLectures(currentPlaylist.id);
+      const lecture = lectures.find(l => l.id === lectureId);
+      if (lecture) {
+        setSelectedLecture(lecture);
+      }
+    }
+  };
+
+  const closeLecturePlayer = () => {
+    setSelectedLecture(null);
+    setCurrentPlaylist(null);
+  };
+
   const getTimelineData = () => {
     const totalVideos = learningPaths.reduce((sum, path) => 
       sum + path.playlists.reduce((pSum, playlist) => pSum + playlist.video_count, 0), 0
@@ -336,8 +409,20 @@ const StudentRoadmap: React.FC = () => {
     );
   }
 
-  return (
-    <div className="space-y-6">
+    return (
+    <div className="space-y-6 px-6">
+      {/* Lecture Player Modal */}
+      {selectedLecture && currentPlaylist && (
+        <LecturePlayer
+          lecture={selectedLecture}
+          playlistId={currentPlaylist.id}
+          playlistTitle={currentPlaylist.title}
+          lectures={getSampleLectures(currentPlaylist.id)}
+          onClose={closeLecturePlayer}
+          onLectureChange={handleLectureChange}
+        />
+      )}
+
       {/* Header with enhanced styling */}
       <div className="flex justify-between items-center mb-8">
         <div className="space-y-2">
@@ -346,7 +431,7 @@ const StudentRoadmap: React.FC = () => {
               <Map className="h-5 w-5 text-white" />
             </div>
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Learning Roadmap
+              Roadmap Section
             </span>
           </h2>
           <p className="text-muted-foreground text-lg">Track your progress and discover new content</p>
@@ -539,7 +624,7 @@ const StudentRoadmap: React.FC = () => {
           <TabsTrigger value="guided">Admin Guided Path</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="custom" className="space-y-4">
+        <TabsContent value="custom" className="space-y-4 px-4">
           {/* Custom Learning Paths */}
           {learningPaths.length === 0 ? (
             <Card>
@@ -625,8 +710,12 @@ const StudentRoadmap: React.FC = () => {
                                   </div>
                                 </div>
                               </div>
-                              <Button size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
-                                <Youtube className="h-3 w-3 mr-1" />
+                              <Button 
+                                size="sm" 
+                                className="opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                                onClick={() => handleWatchLecture(playlist)}
+                              >
+                                <PlayCircle className="h-3 w-3 mr-1" />
                                 Watch
                               </Button>
                             </div>
@@ -641,7 +730,7 @@ const StudentRoadmap: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="guided" className="space-y-4">
+        <TabsContent value="guided" className="space-y-4 px-4">
           {/* Admin Guided Paths */}
           {adminPaths.length === 0 ? (
             <Card>
@@ -652,7 +741,7 @@ const StudentRoadmap: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 px-4">
               {adminPaths.map((path) => (
                 <Card key={path.id} className="border-l-4 border-l-green-500">
                   <CardHeader>
@@ -710,7 +799,7 @@ const StudentRoadmap: React.FC = () => {
       </Tabs>
 
       {/* Timeline Visualization */}
-      <Card>
+      <Card className="mx-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />

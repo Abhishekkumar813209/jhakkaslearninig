@@ -18,7 +18,16 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get('action');
+    let action = url.searchParams.get('action');
+    let requestBody = null;
+    
+    // If action is not in URL params, check request body
+    if (!action && req.body) {
+      requestBody = await req.json();
+      action = requestBody.action;
+    }
+    
+    console.log('Received action:', action);
     
     // Get auth user
     const authHeader = req.headers.get('Authorization');
@@ -37,7 +46,10 @@ serve(async (req) => {
         return await getStudentFeeStatus(user.id);
       
       case 'mark_payment':
-        const { studentId, month, year, paymentMethod } = await req.json();
+        if (!requestBody) {
+          requestBody = await req.json();
+        }
+        const { studentId, month, year, paymentMethod } = requestBody;
         return await markPayment(user.id, studentId, month, year, paymentMethod);
       
       case 'get_batch_analytics':
@@ -50,7 +62,12 @@ serve(async (req) => {
         return await getAllStudentsFees();
       
       default:
-        return new Response(JSON.stringify({ error: 'Invalid action' }), {
+        console.error('Invalid action received:', action);
+        return new Response(JSON.stringify({ 
+          error: 'Invalid action', 
+          receivedAction: action,
+          validActions: ['get_student_fee_status', 'mark_payment', 'get_batch_analytics', 'generate_monthly_fees', 'get_all_students_fees']
+        }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -65,6 +82,8 @@ serve(async (req) => {
 });
 
 async function getStudentFeeStatus(studentId: string) {
+  console.log('Getting fee status for student:', studentId);
+  
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   
@@ -81,16 +100,21 @@ async function getStudentFeeStatus(studentId: string) {
     .single();
 
   if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching fee record:', error);
     throw error;
   }
 
   if (!feeRecord) {
+    console.log('No fee record found, generating...');
     // Generate fee record for current month if doesn't exist
     const { error: genError } = await supabase.rpc('generate_monthly_fees');
-    if (genError) throw genError;
+    if (genError) {
+      console.error('Error generating monthly fees:', genError);
+      throw genError;
+    }
     
     // Fetch again
-    const { data: newRecord } = await supabase
+    const { data: newRecord, error: fetchError } = await supabase
       .from('fee_records')
       .select(`
         *,
@@ -102,17 +126,25 @@ async function getStudentFeeStatus(studentId: string) {
       .eq('year', currentYear)
       .single();
     
+    if (fetchError) {
+      console.error('Error fetching new record:', fetchError);
+      throw fetchError;
+    }
+    
     return new Response(JSON.stringify({ feeRecord: newRecord }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
+  console.log('Fee record found:', feeRecord);
   return new Response(JSON.stringify({ feeRecord }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
 async function markPayment(markedBy: string, studentId: string, month: number, year: number, paymentMethod: string) {
+  console.log('Marking payment for student:', studentId);
+  
   // Check if user has admin role
   const { data: userRole } = await supabase
     .from('user_roles')
@@ -142,7 +174,10 @@ async function markPayment(markedBy: string, studentId: string, month: number, y
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error marking payment:', error);
+    throw error;
+  }
 
   return new Response(JSON.stringify({ success: true, record: updatedRecord }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -150,47 +185,60 @@ async function markPayment(markedBy: string, studentId: string, month: number, y
 }
 
 async function getBatchAnalytics() {
+  console.log('Getting batch analytics...');
+  
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
-  // Get batch-wise payment analytics
-  const { data: batchData, error } = await supabase
+  // Get all fee records with batch info
+  const { data: feeRecords, error } = await supabase
     .from('fee_records')
     .select(`
       batch_id,
       is_paid,
-      batches(name),
-      count()
+      batches(name)
     `)
     .eq('month', currentMonth)
     .eq('year', currentYear);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching batch analytics:', error);
+    throw error;
+  }
+
+  console.log('Fee records found:', feeRecords?.length);
 
   // Process data for charts
   const batchAnalytics = {};
-  batchData?.forEach(record => {
+  feeRecords?.forEach(record => {
     const batchName = record.batches?.name || 'No Batch';
     if (!batchAnalytics[batchName]) {
       batchAnalytics[batchName] = { paid: 0, unpaid: 0, total: 0 };
     }
     
     if (record.is_paid) {
-      batchAnalytics[batchName].paid += record.count;
+      batchAnalytics[batchName].paid += 1;
     } else {
-      batchAnalytics[batchName].unpaid += record.count;
+      batchAnalytics[batchName].unpaid += 1;
     }
-    batchAnalytics[batchName].total += record.count;
+    batchAnalytics[batchName].total += 1;
   });
 
+  console.log('Batch analytics:', batchAnalytics);
+  
   return new Response(JSON.stringify({ batchAnalytics }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
 async function generateMonthlyFees() {
+  console.log('Generating monthly fees...');
+  
   const { error } = await supabase.rpc('generate_monthly_fees');
-  if (error) throw error;
+  if (error) {
+    console.error('Error generating monthly fees:', error);
+    throw error;
+  }
 
   return new Response(JSON.stringify({ success: true, message: 'Monthly fees generated' }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -198,6 +246,8 @@ async function generateMonthlyFees() {
 }
 
 async function getAllStudentsFees() {
+  console.log('Getting all students fees...');
+  
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
@@ -212,8 +262,13 @@ async function getAllStudentsFees() {
     .eq('year', currentYear)
     .order('battery_level', { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching all students fees:', error);
+    throw error;
+  }
 
+  console.log('All students fees found:', feeRecords?.length);
+  
   return new Response(JSON.stringify({ feeRecords }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

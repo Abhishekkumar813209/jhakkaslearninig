@@ -213,7 +213,7 @@ const StudentDashboard: React.FC = () => {
       </div>
 
       {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="roadmap" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="roadmap">

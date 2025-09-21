@@ -172,6 +172,84 @@ export type Database = {
           },
         ]
       }
+      fee_records: {
+        Row: {
+          amount: number
+          batch_id: string | null
+          battery_level: number
+          created_at: string
+          due_date: string
+          id: string
+          is_paid: boolean
+          marked_by: string | null
+          month: number
+          paid_date: string | null
+          payment_method: string | null
+          student_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          amount?: number
+          batch_id?: string | null
+          battery_level?: number
+          created_at?: string
+          due_date: string
+          id?: string
+          is_paid?: boolean
+          marked_by?: string | null
+          month: number
+          paid_date?: string | null
+          payment_method?: string | null
+          student_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          batch_id?: string | null
+          battery_level?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          is_paid?: boolean
+          marked_by?: string | null
+          month?: number
+          paid_date?: string | null
+          payment_method?: string | null
+          student_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      fee_reminders: {
+        Row: {
+          email_status: string
+          fee_record_id: string
+          id: string
+          parent_id: string
+          reminder_type: string
+          sent_at: string
+        }
+        Insert: {
+          email_status?: string
+          fee_record_id: string
+          id?: string
+          parent_id: string
+          reminder_type: string
+          sent_at?: string
+        }
+        Update: {
+          email_status?: string
+          fee_record_id?: string
+          id?: string
+          parent_id?: string
+          reminder_type?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       options: {
         Row: {
           created_at: string | null
@@ -212,6 +290,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      parent_student_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary_contact: boolean
+          parent_id: string
+          relationship: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary_contact?: boolean
+          parent_id: string
+          relationship?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary_contact?: boolean
+          parent_id?: string
+          relationship?: string
+          student_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -697,6 +802,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_monthly_fees: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
@@ -711,6 +820,10 @@ export type Database = {
           user_id: string
         }
         Returns: boolean
+      }
+      update_battery_level: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

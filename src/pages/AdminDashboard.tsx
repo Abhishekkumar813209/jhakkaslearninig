@@ -31,7 +31,7 @@ import FeesManagement from "@/components/admin/FeesManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState("tests"); // Start with tests tab for debugging
+  const [activeTab, setActiveTab] = useState("courses"); // Start with courses tab
 
   if (loading) {
     return (

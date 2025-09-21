@@ -8,9 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, BookOpen, Play, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Edit, Trash2, BookOpen, Play, Users, Video } from "lucide-react";
 import { useCourses, Course } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
+import LectureManagement from "./LectureManagement";
 
 const CourseManagement = () => {
   const { courses, loading, createCourse, updateCourse, deleteCourse, fetchCourses } = useCourses();
@@ -25,6 +27,7 @@ const CourseManagement = () => {
     params.set('showAll', 'true');
     fetchCourses(params);
   }, []); // Empty dependency array to run only once
+  
   const [formData, setFormData] = useState({
     title: '',
     subject: 'Mathematics',
@@ -131,377 +134,384 @@ const CourseManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Course Management</h2>
-          <p className="text-muted-foreground">Manage courses and learning content</p>
-        </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Course
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add New Course</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Course Title *</Label>
-                <Input 
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="Enter course title" 
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="subject">Subject *</Label>
-                  <Select value={formData.subject} onValueChange={(value) => setFormData({...formData, subject: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Physics">Physics</SelectItem>
-                      <SelectItem value="Chemistry">Chemistry</SelectItem>
-                      <SelectItem value="Mathematics">Mathematics</SelectItem>
-                      <SelectItem value="Biology">Biology</SelectItem>
-                      <SelectItem value="English">English</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="price">Price (₹)</Label>
-                  <Input 
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                    placeholder="0" 
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="description">Course Description *</Label>
-                <Textarea 
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Enter course description" 
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="level">Level</Label>
-                  <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="thumbnail">Thumbnail URL</Label>
-                  <Input 
-                    id="thumbnail"
-                    value={formData.thumbnail}
-                    onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
-                    placeholder="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop" 
-                  />
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Sample URLs: 
-                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=400&h=300&fit=crop'})}>
-                      Physics
-                    </button>,
-                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop'})}>
-                      Mathematics
-                    </button>,
-                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop'})}>
-                      Chemistry
-                    </button>
+      <Tabs defaultValue="courses" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="courses" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Course Management
+          </TabsTrigger>
+          <TabsTrigger value="lectures" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Lecture Management
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="courses" className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">Course Management</h2>
+              <p className="text-muted-foreground">Manage courses and learning content</p>
+            </div>
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Course
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add New Course</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Course Title *</Label>
+                    <Input 
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      placeholder="Enter course title" 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="subject">Subject *</Label>
+                      <Select value={formData.subject} onValueChange={(value) => setFormData({...formData, subject: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Physics">Physics</SelectItem>
+                          <SelectItem value="Chemistry">Chemistry</SelectItem>
+                          <SelectItem value="Mathematics">Mathematics</SelectItem>
+                          <SelectItem value="Biology">Biology</SelectItem>
+                          <SelectItem value="English">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="price">Price (₹)</Label>
+                      <Input 
+                        id="price"
+                        type="number"
+                        value={formData.price}
+                        onChange={(e) => setFormData({...formData, price: e.target.value})}
+                        placeholder="0" 
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="description">Course Description *</Label>
+                    <Textarea 
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      placeholder="Enter course description" 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="level">Level</Label>
+                      <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="thumbnail">Thumbnail URL</Label>
+                      <Input 
+                        id="thumbnail"
+                        value={formData.thumbnail}
+                        onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
+                        placeholder="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop" 
+                      />
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Sample URLs: 
+                        <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=400&h=300&fit=crop'})}>
+                          Physics
+                        </button>,
+                        <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop'})}>
+                          Mathematics
+                        </button>,
+                        <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop'})}>
+                          Chemistry
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={handleCreateCourse}>Create Course</Button>
+                    <Button variant="outline" onClick={() => { setShowAddDialog(false); resetForm(); }}>Cancel</Button>
                   </div>
                 </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <Button className="flex-1" onClick={handleCreateCourse}>Create Course</Button>
-                <Button variant="outline" onClick={() => { setShowAddDialog(false); resetForm(); }}>Cancel</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Course Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="card-gradient shadow-soft">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                 <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
-                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.length}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient shadow-soft">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                 <p className="text-sm font-medium text-muted-foreground">Total Videos</p>
-                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.total_videos || course.lessons?.length || 0), 0)}</p>
-              </div>
-              <Play className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient shadow-soft">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                 <p className="text-sm font-medium text-muted-foreground">Total Enrollments</p>
-                 <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.enrollment_count || course.enrollmentCount || 0), 0)}</p>
-              </div>
-              <Users className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient shadow-soft">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                 <p className="text-sm font-medium text-muted-foreground">Revenue</p>
-                 <p className="text-2xl font-bold text-foreground">₹{loading ? '...' : (courses.reduce((sum, course) => sum + (course.price * (course.enrollment_count || course.enrollmentCount || 0)), 0) / 100000).toFixed(1)}L</p>
-              </div>
-              <div className="h-8 w-8 text-orange-600">₹</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Courses Table */}
-      <Card className="card-gradient shadow-soft">
-        <CardHeader>
-          <CardTitle>All Courses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Course</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Videos</TableHead>
-                  <TableHead>Enrollments</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-               <TableBody>
-                 {loading ? (
-                   <TableRow>
-                     <TableCell colSpan={7} className="text-center py-8">
-                       Loading courses...
-                     </TableCell>
-                   </TableRow>
-                 ) : courses.length === 0 ? (
-                   <TableRow>
-                     <TableCell colSpan={7} className="text-center py-8">
-                       No courses found. Create your first course!
-                     </TableCell>
-                   </TableRow>
-                 ) : (
-                   courses.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell>
-                          <div>
-                             <div className="flex items-center gap-3">
-                               {course.thumbnail && (
-                                 <img 
-                                   src={course.thumbnail} 
-                                   alt={course.title}
-                                   className="w-12 h-12 rounded-lg object-cover"
-                                   onError={(e) => {
-                                     (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop';
-                                   }}
-                                 />
-                               )}
-                               <div>
-                                 <div className="font-medium text-foreground">{course.title}</div>
-                                 <div className="text-sm text-muted-foreground">{course.description}</div>
-                                 <div className="text-xs text-muted-foreground mt-1">
-                                   Level: {course.level} | Duration: {course.duration_hours || course.totalDuration || 0} hrs
-                                 </div>
-                               </div>
-                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className={`px-2 py-1 rounded text-xs font-medium ${getSubjectColor(course.subject)}`}>
-                            {course.subject}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Play className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{course.total_videos || course.lessons?.length || 0}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{course.enrollment_count || course.enrollmentCount || 0}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium text-foreground">₹{course.price.toLocaleString()}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge((course.is_published || course.isPublished) ? 'active' : 'draft')}`}>
-                            {(course.is_published || course.isPublished) ? 'Published' : 'Draft'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleEditCourse(course)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-red-600"
-                              onClick={() => handleDeleteCourse(course.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                   ))
-                 )}
-               </TableBody>
-            </Table>
+              </DialogContent>
+            </Dialog>
           </div>
-        </CardContent>
-         </Card>
 
-         {/* Edit Course Dialog */}
-         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-           <DialogContent className="max-w-2xl">
-             <DialogHeader>
-               <DialogTitle>Edit Course</DialogTitle>
-             </DialogHeader>
-             <div className="space-y-4">
-               <div>
-                 <Label htmlFor="edit-title">Course Title *</Label>
-                 <Input 
-                   id="edit-title"
-                   value={formData.title}
-                   onChange={(e) => setFormData({...formData, title: e.target.value})}
-                   placeholder="Enter course title" 
-                 />
-               </div>
-               
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <Label htmlFor="edit-subject">Subject *</Label>
-                   <Select value={formData.subject} onValueChange={(value) => setFormData({...formData, subject: value})}>
-                     <SelectTrigger>
-                       <SelectValue placeholder="Select subject" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="Physics">Physics</SelectItem>
-                       <SelectItem value="Chemistry">Chemistry</SelectItem>
-                       <SelectItem value="Mathematics">Mathematics</SelectItem>
-                       <SelectItem value="Biology">Biology</SelectItem>
-                       <SelectItem value="English">English</SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
-                 <div>
-                   <Label htmlFor="edit-price">Price (₹)</Label>
-                   <Input 
-                     id="edit-price"
-                     type="number"
-                     value={formData.price}
-                     onChange={(e) => setFormData({...formData, price: e.target.value})}
-                     placeholder="0" 
-                   />
-                 </div>
-               </div>
-               
-               <div>
-                 <Label htmlFor="edit-description">Course Description *</Label>
-                 <Textarea 
-                   id="edit-description"
-                   value={formData.description}
-                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                   placeholder="Enter course description" 
-                 />
-               </div>
-               
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <Label htmlFor="edit-level">Level</Label>
-                   <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
-                     <SelectTrigger>
-                       <SelectValue placeholder="Select level" />
-                     </SelectTrigger>
-                     <SelectContent>
+          {/* Course Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="card-gradient shadow-soft">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                     <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
+                     <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.length}</p>
+                  </div>
+                  <BookOpen className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient shadow-soft">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                     <p className="text-sm font-medium text-muted-foreground">Total Videos</p>
+                     <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.total_videos || course.lessons?.length || 0), 0)}</p>
+                  </div>
+                  <Play className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient shadow-soft">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                     <p className="text-sm font-medium text-muted-foreground">Total Enrollments</p>
+                     <p className="text-2xl font-bold text-foreground">{loading ? '...' : courses.reduce((sum, course) => sum + (course.enrollment_count || course.enrollmentCount || 0), 0)}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-gradient shadow-soft">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                     <p className="text-sm font-medium text-muted-foreground">Revenue</p>
+                     <p className="text-2xl font-bold text-foreground">₹{loading ? '...' : (courses.reduce((sum, course) => sum + (course.price * (course.enrollment_count || course.enrollmentCount || 0)), 0) / 100000).toFixed(1)}L</p>
+                  </div>
+                  <div className="h-8 w-8 text-orange-600">₹</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Courses Table */}
+          <Card className="card-gradient shadow-soft">
+            <CardHeader>
+              <CardTitle>All Courses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Course</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Videos</TableHead>
+                      <TableHead>Enrollments</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                   <TableBody>
+                     {loading ? (
+                       <TableRow>
+                         <TableCell colSpan={7} className="text-center py-8">
+                           Loading courses...
+                         </TableCell>
+                       </TableRow>
+                     ) : courses.length === 0 ? (
+                       <TableRow>
+                         <TableCell colSpan={7} className="text-center py-8">
+                           No courses found. Create your first course!
+                         </TableCell>
+                       </TableRow>
+                     ) : (
+                       courses.map((course) => (
+                          <TableRow key={course.id}>
+                            <TableCell>
+                              <div>
+                                 <div className="flex items-center gap-3">
+                                   {course.thumbnail && (
+                                     <img 
+                                       src={course.thumbnail} 
+                                       alt={course.title}
+                                       className="w-12 h-12 rounded-lg object-cover"
+                                       onError={(e) => {
+                                         (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop';
+                                       }}
+                                     />
+                                   )}
+                                   <div>
+                                     <div className="font-medium text-foreground">{course.title}</div>
+                                     <div className="text-sm text-muted-foreground">{course.description}</div>
+                                     <div className="text-xs text-muted-foreground mt-1">
+                                       Level: {course.level} | Duration: {course.duration_hours || course.totalDuration || 0} hrs
+                                     </div>
+                                   </div>
+                                 </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className={`px-2 py-1 rounded text-xs font-medium ${getSubjectColor(course.subject)}`}>
+                                {course.subject}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Play className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{course.total_videos || course.lessons?.length || 0}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{course.enrollment_count || course.enrollmentCount || 0}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium text-foreground">₹{course.price.toLocaleString()}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge((course.is_published || course.isPublished) ? 'active' : 'draft')}`}>
+                                {(course.is_published || course.isPublished) ? 'Published' : 'Draft'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEditCourse(course)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteCourse(course.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                       ))
+                     )}
+                   </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Edit Course Dialog */}
+          <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit Course</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-title">Course Title *</Label>
+                  <Input 
+                    id="edit-title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    placeholder="Enter course title" 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-subject">Subject *</Label>
+                    <Select value={formData.subject} onValueChange={(value) => setFormData({...formData, subject: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Physics">Physics</SelectItem>
+                        <SelectItem value="Chemistry">Chemistry</SelectItem>
+                        <SelectItem value="Mathematics">Mathematics</SelectItem>
+                        <SelectItem value="Biology">Biology</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-price">Price (₹)</Label>
+                    <Input 
+                      id="edit-price"
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({...formData, price: e.target.value})}
+                      placeholder="0" 
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-description">Course Description *</Label>
+                  <Textarea 
+                    id="edit-description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Enter course description" 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-level">Level</Label>
+                    <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
                         <SelectItem value="beginner">Beginner</SelectItem>
                         <SelectItem value="intermediate">Intermediate</SelectItem>
                         <SelectItem value="advanced">Advanced</SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
-                <div>
-                  <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
-                  <Input 
-                    id="edit-thumbnail"
-                    value={formData.thumbnail}
-                    onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
-                    placeholder="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop" 
-                  />
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Sample URLs: 
-                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=400&h=300&fit=crop'})}>
-                      Physics
-                    </button>,
-                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop'})}>
-                      Mathematics
-                    </button>,
-                    <button type="button" className="text-primary hover:underline ml-1" onClick={() => setFormData({...formData, thumbnail: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop'})}>
-                      Chemistry
-                    </button>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-thumbnail">Thumbnail URL</Label>
+                    <Input 
+                      id="edit-thumbnail"
+                      value={formData.thumbnail}
+                      onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
+                      placeholder="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop" 
+                    />
                   </div>
                 </div>
-               </div>
-               
-               <div className="flex gap-2">
-                 <Button className="flex-1" onClick={handleUpdateCourse}>Update Course</Button>
-                 <Button variant="outline" onClick={() => { setShowEditDialog(false); setEditingCourse(null); resetForm(); }}>Cancel</Button>
-               </div>
-             </div>
-           </DialogContent>
-         </Dialog>
-       </div>
-     );
-   };
-   
-   export default CourseManagement;
+                
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={handleUpdateCourse}>Update Course</Button>
+                  <Button variant="outline" onClick={() => { setShowEditDialog(false); setEditingCourse(null); resetForm(); }}>Cancel</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+        
+        <TabsContent value="lectures">
+          <LectureManagement />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default CourseManagement;

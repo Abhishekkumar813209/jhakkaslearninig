@@ -24,7 +24,12 @@ interface FeeRecord {
   };
 }
 
-const StudentBatteryCard = () => {
+interface StudentBatteryCardProps {
+  previewMode?: boolean;
+  sampleStudentId?: string;
+}
+
+const StudentBatteryCard = ({ previewMode = false, sampleStudentId }: StudentBatteryCardProps) => {
   const [feeRecord, setFeeRecord] = useState<FeeRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -35,12 +40,43 @@ const StudentBatteryCard = () => {
 
   const fetchFeeStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('fee-management', {
-        body: { action: 'get_student_fee_status' }
-      });
+      if (previewMode && sampleStudentId) {
+        // For admin preview mode, fetch a specific student's data
+        const { data, error } = await supabase.functions.invoke('fee-management', {
+          body: { action: 'get_sample_student_fee', studentId: sampleStudentId }
+        });
+        
+        if (error) throw error;
+        setFeeRecord(data.feeRecord);
+      } else if (previewMode) {
+        // Show mock data for preview if no specific student ID
+        const mockRecord: FeeRecord = {
+          id: 'preview-id',
+          amount: 5000,
+          month: new Date().getMonth() + 1,
+          year: new Date().getFullYear(),
+          due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          paid_date: null,
+          is_paid: false,
+          battery_level: 35,
+          profiles: {
+            full_name: 'Sample Student',
+            email: 'student@example.com'
+          },
+          batches: {
+            name: 'JEE Main 2025 Batch A'
+          }
+        };
+        setFeeRecord(mockRecord);
+      } else {
+        // Normal mode - fetch current user's fee status
+        const { data, error } = await supabase.functions.invoke('fee-management', {
+          body: { action: 'get_student_fee_status' }
+        });
 
-      if (error) throw error;
-      setFeeRecord(data.feeRecord);
+        if (error) throw error;
+        setFeeRecord(data.feeRecord);
+      }
     } catch (error) {
       console.error('Error fetching fee status:', error);
       toast({
@@ -202,7 +238,7 @@ const StudentBatteryCard = () => {
         </div>
 
         {/* Action Button */}
-        {!feeRecord.is_paid && (
+        {!feeRecord.is_paid && !previewMode && (
           <Button 
             className="w-full"
             variant={feeRecord.battery_level < 25 ? "destructive" : "default"}
@@ -212,11 +248,32 @@ const StudentBatteryCard = () => {
           </Button>
         )}
 
+        {previewMode && !feeRecord.is_paid && (
+          <Button 
+            className="w-full" 
+            variant={feeRecord.battery_level < 25 ? "destructive" : "default"}
+            disabled
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Recharge Now - Pay ₹{feeRecord.amount} (Preview Mode)
+          </Button>
+        )}
+
         {feeRecord.is_paid && (
           <div className="text-center p-4 bg-success/10 rounded-lg">
             <Zap className="h-6 w-6 text-success mx-auto mb-2" />
             <p className="text-success font-semibold">Payment Complete!</p>
-            <p className="text-xs text-muted-foreground">Thank you for your payment</p>
+            <p className="text-xs text-muted-foreground">
+              {previewMode ? "Sample payment completed" : "Thank you for your payment"}
+            </p>
+          </div>
+        )}
+
+        {previewMode && (
+          <div className="mt-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
+            <p className="text-xs text-center text-primary font-medium">
+              👆 Preview Mode - This is how students see their fee status
+            </p>
           </div>
         )}
       </CardContent>

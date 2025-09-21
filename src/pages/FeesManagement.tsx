@@ -173,11 +173,11 @@ const FeesManagement = () => {
                 <CardHeader>
                   <CardTitle>Student View Preview</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    This is how students see their fee status
+                    This is how students see their fee status (showing sample data)
                   </p>
                 </CardHeader>
               </Card>
-              <StudentBatteryCard />
+              <StudentBatteryCard previewMode={true} />
             </div>
           </TabsContent>
         </Tabs>

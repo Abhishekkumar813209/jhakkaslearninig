@@ -38,9 +38,12 @@ const CourseCard = ({
       <CardHeader className="p-0">
         <div className="relative overflow-hidden rounded-t-lg">
           <img 
-            src={thumbnail} 
+            src={thumbnail || 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop'} 
             alt={title}
             className="w-full h-48 object-cover group-hover:scale-105 transition-smooth"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop';
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-smooth"></div>
           <Button 

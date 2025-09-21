@@ -149,7 +149,7 @@ const Courses = () => {
                   id={course.id}
                   title={course.title}
                   instructor={course.instructor_id}
-                  thumbnail={course.thumbnail}
+                  thumbnail={course.thumbnail || 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop'}
                   price={course.price}
                   rating={course.rating || 4.5}
                   studentsEnrolled={course.enrollment_count || 0}

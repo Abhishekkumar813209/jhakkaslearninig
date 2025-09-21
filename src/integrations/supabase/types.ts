@@ -265,6 +265,48 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_paths: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          estimated_completion_date: string | null
+          id: string
+          is_custom: boolean | null
+          progress: number | null
+          student_id: string
+          subject: string
+          teacher_name: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          estimated_completion_date?: string | null
+          id?: string
+          is_custom?: boolean | null
+          progress?: number | null
+          student_id: string
+          subject: string
+          teacher_name: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          estimated_completion_date?: string | null
+          id?: string
+          is_custom?: boolean | null
+          progress?: number | null
+          student_id?: string
+          subject?: string
+          teacher_name?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       lectures: {
         Row: {
           chapter: number
@@ -278,6 +320,7 @@ export type Database = {
           playlist_id: string | null
           processing_status: string | null
           thumbnail: string | null
+          thumbnail_url: string | null
           title: string
           updated_at: string | null
           uploaded_by: string
@@ -297,6 +340,7 @@ export type Database = {
           playlist_id?: string | null
           processing_status?: string | null
           thumbnail?: string | null
+          thumbnail_url?: string | null
           title: string
           updated_at?: string | null
           uploaded_by: string
@@ -316,6 +360,7 @@ export type Database = {
           playlist_id?: string | null
           processing_status?: string | null
           thumbnail?: string | null
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string | null
           uploaded_by?: string
@@ -400,6 +445,56 @@ export type Database = {
           student_id?: string
         }
         Relationships: []
+      }
+      playlists: {
+        Row: {
+          chapter: string | null
+          created_at: string | null
+          id: string
+          learning_path_id: string
+          order_num: number | null
+          thumbnail_url: string | null
+          title: string
+          total_duration_minutes: number | null
+          updated_at: string | null
+          video_count: number | null
+          youtube_playlist_id: string
+        }
+        Insert: {
+          chapter?: string | null
+          created_at?: string | null
+          id?: string
+          learning_path_id: string
+          order_num?: number | null
+          thumbnail_url?: string | null
+          title: string
+          total_duration_minutes?: number | null
+          updated_at?: string | null
+          video_count?: number | null
+          youtube_playlist_id: string
+        }
+        Update: {
+          chapter?: string | null
+          created_at?: string | null
+          id?: string
+          learning_path_id?: string
+          order_num?: number | null
+          thumbnail_url?: string | null
+          title?: string
+          total_duration_minutes?: number | null
+          updated_at?: string | null
+          video_count?: number | null
+          youtube_playlist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlists_learning_path_id_fkey"
+            columns: ["learning_path_id"]
+            isOneToOne: false
+            referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -784,6 +879,8 @@ export type Database = {
           is_completed: boolean | null
           last_watched_at: string | null
           lecture_id: string
+          playlist_id: string | null
+          student_id: string
           watch_time_seconds: number | null
         }
         Insert: {
@@ -793,6 +890,8 @@ export type Database = {
           is_completed?: boolean | null
           last_watched_at?: string | null
           lecture_id: string
+          playlist_id?: string | null
+          student_id?: string
           watch_time_seconds?: number | null
         }
         Update: {
@@ -802,6 +901,8 @@ export type Database = {
           is_completed?: boolean | null
           last_watched_at?: string | null
           lecture_id?: string
+          playlist_id?: string | null
+          student_id?: string
           watch_time_seconds?: number | null
         }
         Relationships: [

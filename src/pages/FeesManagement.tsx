@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Navbar from "@/components/Navbar";
 import StudentBatteryCard from "@/components/fees/StudentBatteryCard";
 import FeeAnalyticsDashboard from "@/components/fees/FeeAnalyticsDashboard";
 import AdminPaymentManager from "@/components/fees/AdminPaymentManager";
 import { supabase } from "@/integrations/supabase/client";
-import { Battery, TrendingUp, CreditCard } from "lucide-react";
+import { Battery, TrendingUp, CreditCard, ArrowLeft, Settings, Home } from "lucide-react";
 
 const FeesManagement = () => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
 
@@ -50,18 +53,60 @@ const FeesManagement = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Fees Management Portal</h1>
-        <p className="text-muted-foreground">
-          {userRole === 'admin' ? 
-            'Manage student fees, track payments, and view analytics' : 
-            'View your fee status and payment history'
-          }
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Navigation Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            
+            <div>
+              <h1 className="text-3xl font-bold">💰 Fees Management Portal</h1>
+              <p className="text-muted-foreground">
+                {userRole === 'admin' ? 
+                  'Manage student fees, track payments, and view analytics' : 
+                  'View your fee status and payment history'
+                }
+              </p>
+            </div>
+          </div>
+          
+          {/* Quick Navigation for Admin */}
+          {userRole === 'admin' && (
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2"
+              >
+                <Home className="h-4 w-4" />
+                Home
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => navigate('/admin')}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Admin Dashboard
+              </Button>
+            </div>
+          )}
+        </div>
 
-      {userRole === 'student' && (
+        {userRole === 'student' && (
         <div className="max-w-2xl mx-auto">
           <StudentBatteryCard />
           
@@ -107,9 +152,9 @@ const FeesManagement = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+        )}
 
-      {userRole === 'admin' && (
+        {userRole === 'admin' && (
         <Tabs defaultValue="analytics" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="analytics" className="flex items-center gap-2">
@@ -148,15 +193,16 @@ const FeesManagement = () => {
             </div>
           </TabsContent>
         </Tabs>
-      )}
+        )}
 
-      {!userRole && (
-        <Card>
-          <CardContent className="text-center p-8">
-            <p className="text-muted-foreground">Unable to determine user role. Please contact admin.</p>
-          </CardContent>
-        </Card>
-      )}
+        {!userRole && (
+          <Card>
+            <CardContent className="text-center p-8">
+              <p className="text-muted-foreground">Unable to determine user role. Please contact admin.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };

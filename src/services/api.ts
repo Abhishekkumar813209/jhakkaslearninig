@@ -373,11 +373,17 @@ export const lecturesAPI = {
 // Tests API
 export const testsAPI = {
   getTests: async (params?: URLSearchParams) => {
-    return makeSupabaseRequest('tests-api', { params: params?.toString() });
+    const { data, error } = await supabase.functions.invoke('tests-api');
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   getTest: async (id: string) => {
-    return makeSupabaseRequest('tests-api', { testId: id });
+    const { data, error } = await supabase.functions.invoke('tests-api', {
+      body: { action: 'getTestWithQuestions', testId: id }
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   createTest: async (testData: any) => {

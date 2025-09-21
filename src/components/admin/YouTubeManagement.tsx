@@ -47,6 +47,22 @@ const YouTubeManagement = () => {
   const [showCreatePlaylistDialog, setShowCreatePlaylistDialog] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Test function to demonstrate progress bar
+  const testProgress = async () => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    for (let i = 0; i <= 100; i += 10) {
+      setUploadProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    setTimeout(() => {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }, 1000);
+  };
   const { toast } = useToast();
 
   const [uploadFormData, setUploadFormData] = useState({
@@ -289,7 +305,21 @@ Current Error: "Precondition check failed" usually means channel verification is
   };
 
   const uploadVideo = async () => {
-    if (!uploadFormData.file || !accessToken) return;
+    console.log('Upload function called!');
+    
+    if (!uploadFormData.file || !accessToken) {
+      console.log('Upload failed - missing requirements:', {
+        hasFile: !!uploadFormData.file,
+        hasAccessToken: !!accessToken
+      });
+      return;
+    }
+
+    console.log('Upload button clicked!', { 
+      hasFile: !!uploadFormData.file, 
+      hasToken: !!accessToken,
+      title: uploadFormData.title 
+    });
 
     setIsUploading(true);
     setUploadProgress(0);
@@ -608,14 +638,23 @@ Current Error: "Precondition check failed" usually means channel verification is
                   </div>
 
                   {isUploading && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Uploading...</span>
-                        <span>{uploadProgress}%</span>
+                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-medium">Uploading video...</span>
+                        <span className="text-primary font-bold">{uploadProgress}%</span>
                       </div>
-                      <Progress value={uploadProgress} className="w-full" />
+                      <Progress 
+                        value={uploadProgress} 
+                        className="w-full h-3" 
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {uploadProgress < 40 ? 'Processing video file...' :
+                         uploadProgress < 80 ? 'Uploading to YouTube...' :
+                         uploadProgress < 100 ? 'Finalizing upload...' : 'Complete!'}
+                      </div>
                     </div>
                   )}
+                  
                   
                   <div className="flex gap-2">
                     <Button 
@@ -624,6 +663,13 @@ Current Error: "Precondition check failed" usually means channel verification is
                       disabled={!uploadFormData.title || !uploadFormData.file || isUploading}
                     >
                       {isUploading ? 'Uploading...' : 'Upload Video'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={testProgress}
+                      disabled={isUploading}
+                    >
+                      Test Progress
                     </Button>
                     <Button variant="outline" onClick={() => setShowUploadDialog(false)}>Cancel</Button>
                   </div>

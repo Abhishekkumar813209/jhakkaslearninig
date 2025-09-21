@@ -84,7 +84,7 @@ async function handleCreatePlaylist(data: any, accessToken: string) {
           status: response.status
         }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 

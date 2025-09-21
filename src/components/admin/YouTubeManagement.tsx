@@ -246,9 +246,17 @@ Current Error: "Precondition check failed" usually means channel verification is
   };
 
   const createPlaylist = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      toast({ title: 'Connect YouTube', description: 'Please connect your YouTube account first.', variant: 'destructive' });
+      return;
+    }
+    if (!playlistFormData.title.trim()) {
+      toast({ title: 'Title required', description: 'Please enter a playlist title.', variant: 'destructive' });
+      return;
+    }
 
     try {
+      toast({ title: 'Creating playlist…', description: 'Creating on YouTube, please wait.' });
       const { data, error } = await supabase.functions.invoke('youtube-integration', {
         body: { 
           action: 'createPlaylist',
@@ -290,7 +298,7 @@ Current Error: "Precondition check failed" usually means channel verification is
 
       toast({
         title: "Success",
-        description: "Playlist created successfully!",
+        description: `Playlist created! Open on YouTube: https://www.youtube.com/playlist?list=${data?.playlist?.id || ''}`,
       });
 
       setShowCreatePlaylistDialog(false);

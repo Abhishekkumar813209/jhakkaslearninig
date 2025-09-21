@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings } from "lucide-react";
+import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { authAPI } from "@/services/api";
@@ -65,6 +65,11 @@ const Navbar = () => {
                     Dashboard
                   </Button>
                 </Link>
+                <Link to="/student">
+                  <Button variant="nav" size="sm">
+                    Roadmap
+                  </Button>
+                </Link>
                 <Link to="/courses">
                   <Button variant="nav" size="sm">
                     Courses
@@ -92,6 +97,11 @@ const Navbar = () => {
                 <Link to="/admin">
                   <Button variant="nav" size="sm">
                     Admin Dashboard
+                  </Button>
+                </Link>
+                <Link to="/student">
+                  <Button variant="nav" size="sm">
+                    Student
                   </Button>
                 </Link>
                 <Link to="/courses">
@@ -196,6 +206,12 @@ const Navbar = () => {
                       Dashboard
                     </Button>
                   </Link>
+                  <Link to="/student" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <Map className="h-4 w-4 mr-2" />
+                      Roadmap
+                    </Button>
+                  </Link>
                   <Link to="/courses" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <BookOpen className="h-4 w-4 mr-2" />
@@ -240,6 +256,12 @@ const Navbar = () => {
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Settings className="h-4 w-4 mr-2" />
                       Admin Dashboard
+                    </Button>
+                  </Link>
+                  <Link to="/student" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <Map className="h-4 w-4 mr-2" />
+                      Student
                     </Button>
                   </Link>
                   <Link to="/courses" onClick={() => setIsMenuOpen(false)}>

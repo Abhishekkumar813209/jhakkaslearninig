@@ -249,8 +249,9 @@ Current Error: "Precondition check failed" usually means channel verification is
         let errorMsg = err?.message || 'Failed to create playlist';
         
         // Add specific guidance for common errors
-        if (err?.message?.includes('Precondition check failed')) {
-          errorMsg += '\n\n💡 This usually means your YouTube channel needs verification. Check the troubleshooting guide.';
+        const isPrecondition = !!err?.message?.includes('Precondition check failed');
+        if (isPrecondition) {
+          errorMsg += '\n\n💡 This usually means your YouTube channel needs verification or is not fully set up. Running diagnostics...';
         }
         
         toast({
@@ -262,6 +263,10 @@ Current Error: "Precondition check failed" usually means channel verification is
         
         // Log detailed error for debugging
         console.error('YouTube API Error Details:', err);
+        
+        if (isPrecondition) {
+          await runDiagnostics();
+        }
         return;
       }
 
@@ -392,9 +397,14 @@ Current Error: "Precondition check failed" usually means channel verification is
               <Youtube className="h-4 w-4" />
               Connect YouTube
             </Button>
-            <Button variant="outline" size="sm" onClick={troubleshootConnection}>
-              🛠️ Troubleshooting Guide
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={troubleshootConnection}>
+                🛠️ Troubleshooting Guide
+              </Button>
+              <Button variant="outline" size="sm" onClick={runDiagnostics}>
+                Run Diagnostics
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -404,6 +414,9 @@ Current Error: "Precondition check failed" usually means channel verification is
             </Badge>
             <Button variant="outline" size="sm" onClick={troubleshootConnection}>
               Help
+            </Button>
+            <Button variant="outline" size="sm" onClick={runDiagnostics}>
+              Run Diagnostics
             </Button>
             <Button 
               variant="outline" 

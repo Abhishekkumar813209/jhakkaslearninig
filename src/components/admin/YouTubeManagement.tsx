@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Plus, Upload, Youtube, Play, Edit, Trash2, Link, Folder, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,7 @@ const YouTubeManagement = () => {
   const [showCreatePlaylistDialog, setShowCreatePlaylistDialog] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const progressTimerRef = useRef<number | null>(null);
 
   // Test function to demonstrate progress bar
   const testProgress = async () => {
@@ -55,13 +57,13 @@ const YouTubeManagement = () => {
     
     for (let i = 0; i <= 100; i += 10) {
       setUploadProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
     setTimeout(() => {
       setIsUploading(false);
       setUploadProgress(0);
-    }, 1000);
+    }, 600);
   };
   const { toast } = useToast();
 
@@ -307,11 +309,14 @@ Current Error: "Precondition check failed" usually means channel verification is
   const uploadVideo = async () => {
     console.log('Upload function called!');
     
-    if (!uploadFormData.file || !accessToken) {
-      console.log('Upload failed - missing requirements:', {
-        hasFile: !!uploadFormData.file,
-        hasAccessToken: !!accessToken
-      });
+    if (!uploadFormData.file) {
+      console.log('Upload aborted: no file selected');
+      toast({ title: 'No file selected', description: 'Please choose a video file.', variant: 'destructive' });
+      return;
+    }
+    if (!accessToken) {
+      console.log('Upload aborted: missing YouTube access token');
+      toast({ title: 'Connect YouTube', description: 'Please connect your YouTube account first.', variant: 'destructive' });
       return;
     }
 
@@ -349,6 +354,13 @@ Current Error: "Precondition check failed" usually means channel verification is
         const base64 = chunks.join('');
         setUploadProgress(40);
 
+        // Start a smooth progress timer while waiting for server response (40% -> 95%)
+        if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+        progressTimerRef.current = window.setInterval(() => {
+          setUploadProgress((p) => (p < 95 ? p + 1 : 95));
+        }, 500);
+
+        toast({ title: 'Uploading…', description: 'Your video is being uploaded to YouTube.' });
         console.log('Starting video upload to YouTube...', {
           title: uploadFormData.title,
           fileSize: uploadFormData.file?.size,
@@ -366,7 +378,8 @@ Current Error: "Precondition check failed" usually means channel verification is
           }
         });
 
-        setUploadProgress(80);
+        if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null; }
+        setUploadProgress(98);
 
         if (error) {
           console.error('YouTube upload error:', error);
@@ -374,7 +387,6 @@ Current Error: "Precondition check failed" usually means channel verification is
         }
 
         console.log('Video upload successful:', data);
-        setUploadProgress(90);
 
         // If a playlist is selected, add the video to it
         if (selectedPlaylist && data.video?.id) {
@@ -422,6 +434,7 @@ Current Error: "Precondition check failed" usually means channel verification is
       
     } catch (error: any) {
       console.error('Failed to upload video:', error);
+      if (progressTimerRef.current) { clearInterval(progressTimerRef.current); progressTimerRef.current = null; }
       toast({
         title: "Upload Failed",
         description: error?.message || "Failed to upload video. Check console for details.",

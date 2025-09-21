@@ -122,7 +122,11 @@ serve(async (req: Request) => {
             order_num: index + 1,
             description: video.description,
             thumbnail_url: video.thumbnail,
-            chapter: video.chapter
+            chapter: index + 1, // Use index for chapter numbering
+            course_id: '00000000-0000-0000-0000-000000000000', // Default course_id for playlist lectures
+            uploaded_by: (await supabase.auth.getUser()).data.user?.id || '00000000-0000-0000-0000-000000000000',
+            video_url: `https://www.youtube.com/watch?v=${video.youtube_video_id}`,
+            is_published: true
           }))
 
           const { error: lecturesError } = await supabase
@@ -131,6 +135,10 @@ serve(async (req: Request) => {
 
           if (lecturesError) {
             console.error('Error inserting lectures:', lecturesError)
+            return new Response(
+              JSON.stringify({ error: `Failed to add videos: ${lecturesError.message}` }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
           }
         }
 

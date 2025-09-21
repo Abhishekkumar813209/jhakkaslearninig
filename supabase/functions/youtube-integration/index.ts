@@ -95,11 +95,19 @@ async function handleCreatePlaylist(data: any, accessToken: string) {
 }
 
 async function handleUploadVideo(data: any, accessToken: string) {
-  const { title, description, videoData } = data;
+  const { title, description, videoData, fileName } = data;
+  
+  console.log('Starting video upload process...', { 
+    title, 
+    description: description?.substring(0, 50) + '...', 
+    fileName,
+    dataSize: videoData?.length 
+  });
   
   try {
     // Convert base64 to binary
     const binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
+    console.log('Video data converted to binary, size:', binaryData.length, 'bytes');
     
     // Create form data for resumable upload
     const metadata = {
@@ -112,19 +120,31 @@ async function handleUploadVideo(data: any, accessToken: string) {
       }
     };
 
+    console.log('Initiating resumable upload session...');
+    
     // First, initiate the upload session
     const initiateResponse = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Upload-Content-Type': 'video/*'
+        'X-Upload-Content-Type': 'video/*',
+        'X-Upload-Content-Length': binaryData.length.toString()
       },
       body: JSON.stringify(metadata)
     });
 
     if (!initiateResponse.ok) {
-      const errorData = await initiateResponse.json();
+      const errorText = await initiateResponse.text();
+      console.error('Failed to initiate upload:', errorText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: { message: errorText } };
+      }
+      
       throw new Error(`Failed to initiate upload: ${errorData.error?.message || 'Unknown error'}`);
     }
 
@@ -133,20 +153,36 @@ async function handleUploadVideo(data: any, accessToken: string) {
       throw new Error('No upload URL received from YouTube');
     }
 
+    console.log('Upload session initiated, uploading video data...');
+
     // Upload the video data
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'video/*'
+        'Content-Type': 'video/*',
+        'Content-Length': binaryData.length.toString()
       },
       body: binaryData
     });
 
-    const result = await uploadResponse.json();
+    console.log('Upload response status:', uploadResponse.status);
+
+    let result;
+    try {
+      const responseText = await uploadResponse.text();
+      console.log('Upload response text:', responseText);
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse upload response:', parseError);
+      throw new Error('Invalid response from YouTube upload API');
+    }
     
     if (!uploadResponse.ok) {
-      throw new Error(`Failed to upload video: ${result.error?.message || 'Unknown error'}`);
+      console.error('Upload failed with result:', result);
+      throw new Error(`Failed to upload video: ${result.error?.message || 'Upload failed with status ' + uploadResponse.status}`);
     }
+
+    console.log('Video upload successful:', result.id);
 
     return new Response(
       JSON.stringify({ video: result }),

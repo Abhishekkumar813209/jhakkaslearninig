@@ -296,9 +296,34 @@ Current Error: "Precondition check failed" usually means channel verification is
 
     try {
       const reader = new FileReader();
+      
       reader.onload = async (e) => {
         const arrayBuffer = e.target?.result as ArrayBuffer;
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        
+        // Simulate reading progress
+        setUploadProgress(10);
+        
+        // Convert to base64 in chunks to avoid memory issues
+        const chunkSize = 1024 * 1024; // 1MB chunks
+        const chunks = [];
+        
+        for (let i = 0; i < arrayBuffer.byteLength; i += chunkSize) {
+          const chunk = arrayBuffer.slice(i, i + chunkSize);
+          chunks.push(btoa(String.fromCharCode(...new Uint8Array(chunk))));
+          
+          // Update progress during conversion
+          const conversionProgress = Math.min(30, 10 + (i / arrayBuffer.byteLength) * 20);
+          setUploadProgress(conversionProgress);
+        }
+        
+        const base64 = chunks.join('');
+        setUploadProgress(40);
+
+        console.log('Starting video upload to YouTube...', {
+          title: uploadFormData.title,
+          fileSize: uploadFormData.file?.size,
+          fileName: uploadFormData.file?.name
+        });
 
         const { data, error } = await supabase.functions.invoke('youtube-integration', {
           body: { 
@@ -306,15 +331,26 @@ Current Error: "Precondition check failed" usually means channel verification is
             title: uploadFormData.title,
             description: uploadFormData.description,
             videoData: base64,
-            accessToken: accessToken
+            accessToken: accessToken,
+            fileName: uploadFormData.file?.name || 'video.mp4'
           }
         });
 
-        if (error) throw error;
+        setUploadProgress(80);
+
+        if (error) {
+          console.error('YouTube upload error:', error);
+          throw error;
+        }
+
+        console.log('Video upload successful:', data);
+        setUploadProgress(90);
 
         // If a playlist is selected, add the video to it
         if (selectedPlaylist && data.video?.id) {
-          await supabase.functions.invoke('youtube-integration', {
+          console.log('Adding video to playlist:', selectedPlaylist);
+          
+          const { error: playlistError } = await supabase.functions.invoke('youtube-integration', {
             body: { 
               action: 'addVideoToPlaylist',
               playlistId: selectedPlaylist,
@@ -322,11 +358,23 @@ Current Error: "Precondition check failed" usually means channel verification is
               accessToken: accessToken
             }
           });
+          
+          if (playlistError) {
+            console.error('Failed to add video to playlist:', playlistError);
+            // Don't throw here, video is already uploaded
+            toast({
+              title: "Partial Success", 
+              description: "Video uploaded but failed to add to playlist",
+              variant: "destructive",
+            });
+          }
         }
+
+        setUploadProgress(100);
 
         toast({
           title: "Success",
-          description: "Video uploaded successfully!",
+          description: `Video "${uploadFormData.title}" uploaded successfully!`,
         });
 
         setShowUploadDialog(false);
@@ -336,12 +384,17 @@ Current Error: "Precondition check failed" usually means channel verification is
         }
       };
 
+      reader.onerror = () => {
+        throw new Error('Failed to read video file');
+      };
+
       reader.readAsArrayBuffer(uploadFormData.file);
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Failed to upload video:', error);
       toast({
-        title: "Error",
-        description: "Failed to upload video",
+        title: "Upload Failed",
+        description: error?.message || "Failed to upload video. Check console for details.",
         variant: "destructive",
       });
     } finally {
@@ -516,10 +569,41 @@ Current Error: "Precondition check failed" usually means channel verification is
                       id="video-file"
                       type="file"
                       accept="video/*"
-                      onChange={(e) => setUploadFormData({...uploadFormData, file: e.target.files?.[0] || null})}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file) {
+                          // Check file size (max 2GB for YouTube)
+                          const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+                          if (file.size > maxSize) {
+                            toast({
+                              title: "File Too Large",
+                              description: "Video file must be smaller than 2GB",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          // Check file type
+                          const allowedTypes = ['video/mp4', 'video/mov', 'video/avi', 'video/wmv', 'video/flv', 'video/webm'];
+                          if (!allowedTypes.includes(file.type)) {
+                            toast({
+                              title: "Unsupported Format",
+                              description: "Please select a supported video format (MP4, MOV, AVI, WMV, FLV, WebM)",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                        }
+                        setUploadFormData({...uploadFormData, file});
+                      }}
                     />
                     <div className="text-xs text-muted-foreground mt-1">
-                      Supported formats: MP4, MOV, AVI, WMV, FLV, WebM
+                      Supported formats: MP4, MOV, AVI, WMV, FLV, WebM (Max: 2GB)
+                      {uploadFormData.file && (
+                        <div className="mt-1 text-primary">
+                          Selected: {uploadFormData.file.name} ({(uploadFormData.file.size / (1024 * 1024)).toFixed(2)} MB)
+                        </div>
+                      )}
                     </div>
                   </div>
 

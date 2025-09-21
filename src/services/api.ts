@@ -373,84 +373,27 @@ export const videosAPI = {
 // Tests API
 export const testsAPI = {
   getTests: async (params?: URLSearchParams) => {
-    const { data: tests, error } = await supabase
-      .from('tests')
-      .select('*')
-      .eq('is_published', true);
-
-    if (error) throw new Error(error.message);
-    return { tests };
+    return makeSupabaseRequest('tests-api', { params: params?.toString() });
   },
 
   getTest: async (id: string) => {
-    const { data: test, error } = await supabase
-      .from('tests')
-      .select(`
-        *,
-        questions (*)
-      `)
-      .eq('id', id)
-      .eq('is_published', true)
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { test };
+    return makeSupabaseRequest('tests-api', { testId: id });
   },
 
   createTest: async (testData: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('tests')
-      .insert([{ ...testData, created_by: user?.id }])
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { test: data };
+    return makeSupabaseRequest('tests-api', testData);
   },
 
   updateTest: async (id: string, testData: any) => {
-    const { data, error } = await supabase
-      .from('tests')
-      .update(testData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { test: data };
+    return makeSupabaseRequest('tests-api', { action: 'updateTest', testId: id, ...testData });
   },
 
   deleteTest: async (id: string) => {
-    const { error } = await supabase
-      .from('tests')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
-    return { message: 'Test deleted successfully' };
+    return makeSupabaseRequest('tests-api', { action: 'deleteTest', testId: id });
   },
 
   attemptTest: async (id: string, attemptData: { answers: any[]; timeTaken?: number }) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('No authenticated user');
-
-    const { data, error } = await supabase
-      .from('test_attempts')
-      .insert({
-        test_id: id,
-        student_id: user.id,
-        time_taken_minutes: attemptData.timeTaken || 0,
-        status: 'submitted' as any,
-        started_at: new Date().toISOString(),
-        submitted_at: new Date().toISOString(),
-        total_marks: 0,
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return { attempt: data };
+    return makeSupabaseRequest('tests-api', { action: 'attempt', testId: id, ...attemptData });
   },
 };
 

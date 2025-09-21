@@ -331,11 +331,25 @@ const CourseManagement = () => {
                       <TableRow key={course.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium text-foreground">{course.title}</div>
-                            <div className="text-sm text-muted-foreground">{course.description}</div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Level: {course.level} | Duration: {course.duration_hours || course.totalDuration || 0} hrs
-                            </div>
+                             <div className="flex items-center gap-3">
+                               {course.thumbnail && (
+                                 <img 
+                                   src={course.thumbnail} 
+                                   alt={course.title}
+                                   className="w-12 h-12 rounded-lg object-cover"
+                                   onError={(e) => {
+                                     (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop';
+                                   }}
+                                 />
+                               )}
+                               <div>
+                                 <div className="font-medium text-foreground">{course.title}</div>
+                                 <div className="text-sm text-muted-foreground">{course.description}</div>
+                                 <div className="text-xs text-muted-foreground mt-1">
+                                   Level: {course.level} | Duration: {course.duration_hours || course.totalDuration || 0} hrs
+                                 </div>
+                               </div>
+                             </div>
                           </div>
                         </TableCell>
                         <TableCell>

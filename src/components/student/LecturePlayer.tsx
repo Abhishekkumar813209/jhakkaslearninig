@@ -172,12 +172,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       setProgress(newProgress);
 
       // Update progress via API
-      await supabase.functions.invoke('videos-api', {
+      await supabase.functions.invoke('learning-paths-api', {
         body: {
           action: 'track_progress',
           lecture_id: lecture.id,
           watch_time_seconds: newProgress.watch_time_seconds,
-          is_completed: newProgress.is_completed
+          is_completed: newProgress.is_completed,
+          playlist_id: playlistId
         }
       });
 

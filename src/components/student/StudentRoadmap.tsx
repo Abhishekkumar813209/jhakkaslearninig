@@ -40,26 +40,28 @@ interface Teacher {
 interface Playlist {
   id: string;
   title: string;
-  teacher_id: string;
   youtube_playlist_id: string;
   chapter: string;
-  subject: string;
   video_count: number;
   total_duration_minutes: number;
   order_num: number;
-  realLectures?: Lecture[]; // Optional field for storing real YouTube videos
+  thumbnail_url?: string;
+  learning_path_id?: string;
 }
 
 interface LearningPath {
   id: string;
   student_id: string;
   subject: string;
-  teacher_id: string;
-  playlists: Playlist[];
+  teacher_name: string;
+  title: string;
+  description?: string;
   progress: number;
-  estimated_completion_date: string;
+  estimated_completion_date?: string;
   is_custom: boolean;
-  realLectures?: Lecture[]; // Optional field for storing real YouTube videos
+  playlists: Playlist[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface AdminGuidedPath {
@@ -68,7 +70,6 @@ interface AdminGuidedPath {
   description: string;
   subjects: {
     subject: string;
-    teacher_id: string;
     playlists: string[];
   }[];
   estimated_duration_weeks: number;
@@ -96,8 +97,6 @@ interface Lecture {
 
 const StudentRoadmap: React.FC = () => {
   const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [adminPaths, setAdminPaths] = useState<AdminGuidedPath[]>([]);
   const [selectedPath, setSelectedPath] = useState<string>('custom');
   const [loading, setLoading] = useState(true);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
@@ -109,115 +108,64 @@ const StudentRoadmap: React.FC = () => {
   const [selectedLecture, setSelectedLecture] = useState<Lecture | null>(null);
   const [currentPlaylist, setCurrentPlaylist] = useState<Playlist | null>(null);
   const [playlistLectures, setPlaylistLectures] = useState<Lecture[]>([]);
+  const [adminPaths] = useState<AdminGuidedPath[]>([]);
   const { toast } = useToast();
 
-  // Sample data for demonstration
-  const sampleTeachers: Teacher[] = [
-    {
-      id: '1',
-      name: 'Alakh Pandey',
-      subject: 'Physics',
-      youtube_channel: 'Physics Wallah',
-      avatar: 'https://example.com/alakh.jpg'
-    },
-    {
-      id: '2', 
-      name: 'Paaras Thakur',
-      subject: 'Chemistry',
-      youtube_channel: 'Unacademy',
-      avatar: 'https://example.com/paaras.jpg'
-    },
-    {
-      id: '3',
-      name: 'Mohit Tyagi',
-      subject: 'Mathematics',
-      youtube_channel: 'Mohit Tyagi',
-      avatar: 'https://example.com/mohit.jpg'
-    }
-  ];
+  // Load learning paths from database
+  const loadLearningPaths = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('learning-paths-api', {
+        body: { action: 'get_learning_paths' }
+      });
 
-  const sampleLearningPaths: LearningPath[] = [
-    {
-      id: '1',
-      student_id: 'user123',
-      subject: 'Physics',
-      teacher_id: '1',
-      playlists: [
-        {
-          id: '1',
-          title: 'Mechanics - Class 11',
-          teacher_id: '1',
-          youtube_playlist_id: 'PLdH7xdqgrmzwPyg7QVmjQNFqA4MqVo7IH',
-          chapter: 'Chapter 1: Motion in a Straight Line',
-          subject: 'Physics',
-          video_count: 15,
-          total_duration_minutes: 450,
-          order_num: 1
-        },
-        {
-          id: '2',
-          title: 'Laws of Motion',
-          teacher_id: '1',
-          youtube_playlist_id: 'PLdH7xdqgrmzwPyg7QVmjQNFqA4MqVo7IH',
-          chapter: 'Chapter 2: Laws of Motion',
-          subject: 'Physics',
-          video_count: 12,
-          total_duration_minutes: 360,
-          order_num: 2
-        }
-      ],
-      progress: 35,
-      estimated_completion_date: '2024-06-15',
-      is_custom: true
-    }
-  ];
+      if (error) {
+        console.error('Error loading learning paths:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load learning paths",
+          variant: "destructive"
+        });
+        return;
+      }
 
-  const sampleAdminPaths: AdminGuidedPath[] = [
-    {
-      id: '1',
-      name: 'JEE Main 2024 Complete',
-      description: 'Complete JEE Main preparation with best teachers',
-      subjects: [
-        {
-          subject: 'Physics',
-          teacher_id: '1',
-          playlists: ['playlist1', 'playlist2']
-        },
-        {
-          subject: 'Chemistry', 
-          teacher_id: '2',
-          playlists: ['playlist3', 'playlist4']
-        },
-        {
-          subject: 'Mathematics',
-          teacher_id: '3', 
-          playlists: ['playlist5', 'playlist6']
-        }
-      ],
-      estimated_duration_weeks: 52
+      setLearningPaths(data.learning_paths || []);
+    } catch (error) {
+      console.error('Error loading learning paths:', error);
     }
-  ];
+  };
 
   useEffect(() => {
-    // Initialize with sample data
-    setTeachers(sampleTeachers);
-    setLearningPaths(sampleLearningPaths);
-    setAdminPaths(sampleAdminPaths);
-    setLoading(false);
+    loadLearningPaths();
   }, []);
 
-  const handleAddTeacher = async (subject: string, teacherId: string) => {
+  const handleAddTeacher = async (subject: string, teacherName: string) => {
     try {
-      // In real implementation, this would fetch playlists from YouTube API
-      toast({
-        title: "Teacher Added",
-        description: `Added teacher for ${subject}. Fetching playlists...`,
+      const { data, error } = await supabase.functions.invoke('learning-paths-api', {
+        body: { 
+          action: 'create_learning_path',
+          subject,
+          teacher_name: teacherName,
+          title: `${teacherName} - ${subject}`
+        }
       });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Learning Path Created",
+        description: `Created learning path for ${subject} with ${teacherName}`,
+      });
+
+      // Reload learning paths
+      loadLearningPaths();
       setShowAddTeacher(false);
     } catch (error) {
+      console.error('Error creating learning path:', error);
       toast({
         title: "Error",
-        description: "Failed to add teacher",
+        description: "Failed to create learning path",
         variant: "destructive"
       });
     }
@@ -264,50 +212,49 @@ const StudentRoadmap: React.FC = () => {
 
   const addPlaylistToRoadmap = async (playlist: YouTubePlaylist) => {
     try {
-      // Create a new playlist object for the roadmap
-      const newPlaylist: Playlist = {
-        id: playlist.id,
-        title: playlist.title,
-        teacher_id: '1', // Use existing teacher ID for now (Alakh Pandey)
-        youtube_playlist_id: playlist.id,
-        chapter: chapterName.trim() || playlist.title,
-        subject: 'Physics', // Default to Physics for now
-        video_count: playlist.videoCount,
-        total_duration_minutes: playlist.videoCount * 30, // Estimate 30 mins per video
-        order_num: 1
-      };
-
-      // Find existing Physics learning path
-      const existingPathIndex = learningPaths.findIndex(path => 
-        path.subject === 'Physics'
+      // Find or create a learning path for this subject/teacher
+      let targetLearningPath = learningPaths.find(path => 
+        path.subject.toLowerCase() === 'physics' && 
+        path.teacher_name.toLowerCase().includes(teacherName.toLowerCase())
       );
 
-      if (existingPathIndex >= 0) {
-        // Add to existing Physics path
-        const updatedPaths = [...learningPaths];
-        const newOrderNum = updatedPaths[existingPathIndex].playlists.length + 1;
-        newPlaylist.order_num = newOrderNum;
-        updatedPaths[existingPathIndex].playlists.push(newPlaylist);
-        setLearningPaths(updatedPaths);
-      } else {
-        // Create new learning path
-        const newLearningPath: LearningPath = {
-          id: 'custom-' + Date.now(),
-          student_id: 'current-user',
-          subject: 'Physics',
-          teacher_id: '1',
-          playlists: [newPlaylist],
-          progress: 0,
-          estimated_completion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          is_custom: true
-        };
-        setLearningPaths([...learningPaths, newLearningPath]);
+      // If no matching learning path, create one
+      if (!targetLearningPath) {
+        const { data, error } = await supabase.functions.invoke('learning-paths-api', {
+          body: { 
+            action: 'create_learning_path',
+            subject: 'Physics',
+            teacher_name: teacherName,
+            title: `${teacherName} - Physics`
+          }
+        });
+
+        if (error) throw error;
+        targetLearningPath = data.learning_path;
       }
+
+      // Fetch videos for this playlist
+      const videos = await fetchPlaylistVideos(playlist.id);
+
+      // Add playlist to the learning path
+      const { data, error } = await supabase.functions.invoke('learning-paths-api', {
+        body: { 
+          action: 'add_playlist',
+          learning_path_id: targetLearningPath.id,
+          playlist_data: playlist,
+          videos: videos
+        }
+      });
+
+      if (error) throw error;
 
       toast({
         title: "✅ Added to Roadmap",
-        description: `"${playlist.title}" added to Physics learning path`,
+        description: `"${playlist.title}" added to your learning path`,
       });
+
+      // Reload learning paths to show the new playlist
+      loadLearningPaths();
 
       // Clear search and close modal
       setSearchResults([]);
@@ -383,17 +330,49 @@ const StudentRoadmap: React.FC = () => {
   };
 
   const handleWatchLecture = async (playlist: Playlist, lectureId?: string) => {
-    // Fetch real videos from YouTube playlist
-    const lectures = await fetchPlaylistVideos(playlist.youtube_playlist_id);
-    setPlaylistLectures(lectures);
-    
-    const lecture = lectureId 
-      ? lectures.find(l => l.id === lectureId) 
-      : lectures[0];
-    
-    if (lecture) {
-      setSelectedLecture(lecture);
-      setCurrentPlaylist(playlist);
+    try {
+      // Fetch lectures from database for this playlist
+      const { data, error } = await supabase.functions.invoke('learning-paths-api', {
+        body: { 
+          action: 'get_playlist_lectures',
+          playlist_id: playlist.id
+        }
+      });
+
+      if (error) {
+        console.error('Error fetching playlist lectures:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load playlist lectures",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const lectures = data.lectures || [];
+      setPlaylistLectures(lectures);
+      
+      const lecture = lectureId 
+        ? lectures.find((l: Lecture) => l.id === lectureId) 
+        : lectures[0];
+      
+      if (lecture) {
+        setSelectedLecture(lecture);
+        setCurrentPlaylist(playlist);
+      } else {
+        toast({
+          title: "No Lectures Found",
+          description: "This playlist doesn't have any lectures yet",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error loading playlist lectures:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load playlist lectures",
+        variant: "destructive"
+      });
     }
   };
 
@@ -574,7 +553,9 @@ const StudentRoadmap: React.FC = () => {
                 <DialogTitle>Add Teacher for Subject</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <Select>
+                <Select onValueChange={(subject) => {
+                  // You can add subject selection logic here if needed
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Subject" />
                   </SelectTrigger>
@@ -584,20 +565,17 @@ const StudentRoadmap: React.FC = () => {
                     <SelectItem value="mathematics">Mathematics</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers.map(teacher => (
-                      <SelectItem key={teacher.id} value={teacher.id}>
-                        {teacher.name} - {teacher.subject}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={() => handleAddTeacher('physics', '1')} className="w-full">
-                  Add & Fetch Playlists
+                <Input
+                  placeholder="Enter teacher name"
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
+                />
+                <Button 
+                  onClick={() => handleAddTeacher('physics', teacherName)} 
+                  className="w-full"
+                  disabled={!teacherName.trim()}
+                >
+                  Add & Create Learning Path
                 </Button>
               </div>
             </DialogContent>
@@ -691,7 +669,7 @@ const StudentRoadmap: React.FC = () => {
                               {path.subject} Learning Path
                             </span>
                             <p className="text-sm text-muted-foreground font-normal">
-                              with {teachers.find(t => t.id === path.teacher_id)?.name}
+                              with {path.teacher_name}
                             </p>
                           </div>
                         </CardTitle>
@@ -804,23 +782,22 @@ const StudentRoadmap: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Subjects & Teachers:</h4>
-                      {path.subjects.map((subject, index) => {
-                        const teacher = teachers.find(t => t.id === subject.teacher_id);
-                        return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                            <div>
-                              <p className="font-medium text-sm">{subject.subject}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {teacher?.name} • {subject.playlists.length} playlists
-                              </p>
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Subjects & Teachers:</h4>
+                        {path.subjects.map((subject, index) => {
+                          return (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                              <div>
+                                <p className="font-medium text-sm">{subject.subject}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {subject.playlists.length} playlists
+                                </p>
+                              </div>
+                              <Badge variant="outline">{subject.subject}</Badge>
                             </div>
-                            <Badge variant="outline">{subject.subject}</Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
 
                     <Button className="w-full">
                       <Play className="h-4 w-4 mr-2" />

@@ -252,23 +252,25 @@ const StudentRoadmap: React.FC = () => {
       const newPlaylist: Playlist = {
         id: playlist.id,
         title: playlist.title,
-        teacher_id: 'custom-' + playlist.channelId,
+        teacher_id: '1', // Use existing teacher ID for now (Alakh Pandey)
         youtube_playlist_id: playlist.id,
         chapter: chapterName.trim() || playlist.title,
-        subject: 'Custom',
+        subject: 'Physics', // Default to Physics for now
         video_count: playlist.videoCount,
         total_duration_minutes: playlist.videoCount * 30, // Estimate 30 mins per video
         order_num: 1
       };
 
-      // Check if there's already a learning path for this teacher/subject
+      // Find existing Physics learning path
       const existingPathIndex = learningPaths.findIndex(path => 
-        path.teacher_id === newPlaylist.teacher_id
+        path.subject === 'Physics'
       );
 
       if (existingPathIndex >= 0) {
-        // Add to existing path
+        // Add to existing Physics path
         const updatedPaths = [...learningPaths];
+        const newOrderNum = updatedPaths[existingPathIndex].playlists.length + 1;
+        newPlaylist.order_num = newOrderNum;
         updatedPaths[existingPathIndex].playlists.push(newPlaylist);
         setLearningPaths(updatedPaths);
       } else {
@@ -276,35 +278,22 @@ const StudentRoadmap: React.FC = () => {
         const newLearningPath: LearningPath = {
           id: 'custom-' + Date.now(),
           student_id: 'current-user',
-          subject: 'Custom',
-          teacher_id: newPlaylist.teacher_id,
+          subject: 'Physics',
+          teacher_id: '1',
           playlists: [newPlaylist],
           progress: 0,
-          estimated_completion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          estimated_completion_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           is_custom: true
         };
-
         setLearningPaths([...learningPaths, newLearningPath]);
-
-        // Add teacher to teachers list if not exists
-        const teacherExists = teachers.some(t => t.id === newPlaylist.teacher_id);
-        if (!teacherExists) {
-          const newTeacher: Teacher = {
-            id: newPlaylist.teacher_id,
-            name: playlist.channelTitle,
-            subject: 'Custom',
-            youtube_channel: playlist.channelTitle
-          };
-          setTeachers([...teachers, newTeacher]);
-        }
       }
 
       toast({
-        title: "Added to Roadmap",
-        description: `"${playlist.title}" has been added to your learning path`,
+        title: "✅ Added to Roadmap",
+        description: `"${playlist.title}" added to Physics learning path`,
       });
 
-      // Clear search results and close modal
+      // Clear search and close modal
       setSearchResults([]);
       setShowSearchPlaylists(false);
       setTeacherName('');
@@ -349,19 +338,23 @@ const StudentRoadmap: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Map className="h-6 w-6" />
-            Learning Roadmap
+      {/* Header with enhanced styling */}
+      <div className="flex justify-between items-center mb-8">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <Map className="h-5 w-5 text-white" />
+            </div>
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Learning Roadmap
+            </span>
           </h2>
-          <p className="text-muted-foreground">Track your progress and plan your studies</p>
+          <p className="text-muted-foreground text-lg">Track your progress and discover new content</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Dialog open={showSearchPlaylists} onOpenChange={setShowSearchPlaylists}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg">
                 <Search className="h-4 w-4 mr-2" />
                 Search Teacher
               </Button>
@@ -450,7 +443,7 @@ const StudentRoadmap: React.FC = () => {
 
           <Dialog open={showAddTeacher} onOpenChange={setShowAddTeacher}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="border-2 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Teacher
               </Button>
@@ -491,41 +484,49 @@ const StudentRoadmap: React.FC = () => {
         </div>
       </div>
 
-      {/* Progress Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="flex items-center p-4">
-            <BookOpen className="h-8 w-8 text-blue-500 mr-3" />
+      {/* Enhanced Progress Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
+          <CardContent className="flex items-center p-6">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-4">
+              <BookOpen className="h-6 w-6 text-white" />
+            </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Videos</p>
-              <p className="text-2xl font-bold">{totalVideos}</p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{totalVideos}</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center p-4">
-            <Clock className="h-8 w-8 text-green-500 mr-3" />
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900">
+          <CardContent className="flex items-center p-6">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mr-4">
+              <Clock className="h-6 w-6 text-white" />
+            </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Study Hours</p>
-              <p className="text-2xl font-bold">{Math.round(totalDuration / 60)}h</p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">{Math.round(totalDuration / 60)}h</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center p-4">
-            <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900">
+          <CardContent className="flex items-center p-6">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mr-4">
+              <TrendingUp className="h-6 w-6 text-white" />
+            </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Avg Progress</p>
-              <p className="text-2xl font-bold">{Math.round(averageProgress)}%</p>
+              <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{Math.round(averageProgress)}%</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center p-4">
-            <Target className="h-8 w-8 text-orange-500 mr-3" />
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900">
+          <CardContent className="flex items-center p-6">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mr-4">
+              <Target className="h-6 w-6 text-white" />
+            </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Active Paths</p>
-              <p className="text-2xl font-bold">{learningPaths.length}</p>
+              <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{learningPaths.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -553,57 +554,85 @@ const StudentRoadmap: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="grid gap-6">
               {learningPaths.map((path) => (
-                <Card key={path.id} className="border-l-4 border-l-blue-500">
-                  <CardHeader>
+                <Card key={path.id} className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-card/80">
+                  <div className="h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500"></div>
+                  <CardHeader className="pb-4">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <BookOpen className="h-5 w-5" />
-                          {path.subject} Learning Path
+                      <div className="space-y-2">
+                        <CardTitle className="flex items-center gap-3 text-xl">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                            <BookOpen className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                              {path.subject} Learning Path
+                            </span>
+                            <p className="text-sm text-muted-foreground font-normal">
+                              with {teachers.find(t => t.id === path.teacher_id)?.name}
+                            </p>
+                          </div>
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Teacher: {teachers.find(t => t.id === path.teacher_id)?.name}
-                        </p>
                       </div>
-                      <Badge variant="outline">{path.progress}% Complete</Badge>
+                      <div className="text-right space-y-1">
+                        <Badge variant="secondary" className="bg-gradient-to-r from-green-100 to-blue-100 text-green-700 font-semibold">
+                          {path.progress}% Complete
+                        </Badge>
+                        <p className="text-xs text-muted-foreground">{path.playlists.length} chapters</p>
+                      </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{path.progress}%</span>
-                    </div>
-                    <Progress value={path.progress} className="w-full" />
-                    
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Expected completion: {new Date(path.estimated_completion_date).toLocaleDateString()}</span>
-                      <span>{path.playlists.length} playlists</span>
+                  <CardContent className="space-y-6">
+                    {/* Progress Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">Overall Progress</span>
+                        <span className="text-muted-foreground">{path.progress}%</span>
+                      </div>
+                      <Progress value={path.progress} className="h-2" />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Expected completion: {new Date(path.estimated_completion_date).toLocaleDateString('en-IN')}</span>
+                        <span>{path.playlists.reduce((sum, p) => sum + p.video_count, 0)} total videos</span>
+                      </div>
                     </div>
 
                     {/* Chapter/Playlist List */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Chapters:</h4>
-                      {path.playlists.map((playlist, index) => (
-                        <div key={playlist.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">{playlist.chapter}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {playlist.video_count} videos • {Math.round(playlist.total_duration_minutes / 60)}h
-                              </p>
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-foreground flex items-center gap-2">
+                        <PlayCircle className="h-4 w-4" />
+                        Chapters & Playlists
+                      </h4>
+                      <div className="space-y-2">
+                        {path.playlists.map((playlist, index) => (
+                          <div key={playlist.id} className="group hover:bg-muted/50 rounded-lg p-3 transition-all duration-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+                                  {index + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{playlist.chapter}</p>
+                                  <div className="flex items-center gap-4 mt-1">
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <Play className="h-3 w-3" />
+                                      {playlist.video_count} videos
+                                    </span>
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      {Math.round(playlist.total_duration_minutes / 60)}h
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                                <Youtube className="h-3 w-3 mr-1" />
+                                Watch
+                              </Button>
                             </div>
                           </div>
-                          <Button size="sm" variant="outline">
-                            <PlayCircle className="h-4 w-4 mr-1" />
-                            Watch
-                          </Button>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

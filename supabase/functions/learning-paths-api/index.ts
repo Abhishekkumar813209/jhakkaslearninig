@@ -165,7 +165,7 @@ serve(async (req: Request) => {
         )
 
       case 'track_progress':
-        const { lecture_id, watch_time_seconds, is_completed, playlist_id } = body
+        const { lecture_id, watch_time_seconds, is_completed, playlist_id: playlistId } = body
         const userId = (await supabase.auth.getUser()).data.user?.id
 
         // Get enrollment_id first (for compatibility with existing video_progress table)
@@ -181,7 +181,7 @@ serve(async (req: Request) => {
           watch_time_seconds,
           is_completed,
           last_watched_at: new Date().toISOString(),
-          playlist_id,
+          playlist_id: playlistId,
           student_id: userId
         }
 

@@ -117,6 +117,45 @@ Please paste your ACCESS TOKEN here:`);
     }
   };
 
+  const troubleshootConnection = () => {
+    toast({
+      title: "YouTube Connection Troubleshooting",
+      description: "Check console for detailed troubleshooting steps",
+      duration: 5000,
+    });
+    
+    console.log(`
+🔧 YouTube API Troubleshooting Guide:
+
+1. CHANNEL VERIFICATION:
+   - Your YouTube channel must be verified with a phone number
+   - Go to: https://www.youtube.com/verify
+   - Complete phone verification if not done
+
+2. CHANNEL SETUP:
+   - Ensure your channel is fully set up (not a brand account)
+   - Upload at least one video or create a channel banner
+   - Channel must be in good standing (no strikes)
+
+3. ACCESS TOKEN SCOPES:
+   - Your token must have 'https://www.googleapis.com/auth/youtube' scope
+   - Or 'https://www.googleapis.com/auth/youtube.force-ssl' scope
+   - Regenerate token if scopes are missing
+
+4. GOOGLE CLOUD PROJECT:
+   - YouTube Data API v3 must be enabled
+   - Check quota limits in Google Cloud Console
+   - Ensure project is not suspended
+
+5. COMMON FIXES:
+   - Try creating a playlist directly on YouTube first
+   - Wait 24-48 hours after channel verification
+   - Use a personal Google account (not workspace/organization)
+
+Current Error: "Precondition check failed" usually means channel verification issues.
+    `);
+  };
+
   const fetchPlaylists = async (token: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('youtube-integration', {
@@ -181,11 +220,22 @@ Please paste your ACCESS TOKEN here:`);
 
       if (data?.error) {
         const err = (data as any).error as { message?: string; code?: any };
+        let errorMsg = err?.message || 'Failed to create playlist';
+        
+        // Add specific guidance for common errors
+        if (err?.message?.includes('Precondition check failed')) {
+          errorMsg += '\n\n💡 This usually means your YouTube channel needs verification. Check the troubleshooting guide.';
+        }
+        
         toast({
-          title: "YouTube error",
-          description: `${err?.message || 'Failed to create playlist'}${err?.code ? ` (code: ${err.code})` : ''}`,
+          title: "YouTube Error",
+          description: `${errorMsg}${err?.code ? ` (code: ${err.code})` : ''}`,
           variant: "destructive",
+          duration: 8000,
         });
+        
+        // Log detailed error for debugging
+        console.error('YouTube API Error Details:', err);
         return;
       }
 
@@ -311,16 +361,24 @@ Please paste your ACCESS TOKEN here:`);
         </div>
         
         {!accessToken ? (
-          <Button onClick={connectYouTube} className="flex items-center gap-2">
-            <Youtube className="h-4 w-4" />
-            Connect YouTube
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button onClick={connectYouTube} className="flex items-center gap-2">
+              <Youtube className="h-4 w-4" />
+              Connect YouTube
+            </Button>
+            <Button variant="outline" size="sm" onClick={troubleshootConnection}>
+              🛠️ Troubleshooting Guide
+            </Button>
+          </div>
         ) : (
           <div className="flex gap-2">
             <Badge variant="outline" className="text-green-600 border-green-600">
               <Youtube className="h-3 w-3 mr-1" />
               Connected
             </Badge>
+            <Button variant="outline" size="sm" onClick={troubleshootConnection}>
+              Help
+            </Button>
             <Button 
               variant="outline" 
               size="sm"

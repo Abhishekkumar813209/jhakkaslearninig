@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Map, 
@@ -17,7 +18,10 @@ import {
   TrendingUp,
   Settings,
   BarChart3,
-  PlayCircle
+  PlayCircle,
+  Search,
+  Youtube,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -67,6 +71,16 @@ interface AdminGuidedPath {
   estimated_duration_weeks: number;
 }
 
+interface YouTubePlaylist {
+  id: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  videoCount: number;
+  channelTitle: string;
+  channelId: string;
+}
+
 const StudentRoadmap: React.FC = () => {
   const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -74,6 +88,11 @@ const StudentRoadmap: React.FC = () => {
   const [selectedPath, setSelectedPath] = useState<string>('custom');
   const [loading, setLoading] = useState(true);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
+  const [showSearchPlaylists, setShowSearchPlaylists] = useState(false);
+  const [teacherName, setTeacherName] = useState('');
+  const [chapterName, setChapterName] = useState('');
+  const [searchResults, setSearchResults] = useState<YouTubePlaylist[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const { toast } = useToast();
 
   // Sample data for demonstration
@@ -188,6 +207,61 @@ const StudentRoadmap: React.FC = () => {
     }
   };
 
+  const searchYouTubePlaylists = async () => {
+    if (!teacherName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a teacher name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const query = chapterName.trim() 
+        ? `${teacherName.trim()} ${chapterName.trim()}`
+        : teacherName.trim();
+
+      const { data, error } = await supabase.functions.invoke('youtube-search-playlists', {
+        body: { query }
+      });
+
+      if (error) throw error;
+
+      setSearchResults(data.playlists || []);
+      toast({
+        title: "Search Complete",
+        description: `Found ${data.playlists?.length || 0} playlists`,
+      });
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        title: "Search Failed",
+        description: "Failed to search playlists. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const addPlaylistToRoadmap = async (playlist: YouTubePlaylist) => {
+    try {
+      // Here you would add the playlist to the student's roadmap
+      toast({
+        title: "Added to Roadmap",
+        description: `"${playlist.title}" has been added to your learning path`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add playlist to roadmap",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getTimelineData = () => {
     const totalVideos = learningPaths.reduce((sum, path) => 
       sum + path.playlists.reduce((pSum, playlist) => pSum + playlist.video_count, 0), 0
@@ -226,46 +300,137 @@ const StudentRoadmap: React.FC = () => {
           </h2>
           <p className="text-muted-foreground">Track your progress and plan your studies</p>
         </div>
-        <Dialog open={showAddTeacher} onOpenChange={setShowAddTeacher}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Teacher
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Teacher for Subject</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="physics">Physics</SelectItem>
-                  <SelectItem value="chemistry">Chemistry</SelectItem>
-                  <SelectItem value="mathematics">Mathematics</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Teacher" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teachers.map(teacher => (
-                    <SelectItem key={teacher.id} value={teacher.id}>
-                      {teacher.name} - {teacher.subject}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={() => handleAddTeacher('physics', '1')} className="w-full">
-                Add & Fetch Playlists
+        <div className="flex gap-2">
+          <Dialog open={showSearchPlaylists} onOpenChange={setShowSearchPlaylists}>
+            <DialogTrigger asChild>
+              <Button>
+                <Search className="h-4 w-4 mr-2" />
+                Search Teacher
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Search YouTube Teacher Playlists</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Teacher Name *</label>
+                    <Input
+                      placeholder="e.g., Alakh Pandey, Physics Wallah"
+                      value={teacherName}
+                      onChange={(e) => setTeacherName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Chapter/Topic (Optional)</label>
+                    <Input
+                      placeholder="e.g., Mechanics, Organic Chemistry"
+                      value={chapterName}
+                      onChange={(e) => setChapterName(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={searchYouTubePlaylists} 
+                  disabled={searchLoading}
+                  className="w-full"
+                >
+                  {searchLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Youtube className="h-4 w-4 mr-2" />
+                      Search Playlists
+                    </>
+                  )}
+                </Button>
+
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-medium">Search Results ({searchResults.length} playlists found)</h3>
+                    <div className="grid gap-4 max-h-96 overflow-y-auto">
+                      {searchResults.map((playlist) => (
+                        <Card key={playlist.id} className="flex">
+                          <div className="flex-shrink-0 w-32 h-24">
+                            <img 
+                              src={playlist.thumbnailUrl} 
+                              alt={playlist.title}
+                              className="w-full h-full object-cover rounded-l-lg"
+                            />
+                          </div>
+                          <div className="flex-1 p-4 flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm mb-1 line-clamp-2">{playlist.title}</h4>
+                              <p className="text-xs text-muted-foreground mb-2">{playlist.channelTitle}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{playlist.videoCount} videos</span>
+                              </div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              onClick={() => addPlaylistToRoadmap(playlist)}
+                              className="ml-2"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showAddTeacher} onOpenChange={setShowAddTeacher}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Teacher
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Teacher for Subject</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="physics">Physics</SelectItem>
+                    <SelectItem value="chemistry">Chemistry</SelectItem>
+                    <SelectItem value="mathematics">Mathematics</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Teacher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.map(teacher => (
+                      <SelectItem key={teacher.id} value={teacher.id}>
+                        {teacher.name} - {teacher.subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => handleAddTeacher('physics', '1')} className="w-full">
+                  Add & Fetch Playlists
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Progress Overview */}

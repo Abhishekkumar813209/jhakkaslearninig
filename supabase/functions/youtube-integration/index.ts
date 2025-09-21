@@ -66,7 +66,7 @@ async function handleCreatePlaylist(data: any, accessToken: string) {
     },
     body: JSON.stringify({
       snippet: {
-        title: title,
+        title,
         description: description || ''
       },
       status: {
@@ -76,10 +76,21 @@ async function handleCreatePlaylist(data: any, accessToken: string) {
   });
 
   const result = await response.json();
-  
+
   if (!response.ok) {
     console.error('Create playlist error:', result);
-    throw new Error(`Failed to create playlist: ${result.error?.message || 'Unknown error'}`);
+    const ytError = result?.error || {};
+    return new Response(
+      JSON.stringify({ 
+        error: {
+          message: ytError.message || 'Failed to create playlist',
+          code: ytError.code,
+          errors: ytError.errors,
+          status: response.status
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   return new Response(

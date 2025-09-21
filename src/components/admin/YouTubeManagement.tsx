@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -175,7 +175,19 @@ Please paste your ACCESS TOKEN here:`);
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        const err = (data as any).error as { message?: string; code?: any };
+        toast({
+          title: "YouTube error",
+          description: `${err?.message || 'Failed to create playlist'}${err?.code ? ` (code: ${err.code})` : ''}`,
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "Success",
@@ -185,11 +197,11 @@ Please paste your ACCESS TOKEN here:`);
       setShowCreatePlaylistDialog(false);
       setPlaylistFormData({ title: '', description: '' });
       fetchPlaylists(accessToken);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create playlist:', error);
       toast({
         title: "Error",
-        description: "Failed to create playlist",
+        description: error?.message || "Failed to create playlist",
         variant: "destructive",
       });
     }
@@ -339,6 +351,7 @@ Please paste your ACCESS TOKEN here:`);
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create YouTube Playlist</DialogTitle>
+                  <DialogDescription>Create a public playlist on your YouTube channel.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
@@ -377,6 +390,7 @@ Please paste your ACCESS TOKEN here:`);
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Upload Video to YouTube</DialogTitle>
+                  <DialogDescription>Upload a video to your YouTube channel.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>

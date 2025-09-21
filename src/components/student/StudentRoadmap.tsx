@@ -47,6 +47,7 @@ interface Playlist {
   video_count: number;
   total_duration_minutes: number;
   order_num: number;
+  realLectures?: Lecture[]; // Optional field for storing real YouTube videos
 }
 
 interface LearningPath {
@@ -58,6 +59,7 @@ interface LearningPath {
   progress: number;
   estimated_completion_date: string;
   is_custom: boolean;
+  realLectures?: Lecture[]; // Optional field for storing real YouTube videos
 }
 
 interface AdminGuidedPath {
@@ -106,6 +108,7 @@ const StudentRoadmap: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedLecture, setSelectedLecture] = useState<Lecture | null>(null);
   const [currentPlaylist, setCurrentPlaylist] = useState<Playlist | null>(null);
+  const [playlistLectures, setPlaylistLectures] = useState<Lecture[]>([]);
   const { toast } = useToast();
 
   // Sample data for demonstration
@@ -322,7 +325,31 @@ const StudentRoadmap: React.FC = () => {
     }
   };
 
-  // Sample lectures data for demonstration
+  // Fetch real videos from YouTube playlist
+  const fetchPlaylistVideos = async (playlistId: string): Promise<Lecture[]> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-playlist-videos', {
+        body: { playlistId }
+      });
+
+      if (error) {
+        console.error('Error fetching playlist videos:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load playlist videos",
+          variant: "destructive"
+        });
+        return getSampleLectures(playlistId); // Fallback to sample data
+      }
+
+      return data.videos || getSampleLectures(playlistId);
+    } catch (error) {
+      console.error('Error fetching playlist videos:', error);
+      return getSampleLectures(playlistId); // Fallback to sample data
+    }
+  };
+
+  // Sample lectures data for demonstration (fallback)
   const getSampleLectures = (playlistId: string): Lecture[] => {
     return [
       {
@@ -355,8 +382,11 @@ const StudentRoadmap: React.FC = () => {
     ];
   };
 
-  const handleWatchLecture = (playlist: Playlist, lectureId?: string) => {
-    const lectures = getSampleLectures(playlist.id);
+  const handleWatchLecture = async (playlist: Playlist, lectureId?: string) => {
+    // Fetch real videos from YouTube playlist
+    const lectures = await fetchPlaylistVideos(playlist.youtube_playlist_id);
+    setPlaylistLectures(lectures);
+    
     const lecture = lectureId 
       ? lectures.find(l => l.id === lectureId) 
       : lectures[0];
@@ -367,10 +397,15 @@ const StudentRoadmap: React.FC = () => {
     }
   };
 
-  const handleLectureChange = (lectureId: string) => {
+  const handleLectureChange = async (lectureId: string) => {
     if (currentPlaylist) {
-      const lectures = getSampleLectures(currentPlaylist.id);
-      const lecture = lectures.find(l => l.id === lectureId);
+      // Use existing lectures or fetch them
+      let lectures = playlistLectures;
+      if (lectures.length === 0) {
+        lectures = await fetchPlaylistVideos(currentPlaylist.youtube_playlist_id);
+        setPlaylistLectures(lectures);
+      }
+      const lecture = lectures.find((l: Lecture) => l.id === lectureId);
       if (lecture) {
         setSelectedLecture(lecture);
       }
@@ -380,6 +415,7 @@ const StudentRoadmap: React.FC = () => {
   const closeLecturePlayer = () => {
     setSelectedLecture(null);
     setCurrentPlaylist(null);
+    setPlaylistLectures([]);
   };
 
   const getTimelineData = () => {
@@ -417,7 +453,7 @@ const StudentRoadmap: React.FC = () => {
           lecture={selectedLecture}
           playlistId={currentPlaylist.id}
           playlistTitle={currentPlaylist.title}
-          lectures={getSampleLectures(currentPlaylist.id)}
+          lectures={playlistLectures}
           onClose={closeLecturePlayer}
           onLectureChange={handleLectureChange}
         />

@@ -12,17 +12,28 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Read auth header early to propagate RLS context to the client
+    const authHeader = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? ''
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
     )
-
-    // Get auth token and set session
-    const authHeader = req.headers.get('authorization')
+    // Optionally verify user to aid debugging (does not set session itself)
+    let userId: string | null = null
     if (authHeader) {
-      const { data, error } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+      const token = authHeader.replace('Bearer ', '')
+      const { data, error } = await supabase.auth.getUser(token)
       if (error) {
         console.error('Auth error:', error)
+      } else {
+        userId = data.user?.id ?? null
+        console.log('learning-paths-api: user', userId)
       }
     }
 
@@ -69,7 +80,7 @@ serve(async (req: Request) => {
             teacher_name,
             title: title || `${teacher_name} - ${subject}`,
             description: `Learning path for ${subject} with ${teacher_name}`,
-            student_id: (await supabase.auth.getUser()).data.user?.id
+            student_id: userId
           }])
           .select()
           .single()
@@ -124,7 +135,7 @@ serve(async (req: Request) => {
             thumbnail_url: video.thumbnail,
             chapter: index + 1, // Use index for chapter numbering
             course_id: '00000000-0000-0000-0000-000000000000', // Default course_id for playlist lectures
-            uploaded_by: (await supabase.auth.getUser()).data.user?.id || '00000000-0000-0000-0000-000000000000',
+            uploaded_by: userId || '00000000-0000-0000-0000-000000000000',
             video_url: `https://www.youtube.com/watch?v=${video.youtube_video_id}`,
             is_published: true
           }))
@@ -171,7 +182,7 @@ serve(async (req: Request) => {
 
       case 'track_progress':
         const { lecture_id, watch_time_seconds, is_completed, playlist_id: playlistId } = body
-        const userId = (await supabase.auth.getUser()).data.user?.id
+        const currentUserId = userId
 
         // Get enrollment_id first (for compatibility with existing video_progress table)
         const { data: enrollment } = await supabase
@@ -187,7 +198,7 @@ serve(async (req: Request) => {
           is_completed,
           last_watched_at: new Date().toISOString(),
           playlist_id: playlistId,
-          student_id: userId
+          student_id: currentUserId
         }
 
         const { error: progressError } = await supabase

@@ -17,6 +17,7 @@ import StudentDashboardPage from "./pages/StudentDashboard";
 import Tests from "./pages/Tests";
 import Leaderboard from "./pages/Leaderboard";
 import Analytics from "./pages/Analytics";
+import FeesManagement from "./pages/FeesManagement";
 import NotFound from "./pages/NotFound";
 import TestBuilder from "@/components/admin/TestBuilder";
 import TestBuilderPortal from "@/components/admin/TestBuilderPortal";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/tests" element={<Tests />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/fees" element={<FeesManagement />} />
             <Route path="/admin/test-builder/:testId" element={<TestBuilderPortal />} />
             <Route path="/student/test/:testId" element={<OnlineTestInterface />} />
             <Route path="/student" element={<StudentDashboardPage />} />

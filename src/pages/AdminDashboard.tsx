@@ -27,6 +27,7 @@ import AnalyticsReports from "@/components/admin/AnalyticsReports";
 import LeaderboardManagement from "@/components/admin/LeaderboardManagement";
 import NotificationCenter from "@/components/admin/NotificationCenter";
 import AdminSettings from "@/components/admin/AdminSettings";
+import FeesManagement from "@/components/admin/FeesManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -76,6 +77,12 @@ const AdminDashboard = () => {
       component: TestManagement
     },
     {
+      value: "fees",
+      label: "Fees",
+      icon: DollarSign,
+      component: FeesManagement
+    },
+    {
       value: "analytics",
       label: "Analytics",
       icon: TrendingUp,
@@ -112,7 +119,7 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-10 mb-6 bg-card border border-border">
             {tabItems.map((tab) => {
               const Icon = tab.icon;
               return (

@@ -156,6 +156,32 @@ Current Error: "Precondition check failed" usually means channel verification is
     `);
   };
 
+  const runDiagnostics = async () => {
+    if (!accessToken) {
+      toast({ title: 'Not connected', description: 'Connect YouTube first to run diagnostics', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-integration', {
+        body: { action: 'diagnose', accessToken }
+      });
+      if (error || data?.error) {
+        console.error('Diagnostics failed:', error || data?.error);
+        toast({ title: 'Diagnostics failed', description: 'See console for details', variant: 'destructive' });
+        return;
+      }
+      console.log('YouTube Diagnostics:', data);
+      const issues: string[] = [];
+      if (!data.hasPlaylistScope) issues.push('Missing youtube/youtube.force-ssl scope');
+      if (!data.hasChannel) issues.push('No active YouTube channel linked');
+      const summary = issues.length ? `Issues: ${issues.join('; ')}.` : 'All checks passed. Try again now.';
+      toast({ title: 'Diagnostics complete', description: summary, duration: 8000 });
+    } catch (e) {
+      console.error('Diagnostics error:', e);
+      toast({ title: 'Diagnostics error', description: 'Unexpected error occurred', variant: 'destructive' });
+    }
+  };
+
   const fetchPlaylists = async (token: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('youtube-integration', {

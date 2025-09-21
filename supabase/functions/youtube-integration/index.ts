@@ -21,25 +21,20 @@ serve(async (req) => {
     switch (action) {
       case 'createPlaylist':
         return await handleCreatePlaylist(data, accessToken);
-      
       case 'uploadVideo':
         return await handleUploadVideo(data, accessToken);
-      
       case 'addVideoToPlaylist':
         return await handleAddVideoToPlaylist(data, accessToken);
-      
       case 'getPlaylists':
         return await handleGetPlaylists(accessToken);
-      
       case 'getPlaylistVideos':
         return await handleGetPlaylistVideos(data, accessToken);
-      
       case 'deleteVideo':
         return await handleDeleteVideo(data, accessToken);
-      
       case 'updateVideo':
         return await handleUpdateVideo(data, accessToken);
-
+      case 'diagnose':
+        return await handleDiagnose(accessToken);
       default:
         throw new Error('Invalid action');
     }
@@ -288,4 +283,57 @@ async function handleUpdateVideo(data: any, accessToken: string) {
     JSON.stringify({ video: result }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
+}
+
+async function handleDiagnose(accessToken: string) {
+  try {
+    // Check token scopes
+    const scopeRes = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`);
+    const scopeJson = await scopeRes.json().catch(() => ({}));
+    const scopesStr: string = scopeJson?.scope || '';
+    const scopes: string[] = scopesStr ? scopesStr.split(' ') : [];
+
+    // Check channel status
+    const channelsRes = await fetch(
+      'https://www.googleapis.com/youtube/v3/channels?part=status,snippet,contentDetails&mine=true',
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    );
+    const channelsJson = await channelsRes.json().catch(() => ({}));
+    const hasChannel = Array.isArray(channelsJson?.items) && channelsJson.items.length > 0;
+
+    const recommendations: string[] = [];
+    const hasPlaylistScope = scopes.includes('https://www.googleapis.com/auth/youtube')
+      || scopes.includes('https://www.googleapis.com/auth/youtube.force-ssl')
+      || scopes.includes('https://www.googleapis.com/auth/youtubepartner');
+
+    if (!hasPlaylistScope) recommendations.push('Grant youtube or youtube.force-ssl scope to your token.');
+    if (!hasChannel) recommendations.push('Create/activate a YouTube channel and complete verification at https://www.youtube.com/verify.');
+
+    const channel = hasChannel ? channelsJson.items[0] : null;
+    const status = channel?.status || {};
+    if (status?.isLinked === false) recommendations.push('Complete channel setup (linking) in YouTube Studio.');
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        scopes,
+        hasPlaylistScope,
+        hasChannel,
+        channel: hasChannel ? {
+          id: channel.id,
+          title: channel.snippet?.title,
+          country: channel.snippet?.country,
+          status
+        } : null,
+        recommendations
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Diagnose error:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to run diagnostics' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 }

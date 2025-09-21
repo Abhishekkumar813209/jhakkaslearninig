@@ -79,20 +79,22 @@ const YouTubeManagement = () => {
       // For now, we'll use a simpler approach - direct token input
       // This avoids the popup OAuth issues
       const token = prompt(`
-YouTube OAuth Setup - Access Token Required:
+YouTube OAuth Setup - Step by Step:
 
-You already have Client ID & Secret from Google Cloud Console.
-Now get your Access Token:
+STEP 1: First add this Redirect URI in Google Cloud Console:
+📋 REDIRECT URI: https://developers.google.com/oauthplayground
 
-1. Go to OAuth 2.0 Playground: https://developers.google.com/oauthplayground
-2. Click "Use your own OAuth credentials" (top right gear icon)
+Go to Google Cloud Console → APIs & Services → Credentials → Your OAuth Client → Add this URL to "Authorized redirect URIs"
+
+STEP 2: Get Access Token:
+1. Go to: https://developers.google.com/oauthplayground
+2. Click gear icon (top right) → "Use your own OAuth credentials"
 3. Enter your Client ID and Client Secret
-4. Select these scopes:
+4. Select scopes:
    - https://www.googleapis.com/auth/youtube
    - https://www.googleapis.com/auth/youtube.upload
-5. Click "Authorize APIs"
-6. Click "Exchange authorization code for tokens"
-7. Copy the "Access token" from the response
+5. Click "Authorize APIs" → "Exchange authorization code for tokens"
+6. Copy the "Access token"
 
 Please paste your ACCESS TOKEN here:`);
 

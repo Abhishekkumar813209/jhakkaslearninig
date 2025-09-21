@@ -265,6 +265,74 @@ export type Database = {
         }
         Relationships: []
       }
+      lectures: {
+        Row: {
+          chapter: number
+          course_id: string
+          created_at: string | null
+          description: string | null
+          duration_seconds: number
+          id: string
+          is_published: boolean | null
+          order_num: number
+          playlist_id: string | null
+          processing_status: string | null
+          thumbnail: string | null
+          title: string
+          updated_at: string | null
+          uploaded_by: string
+          video_url: string
+          watch_count: number | null
+          youtube_video_id: string | null
+        }
+        Insert: {
+          chapter: number
+          course_id: string
+          created_at?: string | null
+          description?: string | null
+          duration_seconds: number
+          id?: string
+          is_published?: boolean | null
+          order_num: number
+          playlist_id?: string | null
+          processing_status?: string | null
+          thumbnail?: string | null
+          title: string
+          updated_at?: string | null
+          uploaded_by: string
+          video_url: string
+          watch_count?: number | null
+          youtube_video_id?: string | null
+        }
+        Update: {
+          chapter?: number
+          course_id?: string
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          is_published?: boolean | null
+          order_num?: number
+          playlist_id?: string | null
+          processing_status?: string | null
+          thumbnail?: string | null
+          title?: string
+          updated_at?: string | null
+          uploaded_by?: string
+          video_url?: string
+          watch_count?: number | null
+          youtube_video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       options: {
         Row: {
           created_at: string | null
@@ -715,7 +783,7 @@ export type Database = {
           id: string
           is_completed: boolean | null
           last_watched_at: string | null
-          video_id: string
+          lecture_id: string
           watch_time_seconds: number | null
         }
         Insert: {
@@ -724,7 +792,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           last_watched_at?: string | null
-          video_id: string
+          lecture_id: string
           watch_time_seconds?: number | null
         }
         Update: {
@@ -733,7 +801,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           last_watched_at?: string | null
-          video_id?: string
+          lecture_id?: string
           watch_time_seconds?: number | null
         }
         Relationships: [
@@ -746,68 +814,9 @@ export type Database = {
           },
           {
             foreignKeyName: "video_progress_video_id_fkey"
-            columns: ["video_id"]
+            columns: ["lecture_id"]
             isOneToOne: false
-            referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      videos: {
-        Row: {
-          chapter: number
-          course_id: string
-          created_at: string | null
-          description: string | null
-          duration_seconds: number
-          id: string
-          is_published: boolean | null
-          order_num: number
-          thumbnail: string | null
-          title: string
-          updated_at: string | null
-          uploaded_by: string
-          video_url: string
-          watch_count: number | null
-        }
-        Insert: {
-          chapter: number
-          course_id: string
-          created_at?: string | null
-          description?: string | null
-          duration_seconds: number
-          id?: string
-          is_published?: boolean | null
-          order_num: number
-          thumbnail?: string | null
-          title: string
-          updated_at?: string | null
-          uploaded_by: string
-          video_url: string
-          watch_count?: number | null
-        }
-        Update: {
-          chapter?: number
-          course_id?: string
-          created_at?: string | null
-          description?: string | null
-          duration_seconds?: number
-          id?: string
-          is_published?: boolean | null
-          order_num?: number
-          thumbnail?: string | null
-          title?: string
-          updated_at?: string | null
-          uploaded_by?: string
-          video_url?: string
-          watch_count?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "videos_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
+            referencedRelation: "lectures"
             referencedColumns: ["id"]
           },
         ]
@@ -835,6 +844,10 @@ export type Database = {
           user_id: string
         }
         Returns: boolean
+      }
+      reorder_lectures: {
+        Args: { course_id_param: string; lecture_ids: string[] }
+        Returns: undefined
       }
       update_battery_level: {
         Args: Record<PropertyKey, never>

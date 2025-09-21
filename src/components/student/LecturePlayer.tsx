@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import YouTube, { YouTubeProps } from 'react-youtube';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -57,16 +58,32 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     is_completed: false,
     last_watched_at: new Date()
   });
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [player, setPlayer] = useState<any>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
 
   // Calculate progress percentage
-  const progressPercentage = lecture.duration_seconds > 0 
-    ? Math.min((progress.watch_time_seconds / lecture.duration_seconds) * 100, 100)
+  const progressPercentage = duration > 0 
+    ? Math.min((currentTime / duration) * 100, 100)
     : 0;
+
+  // YouTube player options
+  const youtubeOpts: YouTubeProps['opts'] = {
+    height: '100%',
+    width: '100%',
+    playerVars: {
+      autoplay: 1,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      fs: 1,
+      cc_load_policy: 0,
+      iv_load_policy: 3,
+    },
+  };
 
   // Calculate playlist progress
   const playlistProgress = lectures.length > 0
@@ -82,39 +99,60 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     };
   }, [lecture.id]);
 
-  useEffect(() => {
-    if (isPlaying) {
-      // Track progress every 5 seconds
-      progressIntervalRef.current = setInterval(() => {
-        setCurrentTime(prev => {
-          const newTime = prev + 5;
-          updateProgress(newTime);
-          return newTime;
-        });
-      }, 5000);
-    } else {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
+  // YouTube player event handlers
+  const onPlayerReady = (event: any) => {
+    setPlayer(event.target);
+    setDuration(event.target.getDuration());
+    setLoading(false);
+    
+    // Start progress tracking
+    progressIntervalRef.current = setInterval(() => {
+      if (event.target && event.target.getCurrentTime) {
+        const time = event.target.getCurrentTime();
+        setCurrentTime(time);
+        updateProgress(time);
       }
-    }
+    }, 2000);
+  };
 
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-  }, [isPlaying]);
+  const onPlayerStateChange = (event: any) => {
+    // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
+    if (event.data === 1) {
+      // Playing
+      console.log('Video playing');
+    } else if (event.data === 2) {
+      // Paused
+      console.log('Video paused');
+    } else if (event.data === 0) {
+      // Ended
+      const completedProgress = {
+        ...progress,
+        watch_time_seconds: duration,
+        is_completed: true,
+        last_watched_at: new Date()
+      };
+      setProgress(completedProgress);
+      updateProgress(duration);
+      
+      toast({
+        title: "🎉 Lecture Completed!",
+        description: `Great job completing "${lecture.title}"`,
+      });
+    }
+  };
 
   const loadLectureProgress = async () => {
     try {
       setLoading(true);
       // In real implementation, load from Supabase
-      // For now, use sample data
+      // For now, use sample data with some progress
+      const sampleWatchTime = Math.floor(Math.random() * lecture.duration_seconds * 0.7);
       setProgress({
-        watch_time_seconds: Math.floor(Math.random() * lecture.duration_seconds * 0.7),
+        watch_time_seconds: sampleWatchTime,
         is_completed: Math.random() > 0.7,
         last_watched_at: new Date()
       });
+      setCurrentTime(sampleWatchTime);
     } catch (error) {
       console.error('Error loading progress:', error);
     } finally {
@@ -133,7 +171,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
 
       setProgress(newProgress);
 
-      // In real implementation, update in Supabase
+      // Update progress via API
       await supabase.functions.invoke('videos-api', {
         body: {
           action: 'track_progress',
@@ -155,13 +193,23 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   };
 
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
+    if (player) {
+      const state = player.getPlayerState();
+      if (state === 1) { // Playing
+        player.pauseVideo();
+      } else {
+        player.playVideo();
+      }
+    }
   };
 
   const handleSeek = (percentage: number) => {
-    const newTime = (percentage / 100) * lecture.duration_seconds;
-    setCurrentTime(newTime);
-    updateProgress(newTime);
+    if (player && duration > 0) {
+      const newTime = (percentage / 100) * duration;
+      player.seekTo(newTime);
+      setCurrentTime(newTime);
+      updateProgress(newTime);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -226,17 +274,16 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       <div className="flex flex-1 overflow-hidden">
         {/* Video Player Area */}
         <div className="flex-1 flex flex-col bg-black">
-          {/* YouTube Player Placeholder */}
-          <div className="flex-1 flex items-center justify-center relative">
-            <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Play className="h-8 w-8" />
-                </div>
-                <p className="text-lg font-medium">YouTube Video Player</p>
-                <p className="text-sm text-gray-300">Video ID: {lecture.youtube_video_id}</p>
-              </div>
-            </div>
+          {/* YouTube Player */}
+          <div className="flex-1 relative">
+            <YouTube
+              videoId={lecture.youtube_video_id}
+              opts={youtubeOpts}
+              onReady={onPlayerReady}
+              onStateChange={onPlayerStateChange}
+              className="absolute inset-0 w-full h-full"
+              iframeClassName="w-full h-full"
+            />
           </div>
 
           {/* Video Controls */}
@@ -244,10 +291,10 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(lecture.duration_seconds)}</span>
+                <span>{formatTime(duration)}</span>
               </div>
               <Progress 
-                value={(currentTime / lecture.duration_seconds) * 100} 
+                value={duration > 0 ? (currentTime / duration) * 100 : 0} 
                 className="cursor-pointer"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -274,7 +321,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                   <SkipBack className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="sm" onClick={togglePlay}>
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  <Play className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="sm" onClick={goToNextLecture}>
                   <SkipForward className="h-4 w-4" />

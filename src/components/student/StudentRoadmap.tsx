@@ -114,9 +114,14 @@ const StudentRoadmap: React.FC = () => {
   // Load learning paths from database
   const loadLearningPaths = async () => {
     try {
+      console.log('Loading learning paths...');
+      setLoading(true);
+      
       const { data, error } = await supabase.functions.invoke('learning-paths-api', {
         body: { action: 'get_learning_paths' }
       });
+
+      console.log('Learning paths response:', { data, error });
 
       if (error) {
         console.error('Error loading learning paths:', error);
@@ -125,12 +130,20 @@ const StudentRoadmap: React.FC = () => {
           description: "Failed to load learning paths",
           variant: "destructive"
         });
+        setLoading(false);
         return;
       }
 
       setLearningPaths(data.learning_paths || []);
+      setLoading(false);
     } catch (error) {
       console.error('Error loading learning paths:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to load learning paths",
+        variant: "destructive"
+      });
+      setLoading(false);
     }
   };
 

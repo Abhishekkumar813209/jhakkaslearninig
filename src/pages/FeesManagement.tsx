@@ -9,7 +9,7 @@ import StudentBatteryCard from "@/components/fees/StudentBatteryCard";
 import FeeAnalyticsDashboard from "@/components/fees/FeeAnalyticsDashboard";
 import AdminPaymentManager from "@/components/fees/AdminPaymentManager";
 import { supabase } from "@/integrations/supabase/client";
-import { Battery, TrendingUp, CreditCard, ArrowLeft, Settings, Home } from "lucide-react";
+import { Battery, TrendingUp, CreditCard, Settings, Home } from "lucide-react";
 
 const FeesManagement = () => {
   const { user, loading } = useAuth();
@@ -59,26 +59,14 @@ const FeesManagement = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Navigation Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            
-            <div>
-              <h1 className="text-3xl font-bold">💰 Fees Management Portal</h1>
-              <p className="text-muted-foreground">
-                {userRole === 'admin' ? 
-                  'Manage student fees, track payments, and view analytics' : 
-                  'View your fee status and payment history'
-                }
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold">💰 Fees Management Portal</h1>
+            <p className="text-muted-foreground">
+              {userRole === 'admin' ? 
+                'Manage student fees, track payments, and view analytics' : 
+                'View your fee status and payment history'
+              }
+            </p>
           </div>
           
           {/* Quick Navigation for Admin */}

@@ -344,7 +344,7 @@ const StudentRoadmap: React.FC = () => {
 
   const handleWatchLecture = async (playlist: Playlist, lectureId?: string) => {
     try {
-      // Fetch lectures from database for this playlist
+      // Try to fetch lectures from database for this playlist
       const { data, error } = await supabase.functions.invoke('learning-paths-api', {
         body: { 
           action: 'get_playlist_lectures',
@@ -354,30 +354,32 @@ const StudentRoadmap: React.FC = () => {
 
       if (error) {
         console.error('Error fetching playlist lectures:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load playlist lectures",
-          variant: "destructive"
-        });
-        return;
       }
 
-      const lectures = data.lectures || [];
-      setPlaylistLectures(lectures);
-      
-      const lecture = lectureId 
-        ? lectures.find((l: Lecture) => l.id === lectureId) 
-        : lectures[0];
-      
-      if (lecture) {
-        setSelectedLecture(lecture);
-        setCurrentPlaylist(playlist);
-      } else {
+      let lectures: Lecture[] = data?.lectures || [];
+
+      // Fallback: if no DB lectures found, fetch directly from YouTube
+      if (!lectures || lectures.length === 0) {
+        lectures = await fetchPlaylistVideos(playlist.youtube_playlist_id);
+      }
+
+      if (!lectures || lectures.length === 0) {
         toast({
           title: "No Lectures Found",
           description: "This playlist doesn't have any lectures yet",
           variant: "destructive"
         });
+        return;
+      }
+
+      setPlaylistLectures(lectures);
+      const lecture = lectureId 
+        ? lectures.find((l: Lecture) => l.id === lectureId) 
+        : lectures[0];
+
+      if (lecture) {
+        setSelectedLecture(lecture);
+        setCurrentPlaylist(playlist);
       }
     } catch (error) {
       console.error('Error loading playlist lectures:', error);

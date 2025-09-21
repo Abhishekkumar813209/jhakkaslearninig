@@ -134,11 +134,8 @@ serve(async (req: Request) => {
             .insert(lectureData)
 
           if (lecturesError) {
-            console.error('Error inserting lectures:', lecturesError)
-            return new Response(
-              JSON.stringify({ error: `Failed to add videos: ${lecturesError.message}` }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
+            console.error('Error inserting lectures (non-fatal):', lecturesError)
+            // Do not fail the whole request if lectures can't be inserted due to RLS
           }
         }
 

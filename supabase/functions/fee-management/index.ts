@@ -159,13 +159,13 @@ async function markPayment(markedBy: string, studentId: string, month: number, y
     });
   }
 
+  // Update without setting marked_by to avoid foreign key constraint
   const { data: updatedRecord, error } = await supabase
     .from('fee_records')
     .update({
       is_paid: true,
       paid_date: new Date().toISOString().split('T')[0],
       payment_method: paymentMethod,
-      marked_by: markedBy,
       battery_level: 100 // Reset battery to full when paid
     })
     .eq('student_id', studentId)

@@ -26,6 +26,7 @@ import OnlineTestInterface from "@/components/student/OnlineTestInterface";
 import StudentTests from "@/components/student/StudentTests";
 import TakeTest from "@/components/student/TakeTest";
 import Student from "./pages/Student";
+import StudentGuidedPaths from "./pages/StudentGuidedPaths";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,8 @@ const App = () => (
             <Route path="/admin/test-builder/:testId" element={<TestBuilderPortal />} />
             <Route path="/student/test/:testId" element={<OnlineTestInterface />} />
             <Route path="/student" element={<Student />} />
+            <Route path="/student/guided-paths" element={<StudentGuidedPaths />} />
+            <Route path="/student/tests" element={<StudentTests />} />
             <Route path="/student-tests" element={<StudentTests />} />
             <Route path="/test/:testId" element={<TakeTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

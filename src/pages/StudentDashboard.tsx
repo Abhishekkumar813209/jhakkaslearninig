@@ -11,7 +11,9 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
-  Target
+  Target,
+  BookOpen,
+  MapPin
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -139,7 +141,29 @@ const StudentDashboard: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Student Dashboard</h1>
-        <p className="text-muted-foreground">Take tests and track your progress</p>
+        <p className="text-muted-foreground">Take tests, explore guided paths, and track your progress</p>
+      </div>
+
+      {/* Quick Navigation */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/student/guided-paths')}>
+          <CardContent className="flex items-center p-6">
+            <BookOpen className="h-12 w-12 text-blue-500 mr-4" />
+            <div>
+              <h3 className="text-lg font-semibold">Guided Learning Paths</h3>
+              <p className="text-sm text-muted-foreground">Explore structured courses with teacher videos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/student/tests')}>
+          <CardContent className="flex items-center p-6">
+            <FileText className="h-12 w-12 text-green-500 mr-4" />
+            <div>
+              <h3 className="text-lg font-semibold">Practice Tests</h3>
+              <p className="text-sm text-muted-foreground">Take tests and measure your knowledge</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Stats Cards */}

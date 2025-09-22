@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Target, Users, Play, CheckCircle } from 'lucide-react';
+import { BookOpen, Clock, Target, Users, Play, CheckCircle, User, Calendar, Star, Video } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,6 +20,8 @@ interface GuidedPath {
   is_active: boolean;
   progress?: number;
   enrolled_at?: string;
+  exam_category?: string;
+  created_by?: string;
 }
 
 interface Chapter {
@@ -176,7 +178,7 @@ const GuidedPathsExplorer = () => {
                     </div>
                   )}
                   
-                  <div className="space-y-2">
+                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span>{path.duration_weeks} weeks</span>
@@ -188,6 +190,18 @@ const GuidedPathsExplorer = () => {
                     <div className="flex items-center gap-2 text-sm">
                       <BookOpen className="h-4 w-4 text-muted-foreground" />
                       <span>{path.guided_path_chapters?.length || 0} chapters</span>
+                    </div>
+                    {path.exam_category && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                        <span>{path.exam_category}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Video className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {path.guided_path_chapters?.reduce((total, chapter) => total + (chapter.estimated_hours || 0), 0) || 0} hours total
+                      </span>
                     </div>
                   </div>
 
@@ -244,7 +258,7 @@ const GuidedPathsExplorer = () => {
                     {path.description}
                   </p>
                   
-                  <div className="space-y-2">
+                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span>{path.duration_weeks} weeks</span>
@@ -256,6 +270,18 @@ const GuidedPathsExplorer = () => {
                     <div className="flex items-center gap-2 text-sm">
                       <BookOpen className="h-4 w-4 text-muted-foreground" />
                       <span>{path.guided_path_chapters?.length || 0} chapters</span>
+                    </div>
+                    {path.exam_category && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                        <span>{path.exam_category}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Video className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {path.guided_path_chapters?.reduce((total, chapter) => total + (chapter.estimated_hours || 0), 0) || 0} hours total
+                      </span>
                     </div>
                   </div>
 

@@ -23,6 +23,8 @@ interface GuidedPath {
   enrolled_at?: string;
   exam_category?: string;
   created_by?: string;
+  total_hours?: number;
+  total_videos?: number;
 }
 
 interface Chapter {
@@ -33,6 +35,7 @@ interface Chapter {
   estimated_hours: number;
   topics: string[];
   playlist_id?: string;
+  video_count?: number;
 }
 
 const GuidedPathsExplorer = () => {
@@ -371,9 +374,7 @@ const GuidedPathsExplorer = () => {
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <Video className="h-6 w-6 mx-auto mb-2 text-purple-500" />
                     <p className="text-sm text-muted-foreground">Total Hours</p>
-                    <p className="font-semibold">
-                      {selectedPath.guided_path_chapters?.reduce((total, chapter) => total + (chapter.estimated_hours || 0), 0) || 0}h
-                    </p>
+                    <p className="font-semibold">{selectedPath.total_hours || 0}h</p>
                   </div>
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <Users className="h-6 w-6 mx-auto mb-2 text-orange-500" />
@@ -421,13 +422,27 @@ const GuidedPathsExplorer = () => {
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  {chapter.estimated_hours}h
+                                  {chapter.estimated_hours || 0}h
                                 </div>
-                                {chapter.playlist_id && (
+                                {chapter.video_count > 0 && (
                                   <div className="flex items-center gap-1">
                                     <Video className="h-3 w-3" />
-                                    YouTube Playlist
+                                    {chapter.video_count} videos
                                   </div>
+                                )}
+                                {chapter.playlist_id && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="h-6 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.open(`https://www.youtube.com/playlist?list=${chapter.playlist_id}`, '_blank')
+                                    }}
+                                  >
+                                    <Play className="h-3 w-3 mr-1" />
+                                    Watch Playlist
+                                  </Button>
                                 )}
                               </div>
 

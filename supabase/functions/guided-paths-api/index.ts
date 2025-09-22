@@ -279,18 +279,99 @@ serve(async (req: Request) => {
         const enrolledIds = new Set(activePaths.map((p: any) => p.id))
         const availablePaths = availablePathsAll.filter((p: any) => !enrolledIds.has(p.id))
 
-        // Normalize
-        const normalizedActivePaths = activePaths.map((path: any) => ({
-          ...path,
-          objectives: path.objectives || [],
-          guided_path_chapters: path.guided_path_chapters || []
-        }))
+        // Helper function to fetch YouTube playlist details
+        const fetchPlaylistDetails = async (playlistId: string) => {
+          if (!playlistId) return { videoCount: 0, totalDuration: 0 }
+          
+          const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY')
+          if (!youtubeApiKey) return { videoCount: 0, totalDuration: 0 }
 
-        const normalizedAvailablePaths = availablePaths.map((path: any) => ({
-          ...path,
-          objectives: path.objectives || [],
-          guided_path_chapters: path.guided_path_chapters || []
-        }))
+          try {
+            // Get playlist videos
+            const videosUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${playlistId}&key=${youtubeApiKey}&maxResults=50`
+            const videosResponse = await fetch(videosUrl)
+            const videosData = await videosResponse.json()
+
+            if (!videosResponse.ok || !videosData.items) {
+              return { videoCount: 0, totalDuration: 0 }
+            }
+
+            const videoIds = videosData.items.map((item: any) => item.contentDetails.videoId).join(',')
+            
+            // Get video durations
+            const durationsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${youtubeApiKey}`
+            const durationsResponse = await fetch(durationsUrl)
+            const durationsData = await durationsResponse.json()
+
+            if (!durationsResponse.ok || !durationsData.items) {
+              return { videoCount: 0, totalDuration: 0 }
+            }
+
+            // Parse durations and calculate total
+            let totalSeconds = 0
+            durationsData.items.forEach((video: any) => {
+              const duration = video.contentDetails.duration // ISO 8601 format PT#M#S
+              const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+              if (match) {
+                const hours = parseInt(match[1] || '0')
+                const minutes = parseInt(match[2] || '0')
+                const seconds = parseInt(match[3] || '0')
+                totalSeconds += hours * 3600 + minutes * 60 + seconds
+              }
+            })
+
+            return {
+              videoCount: videosData.items.length,
+              totalDuration: Math.round(totalSeconds / 3600) // Convert to hours
+            }
+          } catch (error) {
+            console.error('Error fetching playlist details:', error)
+            return { videoCount: 0, totalDuration: 0 }
+          }
+        }
+
+        // Enhance paths with YouTube data
+        const enhancePathsWithYouTubeData = async (paths: any[]) => {
+          const enhancedPaths = []
+          
+          for (const path of paths) {
+            let totalPathHours = 0
+            let totalVideoCount = 0
+            const enhancedChapters = []
+
+            for (const chapter of path.guided_path_chapters || []) {
+              if (chapter.playlist_id) {
+                const playlistDetails = await fetchPlaylistDetails(chapter.playlist_id)
+                enhancedChapters.push({
+                  ...chapter,
+                  estimated_hours: playlistDetails.totalDuration,
+                  video_count: playlistDetails.videoCount
+                })
+                totalPathHours += playlistDetails.totalDuration
+                totalVideoCount += playlistDetails.videoCount
+              } else {
+                enhancedChapters.push({
+                  ...chapter,
+                  video_count: 0
+                })
+              }
+            }
+
+            enhancedPaths.push({
+              ...path,
+              objectives: path.objectives || [],
+              guided_path_chapters: enhancedChapters,
+              total_hours: totalPathHours,
+              total_videos: totalVideoCount
+            })
+          }
+          
+          return enhancedPaths
+        }
+
+        // Enhance both enrolled and available paths with YouTube data
+        const normalizedActivePaths = await enhancePathsWithYouTubeData(activePaths)
+        const normalizedAvailablePaths = await enhancePathsWithYouTubeData(availablePaths)
 
         return new Response(
           JSON.stringify({

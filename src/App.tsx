@@ -25,6 +25,7 @@ import TestBuilderPortal from "@/components/admin/TestBuilderPortal";
 import OnlineTestInterface from "@/components/student/OnlineTestInterface";
 import StudentTests from "@/components/student/StudentTests";
 import TakeTest from "@/components/student/TakeTest";
+import TestResults from "./pages/TestResults";
 import Student from "./pages/Student";
 import StudentGuidedPaths from "./pages/StudentGuidedPaths";
 
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/student/tests" element={<StudentTests />} />
             <Route path="/student-tests" element={<StudentTests />} />
             <Route path="/test/:testId" element={<TakeTest />} />
+            <Route path="/test/:testId/results" element={<TestResults />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

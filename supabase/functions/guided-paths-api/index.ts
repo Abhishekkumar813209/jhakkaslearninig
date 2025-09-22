@@ -47,8 +47,15 @@ serve(async (req: Request) => {
           )
         }
 
+        // Ensure all arrays are properly initialized
+        const normalizedPaths = paths?.map(path => ({
+          ...path,
+          objectives: path.objectives || [],
+          guided_path_chapters: path.guided_path_chapters || []
+        })) || []
+
         return new Response(
-          JSON.stringify({ guided_paths: paths }),
+          JSON.stringify({ guided_paths: normalizedPaths }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
@@ -251,10 +258,23 @@ serve(async (req: Request) => {
           )
         }
 
+        // Normalize the data to ensure arrays are properly initialized
+        const normalizedActivePaths = activePaths?.map(path => ({
+          ...path,
+          objectives: path.objectives || [],
+          guided_path_chapters: path.guided_path_chapters || []
+        })) || []
+
+        const normalizedAvailablePaths = availablePaths?.map(path => ({
+          ...path,
+          objectives: path.objectives || [],
+          guided_path_chapters: path.guided_path_chapters || []
+        })) || []
+
         return new Response(
           JSON.stringify({ 
-            enrolled_paths: activePaths || [],
-            available_paths: availablePaths || []
+            enrolled_paths: normalizedActivePaths,
+            available_paths: normalizedAvailablePaths
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )

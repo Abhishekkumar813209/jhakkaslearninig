@@ -15,8 +15,8 @@ interface GuidedPath {
   level: string;
   duration_weeks: number;
   target_students: string;
-  objectives: string[];
-  guided_path_chapters: Chapter[];
+  objectives: string[] | null;
+  guided_path_chapters: Chapter[] | null;
   is_active: boolean;
   progress?: number;
   enrolled_at?: string;
@@ -223,7 +223,7 @@ const GuidedPathsExplorer = () => {
                     </div>
                   </div>
 
-                  {path.objectives.length > 0 && (
+                  {path.objectives && path.objectives.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium mb-2">What you'll learn:</h4>
                       <ul className="space-y-1">

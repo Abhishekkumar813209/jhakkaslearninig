@@ -63,7 +63,7 @@
     --shadow-glow: 0 0 20px hsl(219 84% 50% / 0.3);
     --shadow-blue-glow: 0 8px 32px hsl(221 83% 53% / 0.15);
 
-    /* Achievement bluish colors */
+    /* Achievement blue colors */
     --achievement-bg: 221 83% 53%;
     --achievement-bg-light: 221 83% 96%;
     --achievement-icon: 221 83% 53%;
@@ -200,11 +200,11 @@
 
   /* Achievement Card Styling */
   .achievement-card {
-    @apply bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 hover:shadow-blue-glow hover:scale-[1.02] transition-smooth;
+    @apply bg-gradient-to-r from-primary/10 to-primary/20 border border-primary/30 hover:shadow-blue-glow hover:scale-[1.02] transition-smooth;
   }
 
   .achievement-icon {
-    @apply bg-blue-500 text-white;
+    @apply bg-primary text-primary-foreground;
   }
 
   /* Enhanced Card Hover Effects */

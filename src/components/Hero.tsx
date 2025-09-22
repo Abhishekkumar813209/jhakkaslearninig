@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Play, Star, Users, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import heroImage from "@/assets/hero-education.jpg";
+import heroImage from "@/assets/hero-education-blue.png";
 
 const Hero = () => {
   const navigate = useNavigate();
@@ -96,7 +96,7 @@ const Hero = () => {
             {/* Floating Cards */}
             <div className="absolute -top-4 -left-4 bg-card rounded-lg shadow-medium p-4 border border-border">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-success rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                   <Play className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -112,8 +112,8 @@ const Hero = () => {
                   <Star className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-blue-900">Achievement</div>
-                  <div className="text-xs text-blue-700">Quiz Master Badge</div>
+                  <div className="text-sm font-medium text-primary">Achievement</div>
+                  <div className="text-xs text-primary/80">Quiz Master Badge</div>
                 </div>
               </div>
             </div>

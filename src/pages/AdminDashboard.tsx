@@ -27,6 +27,7 @@ import LeaderboardManagement from "@/components/admin/LeaderboardManagement";
 import NotificationCenter from "@/components/admin/NotificationCenter";
 import AdminSettings from "@/components/admin/AdminSettings";
 import FeesManagement from "@/components/admin/FeesManagement";
+import GuidedPathsManagement from "@/components/admin/GuidedPathsManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -62,6 +63,12 @@ const AdminDashboard = () => {
       label: "Batches",
       icon: GraduationCap,
       component: BatchManagement
+    },
+    {
+      value: "guided-paths",
+      label: "Guided Paths",
+      icon: BookOpen,
+      component: GuidedPathsManagement
     },
     {
       value: "tests",
@@ -112,7 +119,7 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-10 mb-6 bg-card border border-border">
             {tabItems.map((tab) => {
               const Icon = tab.icon;
               return (

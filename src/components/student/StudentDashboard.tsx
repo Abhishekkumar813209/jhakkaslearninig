@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import GuidedPathsExplorer from './GuidedPathsExplorer';
 
 
 interface Test {
@@ -213,8 +214,9 @@ const StudentDashboard: React.FC = () => {
 
       {/* Main Dashboard Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="guided-paths">Guided Paths</TabsTrigger>
           <TabsTrigger value="tests">Tests</TabsTrigger>
         </TabsList>
 
@@ -300,6 +302,9 @@ const StudentDashboard: React.FC = () => {
           )}
         </TabsContent>
 
+        <TabsContent value="guided-paths">
+          <GuidedPathsExplorer />
+        </TabsContent>
 
         <TabsContent value="tests" className="space-y-6">
 

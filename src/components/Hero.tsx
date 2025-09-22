@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Play, Star, Users, BookOpen } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-education.jpg";
 
 const Hero = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative bg-gradient-to-br from-background to-secondary/30 pt-20 pb-32 overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -44,11 +47,21 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="hero" size="lg" className="text-base">
+              <Button 
+                variant="hero" 
+                size="lg" 
+                className="text-base"
+                onClick={() => navigate('/dashboard')}
+              >
                 <Play className="h-5 w-5 mr-2" />
                 Start Learning Free
               </Button>
-              <Button variant="outline" size="lg" className="text-base">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="text-base"
+                onClick={() => navigate('/courses')}
+              >
                 <BookOpen className="h-5 w-5 mr-2" />
                 Browse Courses
               </Button>

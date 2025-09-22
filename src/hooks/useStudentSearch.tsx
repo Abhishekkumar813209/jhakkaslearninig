@@ -15,48 +15,45 @@ export const useStudentSearch = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      // Fetch student profiles directly from the database
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          email,
-          user_roles!inner(role)
-        `)
-        .eq('user_roles.role', 'student');
+      // Step 1: get all student user_ids from user_roles
+      const { data: roleRows, error: roleError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'student');
 
-      if (error) {
-        console.error('Error fetching students from profiles:', error);
-        throw error;
+      if (roleError) {
+        console.error('Error fetching user roles:', roleError);
+        throw roleError;
       }
 
-      if (profiles && Array.isArray(profiles)) {
-        const studentData = profiles.map((profile: any) => ({
-          id: profile.id,
-          name: profile.full_name || 'Unknown User',
-          email: profile.email
-        }));
-        setStudents(studentData);
-      } else {
+      const ids = (roleRows ?? []).map((r: any) => r.user_id);
+      if (!ids.length) {
         setStudents([]);
+        return;
       }
+
+      // Step 2: fetch profiles for those user ids
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', ids);
+
+      if (profileError) {
+        console.error('Error fetching profiles:', profileError);
+        throw profileError;
+      }
+
+      const studentData = (profiles ?? []).map((p: any) => ({
+        id: p.id,
+        name: p.full_name || 'Unknown User',
+        email: p.email,
+      })).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+
+      setStudents(studentData);
     } catch (error) {
       console.error('Error fetching students:', error);
-      // Fallback to mock data if database fails
-      const mockStudents = [
-        { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Priya Patel', email: 'priya.patel@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Rahul Sharma', email: 'rahul.sharma@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Anita Gupta', email: 'anita.gupta@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Vikram Singh', email: 'vikram.singh@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Kavya Reddy', email: 'kavya.reddy@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440006', name: 'Arjun Kumar', email: 'arjun.kumar@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440007', name: 'Sneha Joshi', email: 'sneha.joshi@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440008', name: 'Rohit Mehta', email: 'rohit.mehta@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440009', name: 'Pooja Agarwal', email: 'pooja.agarwal@example.com' },
-        { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Karthik Rao', email: 'karthik.rao@example.com' },
-      ];
-      setStudents(mockStudents);
+      // Do not show hardcoded data if DB fails; keep empty to avoid confusion
+      setStudents([]);
     } finally {
       setLoading(false);
     }

@@ -67,3 +67,6 @@ verify_jwt = true
 
 [functions.batch-api]
 verify_jwt = true
+
+[functions.guided-paths-api]
+verify_jwt = true

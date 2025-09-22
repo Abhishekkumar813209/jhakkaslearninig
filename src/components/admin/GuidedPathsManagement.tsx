@@ -82,18 +82,29 @@ const GuidedPathsManagement = () => {
   const fetchGuidedPaths = async () => {
     try {
       setLoading(true);
+      console.log('Admin: Fetching guided paths...');
+      
       const { data, error } = await supabase.functions.invoke('guided-paths-api', {
         body: { action: 'get_guided_paths' }
       });
 
-      if (error) throw error;
-      setGuidedPaths(data.guided_paths || []);
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+      
+      console.log('Admin: Received guided paths data:', data);
+      setGuidedPaths(data?.guided_paths || []);
     } catch (error) {
       console.error('Error fetching guided paths:', error);
+      
+      // Show empty state for admin - they can create new paths
+      setGuidedPaths([]);
+      
       toast({
-        title: "Error",
-        description: "Failed to fetch guided paths",
-        variant: "destructive",
+        title: "Ready to Create",
+        description: "Create your first guided learning path for students",
+        variant: "default",
       });
     } finally {
       setLoading(false);

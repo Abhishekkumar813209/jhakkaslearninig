@@ -13,6 +13,9 @@ serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
+    
+    console.log('guided-paths-api: received request with action:', req.url)
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -20,6 +23,7 @@ serve(async (req: Request) => {
     )
 
     const { action, ...body } = await req.json()
+    console.log('guided-paths-api: processing action:', action)
 
     switch (action) {
       case 'get_guided_paths':

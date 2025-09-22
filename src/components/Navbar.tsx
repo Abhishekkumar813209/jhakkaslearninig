@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { authAPI } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,10 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, isAdmin, isStudent, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  const isHomePage = location.pathname === '/';
 
   const handleLogout = async () => {
     try {
@@ -43,6 +46,15 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-2">
+            {!isHomePage && (
+              <Link to="/">
+                <Button variant="nav" size="sm">
+                  <Home className="h-4 w-4 mr-2" />
+                  Home
+                </Button>
+              </Link>
+            )}
+            
             {!user ? (
               // Guest Navigation
               <>
@@ -170,6 +182,15 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col space-y-3">
+              {!isHomePage && (
+                <Link to="/" onClick={() => setIsMenuOpen(false)}>
+                  <Button variant="nav" size="sm" className="w-full justify-start">
+                    <Home className="h-4 w-4 mr-2" />
+                    Home
+                  </Button>
+                </Link>
+              )}
+              
               {!user ? (
                 // Guest Mobile Navigation
                 <>

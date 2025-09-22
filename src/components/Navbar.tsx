@@ -121,11 +121,6 @@ const Navbar = () => {
                     Courses
                   </Button>
                 </Link>
-                <Link to="/tests">
-                  <Button variant="nav" size="sm">
-                    Tests
-                  </Button>
-                </Link>
                 <Link to="/analytics">
                   <Button variant="nav" size="sm">
                     Analytics
@@ -289,12 +284,6 @@ const Navbar = () => {
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <BookOpen className="h-4 w-4 mr-2" />
                       Courses
-                    </Button>
-                  </Link>
-                  <Link to="/tests" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="nav" size="sm" className="w-full justify-start">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Tests
                     </Button>
                   </Link>
                   <Link to="/analytics" onClick={() => setIsMenuOpen(false)}>

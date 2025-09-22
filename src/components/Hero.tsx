@@ -7,7 +7,7 @@ const Hero = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="relative bg-gradient-to-br from-background to-secondary/30 pt-20 pb-32 overflow-hidden">
+    <section className="relative bg-background pt-20 pb-32 overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Content */}
@@ -19,7 +19,7 @@ const Hero = () => {
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
                 Master New Skills with{" "}
-                <span className="bg-gradient-to-r from-primary to-success bg-clip-text text-transparent">
+                <span className="text-primary">
                   Expert Teachers
                 </span>
               </h1>
@@ -48,7 +48,7 @@ const Hero = () => {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
-                variant="hero" 
+                variant="default" 
                 size="lg" 
                 className="text-base"
                 onClick={() => navigate('/dashboard')}
@@ -90,7 +90,6 @@ const Hero = () => {
                 alt="Students learning with digital education platform"
                 className="w-full h-auto object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent"></div>
             </div>
             
           </div>

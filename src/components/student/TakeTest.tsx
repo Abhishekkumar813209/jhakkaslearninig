@@ -74,11 +74,43 @@ const TakeTest: React.FC = () => {
 
       if (data.success) {
         setTest(data.test);
-        setQuestions(data.questions);
+        
+        // Normalize questions: ensure qtype and options are in correct formats
+        const normalizedQuestions: Question[] = (data.questions || []).map((q: any) => {
+          const normalizeOptions = (raw: any) => {
+            if (!raw) return [] as { text: string; isCorrect: boolean }[];
+            try {
+              const val = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              if (Array.isArray(val)) return val;
+              if (Array.isArray(val?.options)) return val.options;
+              if (Array.isArray(val?.choices)) return val.choices;
+              // Convert object map to array if needed
+              if (typeof val === 'object') {
+                const arr = Object.values(val);
+                return Array.isArray(arr) ? (arr as any) : [];
+              }
+              return [];
+            } catch {
+              return [];
+            }
+          };
+
+        const qtype = (q.qtype || q.question_type || 'mcq') as 'mcq' | 'subjective';
+        return {
+          id: q.id,
+          qtype,
+          question_text: q.question_text,
+          options: qtype === 'mcq' ? normalizeOptions(q.options) : undefined,
+          marks: q.marks,
+          word_limit: q.word_limit ?? undefined,
+        } as Question;
+        });
+
+        setQuestions(normalizedQuestions);
         setTimeLeft(data.test.duration_minutes * 60); // Convert to seconds
         
         // Initialize answers array
-        const initialAnswers = data.questions.map((q: Question) => ({
+        const initialAnswers = normalizedQuestions.map((q: Question) => ({
           questionId: q.id,
           selectedOption: '',
           textAnswer: ''

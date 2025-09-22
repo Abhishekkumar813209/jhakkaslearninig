@@ -215,9 +215,10 @@ serve(async (req: Request) => {
 
       case 'get_student_guided_paths':
         const { data: { user: currentUser } } = await supabase.auth.getUser()
-        
-        // Get enrolled guided paths for this student
-        const { data: activePaths, error: activePathsError } = await supabase
+
+        // 1) Enrolled (resilient to errors)
+        let activePaths: any[] = []
+        const { data: activeData, error: activeErr } = await supabase
           .from('guided_paths')
           .select(`
             *,
@@ -233,23 +234,22 @@ serve(async (req: Request) => {
             student_guided_paths!inner (
               enrolled_at,
               progress,
-              is_completed
+              is_completed,
+              student_id
             )
           `)
           .eq('is_active', true)
           .eq('student_guided_paths.student_id', currentUser?.id)
 
-        if (activePathsError) {
-          console.error('Error fetching enrolled paths:', activePathsError)
-          return new Response(
-            JSON.stringify({ error: 'Failed to fetch enrolled guided paths' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
+        if (activeErr) {
+          console.error('get_student_guided_paths: activePaths error:', activeErr)
+        } else {
+          activePaths = activeData || []
         }
 
-        // Get available guided paths (exclude enrolled ones)
-        const enrolledPathIds = activePaths?.map(p => p.id) || []
-        let availablePathsQuery = supabase
+        // 2) All active paths (then exclude enrolled in code)
+        let availablePathsAll: any[] = []
+        const { data: availData, error: availErr } = await supabase
           .from('guided_paths')
           .select(`
             *,
@@ -265,36 +265,35 @@ serve(async (req: Request) => {
           `)
           .eq('is_active', true)
 
-        // Only exclude enrolled paths if there are any
-        if (enrolledPathIds.length > 0) {
-          availablePathsQuery = availablePathsQuery.not('id', 'in', `(${enrolledPathIds.join(',')})`)
-        }
-
-        const { data: availablePaths, error: availablePathsError } = await availablePathsQuery
-
-        if (availablePathsError) {
-          console.error('Error fetching available paths:', availablePathsError)
+        if (availErr) {
+          console.error('get_student_guided_paths: availablePaths error:', availErr)
           return new Response(
             JSON.stringify({ error: 'Failed to fetch available guided paths' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
+        } else {
+          availablePathsAll = availData || []
         }
 
-        // Normalize the data to ensure arrays are properly initialized
-        const normalizedActivePaths = activePaths?.map(path => ({
-          ...path,
-          objectives: path.objectives || [],
-          guided_path_chapters: path.guided_path_chapters || []
-        })) || []
+        // Exclude enrolled
+        const enrolledIds = new Set(activePaths.map((p: any) => p.id))
+        const availablePaths = availablePathsAll.filter((p: any) => !enrolledIds.has(p.id))
 
-        const normalizedAvailablePaths = availablePaths?.map(path => ({
+        // Normalize
+        const normalizedActivePaths = activePaths.map((path: any) => ({
           ...path,
           objectives: path.objectives || [],
           guided_path_chapters: path.guided_path_chapters || []
-        })) || []
+        }))
+
+        const normalizedAvailablePaths = availablePaths.map((path: any) => ({
+          ...path,
+          objectives: path.objectives || [],
+          guided_path_chapters: path.guided_path_chapters || []
+        }))
 
         return new Response(
-          JSON.stringify({ 
+          JSON.stringify({
             enrolled_paths: normalizedActivePaths,
             available_paths: normalizedAvailablePaths
           }),

@@ -116,7 +116,7 @@ const Navbar = () => {
                     Student
                   </Button>
                 </Link>
-                <Link to="/courses">
+                <Link to="/admin/courses">
                   <Button variant="nav" size="sm">
                     Courses
                   </Button>
@@ -280,7 +280,7 @@ const Navbar = () => {
                       Student
                     </Button>
                   </Link>
-                  <Link to="/courses" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/admin/courses" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <BookOpen className="h-4 w-4 mr-2" />
                       Courses

@@ -21,7 +21,6 @@ import {
 import OverviewSection from "@/components/admin/OverviewSection";
 import StudentManagement from "@/components/admin/StudentManagement";
 import BatchManagement from "@/components/admin/BatchManagement";
-import CourseManagement from "@/components/admin/CourseManagement";
 import TestManagement from "@/components/admin/TestManagement";
 import AnalyticsReports from "@/components/admin/AnalyticsReports";
 import LeaderboardManagement from "@/components/admin/LeaderboardManagement";
@@ -31,7 +30,7 @@ import FeesManagement from "@/components/admin/FeesManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState("courses"); // Start with courses tab
+  const [activeTab, setActiveTab] = useState("overview"); // Start with overview tab
 
   if (loading) {
     return (
@@ -63,12 +62,6 @@ const AdminDashboard = () => {
       label: "Batches",
       icon: GraduationCap,
       component: BatchManagement
-    },
-    {
-      value: "courses",
-      label: "Courses",
-      icon: BookOpen,
-      component: CourseManagement
     },
     {
       value: "tests",
@@ -119,7 +112,7 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-10 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-9 mb-6 bg-card border border-border">
             {tabItems.map((tab) => {
               const Icon = tab.icon;
               return (

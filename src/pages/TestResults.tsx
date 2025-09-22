@@ -39,15 +39,37 @@ interface TestResult {
   };
 }
 
+interface Question {
+  id: string;
+  question_text: string;
+  qtype: string;
+  options: any;
+  correct_answer: string;
+  marks: number;
+  explanation?: string;
+}
+
+interface Answer {
+  id: string;
+  question_id: string;
+  selected_option?: string;
+  text_answer?: string;
+  is_correct?: boolean;
+  marks_awarded: number;
+  questions: Question;
+}
+
 const TestResults: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
   const [result, setResult] = useState<TestResult | null>(null);
+  const [answers, setAnswers] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTestResults();
+    fetchAnswers();
   }, [testId]);
 
   const fetchTestResults = async () => {
@@ -100,6 +122,50 @@ const TestResults: React.FC = () => {
     if (percentage >= 60) return { grade: 'B', color: 'bg-blue-400', textColor: 'text-blue-600' };
     if (percentage >= 50) return { grade: 'C', color: 'bg-yellow-500', textColor: 'text-yellow-600' };
     return { grade: 'F', color: 'bg-red-500', textColor: 'text-red-600' };
+  };
+
+  const fetchAnswers = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get the latest test attempt
+      const { data: attempt } = await supabase
+        .from('test_attempts')
+        .select('id')
+        .eq('test_id', testId)
+        .eq('student_id', user.id)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!attempt) return;
+
+      // Get all answers with questions
+      const { data: answersData, error } = await supabase
+        .from('test_answers')
+        .select(`
+          *,
+          questions (
+            id,
+            question_text,
+            qtype,
+            options,
+            correct_answer,
+            marks,
+            explanation,
+            order_num
+          )
+        `)
+        .eq('attempt_id', attempt.id)
+        .order('questions(order_num)', { ascending: true });
+
+      if (error) throw error;
+
+      setAnswers(answersData || []);
+    } catch (error) {
+      console.error('Error fetching answers:', error);
+    }
   };
 
   const getPerformanceMessage = (percentage: number, passingMarks: number) => {
@@ -259,6 +325,125 @@ const TestResults: React.FC = () => {
                 <div className="text-sm text-muted-foreground">Class Rank</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Question Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Question-by-Question Review
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {answers.map((answer, index) => {
+              const question = answer.questions;
+              const options = question.qtype === 'mcq' && question.options 
+                ? (typeof question.options === 'string' ? JSON.parse(question.options) : question.options)
+                : [];
+              
+              const isCorrect = answer.is_correct;
+              const correctOption = options.find((opt: any) => opt.isCorrect);
+
+              return (
+                <div key={answer.id} className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline">Question {index + 1}</Badge>
+                        <Badge variant={isCorrect ? "default" : "destructive"}>
+                          {isCorrect ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                          {isCorrect ? "Correct" : "Incorrect"}
+                        </Badge>
+                        <Badge variant="outline">{question.marks} marks</Badge>
+                      </div>
+                      <h4 className="font-medium text-lg mb-3">{question.question_text}</h4>
+                    </div>
+                  </div>
+
+                  {question.qtype === 'mcq' ? (
+                    <div className="space-y-2">
+                      {options.map((option: any, optIndex: number) => {
+                        const isSelected = answer.selected_option === option.text;
+                        const isCorrectOption = option.isCorrect;
+                        
+                        let bgColor = '';
+                        let textColor = '';
+                        let icon = null;
+
+                        if (isCorrectOption) {
+                          bgColor = 'bg-green-50 border-green-200';
+                          textColor = 'text-green-800';
+                          icon = <CheckCircle className="h-4 w-4 text-green-600" />;
+                        } else if (isSelected && !isCorrectOption) {
+                          bgColor = 'bg-red-50 border-red-200';
+                          textColor = 'text-red-800';
+                          icon = <XCircle className="h-4 w-4 text-red-600" />;
+                        } else {
+                          bgColor = 'bg-gray-50 border-gray-200';
+                          textColor = 'text-gray-700';
+                        }
+
+                        return (
+                          <div
+                            key={optIndex}
+                            className={`flex items-center space-x-3 p-3 rounded-lg border ${bgColor} ${textColor}`}
+                          >
+                            <span className="font-medium min-w-[24px]">
+                              {String.fromCharCode(65 + optIndex)}.
+                            </span>
+                            <span className="flex-1">{option.text}</span>
+                            <div className="flex items-center gap-2">
+                              {isSelected && (
+                                <Badge variant="outline">Your Answer</Badge>
+                              )}
+                              {icon}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Your Answer:</label>
+                        <div className="p-3 bg-gray-50 border rounded-lg">
+                          {answer.text_answer || "No answer provided"}
+                        </div>
+                      </div>
+                      {question.correct_answer && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-green-700">Sample Answer:</label>
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
+                            {question.correct_answer}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {question.explanation && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <div className="text-blue-600 mt-0.5">💡</div>
+                        <div>
+                          <p className="font-medium text-blue-800 text-sm">Explanation:</p>
+                          <p className="text-blue-700 text-sm mt-1">{question.explanation}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
+                    <span>Points Earned: {answer.marks_awarded}/{question.marks}</span>
+                    {question.qtype === 'mcq' && correctOption && (
+                      <span>Correct Answer: {correctOption.text}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 

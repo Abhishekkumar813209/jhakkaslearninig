@@ -359,6 +359,7 @@ export type Database = {
           created_by: string
           description: string | null
           duration_weeks: number
+          exam_category: string | null
           id: string
           is_active: boolean | null
           level: string
@@ -373,6 +374,7 @@ export type Database = {
           created_by: string
           description?: string | null
           duration_weeks?: number
+          exam_category?: string | null
           id?: string
           is_active?: boolean | null
           level: string
@@ -387,6 +389,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           duration_weeks?: number
+          exam_category?: string | null
           id?: string
           is_active?: boolean | null
           level?: string

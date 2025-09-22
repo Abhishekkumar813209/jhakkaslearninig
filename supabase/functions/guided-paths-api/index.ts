@@ -64,7 +64,7 @@ serve(async (req: Request) => {
         )
 
       case 'create_guided_path':
-        const { title, description, subject, level, duration_weeks, target_students, objectives } = body
+        const { title, description, subject, level, duration_weeks, target_students, objectives, exam_category } = body
         
         const { data: { user } } = await supabase.auth.getUser()
         
@@ -78,6 +78,7 @@ serve(async (req: Request) => {
             duration_weeks,
             target_students,
             objectives,
+            exam_category,
             created_by: user?.id
           }])
           .select()

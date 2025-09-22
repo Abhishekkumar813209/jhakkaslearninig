@@ -18,11 +18,12 @@ interface GuidedPath {
   level: string;
   duration_weeks: number;
   target_students: string;
-  objectives: string[];
-  guided_path_chapters: Chapter[];
+  objectives: string[] | null;
+  guided_path_chapters: Chapter[] | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  exam_category?: string;
 }
 
 interface Chapter {
@@ -408,6 +409,7 @@ const GuidedPathsManagement = () => {
                     placeholder="e.g., JEE Main Physics Mastery"
                   />
                 </div>
+                <div>
                   <label className="text-sm font-medium">Exam Category</label>
                   <Select value={formData.exam_category} onValueChange={(value) => setFormData({...formData, exam_category: value})}>
                     <SelectTrigger>
@@ -424,6 +426,9 @@ const GuidedPathsManagement = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Subject</label>
                   <Select value={formData.subject} onValueChange={(value) => setFormData({...formData, subject: value})}>
@@ -438,18 +443,6 @@ const GuidedPathsManagement = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Describe the learning path and its goals"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium">Level</label>
                   <Select value={formData.level} onValueChange={(value) => setFormData({...formData, level: value})}>
@@ -463,6 +456,18 @@ const GuidedPathsManagement = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="Describe the learning path and its goals"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Duration (Weeks)</label>
                   <Input
@@ -544,11 +549,11 @@ const GuidedPathsManagement = () => {
                   <CardTitle className="text-lg font-semibold text-foreground mb-2">
                     {path.title}
                   </CardTitle>
-                      <div className="flex gap-2 mb-2">
-                        <Badge variant="secondary">{path.subject}</Badge>
-                        <Badge variant="outline">{path.level}</Badge>
-                        {path.exam_category && <Badge variant="default">{path.exam_category}</Badge>}
-                      </div>
+                  <div className="flex gap-2 mb-2">
+                    <Badge variant="secondary">{path.subject}</Badge>
+                    <Badge variant="outline">{path.level}</Badge>
+                    {path.exam_category && <Badge variant="default">{path.exam_category}</Badge>}
+                  </div>
                 </div>
                 <div className="flex gap-1">
                   <Button
@@ -602,7 +607,7 @@ const GuidedPathsManagement = () => {
                 </div>
               </div>
 
-              {path.objectives.length > 0 && (
+              {path.objectives && path.objectives.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2">Objectives:</h4>
                   <ul className="space-y-1">

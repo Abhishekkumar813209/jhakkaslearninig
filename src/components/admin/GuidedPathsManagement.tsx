@@ -63,7 +63,8 @@ const GuidedPathsManagement = () => {
     level: '',
     duration_weeks: 0,
     target_students: '',
-    objectives: ['']
+    objectives: [''],
+    exam_category: ''
   });
 
   // Chapter form state
@@ -113,6 +114,8 @@ const GuidedPathsManagement = () => {
 
   const handleCreatePath = async () => {
     try {
+      console.log('Creating guided path with data:', formData);
+      
       const { data, error } = await supabase.functions.invoke('guided-paths-api', {
         body: { 
           action: 'create_guided_path',
@@ -120,9 +123,13 @@ const GuidedPathsManagement = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Create path error:', error);
+        throw error;
+      }
       
-      setGuidedPaths([...guidedPaths, data.guided_path]);
+      console.log('Created path:', data);
+      await fetchGuidedPaths(); // Refresh the list
       setIsCreateDialogOpen(false);
       resetForm();
       
@@ -140,8 +147,50 @@ const GuidedPathsManagement = () => {
     }
   };
 
-  const handleDeletePath = async (pathId: string) => {
+  const handleUpdatePath = async () => {
+    if (!editingPath) return;
+    
     try {
+      console.log('Updating guided path:', editingPath.id, formData);
+      
+      const { data, error } = await supabase.functions.invoke('guided-paths-api', {
+        body: { 
+          action: 'update_guided_path',
+          id: editingPath.id,
+          ...formData
+        }
+      });
+
+      if (error) {
+        console.error('Update path error:', error);
+        throw error;
+      }
+      
+      console.log('Updated path:', data);
+      await fetchGuidedPaths(); // Refresh the list
+      setEditingPath(null);
+      resetForm();
+      
+      toast({
+        title: "Success",
+        description: "Guided path updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating guided path:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update guided path",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePath = async (pathId: string) => {
+    if (!confirm('Are you sure you want to delete this guided path?')) return;
+    
+    try {
+      console.log('Deleting guided path:', pathId);
+      
       const { error } = await supabase.functions.invoke('guided-paths-api', {
         body: { 
           action: 'delete_guided_path',
@@ -149,9 +198,14 @@ const GuidedPathsManagement = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Delete path error:', error);
+        throw error;
+      }
       
-      setGuidedPaths(guidedPaths.filter(path => path.id !== pathId));
+      console.log('Deleted path successfully');
+      await fetchGuidedPaths(); // Refresh the list
+      
       toast({
         title: "Success",
         description: "Guided path deleted successfully",
@@ -174,7 +228,8 @@ const GuidedPathsManagement = () => {
       level: '',
       duration_weeks: 0,
       target_students: '',
-      objectives: ['']
+      objectives: [''],
+      exam_category: ''
     });
     setEditingPath(null);
   };
@@ -340,7 +395,7 @@ const GuidedPathsManagement = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create New Guided Learning Path</DialogTitle>
+              <DialogTitle>{editingPath ? 'Edit Guided Learning Path' : 'Create New Guided Learning Path'}</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -352,6 +407,22 @@ const GuidedPathsManagement = () => {
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
                     placeholder="e.g., JEE Main Physics Mastery"
                   />
+                </div>
+                  <label className="text-sm font-medium">Exam Category</label>
+                  <Select value={formData.exam_category} onValueChange={(value) => setFormData({...formData, exam_category: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select exam category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="JEE Main">JEE Main</SelectItem>
+                      <SelectItem value="JEE Advanced">JEE Advanced</SelectItem>
+                      <SelectItem value="NEET">NEET</SelectItem>
+                      <SelectItem value="CBSE Class 12">CBSE Class 12</SelectItem>
+                      <SelectItem value="CBSE Class 11">CBSE Class 11</SelectItem>
+                      <SelectItem value="CBSE Class 10">CBSE Class 10</SelectItem>
+                      <SelectItem value="Foundation">Foundation</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Subject</label>
@@ -454,8 +525,8 @@ const GuidedPathsManagement = () => {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleCreatePath}>
-                  Create Path
+                <Button onClick={editingPath ? handleUpdatePath : handleCreatePath}>
+                  {editingPath ? 'Update Path' : 'Create Path'}
                 </Button>
               </div>
             </div>
@@ -473,16 +544,30 @@ const GuidedPathsManagement = () => {
                   <CardTitle className="text-lg font-semibold text-foreground mb-2">
                     {path.title}
                   </CardTitle>
-                  <div className="flex gap-2 mb-2">
-                    <Badge variant="secondary">{path.subject}</Badge>
-                    <Badge variant="outline">{path.level}</Badge>
-                  </div>
+                      <div className="flex gap-2 mb-2">
+                        <Badge variant="secondary">{path.subject}</Badge>
+                        <Badge variant="outline">{path.level}</Badge>
+                        {path.exam_category && <Badge variant="default">{path.exam_category}</Badge>}
+                      </div>
                 </div>
                 <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setEditingPath(path)}
+                    onClick={() => {
+                      setEditingPath(path);
+                      setFormData({
+                        title: path.title,
+                        description: path.description || '',
+                        subject: path.subject,
+                        level: path.level,
+                        duration_weeks: path.duration_weeks,
+                        target_students: path.target_students,
+                        objectives: path.objectives || [''],
+                        exam_category: path.exam_category || ''
+                      });
+                      setIsCreateDialogOpen(true);
+                    }}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>

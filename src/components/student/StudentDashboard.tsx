@@ -366,7 +366,7 @@ const StudentDashboard: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredTests.map((test) => (
-                    <Card key={test.id} className="hover:shadow-lg transition-shadow">
+                    <Card key={test.id} className="card-interactive shadow-soft">
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-lg">{test.title}</CardTitle>

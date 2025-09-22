@@ -109,7 +109,7 @@ const Index = () => {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="text-center shadow-soft hover:shadow-medium transition-smooth">
+              <Card key={index} className="text-center card-hover-blue shadow-soft">
                 <CardHeader>
                   <div className="flex justify-center mb-4">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
@@ -177,7 +177,7 @@ const Index = () => {
       {/* CTA Section */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <Card className="p-12 text-center shadow-large">
+          <Card className="p-12 text-center shadow-large card-hover-blue">
             <div className="max-w-2xl mx-auto space-y-6">
               <div className="flex justify-center">
                 <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">

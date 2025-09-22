@@ -485,10 +485,10 @@ const Dashboard = () => {
               </Card>
 
               {/* Achievements */}
-              <Card className="shadow-soft">
+              <Card className="shadow-soft card-hover-blue">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center">
-                    <Award className="h-5 w-5 mr-2" />
+                    <Award className="h-5 w-5 mr-2 text-blue-600" />
                     Recent Achievements
                   </CardTitle>
                 </CardHeader>
@@ -508,16 +508,16 @@ const Dashboard = () => {
                   ) : achievements?.length ? (
                     <div className="space-y-3">
                       {achievements.map((achievement, index) => (
-                        <div key={index} className="flex items-start space-x-3">
-                          <div className="w-8 h-8 bg-success/10 rounded-full flex items-center justify-center text-success">
+                        <div key={index} className="achievement-card flex items-start space-x-3 p-3 rounded-lg border-l-4 border-l-blue-500">
+                          <div className="w-8 h-8 achievement-icon rounded-full flex items-center justify-center">
                             {achievement.icon === 'Trophy' && <Trophy className="h-4 w-4" />}
                             {achievement.icon === 'Target' && <Target className="h-4 w-4" />}
                             {achievement.icon === 'TrendingUp' && <TrendingUp className="h-4 w-4" />}
                             {achievement.icon === 'Award' && <Award className="h-4 w-4" />}
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-medium text-sm">{achievement.title}</h4>
-                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                            <h4 className="font-medium text-sm text-blue-900">{achievement.title}</h4>
+                            <p className="text-xs text-blue-700">{achievement.description}</p>
                           </div>
                         </div>
                       ))}

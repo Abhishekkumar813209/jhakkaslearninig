@@ -56,11 +56,18 @@
     --gradient-hero: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(200 98% 39%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
 
-    /* Educational shadows */
+    /* Educational shadows with bluish glow */
     --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
     --shadow-medium: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-large: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-glow: 0 0 20px hsl(219 84% 50% / 0.3);
+    --shadow-blue-glow: 0 8px 32px hsl(221 83% 53% / 0.15);
+
+    /* Achievement bluish colors */
+    --achievement-bg: 221 83% 53%;
+    --achievement-bg-light: 221 83% 96%;
+    --achievement-icon: 221 83% 53%;
+    --achievement-border: 221 83% 85%;
 
     /* Animations */
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -183,11 +190,34 @@
   
   /* Quiz card styles */
   .quiz-card {
-    @apply card-gradient shadow-medium hover:shadow-large transition-smooth;
+    @apply card-gradient shadow-medium hover:shadow-blue-glow hover:scale-[1.02] transition-smooth;
   }
   
   /* Course card styles */
   .course-card {
-    @apply card-gradient shadow-medium hover:shadow-large hover:-translate-y-1 transition-smooth;
+    @apply card-gradient shadow-medium hover:shadow-blue-glow hover:-translate-y-1 hover:scale-[1.02] transition-smooth;
+  }
+
+  /* Achievement Card Styling */
+  .achievement-card {
+    @apply bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 hover:shadow-blue-glow hover:scale-[1.02] transition-smooth;
+  }
+
+  .achievement-icon {
+    @apply bg-blue-500 text-white;
+  }
+
+  /* Enhanced Card Hover Effects */
+  .card-hover-blue {
+    @apply hover:shadow-blue-glow hover:border-blue-200 hover:scale-[1.01] transition-smooth;
+  }
+
+  .card-interactive {
+    @apply card-gradient shadow-soft hover:shadow-blue-glow hover:border-blue-300 hover:scale-[1.02] hover:-translate-y-0.5 transition-smooth cursor-pointer;
+  }
+
+  /* Shadow Blue Glow */
+  .shadow-blue-glow {
+    box-shadow: var(--shadow-blue-glow);
   }
 }

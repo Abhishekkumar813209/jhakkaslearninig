@@ -106,14 +106,14 @@ const Hero = () => {
               </div>
             </div>
             
-            <div className="absolute -bottom-4 -right-4 bg-card rounded-lg shadow-medium p-4 border border-border">
+            <div className="absolute -bottom-4 -right-4 achievement-card p-4 rounded-lg shadow-medium">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-warning rounded-full flex items-center justify-center">
-                  <Star className="h-4 w-4 text-white" />
+                <div className="w-8 h-8 achievement-icon rounded-full flex items-center justify-center">
+                  <Star className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium">Achievement</div>
-                  <div className="text-xs text-muted-foreground">Quiz Master Badge</div>
+                  <div className="text-sm font-medium text-blue-900">Achievement</div>
+                  <div className="text-xs text-blue-700">Quiz Master Badge</div>
                 </div>
               </div>
             </div>

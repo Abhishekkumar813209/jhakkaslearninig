@@ -137,56 +137,62 @@ const TestResults: React.FC = () => {
 
       console.log('Found attempt:', attempt.id);
 
-      // Get all answers with questions
+      // Get all answers with questions - using LEFT JOIN to get all questions even if no answer
       const { data: answersData, error } = await supabase
-        .from('test_answers')
+        .from('questions')
         .select(`
-          *,
-          questions (
+          id,
+          question_text,
+          qtype,
+          options,
+          correct_answer,
+          marks,
+          explanation,
+          order_num,
+          test_answers!left (
             id,
-            question_text,
-            qtype,
-            options,
-            correct_answer,
-            marks,
-            explanation,
-            order_num
+            selected_option,
+            text_answer,
+            is_correct,
+            marks_awarded
           )
         `)
-        .eq('attempt_id', attempt.id)
-        .order('questions(order_num)', { ascending: true });
+        .eq('test_id', testId)
+        .eq('test_answers.attempt_id', attempt.id)
+        .order('order_num', { ascending: true });
 
       if (error) {
         console.error('Error fetching answers:', error);
         throw error;
       }
 
-      console.log('Fetched answers:', answersData);
-      setAnswers(answersData || []);
-
-      // If no answers found, fetch questions directly and create empty answers
-      if (!answersData || answersData.length === 0) {
-        console.log('No answers found, fetching questions directly');
-        const { data: questionsData, error: questionsError } = await supabase
-          .from('questions')
-          .select('*')
-          .eq('test_id', testId)
-          .order('order_num', { ascending: true });
-
-        if (!questionsError && questionsData) {
-          const emptyAnswers = questionsData.map(q => ({
-            id: '',
-            attempt_id: attempt.id,
-            question_id: q.id,
-            selected_option: null,
-            text_answer: null,
-            is_correct: null,
-            marks_awarded: 0,
-            questions: q
-          }));
-          setAnswers(emptyAnswers);
-        }
-      }
+      console.log('Fetched questions with answers:', answersData);
+      
+      // Transform data to match the expected structure
+      const transformedAnswers = (answersData || []).map(question => {
+        const answer = question.test_answers?.[0] || null;
+        return {
+          id: answer?.id || '',
+          attempt_id: attempt.id,
+          question_id: question.id,
+          selected_option: answer?.selected_option || null,
+          text_answer: answer?.text_answer || null,
+          is_correct: answer?.is_correct || null,
+          marks_awarded: answer?.marks_awarded || 0,
+          questions: {
+            id: question.id,
+            question_text: question.question_text,
+            qtype: question.qtype,
+            options: question.options,
+            correct_answer: question.correct_answer,
+            marks: question.marks,
+            explanation: question.explanation,
+            order_num: question.order_num
+          }
+        };
+      });
+      
+      setAnswers(transformedAnswers);
     } catch (error) {
       console.error('Error fetching answers:', error);
     }

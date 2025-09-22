@@ -216,7 +216,7 @@ serve(async (req: Request) => {
       case 'get_student_guided_paths':
         const { data: { user: currentUser } } = await supabase.auth.getUser()
         
-        // Get all active guided paths
+        // Get enrolled guided paths for this student
         const { data: activePaths, error: activePathsError } = await supabase
           .from('guided_paths')
           .select(`
@@ -239,7 +239,17 @@ serve(async (req: Request) => {
           .eq('is_active', true)
           .eq('student_guided_paths.student_id', currentUser?.id)
 
-        const { data: availablePaths, error: availablePathsError } = await supabase
+        if (activePathsError) {
+          console.error('Error fetching enrolled paths:', activePathsError)
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch enrolled guided paths' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get available guided paths (exclude enrolled ones)
+        const enrolledPathIds = activePaths?.map(p => p.id) || []
+        let availablePathsQuery = supabase
           .from('guided_paths')
           .select(`
             *,
@@ -254,11 +264,18 @@ serve(async (req: Request) => {
             )
           `)
           .eq('is_active', true)
-          .not('id', 'in', `(${activePaths?.map(p => p.id).join(',') || 'null'})`)
 
-        if (activePathsError || availablePathsError) {
+        // Only exclude enrolled paths if there are any
+        if (enrolledPathIds.length > 0) {
+          availablePathsQuery = availablePathsQuery.not('id', 'in', `(${enrolledPathIds.join(',')})`)
+        }
+
+        const { data: availablePaths, error: availablePathsError } = await availablePathsQuery
+
+        if (availablePathsError) {
+          console.error('Error fetching available paths:', availablePathsError)
           return new Response(
-            JSON.stringify({ error: 'Failed to fetch guided paths' }),
+            JSON.stringify({ error: 'Failed to fetch available guided paths' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }

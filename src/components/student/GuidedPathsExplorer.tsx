@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Clock, Target, Users, Play, CheckCircle, User, Calendar, Star, Video } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { BookOpen, Clock, Target, Users, Play, CheckCircle, User, Calendar, Star, Video, Eye, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,6 +39,8 @@ const GuidedPathsExplorer = () => {
   const [enrolledPaths, setEnrolledPaths] = useState<GuidedPath[]>([]);
   const [availablePaths, setAvailablePaths] = useState<GuidedPath[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPath, setSelectedPath] = useState<GuidedPath | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,44 +62,35 @@ const GuidedPathsExplorer = () => {
       }
       
       console.log('Received guided paths data:', data);
-      setEnrolledPaths(data?.enrolled_paths || []);
-      setAvailablePaths(data?.available_paths || []);
+      
+      // If we have real data, use it
+      if (data?.enrolled_paths || data?.available_paths) {
+        setEnrolledPaths(data?.enrolled_paths || []);
+        setAvailablePaths(data?.available_paths || []);
+        console.log('Using real data from database');
+      } else {
+        // Only use fallback if no real data exists
+        console.log('No real data found, using fallback');
+        setAvailablePaths([]);
+        setEnrolledPaths([]);
+        
+        toast({
+          title: "No Guided Paths",
+          description: "No guided paths are currently available. Ask your admin to create some.",
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error('Error fetching guided paths:', error);
       
-      // Fallback to mock data if API fails
-      console.log('Using fallback mock data');
-      const mockAvailablePaths: GuidedPath[] = [
-        {
-          id: 'mock-1',
-          title: 'JEE Main Physics Mastery',
-          description: 'Complete physics preparation for JEE Main with conceptual clarity and problem-solving techniques',
-          subject: 'Physics',
-          level: 'Intermediate',
-          duration_weeks: 16,
-          target_students: 'JEE Main aspirants',
-          objectives: ['Master core physics concepts', 'Solve complex numerical problems', 'Build exam strategy'],
-          guided_path_chapters: [
-            {
-              id: '1',
-              title: 'Mechanics',
-              description: 'Newton\'s laws, motion, forces',
-              order_num: 1,
-              estimated_hours: 24,
-              topics: ['Kinematics', 'Dynamics', 'Work Energy Power']
-            }
-          ],
-          is_active: true
-        }
-      ];
-      
-      setAvailablePaths(mockAvailablePaths);
+      // Show error and empty state
+      setAvailablePaths([]);
       setEnrolledPaths([]);
       
       toast({
-        title: "Using Demo Data",
-        description: "Connected to demo guided paths. Admin can create real paths in the admin panel.",
-        variant: "default",
+        title: "Error Loading Paths",
+        description: "Failed to load guided paths. Please try again later.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -129,6 +123,11 @@ const GuidedPathsExplorer = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const openPathDetails = (path: GuidedPath) => {
+    setSelectedPath(path);
+    setDetailsOpen(true);
   };
 
   if (loading) {
@@ -207,10 +206,16 @@ const GuidedPathsExplorer = () => {
 
                   <div className="flex justify-between items-center pt-2">
                     <Badge variant="default">Enrolled</Badge>
-                    <Button variant="outline" size="sm">
-                      <Play className="h-4 w-4 mr-2" />
-                      Continue Learning
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openPathDetails(path)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Play className="h-4 w-4 mr-2" />
+                        Continue Learning
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -306,13 +311,19 @@ const GuidedPathsExplorer = () => {
 
                   <div className="flex justify-between items-center pt-2">
                     <Badge variant="outline">Available</Badge>
-                    <Button 
-                      variant="default" 
-                      size="sm"
-                      onClick={() => handleEnroll(path.id)}
-                    >
-                      Enroll Now
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openPathDetails(path)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                      <Button 
+                        variant="default" 
+                        size="sm"
+                        onClick={() => handleEnroll(path.id)}
+                      >
+                        Enroll Now
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -320,6 +331,155 @@ const GuidedPathsExplorer = () => {
           </div>
         )}
       </div>
+
+      {/* Detailed Path Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          {selectedPath && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <DialogTitle className="text-2xl font-bold">{selectedPath.title}</DialogTitle>
+                    <DialogDescription className="mt-2">
+                      {selectedPath.description}
+                    </DialogDescription>
+                    <div className="flex gap-2 mt-3">
+                      <Badge variant="secondary">{selectedPath.subject}</Badge>
+                      <Badge variant="outline">{selectedPath.level}</Badge>
+                      {selectedPath.exam_category && (
+                        <Badge variant="default">{selectedPath.exam_category}</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-6">
+                {/* Overview Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Clock className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+                    <p className="text-sm text-muted-foreground">Duration</p>
+                    <p className="font-semibold">{selectedPath.duration_weeks} weeks</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <BookOpen className="h-6 w-6 mx-auto mb-2 text-green-500" />
+                    <p className="text-sm text-muted-foreground">Chapters</p>
+                    <p className="font-semibold">{selectedPath.guided_path_chapters?.length || 0}</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Video className="h-6 w-6 mx-auto mb-2 text-purple-500" />
+                    <p className="text-sm text-muted-foreground">Total Hours</p>
+                    <p className="font-semibold">
+                      {selectedPath.guided_path_chapters?.reduce((total, chapter) => total + (chapter.estimated_hours || 0), 0) || 0}h
+                    </p>
+                  </div>
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <Users className="h-6 w-6 mx-auto mb-2 text-orange-500" />
+                    <p className="text-sm text-muted-foreground">Target</p>
+                    <p className="font-semibold text-xs">{selectedPath.target_students}</p>
+                  </div>
+                </div>
+
+                {/* Learning Objectives */}
+                {selectedPath.objectives && selectedPath.objectives.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Learning Objectives</h3>
+                    <div className="grid gap-2">
+                      {selectedPath.objectives.map((objective, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <Target className="h-4 w-4 mt-0.5 text-blue-500 flex-shrink-0" />
+                          <span className="text-sm">{objective}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Chapters */}
+                {selectedPath.guided_path_chapters && selectedPath.guided_path_chapters.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Course Chapters</h3>
+                    <div className="space-y-3">
+                      {selectedPath.guided_path_chapters
+                        .sort((a, b) => a.order_num - b.order_num)
+                        .map((chapter, index) => (
+                        <Card key={chapter.id} className="p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline" className="text-xs">
+                                  Chapter {chapter.order_num}
+                                </Badge>
+                                <h4 className="font-medium">{chapter.title}</h4>
+                              </div>
+                              {chapter.description && (
+                                <p className="text-sm text-muted-foreground mb-2">{chapter.description}</p>
+                              )}
+                              
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {chapter.estimated_hours}h
+                                </div>
+                                {chapter.playlist_id && (
+                                  <div className="flex items-center gap-1">
+                                    <Video className="h-3 w-3" />
+                                    YouTube Playlist
+                                  </div>
+                                )}
+                              </div>
+
+                              {chapter.topics && chapter.topics.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {chapter.topics.slice(0, 3).map((topic, topicIndex) => (
+                                    <Badge key={topicIndex} variant="secondary" className="text-xs">
+                                      {topic}
+                                    </Badge>
+                                  ))}
+                                  {chapter.topics.length > 3 && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      +{chapter.topics.length - 3} more
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+                    Close
+                  </Button>
+                  {!enrolledPaths.find(p => p.id === selectedPath.id) ? (
+                    <Button 
+                      onClick={() => {
+                        handleEnroll(selectedPath.id);
+                        setDetailsOpen(false);
+                      }}
+                    >
+                      Enroll in This Path
+                    </Button>
+                  ) : (
+                    <Button>
+                      <Play className="h-4 w-4 mr-2" />
+                      Continue Learning
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

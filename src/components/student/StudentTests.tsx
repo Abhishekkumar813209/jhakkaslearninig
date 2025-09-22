@@ -35,13 +35,12 @@ const StudentTests: React.FC = () => {
     try {
       setLoading(true);
       
-      // Get published tests created by admins only
+      // Get published tests created by users with admin role
       const { data, error } = await supabase
         .from('tests')
         .select(`
           *,
-          profiles!tests_created_by_fkey(id),
-          user_roles!inner(role)
+          user_roles!inner(user_id)
         `)
         .eq('is_published', true)
         .eq('user_roles.role', 'admin')

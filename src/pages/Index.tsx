@@ -227,27 +227,27 @@ const Index = () => {
             <div>
               <h3 className="font-semibold mb-4">Courses</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <div>JEE Preparation</div>
-                <div>NEET Preparation</div>
-                <div>Class 10 & 12</div>
-                <div>Competitive Exams</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">JEE Preparation</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">NEET Preparation</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Class 10 & 12</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Competitive Exams</div>
               </div>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Company</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <div>About Us</div>
-                <div>Careers</div>
-                <div>Contact</div>
-                <div>Support</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">About Us</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Careers</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Contact</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Support</div>
               </div>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Legal</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <div>Privacy Policy</div>
-                <div>Terms of Service</div>
-                <div>Refund Policy</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Privacy Policy</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Terms of Service</div>
+                <div className="hover:text-primary transition-colors cursor-pointer">Refund Policy</div>
               </div>
             </div>
           </div>

@@ -87,7 +87,13 @@ serve(async (req: Request) => {
 
       case 'POST':
         // Get current user to check authentication
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        const authHeader = req.headers.get('Authorization') ?? ''
+        const token = authHeader.startsWith('Bearer ')
+          ? authHeader.replace('Bearer ', '')
+          : authHeader
+
+        const { data: userData, error: userError } = await supabase.auth.getUser(token)
+        const user = userData?.user
         
         if (userError || !user) {
           console.error('Auth error:', userError)

@@ -1,7 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import CourseCard from "@/components/CourseCard";
-import { TestCreateCourse } from "@/components/TestCreateCourse";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,16 +96,6 @@ const Index = () => {
       <Navbar />
       <Hero />
       
-      {/* Test Create Course API Section */}
-      <section className="py-16 bg-muted/10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Test Create Course API</h2>
-            <p className="text-muted-foreground">Test the course creation functionality</p>
-          </div>
-          <TestCreateCourse />
-        </div>
-      </section>
       
       {/* Features Section */}
       <section className="py-20 bg-muted/30">

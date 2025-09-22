@@ -83,20 +83,45 @@ async function createTestAttempt(supabase: any, testId: string, studentId: strin
 
 async function saveAnswer(supabase: any, attemptId: string, questionId: string, selectedOption?: string, textAnswer?: string) {
   try {
-    // Upsert answer
-    const { data, error } = await supabase
+    console.log('Saving answer:', { attemptId, questionId, selectedOption, textAnswer });
+    
+    // First check if answer already exists
+    const { data: existingAnswer } = await supabase
       .from('test_answers')
-      .upsert([{
-        attempt_id: attemptId,
-        question_id: questionId,
-        selected_option: selectedOption || null,
-        text_answer: textAnswer || null
-      }])
-      .select()
+      .select('id')
+      .eq('attempt_id', attemptId)
+      .eq('question_id', questionId)
       .single();
 
-    if (error) throw error;
+    let result;
+    if (existingAnswer) {
+      // Update existing answer
+      result = await supabase
+        .from('test_answers')
+        .update({
+          selected_option: selectedOption || null,
+          text_answer: textAnswer || null
+        })
+        .eq('attempt_id', attemptId)
+        .eq('question_id', questionId);
+    } else {
+      // Insert new answer
+      result = await supabase
+        .from('test_answers')
+        .insert([{
+          attempt_id: attemptId,
+          question_id: questionId,
+          selected_option: selectedOption || null,
+          text_answer: textAnswer || null
+        }]);
+    }
 
+    if (result.error) {
+      console.error('Database error:', result.error);
+      throw result.error;
+    }
+
+    console.log('Answer saved successfully');
     return new Response(JSON.stringify({ 
       success: true
     }), {

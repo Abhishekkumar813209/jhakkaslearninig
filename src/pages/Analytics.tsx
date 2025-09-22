@@ -56,34 +56,38 @@ const Analytics = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Student Analytics</h1>
             <p className="text-muted-foreground">Analyze performance and compare with peers</p>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button onClick={fetchAnalytics} variant="outline" size="sm" disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+          <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button onClick={fetchAnalytics} variant="outline" size="sm" disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              
+              <Select value={timeframe} onValueChange={setTimeframe}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">7 Days</SelectItem>
+                  <SelectItem value="30">30 Days</SelectItem>
+                  <SelectItem value="90">90 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
-            <StudentSearchInput
-              selectedStudent={selectedStudent}
-              onStudentSelect={setSelectedStudent}
-              placeholder="Search students..."
-            />
-
-            <Select value={timeframe} onValueChange={setTimeframe}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">7 Days</SelectItem>
-                <SelectItem value="30">30 Days</SelectItem>
-                <SelectItem value="90">90 Days</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-full md:w-auto">
+              <StudentSearchInput
+                selectedStudent={selectedStudent}
+                onStudentSelect={setSelectedStudent}
+                placeholder="Search by name or email..."
+              />
+            </div>
           </div>
         </div>
 

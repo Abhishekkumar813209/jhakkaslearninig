@@ -76,7 +76,7 @@ const StudentSearchInput = ({
   const displayValue = isOpen ? searchQuery : selectedStudentName;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative w-full">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
@@ -86,7 +86,7 @@ const StudentSearchInput = ({
           value={displayValue}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={handleInputFocus}
-          className="pl-10 pr-10 w-48"
+          className="pl-10 pr-10 w-full h-10 min-w-64"
         />
         {selectedStudentName && !isOpen && (
           <Button

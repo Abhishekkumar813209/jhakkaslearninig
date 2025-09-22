@@ -265,6 +265,139 @@ export type Database = {
         }
         Relationships: []
       }
+      guided_path_chapters: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          estimated_hours: number | null
+          guided_path_id: string
+          id: string
+          order_num: number
+          playlist_id: string | null
+          title: string
+          topics: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          estimated_hours?: number | null
+          guided_path_id: string
+          id?: string
+          order_num: number
+          playlist_id?: string | null
+          title: string
+          topics?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          estimated_hours?: number | null
+          guided_path_id?: string
+          id?: string
+          order_num?: number
+          playlist_id?: string | null
+          title?: string
+          topics?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guided_path_chapters_guided_path_id_fkey"
+            columns: ["guided_path_id"]
+            isOneToOne: false
+            referencedRelation: "guided_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guided_path_resources: {
+        Row: {
+          chapter_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          order_num: number | null
+          title: string
+          type: string
+          url: string | null
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          order_num?: number | null
+          title: string
+          type: string
+          url?: string | null
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          order_num?: number | null
+          title?: string
+          type?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guided_path_resources_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "guided_path_chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guided_paths: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          duration_weeks: number
+          id: string
+          is_active: boolean | null
+          level: string
+          objectives: string[] | null
+          subject: string
+          target_students: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_active?: boolean | null
+          level: string
+          objectives?: string[] | null
+          subject: string
+          target_students: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_active?: boolean | null
+          level?: string
+          objectives?: string[] | null
+          subject?: string
+          target_students?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       learning_paths: {
         Row: {
           created_at: string | null
@@ -643,6 +776,44 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      student_guided_paths: {
+        Row: {
+          completed_at: string | null
+          enrolled_at: string | null
+          guided_path_id: string
+          id: string
+          is_completed: boolean | null
+          progress: number | null
+          student_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          enrolled_at?: string | null
+          guided_path_id: string
+          id?: string
+          is_completed?: boolean | null
+          progress?: number | null
+          student_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          enrolled_at?: string | null
+          guided_path_id?: string
+          id?: string
+          is_completed?: boolean | null
+          progress?: number | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_guided_paths_guided_path_id_fkey"
+            columns: ["guided_path_id"]
+            isOneToOne: false
+            referencedRelation: "guided_paths"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_answers: {
         Row: {

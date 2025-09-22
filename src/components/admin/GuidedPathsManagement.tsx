@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, BookOpen, Users, Clock, Target } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, Users, Clock, Target, Youtube, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,7 +19,7 @@ interface GuidedPath {
   duration_weeks: number;
   target_students: string;
   objectives: string[];
-  chapters: Chapter[];
+  guided_path_chapters: Chapter[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -32,14 +32,15 @@ interface Chapter {
   order_num: number;
   estimated_hours: number;
   topics: string[];
-  resources: Resource[];
+  playlist_id?: string;
 }
 
-interface Resource {
-  type: 'video' | 'reading' | 'practice' | 'assessment';
+interface YouTubePlaylist {
+  id: string;
   title: string;
-  url?: string;
-  description?: string;
+  description: string;
+  thumbnailUrl: string;
+  channelTitle: string;
 }
 
 const GuidedPathsManagement = () => {
@@ -47,6 +48,11 @@ const GuidedPathsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPath, setEditingPath] = useState<GuidedPath | null>(null);
+  const [isChapterDialogOpen, setIsChapterDialogOpen] = useState(false);
+  const [selectedPathForChapter, setSelectedPathForChapter] = useState<string | null>(null);
+  const [youtubeSearchQuery, setYoutubeSearchQuery] = useState('');
+  const [youtubeSearchResults, setYoutubeSearchResults] = useState<YouTubePlaylist[]>([]);
+  const [searchingYoutube, setSearchingYoutube] = useState(false);
   const { toast } = useToast();
 
   // Form state
@@ -57,8 +63,16 @@ const GuidedPathsManagement = () => {
     level: '',
     duration_weeks: 0,
     target_students: '',
-    objectives: [''],
-    chapters: []
+    objectives: ['']
+  });
+
+  // Chapter form state
+  const [chapterData, setChapterData] = useState({
+    title: '',
+    description: '',
+    estimated_hours: 0,
+    topics: [''],
+    playlist_id: ''
   });
 
   useEffect(() => {
@@ -68,48 +82,12 @@ const GuidedPathsManagement = () => {
   const fetchGuidedPaths = async () => {
     try {
       setLoading(true);
-      // For now, using mock data since we need to create the guided_paths table
-      const mockPaths: GuidedPath[] = [
-        {
-          id: '1',
-          title: 'JEE Main Physics Mastery',
-          description: 'Complete physics preparation for JEE Main with conceptual clarity and problem-solving techniques',
-          subject: 'Physics',
-          level: 'Intermediate',
-          duration_weeks: 16,
-          target_students: 'JEE Main aspirants',
-          objectives: ['Master core physics concepts', 'Solve complex numerical problems', 'Build exam strategy'],
-          chapters: [
-            {
-              id: '1',
-              title: 'Mechanics',
-              description: 'Newton\'s laws, motion, forces',
-              order_num: 1,
-              estimated_hours: 24,
-              topics: ['Kinematics', 'Dynamics', 'Work Energy Power'],
-              resources: []
-            }
-          ],
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          title: 'NEET Biology Foundation',
-          description: 'Comprehensive biology preparation for NEET with focus on NCERT and beyond',
-          subject: 'Biology',
-          level: 'Foundation',
-          duration_weeks: 20,
-          target_students: 'NEET aspirants',
-          objectives: ['Complete NCERT coverage', 'Diagram mastery', 'Fact retention techniques'],
-          chapters: [],
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
-      setGuidedPaths(mockPaths);
+      const { data, error } = await supabase.functions.invoke('guided-paths-api', {
+        body: { action: 'get_guided_paths' }
+      });
+
+      if (error) throw error;
+      setGuidedPaths(data.guided_paths || []);
     } catch (error) {
       console.error('Error fetching guided paths:', error);
       toast({
@@ -124,17 +102,16 @@ const GuidedPathsManagement = () => {
 
   const handleCreatePath = async () => {
     try {
-      // TODO: Implement actual database creation
-      const newPath: GuidedPath = {
-        id: Date.now().toString(),
-        ...formData,
-        chapters: [],
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      const { data, error } = await supabase.functions.invoke('guided-paths-api', {
+        body: { 
+          action: 'create_guided_path',
+          ...formData
+        }
+      });
+
+      if (error) throw error;
       
-      setGuidedPaths([...guidedPaths, newPath]);
+      setGuidedPaths([...guidedPaths, data.guided_path]);
       setIsCreateDialogOpen(false);
       resetForm();
       
@@ -154,6 +131,15 @@ const GuidedPathsManagement = () => {
 
   const handleDeletePath = async (pathId: string) => {
     try {
+      const { error } = await supabase.functions.invoke('guided-paths-api', {
+        body: { 
+          action: 'delete_guided_path',
+          path_id: pathId
+        }
+      });
+
+      if (error) throw error;
+      
       setGuidedPaths(guidedPaths.filter(path => path.id !== pathId));
       toast({
         title: "Success",
@@ -177,10 +163,21 @@ const GuidedPathsManagement = () => {
       level: '',
       duration_weeks: 0,
       target_students: '',
-      objectives: [''],
-      chapters: []
+      objectives: ['']
     });
     setEditingPath(null);
+  };
+
+  const resetChapterForm = () => {
+    setChapterData({
+      title: '',
+      description: '',
+      estimated_hours: 0,
+      topics: [''],
+      playlist_id: ''
+    });
+    setYoutubeSearchResults([]);
+    setYoutubeSearchQuery('');
   };
 
   const addObjective = () => {
@@ -203,6 +200,106 @@ const GuidedPathsManagement = () => {
     setFormData({
       ...formData,
       objectives: formData.objectives.filter((_, i) => i !== index)
+    });
+  };
+
+  // YouTube search functionality
+  const searchYoutubePlaylists = async () => {
+    if (!youtubeSearchQuery.trim()) return;
+    
+    try {
+      setSearchingYoutube(true);
+      const { data, error } = await supabase.functions.invoke('guided-paths-api', {
+        body: { 
+          action: 'search_youtube_playlists',
+          query: youtubeSearchQuery
+        }
+      });
+
+      if (error) throw error;
+      setYoutubeSearchResults(data.playlists || []);
+    } catch (error) {
+      console.error('Error searching YouTube:', error);
+      toast({
+        title: "Error",
+        description: "Failed to search YouTube playlists",
+        variant: "destructive",
+      });
+    } finally {
+      setSearchingYoutube(false);
+    }
+  };
+
+  // Chapter management
+  const handleAddChapter = async () => {
+    if (!selectedPathForChapter) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('guided-paths-api', {
+        body: { 
+          action: 'add_chapter',
+          guided_path_id: selectedPathForChapter,
+          chapter_title: chapterData.title,
+          chapter_description: chapterData.description,
+          estimated_hours: chapterData.estimated_hours,
+          topics: chapterData.topics.filter(t => t.trim()),
+          playlist_id: chapterData.playlist_id
+        }
+      });
+
+      if (error) throw error;
+      
+      // Refresh guided paths
+      fetchGuidedPaths();
+      setIsChapterDialogOpen(false);
+      resetChapterForm();
+      setSelectedPathForChapter(null);
+      
+      toast({
+        title: "Success",
+        description: "Chapter added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding chapter:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add chapter",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const addTopic = () => {
+    setChapterData({
+      ...chapterData,
+      topics: [...chapterData.topics, '']
+    });
+  };
+
+  const updateTopic = (index: number, value: string) => {
+    const newTopics = [...chapterData.topics];
+    newTopics[index] = value;
+    setChapterData({
+      ...chapterData,
+      topics: newTopics
+    });
+  };
+
+  const removeTopic = (index: number) => {
+    setChapterData({
+      ...chapterData,
+      topics: chapterData.topics.filter((_, i) => i !== index)
+    });
+  };
+
+  const selectPlaylist = (playlist: YouTubePlaylist) => {
+    setChapterData({
+      ...chapterData,
+      playlist_id: playlist.id
+    });
+    toast({
+      title: "Playlist Selected",
+      description: `Selected: ${playlist.title}`,
     });
   };
 
@@ -405,7 +502,7 @@ const GuidedPathsManagement = () => {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  <span>{path.chapters.length} chapters</span>
+                  <span>{path.guided_path_chapters?.length || 0} chapters</span>
                 </div>
               </div>
 
@@ -432,8 +529,15 @@ const GuidedPathsManagement = () => {
                 <Badge variant={path.is_active ? "default" : "secondary"}>
                   {path.is_active ? "Active" : "Inactive"}
                 </Badge>
-                <Button variant="outline" size="sm">
-                  Manage Chapters
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedPathForChapter(path.id);
+                    setIsChapterDialogOpen(true);
+                  }}
+                >
+                  Add Chapter
                 </Button>
               </div>
             </CardContent>
@@ -456,6 +560,151 @@ const GuidedPathsManagement = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Chapter Management Dialog */}
+      <Dialog open={isChapterDialogOpen} onOpenChange={setIsChapterDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Add New Chapter</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Chapter Title</label>
+                <Input
+                  value={chapterData.title}
+                  onChange={(e) => setChapterData({...chapterData, title: e.target.value})}
+                  placeholder="e.g., Mechanics Fundamentals"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Estimated Hours</label>
+                <Input
+                  type="number"
+                  value={chapterData.estimated_hours}
+                  onChange={(e) => setChapterData({...chapterData, estimated_hours: parseInt(e.target.value) || 0})}
+                  placeholder="24"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={chapterData.description}
+                onChange={(e) => setChapterData({...chapterData, description: e.target.value})}
+                placeholder="Describe what students will learn in this chapter"
+              />
+            </div>
+
+            {/* YouTube Playlist Integration */}
+            <div className="space-y-4">
+              <h4 className="font-medium flex items-center gap-2">
+                <Youtube className="h-4 w-4 text-red-500" />
+                YouTube Playlist Integration
+              </h4>
+              
+              <div className="flex gap-2">
+                <Input
+                  value={youtubeSearchQuery}
+                  onChange={(e) => setYoutubeSearchQuery(e.target.value)}
+                  placeholder="Search for YouTube playlists..."
+                  onKeyPress={(e) => e.key === 'Enter' && searchYoutubePlaylists()}
+                />
+                <Button
+                  onClick={searchYoutubePlaylists}
+                  disabled={searchingYoutube}
+                  variant="outline"
+                >
+                  <Search className="h-4 w-4" />
+                  {searchingYoutube ? 'Searching...' : 'Search'}
+                </Button>
+              </div>
+
+              {youtubeSearchResults.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+                  {youtubeSearchResults.map((playlist) => (
+                    <Card 
+                      key={playlist.id} 
+                      className={`cursor-pointer transition-colors ${chapterData.playlist_id === playlist.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => selectPlaylist(playlist)}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex gap-3">
+                          {playlist.thumbnailUrl && (
+                            <img src={playlist.thumbnailUrl} alt="" className="w-16 h-12 object-cover rounded" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-medium text-sm line-clamp-1">{playlist.title}</h5>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{playlist.channelTitle}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {chapterData.playlist_id && (
+                <div className="text-sm text-green-600">
+                  ✓ Playlist selected: {youtubeSearchResults.find(p => p.id === chapterData.playlist_id)?.title}
+                </div>
+              )}
+            </div>
+
+            {/* Topics */}
+            <div>
+              <label className="text-sm font-medium">Chapter Topics</label>
+              {chapterData.topics.map((topic, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <Input
+                    value={topic}
+                    onChange={(e) => updateTopic(index, e.target.value)}
+                    placeholder="Enter topic"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeTopic(index)}
+                    disabled={chapterData.topics.length === 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addTopic}
+                className="mt-2"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Topic
+              </Button>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsChapterDialogOpen(false);
+                  resetChapterForm();
+                  setSelectedPathForChapter(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleAddChapter}>
+                Add Chapter
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

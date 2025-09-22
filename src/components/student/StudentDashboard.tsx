@@ -15,15 +15,14 @@ import {
   Calendar,
   Target,
   Filter,
-  Search,
-  Map
+  Search
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import StudentRoadmap from './StudentRoadmap';
+
 
 interface Test {
   id: string;
@@ -213,13 +212,9 @@ const StudentDashboard: React.FC = () => {
       </div>
 
       {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="roadmap" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="roadmap">
-            <Map className="h-4 w-4 mr-2" />
-            Roadmap
-          </TabsTrigger>
           <TabsTrigger value="tests">Tests</TabsTrigger>
         </TabsList>
 
@@ -305,9 +300,6 @@ const StudentDashboard: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="roadmap">
-          <StudentRoadmap />
-        </TabsContent>
 
         <TabsContent value="tests" className="space-y-6">
 

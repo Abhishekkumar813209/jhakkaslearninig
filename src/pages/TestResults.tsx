@@ -408,39 +408,77 @@ const TestResults: React.FC = () => {
                           
                           let bgColor = '';
                           let textColor = '';
+                          let borderColor = '';
                           let icon = null;
+                          let label = '';
 
                           if (isCorrectOption) {
-                            bgColor = 'bg-green-50 border-green-200';
+                            // Correct answer - always green
+                            bgColor = 'bg-green-50';
+                            borderColor = 'border-green-300';
                             textColor = 'text-green-800';
                             icon = <CheckCircle className="h-4 w-4 text-green-600" />;
-                          } else if (isSelected && !isCorrectOption) {
-                            bgColor = 'bg-red-50 border-red-200';
+                            label = 'Correct Answer';
+                          } else if (isSelected) {
+                            // User selected this wrong option - red
+                            bgColor = 'bg-red-50';
+                            borderColor = 'border-red-300';
                             textColor = 'text-red-800';
                             icon = <XCircle className="h-4 w-4 text-red-600" />;
+                            label = 'Your Answer (Wrong)';
                           } else {
-                            bgColor = 'bg-gray-50 border-gray-200';
+                            // Not selected, not correct - neutral
+                            bgColor = 'bg-gray-50';
+                            borderColor = 'border-gray-200';
                             textColor = 'text-gray-700';
                           }
 
                           return (
                             <div
                               key={optIndex}
-                              className={`flex items-center space-x-3 p-3 rounded-lg border ${bgColor} ${textColor}`}
+                              className={`flex items-center justify-between p-3 rounded-lg border-2 ${bgColor} ${borderColor} ${textColor}`}
                             >
-                              <span className="font-medium min-w-[24px]">
-                                {String.fromCharCode(65 + optIndex)}.
-                              </span>
-                              <span className="flex-1">{option.text}</span>
+                              <div className="flex items-center space-x-3">
+                                <span className="font-bold min-w-[24px]">
+                                  {String.fromCharCode(65 + optIndex)}.
+                                </span>
+                                <span className="flex-1">{option.text}</span>
+                              </div>
                               <div className="flex items-center gap-2">
-                                {isSelected && (
-                                  <Badge variant="outline">Your Answer</Badge>
+                                {label && (
+                                  <Badge 
+                                    variant={isCorrectOption ? "default" : "destructive"}
+                                    className={isCorrectOption ? "bg-green-600" : "bg-red-600"}
+                                  >
+                                    {label}
+                                  </Badge>
                                 )}
                                 {icon}
                               </div>
                             </div>
                           );
                         })}
+                        
+                        {/* Summary line showing user's choice vs correct */}
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="text-sm">
+                            <div className="flex items-center justify-between">
+                              <span>
+                                <strong>Your Answer:</strong> {answer.selected_option || "Not answered"}
+                              </span>
+                              <span>
+                                <strong>Correct Answer:</strong> {correctOption?.text || "N/A"}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-center">
+                              {isCorrect ? (
+                                <span className="text-green-700 font-medium">✅ Correct! Well done!</span>
+                              ) : (
+                                <span className="text-red-700 font-medium">❌ Incorrect. Review the correct answer above.</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-3">

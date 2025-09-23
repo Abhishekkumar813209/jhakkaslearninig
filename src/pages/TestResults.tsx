@@ -52,7 +52,8 @@ interface Question {
 interface Answer {
   id: string;
   question_id: string;
-  selected_option?: string;
+  selected_option?: string | null;
+  option_id?: string | null;
   text_answer?: string;
   is_correct?: boolean;
   marks_awarded: number;
@@ -176,7 +177,7 @@ const TestResults: React.FC = () => {
 
       const { data: answersRows, error: aErr } = await supabase
         .from('test_answers')
-        .select(`id, question_id, selected_option, text_answer, is_correct, marks_awarded`)
+        .select(`id, question_id, selected_option, option_id, text_answer, is_correct, marks_awarded`)
         .eq('attempt_id', attempt.id);
 
       if (aErr) {
@@ -187,6 +188,21 @@ const TestResults: React.FC = () => {
       console.log('Fetched questions:', questionsData);
       console.log('Fetched answers rows:', answersRows);
 
+      // Map option_id -> option_text so we can resolve user's answer even when selected_option is null
+      const optionIds = Array.from(new Set((answersRows || [])
+        .map((a: any) => a.option_id)
+        .filter((id: string | null) => !!id)));
+
+      let optionTextById = new Map<string, string>();
+      if (optionIds.length > 0) {
+        const { data: optionRows, error: oErr } = await supabase
+          .from('options')
+          .select('id, option_text')
+          .in('id', optionIds);
+        if (oErr) throw oErr;
+        optionTextById = new Map((optionRows || []).map((r: any) => [r.id, r.option_text]));
+      }
+
       const answerByQuestion = new Map(
         (answersRows || []).map((a: any) => [a.question_id, a])
       );
@@ -194,11 +210,13 @@ const TestResults: React.FC = () => {
       // Transform data to match the expected structure
       const transformedAnswers = (questionsData || []).map((question: any) => {
         const answer = answerByQuestion.get(question.id) || null;
+        const selectedText = answer?.selected_option ?? (answer?.option_id ? optionTextById.get(answer.option_id) ?? null : null);
         return {
           id: answer?.id || '',
           attempt_id: attempt.id,
           question_id: question.id,
-          selected_option: answer?.selected_option ?? null,
+          selected_option: selectedText,
+          option_id: answer?.option_id ?? null,
           text_answer: answer?.text_answer ?? null,
           is_correct: answer?.is_correct ?? null,
           marks_awarded: answer?.marks_awarded ?? 0,
@@ -482,7 +500,7 @@ const TestResults: React.FC = () => {
                     {question.qtype === 'mcq' ? (
                       <div className="space-y-2">
                         {options.map((option: any, optIndex: number) => {
-                          const isSelected = answer.selected_option === option.text;
+                          const isSelected = (answer.selected_option || '') === (option.text || '');
                           const isCorrectOption = option.isCorrect;
                           
                           let bgColor = '';
@@ -550,10 +568,10 @@ const TestResults: React.FC = () => {
                           <div className="text-sm">
                             <div className="flex items-center justify-between">
                               <span>
-                                <strong>Your Answer:</strong> {answer.selected_option || "Not answered"}
+                                <strong>Your Answer:</strong> {answer.selected_option ?? 'Not answered'}
                               </span>
                               <span>
-                                <strong>Correct Answer:</strong> {correctOption?.text || "N/A"}
+                                <strong>Correct Answer:</strong> {correctOption?.text ?? 'N/A'}
                               </span>
                             </div>
                             <div className="mt-2 text-center">

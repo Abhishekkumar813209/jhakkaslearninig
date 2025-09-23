@@ -79,28 +79,57 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
 
     if (testError) throw testError;
 
-    // Get student's correct answers count
+    // Get student's answers with option resolution
     const { data: studentAnswers, error: answersError } = await supabase
       .from('test_answers')
-      .select('is_correct')
+      .select('question_id, selected_option, option_id')
       .eq('attempt_id', studentAttempt.id);
 
     if (answersError) throw answersError;
 
+    // Resolve option_id -> option_text when selected_option is null
+    const optionIds = Array.from(new Set((studentAnswers || [])
+      .map((a: any) => a.option_id)
+      .filter((id: string | null) => !!id)));
+
+    let optionTextById = new Map<string, string>();
+    if (optionIds.length > 0) {
+      const { data: optionRows, error: oErr } = await supabase
+        .from('options')
+        .select('id, option_text')
+        .in('id', optionIds);
+      if (oErr) throw oErr;
+      optionTextById = new Map((optionRows || []).map((r: any) => [r.id, r.option_text]));
+    }
+
     console.log('Student attempt ID:', studentAttempt.id);
     console.log('Student answers fetched:', studentAnswers);
 
-    // Get total questions count
+    // Get total questions and compare correctness
     const { data: questions, error: questionsError } = await supabase
       .from('questions')
-      .select('id')
+      .select('id, correct_answer')
       .eq('test_id', testId);
 
     if (questionsError) throw questionsError;
 
-    // Calculate analytics - ensure we're filtering correctly
-    const correctAnswers = studentAnswers ? studentAnswers.filter(a => a.is_correct === true).length : 0;
+    // Build map of question -> selected text
+    const selectedByQuestion = new Map<string, string | null>();
+    for (const ans of studentAnswers || []) {
+      const sel = ans.selected_option ?? (ans.option_id ? optionTextById.get(ans.option_id) ?? null : null);
+      selectedByQuestion.set(ans.question_id, sel);
+    }
+
+    // Calculate analytics - per question
+    let correctAnswers = 0;
     const totalQuestions = questions.length;
+    for (const q of questions) {
+      const sel = selectedByQuestion.get(q.id);
+      if (!sel) continue;
+      if (sel.trim().toLowerCase() === (q.correct_answer || '').trim().toLowerCase()) {
+        correctAnswers += 1;
+      }
+    }
     
     // Calculate class average score (marks)
     const classAverage = allAttempts.length > 0 

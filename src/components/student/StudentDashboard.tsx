@@ -94,7 +94,7 @@ const StudentDashboard: React.FC = () => {
 
       if (testsError) throw testsError;
 
-      // Fetch user's recent attempts
+      // Fetch user's recent attempts (only submitted ones)
       const { data: attemptsData, error: attemptsError } = await supabase
         .from('test_attempts')
         .select(`
@@ -102,6 +102,8 @@ const StudentDashboard: React.FC = () => {
           tests!inner(title, subject)
         `)
         .eq('student_id', user.id)
+        .eq('status', 'submitted')
+        .not('submitted_at', 'is', null)
         .order('submitted_at', { ascending: false })
         .limit(5);
 

@@ -375,7 +375,9 @@ export const lecturesAPI = {
 // Tests API
 export const testsAPI = {
   getTests: async (params?: URLSearchParams) => {
-    const { data, error } = await supabase.functions.invoke('tests-api');
+    const { data, error } = await supabase.functions.invoke('tests-api', {
+      body: { action: 'getAllTests', params: params ? Object.fromEntries(params.entries()) : {} }
+    });
     if (error) throw new Error(error.message);
     return data;
   },

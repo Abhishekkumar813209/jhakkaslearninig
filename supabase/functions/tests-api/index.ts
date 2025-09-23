@@ -6,6 +6,83 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+async function getAllTests(supabase: any, req: Request) {
+  // Get all tests with student filtering
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.replace('Bearer ', '')
+    : authHeader
+
+  const { data: userData } = await supabase.auth.getUser(token)
+  const user = userData?.user
+  
+  let query = supabase
+    .from('tests')
+    .select(`
+      *,
+      courses (title, subject)
+    `)
+  
+  // If user is logged in, filter tests by their class and board if they are a student
+  if (user) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('student_class, education_board')
+      .eq('id', user.id)
+      .maybeSingle()
+    
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    
+    // Only filter for students with class and board set
+    if (roleData?.role === 'student' && profileData?.student_class && profileData?.education_board) {
+      query = query
+        .eq('target_class', profileData.student_class)
+        .eq('target_board', profileData.education_board)
+    }
+  }
+  
+  const { data: tests, error } = await query
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching tests:', error)
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  // Use service role to count questions for each test (bypasses RLS)
+  const serviceSupabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
+
+  const testsWithCounts = await Promise.all(
+    (tests || []).map(async (test) => {
+      const { count } = await serviceSupabase
+        .from('questions')
+        .select('id', { count: 'exact' })
+        .eq('test_id', test.id)
+
+      return {
+        ...test,
+        question_count: count || 0
+      }
+    })
+  )
+
+  return new Response(
+    JSON.stringify({ tests: testsWithCounts }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -69,81 +146,7 @@ serve(async (req: Request) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } else {
-          // Get all tests with student filtering
-          const authHeader = req.headers.get('Authorization') ?? ''
-          const token = authHeader.startsWith('Bearer ')
-            ? authHeader.replace('Bearer ', '')
-            : authHeader
-
-          const { data: userData } = await supabase.auth.getUser(token)
-          const user = userData?.user
-          
-          let query = supabase
-            .from('tests')
-            .select(`
-              *,
-              courses (title, subject)
-            `)
-          
-          // If user is logged in, filter tests by their class and board if they are a student
-          if (user) {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('student_class, education_board')
-              .eq('id', user.id)
-              .maybeSingle()
-            
-            const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', user.id)
-              .maybeSingle()
-            
-            // Only filter for students with class and board set
-            if (roleData?.role === 'student' && profileData?.student_class && profileData?.education_board) {
-              query = query
-                .eq('target_class', profileData.student_class)
-                .eq('target_board', profileData.education_board)
-            }
-          }
-          
-          const { data: tests, error } = await query
-            .eq('is_published', true)
-            .order('created_at', { ascending: false })
-
-          if (error) {
-            console.error('Error fetching tests:', error)
-            return new Response(
-              JSON.stringify({ error: error.message }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-          }
-
-          // Use service role to count questions for each test (bypasses RLS)
-          const serviceSupabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-          )
-
-          const testsWithCounts = await Promise.all(
-            (tests || []).map(async (test) => {
-              const { count } = await serviceSupabase
-                .from('questions')
-                .select('id', { count: 'exact' })
-                .eq('test_id', test.id)
-
-              return {
-                ...test,
-                question_count: count || 0
-              }
-            })
-          )
-
-          return new Response(
-            JSON.stringify({ tests: testsWithCounts }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-
+          return await getAllTests(supabase, req)
         }
 
       case 'POST':
@@ -176,6 +179,11 @@ serve(async (req: Request) => {
 
         // Handle different actions
         switch (action) {
+          case 'getAllTests':
+            return await getAllTests(supabase, req)
+            
+          case 'getTests':
+            return await getAllTests(supabase, req)
           case 'getTestWithQuestions':
             // Use service role for admins/teachers to bypass RLS safely after verifying role
             const clientToUse = isAdminTeacher

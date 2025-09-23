@@ -70,3 +70,9 @@ verify_jwt = true
 
 [functions.guided-paths-api]
 verify_jwt = true
+
+[functions.tests-api]
+verify_jwt = false
+
+[functions.razorpay-subscription]
+verify_jwt = false

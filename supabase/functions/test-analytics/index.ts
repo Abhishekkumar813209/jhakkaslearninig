@@ -53,7 +53,7 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
       .select('*')
       .eq('test_id', testId)
       .eq('student_id', studentId)
-      .eq('status', 'submitted')
+      .in('status', ['submitted', 'auto_submitted'])
       .order('submitted_at', { ascending: false })
       .limit(1)
       .single();
@@ -63,9 +63,9 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     // Get all submitted attempts for this test to calculate class stats
     const { data: allAttempts, error: attemptsError } = await supabase
       .from('test_attempts')
-      .select('id, student_id, score, total_marks, percentage, time_taken_seconds')
+      .select('id, student_id, score, total_marks, percentage, time_taken_seconds, time_taken_minutes')
       .eq('test_id', testId)
-      .eq('status', 'submitted')
+      .in('status', ['submitted', 'auto_submitted'])
       .order('percentage', { ascending: false });
 
     if (attemptsError) throw attemptsError;
@@ -229,7 +229,7 @@ async function updateTestRanks(supabase: any, testId: string) {
       .from('test_attempts')
       .select('id, percentage, time_taken_seconds, time_taken_minutes')
       .eq('test_id', testId)
-      .eq('status', 'submitted');
+      .in('status', ['submitted', 'auto_submitted']);
 
     if (error) throw error;
 

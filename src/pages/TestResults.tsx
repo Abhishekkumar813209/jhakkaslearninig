@@ -361,15 +361,20 @@ const TestResults: React.FC = () => {
                 Time Taken
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-3xl font-bold">{result.time_taken_minutes}m</div>
-              <div className="text-sm text-muted-foreground">
-                Total Duration: {result.tests.duration_minutes}m
-              </div>
-              <div className="text-sm">
-                Time Efficiency: {Math.round((result.time_taken_minutes / result.tests.duration_minutes) * 100)}%
-              </div>
-            </CardContent>
+           <CardContent className="space-y-4">
+             <div className="text-3xl font-bold">{result.time_taken_minutes}m</div>
+             <div className="text-sm text-muted-foreground">
+               Total Duration: {result.tests.duration_minutes}m
+             </div>
+             <div className="text-sm">
+               Time Efficiency: {analytics?.timeEfficiency || Math.round((result.time_taken_minutes / result.tests.duration_minutes) * 100)}%
+             </div>
+             {analytics?.averageTime && (
+               <div className="text-sm text-muted-foreground">
+                 Class Average: {analytics.averageTime}m
+               </div>
+             )}
+           </CardContent>
           </Card>
         </div>
 
@@ -399,11 +404,15 @@ const TestResults: React.FC = () => {
                 <div className="text-sm text-muted-foreground">Correct Answers</div>
               </div>
 
-              {/* Class Average */}
+              {/* Time Taken vs Average */}
               <div className="text-center space-y-2">
-                <Users className="h-8 w-8 mx-auto text-purple-500" />
-                <div className="text-2xl font-bold">{analytics?.classAverage || 0}%</div>
-                <div className="text-sm text-muted-foreground">Class Average</div>
+                <Clock className="h-8 w-8 mx-auto text-orange-500" />
+                <div className="text-2xl font-bold">
+                  {analytics?.studentTime || result.time_taken_minutes}m
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Your Time (Avg: {analytics?.averageTime || 0}m)
+                </div>
               </div>
 
               {/* Rank */}

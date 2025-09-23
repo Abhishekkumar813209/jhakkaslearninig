@@ -63,12 +63,21 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     // Get all submitted attempts for this test to calculate class stats
     const { data: allAttempts, error: attemptsError } = await supabase
       .from('test_attempts')
-      .select('id, student_id, score, total_marks, percentage')
+      .select('id, student_id, score, total_marks, percentage, time_taken_minutes')
       .eq('test_id', testId)
       .eq('status', 'submitted')
       .order('percentage', { ascending: false });
 
     if (attemptsError) throw attemptsError;
+
+    // Get test duration for comparison
+    const { data: testInfo, error: testError } = await supabase
+      .from('tests')
+      .select('duration_minutes')
+      .eq('id', testId)
+      .single();
+
+    if (testError) throw testError;
 
     // Get student's correct answers count
     const { data: studentAnswers, error: answersError } = await supabase
@@ -90,10 +99,20 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     const correctAnswers = studentAnswers.filter(a => a.is_correct === true).length;
     const totalQuestions = questions.length;
     
-    // Calculate class average
+    // Calculate class average percentage
     const classAverage = allAttempts.length > 0 
       ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.percentage, 0) / allAttempts.length)
       : 0;
+
+    // Calculate time analytics
+    const validTimes = allAttempts.filter(a => a.time_taken_minutes > 0);
+    const averageTime = validTimes.length > 0 
+      ? Math.round(validTimes.reduce((sum, attempt) => sum + attempt.time_taken_minutes, 0) / validTimes.length)
+      : 0;
+    
+    const studentTime = studentAttempt.time_taken_minutes || 0;
+    const testDuration = testInfo.duration_minutes;
+    const timeEfficiency = testDuration > 0 ? Math.round((studentTime / testDuration) * 100) : 0;
 
     // Find student's rank
     const studentRank = allAttempts.findIndex(attempt => attempt.student_id === studentId) + 1;
@@ -111,7 +130,10 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
       totalQuestions,
       classAverage,
       studentRank,
-      totalStudents: allAttempts.length
+      totalStudents: allAttempts.length,
+      studentTime,
+      averageTime,
+      timeEfficiency
     });
 
     return new Response(JSON.stringify({ 
@@ -122,7 +144,11 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
         classAverage,
         studentRank,
         totalStudents: allAttempts.length,
-        accuracy: studentAttempt.percentage
+        accuracy: studentAttempt.percentage,
+        studentTime,
+        averageTime,
+        timeEfficiency,
+        testDuration
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

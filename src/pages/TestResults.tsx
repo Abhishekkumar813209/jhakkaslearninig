@@ -285,6 +285,21 @@ const TestResults: React.FC = () => {
     }
   };
 
+  const formatTime = (minutes: number) => {
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = Math.round(minutes % 60);
+      return `${hours}h ${remainingMinutes}m`;
+    } else {
+      const wholeMinutes = Math.floor(minutes);
+      const seconds = Math.round((minutes - wholeMinutes) * 60);
+      if (wholeMinutes === 0) {
+        return `${seconds}s`;
+      }
+      return `${wholeMinutes}m ${seconds}s`;
+    }
+  };
+
   const getGradeAndColor = (percentage: number) => {
     if (percentage >= 90) return { grade: 'A+', color: 'bg-green-500', textColor: 'text-green-600' };
     if (percentage >= 80) return { grade: 'A', color: 'bg-green-400', textColor: 'text-green-600' };
@@ -403,9 +418,7 @@ const TestResults: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-3xl font-bold">
-                {result.time_taken_minutes >= 1 
-                  ? `${result.time_taken_minutes}m` 
-                  : `${Math.round(result.time_taken_minutes * 60)}s`}
+                {formatTime(result.time_taken_minutes)}
               </div>
               <div className="text-sm text-muted-foreground">
                 Total Duration: {result.tests.duration_minutes}m
@@ -414,9 +427,7 @@ const TestResults: React.FC = () => {
                 <>
                   <div className="text-sm">Time Efficiency: {analytics.timeEfficiency}%</div>
                   <div className="text-sm text-muted-foreground">
-                    Class Average: {analytics.averageTime >= 1 
-                      ? `${Math.round(analytics.averageTime)}m` 
-                      : `${Math.round(analytics.averageTime * 60)}s`}
+                    Class Average: {formatTime(analytics.averageTime)}
                   </div>
                   {typeof analytics.fasterThanPercent === 'number' && (
                     <div className="text-sm">Faster than {analytics.fasterThanPercent}% of class</div>
@@ -673,9 +684,7 @@ const TestResults: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Progress value={Math.min(100, Math.round(((analytics.studentTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
                     <span className="text-sm">
-                      {analytics.studentTime >= 1 
-                        ? `${Math.round(analytics.studentTime)}m` 
-                        : `${Math.round(analytics.studentTime * 60)}s`}
+                      {formatTime(analytics.studentTime)}
                     </span>
                   </div>
                 </div>
@@ -684,9 +693,7 @@ const TestResults: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Progress value={Math.min(100, Math.round(((analytics.averageTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
                     <span className="text-sm">
-                      {analytics.averageTime >= 1 
-                        ? `${Math.round(analytics.averageTime)}m` 
-                        : `${Math.round(analytics.averageTime * 60)}s`}
+                      {formatTime(analytics.averageTime)}
                     </span>
                   </div>
                 </div>

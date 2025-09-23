@@ -1,6 +1,7 @@
 import React from 'react';
 import StudentLearningPaths from './StudentLearningPaths';
 import SubscriptionCard from './SubscriptionCard';
+import SubscriptionExpiryNotice from './SubscriptionExpiryNotice';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookOpen, Trophy, Clock, TrendingUp } from 'lucide-react';
@@ -33,13 +34,16 @@ const StudentDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Expiry Notice */}
+      <SubscriptionExpiryNotice />
+      
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Learning Hub</h1>
         <p className="text-muted-foreground">
           {hasActiveSubscription 
             ? "Access unlimited tests and complete learning roadmaps" 
-            : "Start with a free test or subscribe for unlimited access"
+            : "Start with a free test or buy monthly access for unlimited features"
           }
         </p>
       </div>

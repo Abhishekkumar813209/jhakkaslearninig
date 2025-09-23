@@ -968,6 +968,7 @@ export type Database = {
           includes_roadmap: boolean | null
           payment_id: string | null
           payment_method: string | null
+          razorpay_order_id: string | null
           start_date: string
           status: string
           student_id: string
@@ -986,6 +987,7 @@ export type Database = {
           includes_roadmap?: boolean | null
           payment_id?: string | null
           payment_method?: string | null
+          razorpay_order_id?: string | null
           start_date?: string
           status?: string
           student_id: string
@@ -1004,6 +1006,7 @@ export type Database = {
           includes_roadmap?: boolean | null
           payment_id?: string | null
           payment_method?: string | null
+          razorpay_order_id?: string | null
           start_date?: string
           status?: string
           student_id?: string

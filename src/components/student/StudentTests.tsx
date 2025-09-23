@@ -104,7 +104,7 @@ const StudentTests: React.FC = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tests.length}</div>
+            <div className="text-2xl font-bold">{tests.filter((t) => (t.question_count || 0) > 0).slice(0, 1).length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -114,7 +114,7 @@ const StudentTests: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tests.reduce((sum, test) => sum + (test.question_count || 0), 0)}
+              {tests.filter((t) => (t.question_count || 0) > 0).slice(0, 1).reduce((sum, test) => sum + (test.question_count || 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -125,14 +125,14 @@ const StudentTests: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tests.reduce((sum, test) => sum + test.total_marks, 0)}
+              {tests.filter((t) => (t.question_count || 0) > 0).slice(0, 1).reduce((sum, test) => sum + test.total_marks, 0)}
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Tests Grid */}
-      {tests.length === 0 ? (
+      {tests.filter((t) => (t.question_count || 0) > 0).slice(0, 1).length === 0 ? (
         <Card>
           <CardContent className="text-center py-8">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -142,7 +142,7 @@ const StudentTests: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tests.map((test) => (
+          {tests.filter((t) => (t.question_count || 0) > 0).slice(0, 1).map((test) => (
             <Card key={test.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">

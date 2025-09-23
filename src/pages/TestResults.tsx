@@ -137,8 +137,8 @@ const TestResults: React.FC = () => {
 
       console.log('Found attempt:', attempt.id);
 
-      // Get all answers with questions - using LEFT JOIN to get all questions even if no answer
-      const { data: answersData, error } = await supabase
+      // Fetch questions and answers separately to avoid embedding issues
+      const { data: questionsData, error: qErr } = await supabase
         .from('questions')
         .select(`
           id,
@@ -148,37 +148,44 @@ const TestResults: React.FC = () => {
           correct_answer,
           marks,
           explanation,
-          order_num,
-          test_answers!left (
-            id,
-            selected_option,
-            text_answer,
-            is_correct,
-            marks_awarded
-          )
+          order_num
         `)
         .eq('test_id', testId)
-        .eq('test_answers.attempt_id', attempt.id)
         .order('order_num', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching answers:', error);
-        throw error;
+      if (qErr) {
+        console.error('Error fetching questions:', qErr);
+        throw qErr;
       }
 
-      console.log('Fetched questions with answers:', answersData);
-      
+      const { data: answersRows, error: aErr } = await supabase
+        .from('test_answers')
+        .select(`id, question_id, selected_option, text_answer, is_correct, marks_awarded`)
+        .eq('attempt_id', attempt.id);
+
+      if (aErr) {
+        console.error('Error fetching answers:', aErr);
+        throw aErr;
+      }
+
+      console.log('Fetched questions:', questionsData);
+      console.log('Fetched answers rows:', answersRows);
+
+      const answerByQuestion = new Map(
+        (answersRows || []).map((a: any) => [a.question_id, a])
+      );
+
       // Transform data to match the expected structure
-      const transformedAnswers = (answersData || []).map(question => {
-        const answer = question.test_answers?.[0] || null;
+      const transformedAnswers = (questionsData || []).map((question: any) => {
+        const answer = answerByQuestion.get(question.id) || null;
         return {
           id: answer?.id || '',
           attempt_id: attempt.id,
           question_id: question.id,
-          selected_option: answer?.selected_option || null,
-          text_answer: answer?.text_answer || null,
-          is_correct: answer?.is_correct || null,
-          marks_awarded: answer?.marks_awarded || 0,
+          selected_option: answer?.selected_option ?? null,
+          text_answer: answer?.text_answer ?? null,
+          is_correct: answer?.is_correct ?? null,
+          marks_awarded: answer?.marks_awarded ?? 0,
           questions: {
             id: question.id,
             question_text: question.question_text,

@@ -194,6 +194,9 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
       fasterThanPercent
     });
 
+    // Calculate accuracy based on correct answers
+    const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
     return new Response(JSON.stringify({ 
       success: true,
       analytics: {
@@ -202,7 +205,7 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
         classAverage,
         studentRank,
         totalStudents: allAttempts.length,
-        accuracy: studentAttempt.percentage,
+        accuracy,
         studentTime,
         averageTime,
         timeEfficiency,

@@ -207,6 +207,19 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
 
     if (updateError) throw updateError;
 
+    // Update ranks for all students in this test after submission
+    try {
+      await supabase.functions.invoke('test-analytics', {
+        body: {
+          action: 'updateRanks',
+          testId: attempt.test_id
+        }
+      });
+    } catch (rankError) {
+      console.error('Error updating ranks:', rankError);
+      // Don't fail the submission if rank update fails
+    }
+
     return new Response(JSON.stringify({ 
       success: true,
       score: totalScore,

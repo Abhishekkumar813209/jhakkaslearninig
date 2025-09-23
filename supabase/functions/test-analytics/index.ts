@@ -158,10 +158,23 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     const averageTime = averageTimeSeconds / 60;
     const studentTime = studentTimeSeconds / 60;
 
+    // Calculate proper ranking with time as tiebreaker
+    // First, sort all attempts: higher percentage first, then lower time for same percentage
+    const rankedAttempts = [...allAttempts].sort((a, b) => {
+      // Primary sort: percentage (higher is better)
+      if (b.percentage !== a.percentage) {
+        return b.percentage - a.percentage;
+      }
+      // Tiebreaker: time (lower is better)
+      const aTime = a.time_taken_seconds || (a.time_taken_minutes * 60) || 0;
+      const bTime = b.time_taken_seconds || (b.time_taken_minutes * 60) || 0;
+      return aTime - bTime;
+    });
+
     // Find student's rank
-    const studentRank = allAttempts.findIndex(attempt => attempt.student_id === studentId) + 1;
+    const studentRank = rankedAttempts.findIndex(attempt => attempt.student_id === studentId) + 1;
     
-    // Update rank in database if not already set
+    // Update rank in database if not already set correctly
     if (studentAttempt.rank !== studentRank) {
       await supabase
         .from('test_attempts')
@@ -208,22 +221,33 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
 
 async function updateTestRanks(supabase: any, testId: string) {
   try {
-    // Get all submitted attempts ordered by percentage
+    // Get all submitted attempts with time data
     const { data: attempts, error } = await supabase
       .from('test_attempts')
-      .select('id, percentage')
+      .select('id, percentage, time_taken_seconds, time_taken_minutes')
       .eq('test_id', testId)
-      .eq('status', 'submitted')
-      .order('percentage', { ascending: false });
+      .eq('status', 'submitted');
 
     if (error) throw error;
 
+    // Sort attempts: higher percentage first, then lower time for same percentage
+    const rankedAttempts = attempts.sort((a, b) => {
+      // Primary sort: percentage (higher is better)
+      if (b.percentage !== a.percentage) {
+        return b.percentage - a.percentage;
+      }
+      // Tiebreaker: time (lower is better)
+      const aTime = a.time_taken_seconds || (a.time_taken_minutes * 60) || 0;
+      const bTime = b.time_taken_seconds || (b.time_taken_minutes * 60) || 0;
+      return aTime - bTime;
+    });
+
     // Update ranks for all attempts
-    for (let i = 0; i < attempts.length; i++) {
+    for (let i = 0; i < rankedAttempts.length; i++) {
       await supabase
         .from('test_attempts')
         .update({ rank: i + 1 })
-        .eq('id', attempts[i].id);
+        .eq('id', rankedAttempts[i].id);
     }
 
     console.log(`Updated ranks for ${attempts.length} attempts`);

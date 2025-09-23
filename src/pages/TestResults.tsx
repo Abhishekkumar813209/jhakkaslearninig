@@ -85,8 +85,8 @@ const TestResults: React.FC = () => {
         return;
       }
 
-      // Get the latest test attempt for this user and test
-      const { data, error } = await supabase
+      // Prefer latest SUBMITTED attempt; fallback to most recent created
+      const { data: submittedAttempt, error: submittedErr } = await supabase
         .from('test_attempts')
         .select(`
           *,
@@ -99,11 +99,33 @@ const TestResults: React.FC = () => {
         `)
         .eq('test_id', testId)
         .eq('student_id', user.id)
+        .not('submitted_at', 'is', null)
         .order('submitted_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      let data = submittedAttempt;
+      if (!data) {
+        const { data: fallbackAttempt } = await supabase
+          .from('test_attempts')
+          .select(`
+            *,
+            tests (
+              title,
+              subject,
+              passing_marks,
+              duration_minutes
+            )
+          `)
+          .eq('test_id', testId)
+          .eq('student_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        data = fallbackAttempt || null;
+      }
+
+      if (!data) throw new Error('No attempt found');
 
       setResult(data);
     } catch (error) {
@@ -386,12 +408,11 @@ const TestResults: React.FC = () => {
               </div>
               {analytics ? (
                 <>
-                  <div className="text-sm">
-                    Time Efficiency: {analytics.timeEfficiency}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Class Average: {analytics.averageTime}m
-                  </div>
+                  <div className="text-sm">Time Efficiency: {analytics.timeEfficiency}%</div>
+                  <div className="text-sm text-muted-foreground">Class Average: {analytics.averageTime}m</div>
+                  {typeof analytics.fasterThanPercent === 'number' && (
+                    <div className="text-sm">Faster than {analytics.fasterThanPercent}% of class</div>
+                  )}
                 </>
               ) : (
                 <div className="space-y-2">
@@ -628,39 +649,48 @@ const TestResults: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Performance Breakdown */}
+        {/* Submission Insights */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Subject Breakdown
+              Submission Insights
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Hardcoded subject breakdown based on score */}
-              <div className="flex items-center justify-between">
-                <span>Biology Fundamentals</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={Math.min(100, result.percentage + 5)} className="w-32" />
-                  <span className="text-sm">{Math.min(100, result.percentage + 5)}%</span>
+            {analytics ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <span>You submitted at</span>
+                  <div className="flex items-center gap-2">
+                    <Progress value={Math.min(100, Math.round(((analytics.studentTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
+                    <span className="text-sm">{analytics.studentTime}m</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Cell Structure</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={Math.max(0, result.percentage - 10)} className="w-32" />
-                  <span className="text-sm">{Math.max(0, result.percentage - 10)}%</span>
+                <div className="flex items-center justify-between">
+                  <span>Class average submission</span>
+                  <div className="flex items-center gap-2">
+                    <Progress value={Math.min(100, Math.round(((analytics.averageTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
+                    <span className="text-sm">{analytics.averageTime}m</span>
+                  </div>
                 </div>
+                {typeof analytics.fasterThanPercent === 'number' && (
+                  <div className="text-sm text-muted-foreground">You were faster than {analytics.fasterThanPercent}% of the class</div>
+                )}
               </div>
-              <div className="flex items-center justify-between">
-                <span>Molecular Biology</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={result.percentage} className="w-32" />
-                  <span className="text-sm">{result.percentage}%</span>
-                </div>
+            ) : (
+              <div className="space-y-4">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="h-4 bg-muted animate-pulse rounded w-40"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-40 h-3 bg-muted animate-pulse rounded"></div>
+                      <div className="h-4 bg-muted animate-pulse rounded w-10"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

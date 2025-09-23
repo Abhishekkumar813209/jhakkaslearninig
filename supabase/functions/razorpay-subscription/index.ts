@@ -50,36 +50,53 @@ serve(async (req) => {
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
       if (!razorpayKeyId || !razorpayKeySecret) {
+        console.error('[razorpay-subscription] Missing credentials:', { 
+          hasKeyId: !!razorpayKeyId, 
+          hasKeySecret: !!razorpayKeySecret 
+        });
         throw new Error('Razorpay credentials not configured');
       }
 
       console.log('[razorpay-subscription] Creating monthly subscription for user:', user.id);
+      console.log('[razorpay-subscription] Using Razorpay Key ID:', razorpayKeyId);
 
       // Create Razorpay plan first
+      const planPayload = {
+        period: 'monthly',
+        interval: 1,
+        item: {
+          name: 'Test Series + Learning Paths Monthly',
+          amount: 29900, // ₹299 in paise
+          currency: 'INR'
+        },
+        notes: {
+          description: 'Monthly subscription for test series and learning paths'
+        }
+      };
+
+      console.log('[razorpay-subscription] Plan payload:', JSON.stringify(planPayload, null, 2));
+
       const planResponse = await fetch('https://api.razorpay.com/v1/plans', {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          period: 'monthly',
-          interval: 1,
-          item: {
-            name: 'Test Series + Learning Paths Monthly',
-            amount: 29900, // ₹299 in paise
-            currency: 'INR'
-          },
-          notes: {
-            description: 'Monthly subscription for test series and learning paths'
-          }
-        }),
+        body: JSON.stringify(planPayload),
       });
+
+      console.log('[razorpay-subscription] Plan response status:', planResponse.status);
+      console.log('[razorpay-subscription] Plan response headers:', Object.fromEntries(planResponse.headers.entries()));
 
       const plan = await planResponse.json();
       
       if (!planResponse.ok) {
-        console.error('[razorpay-subscription] Plan creation failed:', plan);
+        console.error('[razorpay-subscription] Plan creation failed:', {
+          status: planResponse.status,
+          statusText: planResponse.statusText,
+          response: plan,
+          url: 'https://api.razorpay.com/v1/plans'
+        });
         throw new Error(`Razorpay plan creation failed: ${plan.error?.description || 'Unknown error'}`);
       }
 

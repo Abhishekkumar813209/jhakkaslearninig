@@ -72,14 +72,15 @@ const StudentTests: React.FC = () => {
   const handleStartTest = async (testId: string, testIndex: number) => {
     const isFirstTest = testIndex === 0;
     
-    // Check if user needs subscription for this test
-    if (!hasActiveSubscription && !isFirstTest && hasFreeTestUsed) {
+    // Logic: First test is always free for everyone
+    // 2nd test onwards requires premium subscription
+    if (!isFirstTest && !hasActiveSubscription) {
       setShowPaywallModal(true);
       return;
     }
     
-    // If this is the first test and user hasn't used free test, mark it as used
-    if (isFirstTest && !hasActiveSubscription && !hasFreeTestUsed) {
+    // Mark free test as used if this is first test and user hasn't used it yet
+    if (isFirstTest && !hasFreeTestUsed) {
       await markFreeTestUsed();
     }
     

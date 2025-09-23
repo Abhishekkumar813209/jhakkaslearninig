@@ -34,7 +34,8 @@ export const useSubscription = () => {
         .select('*')
         .eq('student_id', user.id)
         .eq('status', 'active')
-        .gte('end_date', new Date().toISOString())
+        .or('end_date.is.null,end_date.gte.' + new Date().toISOString())
+        .eq('subscription_type', 'premium')
         .maybeSingle();
 
       if (activeErr && activeErr.code !== 'PGRST116') {

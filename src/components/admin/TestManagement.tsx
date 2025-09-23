@@ -18,6 +18,8 @@ interface Test {
   description: string;
   subject: string;
   class: string;
+  target_class?: string;
+  target_board?: string;
   difficulty: string;
   duration_minutes: number;
   total_marks: number;
@@ -33,6 +35,8 @@ interface NewTestData {
   description: string;
   subject: string;
   class: string;
+  target_class: string;
+  target_board: string;
   difficulty: string;
   duration_minutes: number;
   passing_marks: number;
@@ -48,6 +52,8 @@ const TestManagement: React.FC = () => {
     description: '',
     subject: '',
     class: '',
+    target_class: '',
+    target_board: '',
     difficulty: 'medium',
     duration_minutes: 60,
     passing_marks: 50,
@@ -126,18 +132,20 @@ const TestManagement: React.FC = () => {
 
       const { data, error } = await supabase
         .from('tests')
-        .insert([{
+        .insert({
           title: newTest.title,
           description: newTest.description,
           subject: newTest.subject,
           class: newTest.class,
+          target_class: newTest.target_class as any,
+          target_board: newTest.target_board as any,
           difficulty: newTest.difficulty as 'easy' | 'medium' | 'hard',
           duration_minutes: newTest.duration_minutes,
           passing_marks: newTest.passing_marks,
           total_marks: 0,
           created_by: user.id,
           is_published: newTest.status === 'published'
-        }])
+        })
         .select()
         .single();
 
@@ -150,6 +158,8 @@ const TestManagement: React.FC = () => {
         description: '',
         subject: '',
         class: '',
+        target_class: '',
+        target_board: '',
         difficulty: 'medium',
         duration_minutes: 60,
         passing_marks: 50,
@@ -317,6 +327,64 @@ const TestManagement: React.FC = () => {
                   />
                 </div>
               </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="target_class">Target Class</Label>
+                  <Select value={newTest.target_class} onValueChange={(value) => setNewTest(prev => ({ ...prev, target_class: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Class 1</SelectItem>
+                      <SelectItem value="2">Class 2</SelectItem>
+                      <SelectItem value="3">Class 3</SelectItem>
+                      <SelectItem value="4">Class 4</SelectItem>
+                      <SelectItem value="5">Class 5</SelectItem>
+                      <SelectItem value="6">Class 6</SelectItem>
+                      <SelectItem value="7">Class 7</SelectItem>
+                      <SelectItem value="8">Class 8</SelectItem>
+                      <SelectItem value="9">Class 9</SelectItem>
+                      <SelectItem value="10">Class 10</SelectItem>
+                      <SelectItem value="11">Class 11</SelectItem>
+                      <SelectItem value="12">Class 12</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="target_board">Target Board</Label>
+                  <Select value={newTest.target_board} onValueChange={(value) => setNewTest(prev => ({ ...prev, target_board: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select board" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CBSE">CBSE</SelectItem>
+                      <SelectItem value="ICSE">ICSE</SelectItem>
+                      <SelectItem value="UP_BOARD">UP Board</SelectItem>
+                      <SelectItem value="BIHAR_BOARD">Bihar Board</SelectItem>
+                      <SelectItem value="RAJASTHAN_BOARD">Rajasthan Board</SelectItem>
+                      <SelectItem value="MAHARASHTRA_BOARD">Maharashtra Board</SelectItem>
+                      <SelectItem value="GUJARAT_BOARD">Gujarat Board</SelectItem>
+                      <SelectItem value="WEST_BENGAL_BOARD">West Bengal Board</SelectItem>
+                      <SelectItem value="KARNATAKA_BOARD">Karnataka Board</SelectItem>
+                      <SelectItem value="TAMIL_NADU_BOARD">Tamil Nadu Board</SelectItem>
+                      <SelectItem value="KERALA_BOARD">Kerala Board</SelectItem>
+                      <SelectItem value="ANDHRA_PRADESH_BOARD">Andhra Pradesh Board</SelectItem>
+                      <SelectItem value="TELANGANA_BOARD">Telangana Board</SelectItem>
+                      <SelectItem value="MADHYA_PRADESH_BOARD">Madhya Pradesh Board</SelectItem>
+                      <SelectItem value="HARYANA_BOARD">Haryana Board</SelectItem>
+                      <SelectItem value="PUNJAB_BOARD">Punjab Board</SelectItem>
+                      <SelectItem value="ASSAM_BOARD">Assam Board</SelectItem>
+                      <SelectItem value="ODISHA_BOARD">Odisha Board</SelectItem>
+                      <SelectItem value="JHARKHAND_BOARD">Jharkhand Board</SelectItem>
+                      <SelectItem value="CHHATTISGARH_BOARD">Chhattisgarh Board</SelectItem>
+                      <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
+                      <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
+                      <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="passing_marks">Passing Marks (%)</Label>
                 <Input
@@ -333,7 +401,7 @@ const TestManagement: React.FC = () => {
               <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateTest} disabled={!newTest.title || !newTest.subject}>
+              <Button onClick={handleCreateTest} disabled={!newTest.title || !newTest.subject || !newTest.target_class || !newTest.target_board}>
                 Create Test
               </Button>
             </div>

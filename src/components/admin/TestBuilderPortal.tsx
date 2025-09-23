@@ -862,10 +862,17 @@ const TestBuilderPortal: React.FC = () => {
                     id="marks"
                     type="number"
                     value={newQuestion.marks}
-                    onChange={(e) => setNewQuestion(prev => ({ 
-                      ...prev, 
-                      marks: parseInt(e.target.value) || 1 
-                    }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || value === '0') {
+                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue) && numValue > 0) {
+                          setNewQuestion(prev => ({ ...prev, marks: numValue }));
+                        }
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -878,10 +885,17 @@ const TestBuilderPortal: React.FC = () => {
                   id="marks"
                   type="number"
                   value={newQuestion.marks}
-                  onChange={(e) => setNewQuestion(prev => ({ 
-                    ...prev, 
-                    marks: parseInt(e.target.value) || 1 
-                  }))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || value === '0') {
+                      setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                    } else {
+                      const numValue = parseInt(value);
+                      if (!isNaN(numValue) && numValue > 0) {
+                        setNewQuestion(prev => ({ ...prev, marks: numValue }));
+                      }
+                    }
+                  }}
                 />
               </div>
             )}

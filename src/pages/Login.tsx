@@ -42,7 +42,9 @@ const Login = () => {
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',
       });
-      window.location.href = '/';
+setTimeout(() => {
+  window.location.replace('/');
+}, 300);
     } catch (firstError: any) {
       console.log('Direct auth failed, trying edge function:', firstError);
 
@@ -66,7 +68,9 @@ const Login = () => {
           title: 'Welcome back!',
           description: 'You have been logged in successfully.',
         });
-        window.location.href = '/';
+setTimeout(() => {
+  window.location.replace('/');
+}, 300);
       } catch (error: any) {
         console.error('Login failed:', error);
         toast({

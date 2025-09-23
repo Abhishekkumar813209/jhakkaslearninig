@@ -107,9 +107,16 @@ const TestBuilderPortal: React.FC = () => {
       console.log('Fetching test data for:', testId);
 
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: 'Please log in', description: 'You need to sign in to edit tests.' });
+        setLoading(false);
+        navigate('/login');
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('tests-api', {
         body: { action: 'getTestWithQuestions', testId },
-        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
 
       console.log('Test data response:', data, error);

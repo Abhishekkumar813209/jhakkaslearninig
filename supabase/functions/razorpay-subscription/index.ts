@@ -52,6 +52,12 @@ serve(async (req) => {
         throw new Error('Razorpay credentials not configured');
       }
 
+      // Create a short receipt to satisfy Razorpay's 40-char limit
+      const shortUser = user.id.slice(0, 8);
+      const shortTs = Date.now().toString().slice(-8);
+      const receipt = `sub_${shortUser}_${shortTs}`; // always < 40 chars
+      console.log('[razorpay-subscription] Creating order for', user.id, 'receipt:', receipt);
+
       const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
         method: 'POST',
         headers: {
@@ -59,9 +65,9 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: 30000, // ₹300 in paise
+          amount: 29900, // ₹299 in paise
           currency: 'INR',
-          receipt: `subscription_${user.id}_${Date.now()}`,
+          receipt,
           notes: {
             student_id: user.id,
             subscription_type: 'premium',
@@ -119,7 +125,7 @@ serve(async (req) => {
           student_id: user.id,
           subscription_type: 'premium',
           status: 'active',
-          amount: 300,
+          amount: 299,
           payment_id: paymentId,
           payment_method: 'razorpay',
           currency: 'INR',

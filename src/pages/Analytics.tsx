@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import AnalyticsCharts from '@/components/AnalyticsCharts';
 import StudentSearchInput from '@/components/StudentSearchInput';
+import { useSubscription } from '@/hooks/useSubscription';
+import SubscriptionCard from '@/components/student/SubscriptionCard';
 
 const Analytics = () => {
   const [selectedStudent, setSelectedStudent] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -19,6 +21,7 @@ const Analytics = () => {
   const [loading, setLoading] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [leaderboardData, setLeaderboardData] = useState<any>(null);
+  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -51,6 +54,29 @@ const Analytics = () => {
     fetchAnalytics();
     fetchLeaderboard();
   }, [selectedStudent, timeframe]);
+
+  if (!hasActiveSubscription) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto p-6 space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-muted-foreground">Premium required to access detailed analytics</p>
+          </div>
+          <div className="max-w-xl">
+            <SubscriptionCard
+              hasActiveSubscription={hasActiveSubscription}
+              hasFreeTestUsed={hasFreeTestUsed}
+              onSubscriptionSuccess={async () => {
+                await fetchSubscriptionStatus();
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

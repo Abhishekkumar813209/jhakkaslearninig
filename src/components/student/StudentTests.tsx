@@ -6,6 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import SubscriptionCard from '@/components/student/SubscriptionCard';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface Test {
   id: string;
@@ -28,6 +30,7 @@ const StudentTests: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
 
   useEffect(() => {
     fetchAvailableTests();
@@ -90,6 +93,18 @@ const StudentTests: React.FC = () => {
     );
   }
 
+  const availableTests = tests.filter((t) => (t.question_count || 0) > 0);
+  let visibleTests = availableTests;
+  let showPaywall = false;
+  if (!hasActiveSubscription) {
+    if (!hasFreeTestUsed) {
+      visibleTests = availableTests.slice(0, 1);
+    } else {
+      visibleTests = [];
+      showPaywall = true;
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -106,7 +121,7 @@ const StudentTests: React.FC = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tests.filter((t) => (t.question_count || 0) > 0).length}</div>
+            <div className="text-2xl font-bold">{visibleTests.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -116,7 +131,7 @@ const StudentTests: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tests.filter((t) => (t.question_count || 0) > 0).reduce((sum, test) => sum + (test.question_count || 0), 0)}
+              {visibleTests.reduce((sum, test) => sum + (test.question_count || 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -127,14 +142,28 @@ const StudentTests: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tests.filter((t) => (t.question_count || 0) > 0).reduce((sum, test) => sum + test.total_marks, 0)}
+              {visibleTests.reduce((sum, test) => sum + test.total_marks, 0)}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Paywall for premium */}
+      {showPaywall && (
+        <div className="mb-6">
+          <SubscriptionCard
+            hasActiveSubscription={hasActiveSubscription}
+            hasFreeTestUsed={hasFreeTestUsed}
+            onSubscriptionSuccess={async () => {
+              await fetchSubscriptionStatus();
+              await fetchAvailableTests();
+            }}
+          />
+        </div>
+      )}
+
       {/* Tests Grid */}
-      {tests.filter((t) => (t.question_count || 0) > 0).length === 0 ? (
+      {visibleTests.length === 0 ? (
         <Card>
           <CardContent className="text-center py-8">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -144,7 +173,7 @@ const StudentTests: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tests.filter((t) => (t.question_count || 0) > 0).map((test) => (
+          {visibleTests.map((test) => (
             <Card key={test.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">

@@ -48,12 +48,15 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
       }
 
       // Create Razorpay order
+      console.log('[SubscriptionCard] Creating order...');
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
         body: { action: 'create-order' }
       });
 
+      console.log('[SubscriptionCard] create-order result:', { data, error });
+
       if (error) {
-        throw new Error(error.message);
+        throw new Error(error.message || 'Edge function create-order failed');
       }
 
       const options = {
@@ -174,7 +177,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
             </CardDescription>
           </div>
           <Badge variant="secondary" className="text-primary font-semibold">
-            ₹300/month
+            ₹299/month
           </Badge>
         </div>
       </CardHeader>
@@ -225,7 +228,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           className="w-full"
           size="lg"
         >
-          Subscribe for ₹300/month
+          Subscribe for ₹299/month
         </Button>
       </CardFooter>
     </Card>

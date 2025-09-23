@@ -2,9 +2,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import GuidedPathsExplorer from "@/components/student/GuidedPathsExplorer";
+import { useSubscription } from "@/hooks/useSubscription";
+import SubscriptionCard from "@/components/student/SubscriptionCard";
 
 const StudentGuidedPaths = () => {
   const { user, loading } = useAuth();
+  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
 
   if (loading) {
     return (
@@ -29,8 +32,22 @@ const StudentGuidedPaths = () => {
             Explore structured learning paths created by your teachers with curated video content and study materials
           </p>
         </div>
-
-        <GuidedPathsExplorer />
+        {hasActiveSubscription ? (
+          <GuidedPathsExplorer />
+        ) : (
+          <div className="max-w-xl">
+            <p className="text-muted-foreground mb-4">
+              Roadmaps are part of Premium. Subscribe to unlock structured learning paths.
+            </p>
+            <SubscriptionCard
+              hasActiveSubscription={hasActiveSubscription}
+              hasFreeTestUsed={hasFreeTestUsed}
+              onSubscriptionSuccess={async () => {
+                await fetchSubscriptionStatus();
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

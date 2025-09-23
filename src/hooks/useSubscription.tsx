@@ -29,22 +29,30 @@ export const useSubscription = () => {
       }
 
       // Check for active subscription
-      const { data: activeSubscription } = await supabase
+      const { data: activeSubscription, error: activeErr } = await supabase
         .from('test_subscriptions')
         .select('*')
         .eq('student_id', user.id)
         .eq('status', 'active')
         .gte('end_date', new Date().toISOString())
-        .single();
+        .maybeSingle();
+
+      if (activeErr && activeErr.code !== 'PGRST116') {
+        console.warn('[useSubscription] active subscription query error:', activeErr);
+      }
 
       // Check if free test was used
-      const { data: freeTestSubscription } = await supabase
+      const { data: freeTestSubscription, error: freeErr } = await supabase
         .from('test_subscriptions')
         .select('*')
         .eq('student_id', user.id)
         .eq('subscription_type', 'free')
         .eq('free_test_used', true)
-        .single();
+        .maybeSingle();
+
+      if (freeErr && freeErr.code !== 'PGRST116') {
+        console.warn('[useSubscription] free test query error:', freeErr);
+      }
 
       setSubscriptionStatus({
         hasActiveSubscription: !!activeSubscription,

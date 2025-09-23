@@ -17,6 +17,9 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import GuidedPathsExplorer from './GuidedPathsExplorer';
+import PremiumFeatureLock from '@/components/common/PremiumFeatureLock';
+import SubscriptionCard from './SubscriptionCard';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface LearningPath {
   id: string;
@@ -39,6 +42,8 @@ const StudentLearningPaths: React.FC = () => {
     estimatedDuration: ''
   });
   const { toast } = useToast();
+  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus, checkRoadmapAccess } = useSubscription();
+  const hasRoadmapAccess = checkRoadmapAccess();
 
   // Mock data for user-created paths
   const [userPaths, setUserPaths] = useState<LearningPath[]>([
@@ -55,6 +60,15 @@ const StudentLearningPaths: React.FC = () => {
   ]);
 
   const handleCreatePath = () => {
+    if (!hasActiveSubscription) {
+      toast({
+        title: "Premium Required",
+        description: "Creating learning paths requires a premium subscription.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!newPath.title || !newPath.subject) {
       toast({
         title: "Missing Information",
@@ -110,7 +124,19 @@ const StudentLearningPaths: React.FC = () => {
         <div className="flex gap-2">
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button 
+                className="bg-primary hover:bg-primary/90"
+                disabled={!hasActiveSubscription}
+                onClick={() => {
+                  if (!hasActiveSubscription) {
+                    toast({
+                      title: "Premium Required",
+                      description: "Creating learning paths requires a premium subscription.",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Path
               </Button>
@@ -181,7 +207,18 @@ const StudentLearningPaths: React.FC = () => {
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">My Learning Paths</h3>
         
-        {filteredUserPaths.length === 0 ? (
+        {!hasActiveSubscription ? (
+          <PremiumFeatureLock
+            featureName="Custom Learning Paths"
+            description="Create and manage your own personalized learning paths to organize your study plan and track progress."
+            onUpgrade={() => {
+              const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+              if (subscriptionCard) {
+                subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+          />
+        ) : filteredUserPaths.length === 0 ? (
           <Card className="text-center p-8">
             <CardContent>
               <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -249,9 +286,39 @@ const StudentLearningPaths: React.FC = () => {
       <div className="space-y-4">
         <div className="border-t pt-6">
           <h3 className="text-lg font-semibold mb-4">Guided Learning Paths</h3>
-          <GuidedPathsExplorer />
+          {hasRoadmapAccess ? (
+            <GuidedPathsExplorer />
+          ) : (
+            <PremiumFeatureLock
+              featureName="Guided Learning Paths"
+              description="Access professionally curated learning paths with structured curriculum and expert guidance."
+              onUpgrade={() => {
+                const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+                if (subscriptionCard) {
+                  subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+            />
+          )}
         </div>
       </div>
+
+      {/* Subscription Card */}
+      {(!hasActiveSubscription || !hasRoadmapAccess) && (
+        <div className="mt-8">
+          <SubscriptionCard
+            hasActiveSubscription={hasActiveSubscription}
+            hasFreeTestUsed={hasFreeTestUsed}
+            onSubscriptionSuccess={async () => {
+              await fetchSubscriptionStatus();
+              toast({
+                title: "Premium Activated! 🎉",
+                description: "You now have access to all learning path features.",
+              });
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

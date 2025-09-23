@@ -198,7 +198,8 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
       .update({
         score: totalScore,
         percentage: percentage,
-        time_taken_minutes: Math.max(1, Math.round(timeTaken)), // Ensure at least 1 minute for display
+        time_taken_minutes: Math.max(1, Math.round(timeTaken / 60)), // Keep for backward compatibility
+        time_taken_seconds: Math.max(1, Math.round(timeTaken)), // Store actual seconds
         submitted_at: new Date().toISOString(),
         status: autoSubmitted ? 'auto_submitted' : 'submitted'
       })

@@ -29,6 +29,7 @@ interface TestResult {
   total_marks: number;
   percentage: number;
   time_taken_minutes: number;
+  time_taken_seconds?: number;
   status: string;
   submitted_at: string;
   tests: {
@@ -418,7 +419,11 @@ const TestResults: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-3xl font-bold">
-                {formatTime(result.time_taken_minutes)}
+                {formatTime(
+                  result.time_taken_seconds && result.time_taken_seconds > 0 
+                    ? result.time_taken_seconds / 60 
+                    : result.time_taken_minutes
+                )}
               </div>
               <div className="text-sm text-muted-foreground">
                 Total Duration: {result.tests.duration_minutes}m

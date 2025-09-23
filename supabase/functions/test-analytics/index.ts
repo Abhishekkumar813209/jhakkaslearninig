@@ -63,7 +63,7 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     // Get all submitted attempts for this test to calculate class stats
     const { data: allAttempts, error: attemptsError } = await supabase
       .from('test_attempts')
-      .select('id, student_id, score, total_marks, percentage, time_taken_minutes')
+      .select('id, student_id, score, total_marks, percentage, time_taken_seconds')
       .eq('test_id', testId)
       .eq('status', 'submitted')
       .order('percentage', { ascending: false });
@@ -136,23 +136,27 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
       ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / allAttempts.length)
       : 0;
 
-    // Calculate time analytics
-    const validTimes = allAttempts.filter(a => a.time_taken_minutes > 0);
-    const averageTime = validTimes.length > 0 
-      ? Math.round(validTimes.reduce((sum, attempt) => sum + attempt.time_taken_minutes, 0) / validTimes.length)
+    // Calculate time analytics - work with seconds for accuracy
+    const validTimes = allAttempts.filter(a => (a.time_taken_seconds || 0) > 0);
+    const averageTimeSeconds = validTimes.length > 0 
+      ? Math.round(validTimes.reduce((sum, attempt) => sum + (attempt.time_taken_seconds || 0), 0) / validTimes.length)
       : 0;
     
-    const studentTime = studentAttempt.time_taken_minutes || 0;
-    const testDuration = testInfo.duration_minutes;
-    const timeEfficiency = testDuration > 0 ? Math.round((studentTime / testDuration) * 100) : 0;
+    const studentTimeSeconds = studentAttempt.time_taken_seconds || 0;
+    const testDurationSeconds = testInfo.duration_minutes * 60;
+    const timeEfficiency = testDurationSeconds > 0 ? Math.round((studentTimeSeconds / testDurationSeconds) * 100) : 0;
 
     // Percentile: lower time = better (faster)
     let fasterThanPercent = 0;
     if (validTimes.length > 0) {
-      const sorted = [...validTimes].map(v => v.time_taken_minutes).sort((a,b) => a - b);
-      const fasterCount = sorted.filter(t => t > 0 && t > studentTime).length; // students slower than you
+      const sorted = [...validTimes].map(v => v.time_taken_seconds || 0).sort((a,b) => a - b);
+      const fasterCount = sorted.filter(t => t > 0 && t > studentTimeSeconds).length; // students slower than you
       fasterThanPercent = Math.round((fasterCount / sorted.length) * 100);
     }
+
+    // Convert to minutes for display (keeping as decimals for accurate formatting)
+    const averageTime = averageTimeSeconds / 60;
+    const studentTime = studentTimeSeconds / 60;
 
     // Find student's rank
     const studentRank = allAttempts.findIndex(attempt => attempt.student_id === studentId) + 1;
@@ -190,7 +194,7 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
         averageTime,
         timeEfficiency,
         fasterThanPercent,
-        testDuration
+        testDuration: testInfo.duration_minutes
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

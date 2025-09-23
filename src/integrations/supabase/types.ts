@@ -894,6 +894,7 @@ export type Database = {
           submitted_at: string | null
           test_id: string
           time_taken_minutes: number | null
+          time_taken_seconds: number | null
           total_marks: number
         }
         Insert: {
@@ -913,6 +914,7 @@ export type Database = {
           submitted_at?: string | null
           test_id: string
           time_taken_minutes?: number | null
+          time_taken_seconds?: number | null
           total_marks: number
         }
         Update: {
@@ -932,6 +934,7 @@ export type Database = {
           submitted_at?: string | null
           test_id?: string
           time_taken_minutes?: number | null
+          time_taken_seconds?: number | null
           total_marks?: number
         }
         Relationships: [

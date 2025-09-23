@@ -27,7 +27,14 @@ serve(async (req: Request) => {
     let requestData = {}
     
     if (req.method === 'POST') {
-      requestData = await req.json()
+      try {
+        const body = await req.text()
+        if (body.trim()) {
+          requestData = JSON.parse(body)
+        }
+      } catch (e) {
+        console.log('No valid JSON body found, using empty object')
+      }
     }
 
     const testId = url.pathname.split('/')[1] !== 'tests-api' ? url.pathname.split('/')[1] : (requestData as any)?.testId
@@ -137,18 +144,6 @@ serve(async (req: Request) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
 
-          if (error) {
-            console.error('Error fetching tests:', error)
-            return new Response(
-              JSON.stringify({ error: error.message }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            )
-          }
-
-          return new Response(
-            JSON.stringify({ tests }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
         }
 
       case 'POST':

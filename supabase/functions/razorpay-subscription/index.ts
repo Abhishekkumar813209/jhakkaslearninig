@@ -42,10 +42,10 @@ serve(async (req) => {
     }
 
     const requestBody = await req.json();
-    const { action, orderId, paymentId, signature, subscriptionId } = requestBody;
+    const { action, orderId, paymentId, signature } = requestBody;
 
     if (action === 'create-order') {
-      // Create Razorpay subscription for monthly billing
+      // Create one-time Razorpay order for monthly access
       const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
@@ -57,115 +57,57 @@ serve(async (req) => {
         throw new Error('Razorpay credentials not configured');
       }
 
-      console.log('[razorpay-subscription] Creating monthly subscription for user:', user.id);
-      console.log('[razorpay-subscription] Using Razorpay Key ID:', razorpayKeyId);
+      console.log('[razorpay-subscription] Creating one-time order for monthly access, user:', user.id);
 
-      // Try to create Razorpay plan first, with fallback to predefined plan
-      let planId = null;
-      
-      // Check if we have a predefined plan ID as fallback
-      const predefinedPlanId = Deno.env.get('RAZORPAY_PLAN_ID');
-      
-      try {
-        const planPayload = {
-          period: 'monthly',
-          interval: 1,
-          item: {
-            name: 'Test Series + Learning Paths Monthly',
-            amount: 29900, // ₹299 in paise
-            currency: 'INR'
-          },
-          notes: {
-            description: 'Monthly subscription for test series and learning paths'
-          }
-        };
-
-        console.log('[razorpay-subscription] Attempting plan creation with payload:', JSON.stringify(planPayload, null, 2));
-
-        const planResponse = await fetch('https://api.razorpay.com/v1/plans', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(planPayload),
-        });
-
-        console.log('[razorpay-subscription] Plan response status:', planResponse.status);
-        console.log('[razorpay-subscription] Plan response headers:', Object.fromEntries(planResponse.headers.entries()));
-
-        const plan = await planResponse.json();
-        
-        if (planResponse.ok) {
-          planId = plan.id;
-          console.log('[razorpay-subscription] Plan created successfully:', planId);
-        } else {
-          console.error('[razorpay-subscription] Plan creation failed:', {
-            status: planResponse.status,
-            statusText: planResponse.statusText,
-            response: plan,
-            url: 'https://api.razorpay.com/v1/plans'
-          });
-          
-          // Fallback to predefined plan if available
-          if (predefinedPlanId) {
-            planId = predefinedPlanId;
-            console.log('[razorpay-subscription] Using fallback predefined plan:', planId);
-          } else {
-            throw new Error(`Plan creation failed and no fallback plan available: ${plan.error?.description || 'Unknown error'}`);
-          }
+      // Create one-time order instead of subscription
+      const orderPayload = {
+        amount: 29900, // ₹299 in paise
+        currency: 'INR',
+        receipt: `order_${user.id}_${Date.now()}`,
+        notes: {
+          student_id: user.id,
+          subscription_type: 'premium',
+          includes_roadmap: 'true',
+          validity_days: '30'
         }
-      } catch (error) {
-        console.error('[razorpay-subscription] Plan creation error:', error);
-        
-        // Fallback to predefined plan if available
-        if (predefinedPlanId) {
-          planId = predefinedPlanId;
-          console.log('[razorpay-subscription] Using fallback predefined plan due to error:', planId);
-        } else {
-          throw new Error(`Plan creation failed and no fallback plan available: ${error.message}`);
-        }
-      }
+      };
 
-      // Now create subscription with the plan ID
-      console.log('[razorpay-subscription] Creating subscription with plan ID:', planId);
-      
-      const subscriptionResponse = await fetch('https://api.razorpay.com/v1/subscriptions', {
+      console.log('[razorpay-subscription] Order payload:', JSON.stringify(orderPayload, null, 2));
+
+      const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          plan_id: planId,
-          customer_notify: 1,
-          quantity: 1,
-          total_count: 12, // 12 monthly payments (1 year)
-          notes: {
-            student_id: user.id,
-            subscription_type: 'premium',
-            includes_roadmap: 'true'
-          }
-        }),
+        body: JSON.stringify(orderPayload),
       });
 
-      const subscription = await subscriptionResponse.json();
+      console.log('[razorpay-subscription] Order response status:', orderResponse.status);
+      console.log('[razorpay-subscription] Order response headers:', Object.fromEntries(orderResponse.headers.entries()));
+
+      const order = await orderResponse.json();
       
-      if (!subscriptionResponse.ok) {
-        console.error('[razorpay-subscription] Subscription creation failed:', subscription);
-        throw new Error(`Razorpay subscription creation failed: ${subscription.error?.description || 'Unknown error'}`);
+      if (!orderResponse.ok) {
+        console.error('[razorpay-subscription] Order creation failed:', {
+          status: orderResponse.status,
+          statusText: orderResponse.statusText,
+          response: order,
+          url: 'https://api.razorpay.com/v1/orders'
+        });
+        throw new Error(`Razorpay order creation failed: ${order.error?.description || 'Unknown error'}`);
       }
 
-      console.log('[razorpay-subscription] Monthly subscription created:', subscription.id);
+      console.log('[razorpay-subscription] Order created successfully:', order.id);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          subscriptionId: subscription.id,
+          orderId: order.id,
           amount: 29900,
           currency: 'INR',
           keyId: razorpayKeyId,
-          subscription: true
+          isOneTime: true
         }),
         { 
           status: 200, 
@@ -175,14 +117,14 @@ serve(async (req) => {
     }
 
     if (action === 'verify-payment') {
-      // Verify subscription payment signature
+      // Verify one-time payment signature
       const crypto = await import('node:crypto');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
-      console.log('[razorpay-subscription] Verifying payment:', { subscriptionId, paymentId });
+      console.log('[razorpay-subscription] Verifying payment:', { orderId, paymentId });
       
-      // For subscription payments, verify using payment_id + subscription_id
-      const body = paymentId + "|" + subscriptionId;
+      // For one-time payments, verify using order_id + payment_id
+      const body = orderId + "|" + paymentId;
       const expectedSignature = crypto.createHmac('sha256', razorpayKeySecret!)
         .update(body.toString())
         .digest('hex');
@@ -200,7 +142,7 @@ serve(async (req) => {
 
       console.log('[razorpay-subscription] Payment verified successfully');
 
-      // Create subscription record for monthly billing
+      // Create subscription record for 30-day access
       const { error: subscriptionError } = await supabaseClient
         .from('test_subscriptions')
         .insert({
@@ -209,7 +151,7 @@ serve(async (req) => {
           status: 'active',
           amount: 299,
           payment_id: paymentId,
-          razorpay_subscription_id: subscriptionId,
+          razorpay_order_id: orderId,
           payment_method: 'razorpay',
           currency: 'INR',
           start_date: new Date().toISOString(),
@@ -228,7 +170,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Monthly subscription activated successfully',
+          message: 'Monthly access activated successfully',
           subscriptionType: 'premium'
         }),
         { 

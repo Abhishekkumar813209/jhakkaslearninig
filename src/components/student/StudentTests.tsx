@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
 import PremiumFeatureLock from '@/components/common/PremiumFeatureLock';
 import { useSubscription } from '@/hooks/useSubscription';
+import PaywallModal from '@/components/PaywallModal';
 
 interface Test {
   id: string;
@@ -37,6 +38,69 @@ const StudentTests: React.FC = () => {
   useEffect(() => {
     fetchAvailableTests();
   }, []);
+
+  const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  const handleSubscribeNow = async () => {
+    try {
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        toast({ title: 'Error', description: 'Failed to load payment gateway', variant: 'destructive' });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
+        body: { action: 'create-order' }
+      });
+
+      if (error) throw new Error(error.message || 'Failed to create order');
+
+      const rzp = new (window as any).Razorpay({
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: 'EduTech Learning Platform',
+        description: 'Monthly Test Series + Learning Paths Access',
+        order_id: data.orderId,
+        method: { upi: true, card: true, netbanking: true, wallet: true, emi: false },
+        handler: async (response: any) => {
+          const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
+            body: {
+              action: 'verify-payment',
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature
+            }
+          });
+          if (verifyError) {
+            throw new Error(verifyError.message || 'Payment verification failed');
+          }
+          toast({ title: 'Premium Activated', description: '30 days access unlocked!' });
+          setShowPaywallModal(false);
+          await fetchSubscriptionStatus();
+          await fetchAvailableTests();
+        },
+        modal: { ondismiss: () => setShowPaywallModal(false) },
+        retry: { enabled: true, max_count: 3 },
+        theme: { color: '#3B82F6' }
+      });
+
+      rzp.open();
+    } catch (err: any) {
+      console.error('[StudentTests] subscribe error:', err);
+      toast({
+        title: 'Subscription Failed',
+        description: err?.message?.includes('non-2xx') ? 'Payment service temporarily unavailable. Try again.' : (err?.message || 'Please try again later.'),
+        variant: 'destructive'
+      });
+    }
+  };
 
   const fetchAvailableTests = async () => {
     try {
@@ -298,6 +362,14 @@ const StudentTests: React.FC = () => {
           />
         </div>
       )}
+
+      <PaywallModal
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        onSubscribe={handleSubscribeNow}
+        title="Premium Test Access"
+        description="You've used your free test. Subscribe for ₹299 to unlock unlimited tests and learning paths."
+      />
 
     </div>
   );

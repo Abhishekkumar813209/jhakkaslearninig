@@ -198,7 +198,7 @@ const TakeTest: React.FC = () => {
           action: 'submitAttempt',
           attemptId,
           answers,
-          timeTaken: test ? (test.duration_minutes * 60 - timeLeft) / 60 : 0,
+          timeTaken: test ? Math.max(0.1, (test.duration_minutes * 60 - timeLeft) / 60) : 0.1,
           autoSubmitted: autoSubmit
         }
       });

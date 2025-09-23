@@ -192,13 +192,13 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
     // Calculate percentage
     const percentage = Math.round((totalScore / attempt.total_marks) * 100);
 
-    // Update test attempt
+    // Update test attempt  
     const { error: updateError } = await supabase
       .from('test_attempts')
       .update({
         score: totalScore,
         percentage: percentage,
-        time_taken_minutes: Math.round(timeTaken),
+        time_taken_minutes: Math.max(1, Math.round(timeTaken)), // Ensure at least 1 minute for display
         submitted_at: new Date().toISOString(),
         status: autoSubmitted ? 'auto_submitted' : 'submitted'
       })

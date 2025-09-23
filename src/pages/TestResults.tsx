@@ -402,14 +402,22 @@ const TestResults: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-3xl font-bold">{result.time_taken_minutes}m</div>
+              <div className="text-3xl font-bold">
+                {result.time_taken_minutes >= 1 
+                  ? `${result.time_taken_minutes}m` 
+                  : `${Math.round(result.time_taken_minutes * 60)}s`}
+              </div>
               <div className="text-sm text-muted-foreground">
                 Total Duration: {result.tests.duration_minutes}m
               </div>
               {analytics ? (
                 <>
                   <div className="text-sm">Time Efficiency: {analytics.timeEfficiency}%</div>
-                  <div className="text-sm text-muted-foreground">Class Average: {analytics.averageTime}m</div>
+                  <div className="text-sm text-muted-foreground">
+                    Class Average: {analytics.averageTime >= 1 
+                      ? `${Math.round(analytics.averageTime)}m` 
+                      : `${Math.round(analytics.averageTime * 60)}s`}
+                  </div>
                   {typeof analytics.fasterThanPercent === 'number' && (
                     <div className="text-sm">Faster than {analytics.fasterThanPercent}% of class</div>
                   )}
@@ -664,14 +672,22 @@ const TestResults: React.FC = () => {
                   <span>You submitted at</span>
                   <div className="flex items-center gap-2">
                     <Progress value={Math.min(100, Math.round(((analytics.studentTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
-                    <span className="text-sm">{analytics.studentTime}m</span>
+                    <span className="text-sm">
+                      {analytics.studentTime >= 1 
+                        ? `${Math.round(analytics.studentTime)}m` 
+                        : `${Math.round(analytics.studentTime * 60)}s`}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Class average submission</span>
                   <div className="flex items-center gap-2">
                     <Progress value={Math.min(100, Math.round(((analytics.averageTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
-                    <span className="text-sm">{analytics.averageTime}m</span>
+                    <span className="text-sm">
+                      {analytics.averageTime >= 1 
+                        ? `${Math.round(analytics.averageTime)}m` 
+                        : `${Math.round(analytics.averageTime * 60)}s`}
+                    </span>
                   </div>
                 </div>
                 {typeof analytics.fasterThanPercent === 'number' && (

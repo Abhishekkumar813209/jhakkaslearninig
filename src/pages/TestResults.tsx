@@ -64,12 +64,14 @@ const TestResults: React.FC = () => {
   const navigate = useNavigate();
   const [result, setResult] = useState<TestResult | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTestResults();
     fetchAnswers();
+    fetchAnalytics();
   }, [testId]);
 
   const fetchTestResults = async () => {
@@ -219,6 +221,30 @@ const TestResults: React.FC = () => {
     }
   };
 
+  const fetchAnalytics = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase.functions.invoke('test-analytics', {
+        body: {
+          action: 'getTestAnalytics',
+          testId,
+          studentId: user.id
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setAnalytics(data.analytics);
+        console.log('Analytics data:', data.analytics);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
+  };
+
   const getGradeAndColor = (percentage: number) => {
     if (percentage >= 90) return { grade: 'A+', color: 'bg-green-500', textColor: 'text-green-600' };
     if (percentage >= 80) return { grade: 'A', color: 'bg-green-400', textColor: 'text-green-600' };
@@ -360,28 +386,30 @@ const TestResults: React.FC = () => {
               {/* Accuracy */}
               <div className="text-center space-y-2">
                 <Target className="h-8 w-8 mx-auto text-blue-500" />
-                <div className="text-2xl font-bold">{result.percentage}%</div>
+                <div className="text-2xl font-bold">{analytics?.accuracy || result.percentage}%</div>
                 <div className="text-sm text-muted-foreground">Accuracy</div>
               </div>
 
               {/* Questions Correct */}
               <div className="text-center space-y-2">
                 <CheckCircle className="h-8 w-8 mx-auto text-green-500" />
-                <div className="text-2xl font-bold">{Math.round((result.score / result.total_marks) * 7)}/7</div>
+                <div className="text-2xl font-bold">
+                  {analytics?.correctAnswers || 0}/{analytics?.totalQuestions || 0}
+                </div>
                 <div className="text-sm text-muted-foreground">Correct Answers</div>
               </div>
 
-              {/* Class Average (Hardcoded) */}
+              {/* Class Average */}
               <div className="text-center space-y-2">
                 <Users className="h-8 w-8 mx-auto text-purple-500" />
-                <div className="text-2xl font-bold">68%</div>
+                <div className="text-2xl font-bold">{analytics?.classAverage || 0}%</div>
                 <div className="text-sm text-muted-foreground">Class Average</div>
               </div>
 
-              {/* Rank (Hardcoded) */}
+              {/* Rank */}
               <div className="text-center space-y-2">
                 <Star className="h-8 w-8 mx-auto text-yellow-500" />
-                <div className="text-2xl font-bold">#{Math.max(1, Math.round((100 - result.percentage) / 10))}</div>
+                <div className="text-2xl font-bold">#{analytics?.studentRank || 1}</div>
                 <div className="text-sm text-muted-foreground">Class Rank</div>
               </div>
             </div>

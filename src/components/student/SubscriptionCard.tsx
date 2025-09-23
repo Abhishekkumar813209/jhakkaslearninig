@@ -66,6 +66,45 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         name: 'EduTech Learning Platform',
         description: 'Monthly Test Series + Learning Paths Subscription',
         subscription_id: data.subscriptionId,
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true,
+          emi: false
+        },
+        config: {
+          display: {
+            blocks: {
+              banks: {
+                name: 'Pay using Net Banking',
+                instruments: [
+                  {
+                    method: 'netbanking'
+                  }
+                ]
+              },
+              other: {
+                name: 'Other Payment Modes',
+                instruments: [
+                  {
+                    method: 'upi'
+                  },
+                  {
+                    method: 'card'
+                  },
+                  {
+                    method: 'wallet'
+                  }
+                ]
+              }
+            },
+            sequence: ['block.other', 'block.banks'],
+            preferences: {
+              show_default_blocks: true
+            }
+          }
+        },
         handler: async (response: any) => {
           try {
             console.log('[SubscriptionCard] Payment success, verifying:', response);
@@ -107,14 +146,22 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
               title: "Payment Cancelled",
               description: "You can try again anytime.",
             });
-          }
+          },
+          confirm_close: true,
+          escape: true
         },
         prefill: {
           name: 'Student',
           email: 'student@example.com',
+          contact: '9999999999'
         },
         theme: {
-          color: '#3B82F6'
+          color: '#3B82F6',
+          backdrop_color: 'rgba(0, 0, 0, 0.6)'
+        },
+        retry: {
+          enabled: true,
+          max_count: 3
         }
       };
 

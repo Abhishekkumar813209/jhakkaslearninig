@@ -37,52 +37,12 @@ const StudentTests: React.FC = () => {
     try {
       setLoading(true);
       
-      // Get current user's profile to filter tests
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('student_class, education_board')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      // Get published tests filtered by student's class and board
-      let query = supabase
-        .from('tests')
-        .select('*')
-        .eq('is_published', true);
-
-      // Filter by class and board if profile has them
-      if (profile?.student_class && profile?.education_board) {
-        query = query
-          .eq('target_class', profile.student_class)
-          .eq('target_board', profile.education_board);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // Use tests-api to get tests with question counts (bypasses RLS for counting)
+      const { data, error } = await supabase.functions.invoke('tests-api')
 
       if (error) throw error;
 
-      // Count questions for each test
-      const testsWithCounts = await Promise.all(
-        (data || []).map(async (test) => {
-          const { count } = await supabase
-            .from('questions')
-            .select('id', { count: 'exact' })
-            .eq('test_id', test.id);
-
-          return {
-            ...test,
-            question_count: count || 0
-          };
-        })
-      );
-
-      setTests(testsWithCounts);
+      setTests(data.tests || []);
     } catch (error) {
       console.error('Error fetching tests:', error);
       toast({

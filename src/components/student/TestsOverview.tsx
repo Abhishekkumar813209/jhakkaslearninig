@@ -111,25 +111,26 @@ const TestsOverview: React.FC = () => {
         test: attempt.tests
       }));
 
+      // Use tests-api to get tests with question counts
+      const { data: testsApiData, error: testsApiError } = await supabase.functions.invoke('tests-api')
+      
+      if (testsApiError) throw testsApiError;
+
       // Process tests with attempt information
       const testsWithInfo = await Promise.all(
-        (testsData || []).map(async (test) => {
-          const [questionsResult, userAttemptsResult] = await Promise.all([
-            supabase.from('questions').select('id', { count: 'exact' }).eq('test_id', test.id),
-            supabase
-              .from('test_attempts')
-              .select('score, total_marks')
-              .eq('test_id', test.id)
-              .eq('student_id', user.id)
-              .order('score', { ascending: false })
-              .limit(1)
-          ]);
+        (testsApiData.tests || []).map(async (test) => {
+          const { data: userAttemptsResult } = await supabase
+            .from('test_attempts')
+            .select('score, total_marks')
+            .eq('test_id', test.id)
+            .eq('student_id', user.id)
+            .order('score', { ascending: false })
+            .limit(1)
 
-          const bestAttempt = userAttemptsResult.data?.[0];
+          const bestAttempt = userAttemptsResult?.[0];
           
           return {
             ...test,
-            question_count: questionsResult.count || 0,
             user_attempted: !!bestAttempt,
             best_score: bestAttempt ? Math.round((bestAttempt.score / bestAttempt.total_marks) * 100) : undefined
           };

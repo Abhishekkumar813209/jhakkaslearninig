@@ -112,6 +112,39 @@ serve(async (req: Request) => {
             )
           }
 
+          // Use service role to count questions for each test (bypasses RLS)
+          const serviceSupabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          const testsWithCounts = await Promise.all(
+            (tests || []).map(async (test) => {
+              const { count } = await serviceSupabase
+                .from('questions')
+                .select('id', { count: 'exact' })
+                .eq('test_id', test.id)
+
+              return {
+                ...test,
+                question_count: count || 0
+              }
+            })
+          )
+
+          return new Response(
+            JSON.stringify({ tests: testsWithCounts }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+
+          if (error) {
+            console.error('Error fetching tests:', error)
+            return new Response(
+              JSON.stringify({ error: error.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
           return new Response(
             JSON.stringify({ tests }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

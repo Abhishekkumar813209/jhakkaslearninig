@@ -553,13 +553,6 @@ export type Database = {
             referencedRelation: "questions"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "options_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "safe_questions"
-            referencedColumns: ["id"]
-          },
         ]
       }
       parent_student_links: {
@@ -891,13 +884,6 @@ export type Database = {
             referencedRelation: "questions"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "test_answers_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "safe_questions"
-            referencedColumns: ["id"]
-          },
         ]
       }
       test_attempts: {
@@ -1131,67 +1117,13 @@ export type Database = {
       }
     }
     Views: {
-      safe_questions: {
-        Row: {
-          correct_answer: string | null
-          explanation: string | null
-          id: string | null
-          image_alt: string | null
-          image_url: string | null
-          marks: number | null
-          order_num: number | null
-          position: number | null
-          question_text: string | null
-          question_type: Database["public"]["Enums"]["question_type"] | null
-          sample_answer: string | null
-          tags: string[] | null
-          test_id: string | null
-          word_limit: number | null
-        }
-        Insert: {
-          correct_answer?: never
-          explanation?: never
-          id?: string | null
-          image_alt?: string | null
-          image_url?: string | null
-          marks?: number | null
-          order_num?: number | null
-          position?: number | null
-          question_text?: string | null
-          question_type?: Database["public"]["Enums"]["question_type"] | null
-          sample_answer?: never
-          tags?: string[] | null
-          test_id?: string | null
-          word_limit?: number | null
-        }
-        Update: {
-          correct_answer?: never
-          explanation?: never
-          id?: string | null
-          image_alt?: string | null
-          image_url?: string | null
-          marks?: number | null
-          order_num?: number | null
-          position?: number | null
-          question_text?: string | null
-          question_type?: Database["public"]["Enums"]["question_type"] | null
-          sample_answer?: never
-          tags?: string[] | null
-          test_id?: string | null
-          word_limit?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "questions_test_id_fkey"
-            columns: ["test_id"]
-            isOneToOne: false
-            referencedRelation: "tests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
+      can_see_question_answers: {
+        Args: { question_test_id: string }
+        Returns: boolean
+      }
       generate_monthly_fees: {
         Args: Record<PropertyKey, never>
         Returns: undefined

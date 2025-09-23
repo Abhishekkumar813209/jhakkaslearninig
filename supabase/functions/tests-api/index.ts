@@ -119,24 +119,7 @@ serve(async (req: Request) => {
         }
 
       case 'POST':
-        // Get current user to check authentication
-        const authHeader = req.headers.get('Authorization') ?? ''
-        const token = authHeader.startsWith('Bearer ')
-          ? authHeader.replace('Bearer ', '')
-          : authHeader
-
-        const { data: userData, error: userError } = await supabase.auth.getUser(token)
-        const user = userData?.user
-        
-        if (userError || !user) {
-          console.error('Auth error:', userError)
-          return new Response(
-            JSON.stringify({ error: 'Authentication required' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-
-        console.log('Authenticated user:', user.id, 'Action:', action)
+        console.log('POST request received with action:', action, 'testId:', testId)
 
         // Handle different actions
         switch (action) {

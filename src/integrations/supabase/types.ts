@@ -965,11 +965,13 @@ export type Database = {
           end_date: string | null
           free_test_used: boolean | null
           id: string
+          includes_roadmap: boolean | null
           payment_id: string | null
           payment_method: string | null
           start_date: string
           status: string
           student_id: string
+          subscription_name: string | null
           subscription_type: string
           updated_at: string
           weekly_tests_count: number | null
@@ -981,11 +983,13 @@ export type Database = {
           end_date?: string | null
           free_test_used?: boolean | null
           id?: string
+          includes_roadmap?: boolean | null
           payment_id?: string | null
           payment_method?: string | null
           start_date?: string
           status?: string
           student_id: string
+          subscription_name?: string | null
           subscription_type: string
           updated_at?: string
           weekly_tests_count?: number | null
@@ -997,11 +1001,13 @@ export type Database = {
           end_date?: string | null
           free_test_used?: boolean | null
           id?: string
+          includes_roadmap?: boolean | null
           payment_id?: string | null
           payment_method?: string | null
           start_date?: string
           status?: string
           student_id?: string
+          subscription_name?: string | null
           subscription_type?: string
           updated_at?: string
           weekly_tests_count?: number | null

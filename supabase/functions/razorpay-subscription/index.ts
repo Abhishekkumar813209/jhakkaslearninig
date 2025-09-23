@@ -60,49 +60,76 @@ serve(async (req) => {
       console.log('[razorpay-subscription] Creating monthly subscription for user:', user.id);
       console.log('[razorpay-subscription] Using Razorpay Key ID:', razorpayKeyId);
 
-      // Create Razorpay plan first
-      const planPayload = {
-        period: 'monthly',
-        interval: 1,
-        item: {
-          name: 'Test Series + Learning Paths Monthly',
-          amount: 29900, // ₹299 in paise
-          currency: 'INR'
-        },
-        notes: {
-          description: 'Monthly subscription for test series and learning paths'
-        }
-      };
-
-      console.log('[razorpay-subscription] Plan payload:', JSON.stringify(planPayload, null, 2));
-
-      const planResponse = await fetch('https://api.razorpay.com/v1/plans', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(planPayload),
-      });
-
-      console.log('[razorpay-subscription] Plan response status:', planResponse.status);
-      console.log('[razorpay-subscription] Plan response headers:', Object.fromEntries(planResponse.headers.entries()));
-
-      const plan = await planResponse.json();
+      // Try to create Razorpay plan first, with fallback to predefined plan
+      let planId = null;
       
-      if (!planResponse.ok) {
-        console.error('[razorpay-subscription] Plan creation failed:', {
-          status: planResponse.status,
-          statusText: planResponse.statusText,
-          response: plan,
-          url: 'https://api.razorpay.com/v1/plans'
+      // Check if we have a predefined plan ID as fallback
+      const predefinedPlanId = Deno.env.get('RAZORPAY_PLAN_ID');
+      
+      try {
+        const planPayload = {
+          period: 'monthly',
+          interval: 1,
+          item: {
+            name: 'Test Series + Learning Paths Monthly',
+            amount: 29900, // ₹299 in paise
+            currency: 'INR'
+          },
+          notes: {
+            description: 'Monthly subscription for test series and learning paths'
+          }
+        };
+
+        console.log('[razorpay-subscription] Attempting plan creation with payload:', JSON.stringify(planPayload, null, 2));
+
+        const planResponse = await fetch('https://api.razorpay.com/v1/plans', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(planPayload),
         });
-        throw new Error(`Razorpay plan creation failed: ${plan.error?.description || 'Unknown error'}`);
+
+        console.log('[razorpay-subscription] Plan response status:', planResponse.status);
+        console.log('[razorpay-subscription] Plan response headers:', Object.fromEntries(planResponse.headers.entries()));
+
+        const plan = await planResponse.json();
+        
+        if (planResponse.ok) {
+          planId = plan.id;
+          console.log('[razorpay-subscription] Plan created successfully:', planId);
+        } else {
+          console.error('[razorpay-subscription] Plan creation failed:', {
+            status: planResponse.status,
+            statusText: planResponse.statusText,
+            response: plan,
+            url: 'https://api.razorpay.com/v1/plans'
+          });
+          
+          // Fallback to predefined plan if available
+          if (predefinedPlanId) {
+            planId = predefinedPlanId;
+            console.log('[razorpay-subscription] Using fallback predefined plan:', planId);
+          } else {
+            throw new Error(`Plan creation failed and no fallback plan available: ${plan.error?.description || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error('[razorpay-subscription] Plan creation error:', error);
+        
+        // Fallback to predefined plan if available
+        if (predefinedPlanId) {
+          planId = predefinedPlanId;
+          console.log('[razorpay-subscription] Using fallback predefined plan due to error:', planId);
+        } else {
+          throw new Error(`Plan creation failed and no fallback plan available: ${error.message}`);
+        }
       }
 
-      console.log('[razorpay-subscription] Plan created:', plan.id);
-
-      // Now create subscription
+      // Now create subscription with the plan ID
+      console.log('[razorpay-subscription] Creating subscription with plan ID:', planId);
+      
       const subscriptionResponse = await fetch('https://api.razorpay.com/v1/subscriptions', {
         method: 'POST',
         headers: {
@@ -110,13 +137,13 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          plan_id: plan.id,
+          plan_id: planId,
           customer_notify: 1,
           quantity: 1,
           total_count: 12, // 12 monthly payments (1 year)
           notes: {
             student_id: user.id,
-            subscription_type: 'premium_monthly',
+            subscription_type: 'premium',
             includes_roadmap: 'true'
           }
         }),
@@ -178,7 +205,7 @@ serve(async (req) => {
         .from('test_subscriptions')
         .insert({
           student_id: user.id,
-          subscription_type: 'premium_monthly',
+          subscription_type: 'premium',
           status: 'active',
           amount: 299,
           payment_id: paymentId,
@@ -202,7 +229,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'Monthly subscription activated successfully',
-          subscriptionType: 'premium_monthly'
+          subscriptionType: 'premium'
         }),
         { 
           status: 200, 

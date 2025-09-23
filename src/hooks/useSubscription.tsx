@@ -28,14 +28,14 @@ export const useSubscription = () => {
         return;
       }
 
-      // Check for active subscription
+      // Check for active subscription (premium or premium_monthly)
       const { data: activeSubscription, error: activeErr } = await supabase
         .from('test_subscriptions')
         .select('*')
         .eq('student_id', user.id)
         .eq('status', 'active')
         .or('end_date.is.null,end_date.gte.' + new Date().toISOString())
-        .eq('subscription_type', 'premium')
+        .in('subscription_type', ['premium', 'premium_monthly'])
         .maybeSingle();
 
       if (activeErr && activeErr.code !== 'PGRST116') {

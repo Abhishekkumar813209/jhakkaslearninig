@@ -120,15 +120,29 @@ const TestResults: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get the latest test attempt
-      const { data: attempt } = await supabase
+      // Prefer latest SUBMITTED attempt; fallback to most recent created
+      const { data: submittedAttempt } = await supabase
         .from('test_attempts')
-        .select('id')
+        .select('id, submitted_at, created_at, status')
         .eq('test_id', testId)
         .eq('student_id', user.id)
+        .not('submitted_at', 'is', null)
         .order('submitted_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      let attempt = submittedAttempt;
+      if (!attempt) {
+        const { data: fallbackAttempt } = await supabase
+          .from('test_attempts')
+          .select('id, submitted_at, created_at, status')
+          .eq('test_id', testId)
+          .eq('student_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        attempt = fallbackAttempt || null;
+      }
 
       if (!attempt) {
         console.log('No attempt found');
@@ -425,20 +439,27 @@ const TestResults: React.FC = () => {
                           let icon = null;
                           let label = '';
 
-                          if (isCorrectOption) {
-                            // Correct answer - always green
+                          if (isSelected && isCorrectOption) {
+                            // User selected the correct answer
                             bgColor = 'bg-green-50';
                             borderColor = 'border-green-300';
                             textColor = 'text-green-800';
                             icon = <CheckCircle className="h-4 w-4 text-green-600" />;
-                            label = 'Correct Answer';
-                          } else if (isSelected) {
+                            label = 'Your Answer (Correct)';
+                          } else if (isSelected && !isCorrectOption) {
                             // User selected this wrong option - red
                             bgColor = 'bg-red-50';
                             borderColor = 'border-red-300';
                             textColor = 'text-red-800';
                             icon = <XCircle className="h-4 w-4 text-red-600" />;
                             label = 'Your Answer (Wrong)';
+                          } else if (isCorrectOption) {
+                            // Correct answer (not selected)
+                            bgColor = 'bg-green-50';
+                            borderColor = 'border-green-300';
+                            textColor = 'text-green-800';
+                            icon = <CheckCircle className="h-4 w-4 text-green-600" />;
+                            label = 'Correct Answer';
                           } else {
                             // Not selected, not correct - neutral
                             bgColor = 'bg-gray-50';

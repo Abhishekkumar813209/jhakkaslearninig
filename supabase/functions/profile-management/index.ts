@@ -52,6 +52,8 @@ serve(async (req: Request) => {
             full_name,
             avatar_url,
             batch_id,
+            student_class,
+            education_board,
             created_at,
             updated_at
           `)
@@ -125,6 +127,8 @@ serve(async (req: Request) => {
             full_name,
             avatar_url,
             batch_id,
+            student_class,
+            education_board,
             created_at,
             updated_at
           `)

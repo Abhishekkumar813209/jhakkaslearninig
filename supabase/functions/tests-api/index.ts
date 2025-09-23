@@ -119,12 +119,45 @@ serve(async (req: Request) => {
         }
 
       case 'POST':
-        console.log('POST request received with action:', action, 'testId:', testId)
+        // Authenticate user and determine role
+        const authHeader = req.headers.get('Authorization') ?? ''
+        const token = authHeader.startsWith('Bearer ')
+          ? authHeader.replace('Bearer ', '')
+          : authHeader
+
+        const { data: userData, error: userError } = await supabase.auth.getUser(token)
+        const user = userData?.user
+
+        if (userError || !user) {
+          console.error('Auth error:', userError)
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        const isAdminTeacher = roleData?.role === 'admin' || roleData?.role === 'teacher'
+
+        console.log('Authenticated user:', user.id, 'role:', roleData?.role, 'Action:', action)
 
         // Handle different actions
         switch (action) {
           case 'getTestWithQuestions':
-            const { data: testWithQuestions, error: testError } = await supabase
+            // Use service role for admins/teachers to bypass RLS safely after verifying role
+            const clientToUse = isAdminTeacher
+              ? createClient(
+                  Deno.env.get('SUPABASE_URL') ?? '',
+                  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+                )
+              : supabase
+
+            const { data: testWithQuestions, error: testError } = await clientToUse
               .from('tests')
               .select(`
                 *,

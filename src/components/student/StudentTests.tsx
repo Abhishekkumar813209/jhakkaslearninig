@@ -45,7 +45,9 @@ const StudentTests: React.FC = () => {
       }
 
       // Use tests-api which automatically filters by class/board for students
-      const { data, error } = await supabase.functions.invoke('tests-api')
+      const { data, error } = await supabase.functions.invoke('tests-api', {
+        body: { action: 'getAllTests' }
+      })
 
       if (error) throw error;
 

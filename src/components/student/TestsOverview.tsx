@@ -112,7 +112,9 @@ const TestsOverview: React.FC = () => {
       }));
 
       // Use tests-api to get tests with question counts
-      const { data: testsApiData, error: testsApiError } = await supabase.functions.invoke('tests-api')
+      const { data: testsApiData, error: testsApiError } = await supabase.functions.invoke('tests-api', {
+        body: { action: 'getAllTests' }
+      })
       
       if (testsApiError) throw testsApiError;
 

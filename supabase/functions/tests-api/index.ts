@@ -145,7 +145,7 @@ serve(async (req: Request) => {
               .from('tests')
               .select(`
                 *,
-                questions!questions_test_id_fkey (*)
+                questions (*)
               `)
               .eq('id', testId)
               .single()

@@ -87,6 +87,9 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
 
     if (answersError) throw answersError;
 
+    console.log('Student attempt ID:', studentAttempt.id);
+    console.log('Student answers fetched:', studentAnswers);
+
     // Get total questions count
     const { data: questions, error: questionsError } = await supabase
       .from('questions')
@@ -95,8 +98,8 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
 
     if (questionsError) throw questionsError;
 
-    // Calculate analytics
-    const correctAnswers = studentAnswers.filter(a => a.is_correct === true).length;
+    // Calculate analytics - ensure we're filtering correctly
+    const correctAnswers = studentAnswers ? studentAnswers.filter(a => a.is_correct === true).length : 0;
     const totalQuestions = questions.length;
     
     // Calculate class average score (marks)

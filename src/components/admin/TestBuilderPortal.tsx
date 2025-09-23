@@ -105,9 +105,11 @@ const TestBuilderPortal: React.FC = () => {
     try {
       setLoading(true);
       console.log('Fetching test data for:', testId);
-      
+
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'getTestWithQuestions', testId }
+        body: { action: 'getTestWithQuestions', testId },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
       console.log('Test data response:', data, error);
@@ -119,7 +121,7 @@ const TestBuilderPortal: React.FC = () => {
         // Transform questions to match our interface
         const transformedQuestions = (data.questions || []).map((q: any) => ({
           ...q,
-          options: q.options ? JSON.parse(q.options) : null,
+          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options ?? null,
           question_type: q.question_type || 'mcq'
         }));
         setQuestions(transformedQuestions);
@@ -147,8 +149,10 @@ const TestBuilderPortal: React.FC = () => {
 
       console.log('Adding question:', questionData);
 
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'addQuestion', questionData }
+        body: { action: 'addQuestion', questionData },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
       if (error) throw error;
@@ -156,7 +160,7 @@ const TestBuilderPortal: React.FC = () => {
       if (data.success) {
         const transformedQuestion = {
           ...data.question,
-          options: data.question.options ? JSON.parse(data.question.options) : null
+          options: typeof data.question.options === 'string' ? JSON.parse(data.question.options) : data.question.options ?? null
         };
         setQuestions(prev => [...prev, transformedQuestion]);
         setShowQuestionDialog(false);
@@ -181,6 +185,7 @@ const TestBuilderPortal: React.FC = () => {
     if (!editingQuestion?.id) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
         body: { 
           action: 'updateQuestion', 
@@ -189,7 +194,8 @@ const TestBuilderPortal: React.FC = () => {
             ...newQuestion,
             qtype: newQuestion.question_type
           }
-        }
+        },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
       if (error) throw error;
@@ -197,7 +203,7 @@ const TestBuilderPortal: React.FC = () => {
       if (data.success) {
         const transformedQuestion = {
           ...data.question,
-          options: data.question.options ? JSON.parse(data.question.options) : null
+          options: typeof data.question.options === 'string' ? JSON.parse(data.question.options) : data.question.options ?? null
         };
         
         setQuestions(prev => prev.map(q => 
@@ -227,8 +233,10 @@ const TestBuilderPortal: React.FC = () => {
     if (!confirm('Are you sure you want to delete this question?')) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'deleteQuestion', questionId }
+        body: { action: 'deleteQuestion', questionId },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
       if (error) throw error;
@@ -288,12 +296,14 @@ const TestBuilderPortal: React.FC = () => {
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
         body: { 
           action: 'updateTest', 
           testId, 
           updates: { is_published: true, status: 'published' }
-        }
+        },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
       if (error) throw error;

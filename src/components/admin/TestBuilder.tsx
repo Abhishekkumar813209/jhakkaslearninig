@@ -114,8 +114,10 @@ const TestBuilder: React.FC = () => {
     try {
       setLoading(true);
       
+      const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'getTestWithQuestions', testId }
+        body: { action: 'getTestWithQuestions', testId },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
       if (error) throw error;

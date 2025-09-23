@@ -361,20 +361,27 @@ const TestResults: React.FC = () => {
                 Time Taken
               </CardTitle>
             </CardHeader>
-           <CardContent className="space-y-4">
-             <div className="text-3xl font-bold">{result.time_taken_minutes}m</div>
-             <div className="text-sm text-muted-foreground">
-               Total Duration: {result.tests.duration_minutes}m
-             </div>
-             <div className="text-sm">
-               Time Efficiency: {analytics?.timeEfficiency || Math.round((result.time_taken_minutes / result.tests.duration_minutes) * 100)}%
-             </div>
-             {analytics?.averageTime && (
-               <div className="text-sm text-muted-foreground">
-                 Class Average: {analytics.averageTime}m
-               </div>
-             )}
-           </CardContent>
+            <CardContent className="space-y-4">
+              <div className="text-3xl font-bold">{result.time_taken_minutes}m</div>
+              <div className="text-sm text-muted-foreground">
+                Total Duration: {result.tests.duration_minutes}m
+              </div>
+              {analytics ? (
+                <>
+                  <div className="text-sm">
+                    Time Efficiency: {analytics.timeEfficiency}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Class Average: {analytics.averageTime}m
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted animate-pulse rounded"></div>
+                  <div className="h-4 bg-muted animate-pulse rounded"></div>
+                </div>
+              )}
+            </CardContent>
           </Card>
         </div>
 
@@ -387,41 +394,49 @@ const TestResults: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Accuracy */}
-              <div className="text-center space-y-2">
-                <Target className="h-8 w-8 mx-auto text-blue-500" />
-                <div className="text-2xl font-bold">{analytics?.accuracy || result.percentage}%</div>
-                <div className="text-sm text-muted-foreground">Accuracy</div>
-              </div>
-
-              {/* Questions Correct */}
-              <div className="text-center space-y-2">
-                <CheckCircle className="h-8 w-8 mx-auto text-green-500" />
-                <div className="text-2xl font-bold">
-                  {analytics?.correctAnswers || 0}/{analytics?.totalQuestions || 0}
+            {analytics ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Accuracy */}
+                <div className="text-center space-y-2">
+                  <Target className="h-8 w-8 mx-auto text-blue-500" />
+                  <div className="text-2xl font-bold">{analytics.accuracy}%</div>
+                  <div className="text-sm text-muted-foreground">Accuracy</div>
                 </div>
-                <div className="text-sm text-muted-foreground">Correct Answers</div>
-              </div>
 
-              {/* Time Taken vs Average */}
-              <div className="text-center space-y-2">
-                <Clock className="h-8 w-8 mx-auto text-orange-500" />
-                <div className="text-2xl font-bold">
-                  {analytics?.studentTime || result.time_taken_minutes}m
+                {/* Questions Correct */}
+                <div className="text-center space-y-2">
+                  <CheckCircle className="h-8 w-8 mx-auto text-green-500" />
+                  <div className="text-2xl font-bold">
+                    {analytics.correctAnswers}/{analytics.totalQuestions}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Correct Answers</div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Your Time (Avg: {analytics?.averageTime || 0}m)
-                </div>
-              </div>
 
-              {/* Rank */}
-              <div className="text-center space-y-2">
-                <Star className="h-8 w-8 mx-auto text-yellow-500" />
-                <div className="text-2xl font-bold">#{analytics?.studentRank || 1}</div>
-                <div className="text-sm text-muted-foreground">Class Rank</div>
+                {/* Class Average */}
+                <div className="text-center space-y-2">
+                  <Users className="h-8 w-8 mx-auto text-purple-500" />
+                  <div className="text-2xl font-bold">{analytics.classAverage}</div>
+                  <div className="text-sm text-muted-foreground">Class Average</div>
+                </div>
+
+                {/* Rank */}
+                <div className="text-center space-y-2">
+                  <Star className="h-8 w-8 mx-auto text-yellow-500" />
+                  <div className="text-2xl font-bold">#{analytics.studentRank}</div>
+                  <div className="text-sm text-muted-foreground">Class Rank</div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="text-center space-y-2">
+                    <div className="h-8 w-8 mx-auto bg-muted animate-pulse rounded-full"></div>
+                    <div className="h-6 bg-muted animate-pulse rounded mx-auto w-16"></div>
+                    <div className="h-4 bg-muted animate-pulse rounded mx-auto w-20"></div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

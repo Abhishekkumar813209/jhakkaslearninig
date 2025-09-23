@@ -99,9 +99,9 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     const correctAnswers = studentAnswers.filter(a => a.is_correct === true).length;
     const totalQuestions = questions.length;
     
-    // Calculate class average percentage
+    // Calculate class average score (marks)
     const classAverage = allAttempts.length > 0 
-      ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.percentage, 0) / allAttempts.length)
+      ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / allAttempts.length)
       : 0;
 
     // Calculate time analytics

@@ -114,8 +114,9 @@ const StudentTests: React.FC = () => {
       }
 
       // Use tests-api which automatically filters by class/board for students
+      // Order by creation date (newest first) so oldest test is last in array
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'getAllTests' }
+        body: { action: 'getAllTests', orderBy: 'created_at', order: 'desc' }
       })
 
       if (error) throw error;
@@ -134,11 +135,11 @@ const StudentTests: React.FC = () => {
   };
 
   const handleStartTest = async (testId: string, testIndex: number) => {
-    const isFirstTest = testIndex === 0;
+    // Logic: Oldest test (last in array) is always free for everyone
+    // All other tests require premium subscription
+    const isOldestTest = testIndex === availableTests.length - 1;
     
-    // Logic: First test is always free for everyone
-    // 2nd test onwards requires premium subscription
-    if (!isFirstTest && !hasActiveSubscription) {
+    if (!isOldestTest && !hasActiveSubscription) {
       // Show subscription card instead of just modal
       const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
       if (subscriptionCard) {
@@ -149,8 +150,8 @@ const StudentTests: React.FC = () => {
       return;
     }
     
-    // Mark free test as used if this is first test and user hasn't used it yet
-    if (isFirstTest && !hasFreeTestUsed) {
+    // Mark free test as used if this is oldest test and user hasn't used it yet
+    if (isOldestTest && !hasFreeTestUsed) {
       await markFreeTestUsed();
     }
     
@@ -270,9 +271,9 @@ const StudentTests: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {availableTests.map((test, index) => {
-            // Show first test as free, rest as premium if no subscription
-            const isFirstTest = index === 0;
-            const isPremiumTest = !hasActiveSubscription && !isFirstTest;
+            // Show oldest test (last in array) as free, rest as premium if no subscription
+            const isOldestTest = index === availableTests.length - 1;
+            const isPremiumTest = !hasActiveSubscription && !isOldestTest;
             const shouldShowLockOverlay = isPremiumTest && hasFreeTestUsed;
             
             return (
@@ -289,7 +290,7 @@ const StudentTests: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{test.title}</CardTitle>
-                      {isFirstTest && !hasActiveSubscription && (
+                      {isOldestTest && !hasActiveSubscription && (
                         <Badge variant="secondary" className="text-xs">Free</Badge>
                       )}
                       {isPremiumTest && (

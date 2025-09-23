@@ -420,28 +420,52 @@ serve(async (req: Request) => {
             )
 
           default:
-            // Create new test (fallback for non-action requests)
-            const body = requestData as any
-            const { data: newTest, error: createError } = await supabase
-              .from('tests')
-              .insert([{
-                ...body,
-                created_by: user.id
-              }])
-              .select()
-              .single()
-
-            if (createError) {
-              console.error('Error creating test:', createError)
+            // Handle unknown actions or missing action
+            if (!action) {
               return new Response(
-                JSON.stringify({ error: createError.message }),
+                JSON.stringify({ error: 'Action is required for POST requests' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               )
             }
+            
+            // Handle createTest action
+            if (action === 'createTest') {
+              const body = requestData as any
+              
+              // Validate required fields
+              if (!body.title || !body.duration_minutes || !body.total_marks || !body.passing_marks) {
+                return new Response(
+                  JSON.stringify({ error: 'Missing required fields: title, duration_minutes, total_marks, passing_marks' }),
+                  { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+              }
+              
+              const { data: newTest, error: createError } = await supabase
+                .from('tests')
+                .insert([{
+                  ...body,
+                  created_by: user.id
+                }])
+                .select()
+                .single()
 
+              if (createError) {
+                console.error('Error creating test:', createError)
+                return new Response(
+                  JSON.stringify({ error: createError.message }),
+                  { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+              }
+
+              return new Response(
+                JSON.stringify({ test: newTest }),
+                { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+            
             return new Response(
-              JSON.stringify({ test: newTest }),
-              { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({ error: `Unknown action: ${action}` }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
 

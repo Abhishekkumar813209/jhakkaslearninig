@@ -391,19 +391,35 @@ export const testsAPI = {
   },
 
   createTest: async (testData: any) => {
-    return makeSupabaseRequest('tests-api', testData);
+    const { data, error } = await supabase.functions.invoke('tests-api', {
+      body: { action: 'createTest', ...testData }
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   updateTest: async (id: string, testData: any) => {
-    return makeSupabaseRequest('tests-api', { action: 'updateTest', testId: id, ...testData });
+    const { data, error } = await supabase.functions.invoke('tests-api', {
+      body: { action: 'updateTest', testId: id, ...testData }
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   deleteTest: async (id: string) => {
-    return makeSupabaseRequest('tests-api', { action: 'deleteTest', testId: id });
+    const { data, error } = await supabase.functions.invoke('tests-api', {
+      body: { action: 'deleteTest', testId: id }
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   attemptTest: async (id: string, attemptData: { answers: any[]; timeTaken?: number }) => {
-    return makeSupabaseRequest('tests-api', { action: 'attempt', testId: id, ...attemptData });
+    const { data, error } = await supabase.functions.invoke('tests-api', {
+      body: { action: 'attempt', testId: id, ...attemptData }
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 };
 

@@ -49,19 +49,6 @@ const Dashboard = () => {
     refreshDashboard 
   } = useDashboard();
 
-  // Redirect to login if not authenticated
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   const mockStudents = [
     { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Priya Patel' },
     { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Rahul Sharma' },
@@ -111,6 +98,20 @@ const Dashboard = () => {
   useEffect(() => {
     fetchStudentAnalytics();
   }, [selectedStudent]);
+
+  // Redirect to login if not authenticated
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   const enrolledCourses = [
     {
       id: "1",

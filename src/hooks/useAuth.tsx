@@ -103,22 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('AuthProvider: Fetching user role for:', userId);
     
     try {
-      // Try using edge function for profile
-      const { data } = await supabase.functions.invoke('profile-management', {
-        body: {}
-      });
-      
-      if (data?.profile?.role) {
-        console.log('AuthProvider: Got role from edge function:', data.profile.role);
-        setUserRole(data.profile.role);
-        return;
-      }
-    } catch (error) {
-      console.log('AuthProvider: Edge function failed, using direct query:', error);
-    }
-
-    // Fallback to direct query
-    try {
+      // Fallback to direct query first to avoid edge function issues
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')

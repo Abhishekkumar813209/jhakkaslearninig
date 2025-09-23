@@ -68,8 +68,9 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         order_id: data.orderId,
         handler: async (response: any) => {
           try {
+            console.log('[SubscriptionCard] Payment success, verifying:', response);
             // Verify payment
-            const { error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
               body: {
                 action: 'verify-payment',
                 orderId: response.razorpay_order_id,
@@ -78,31 +79,33 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
               }
             });
 
+            console.log('[SubscriptionCard] verify-payment result:', { verifyData, verifyError });
+
             if (verifyError) {
-              throw new Error(verifyError.message);
+              throw new Error(`Payment verification failed: ${verifyError.message || 'Unknown error'}`);
             }
 
             toast({
-              title: "Subscription Activated!",
+              title: "Subscription Activated! 🎉",
               description: "Welcome to premium! You now have access to unlimited tests and learning paths.",
             });
 
             onSubscriptionSuccess();
-          } catch (error) {
-            console.error('Payment verification failed:', error);
+          } catch (error: any) {
+            console.error('[SubscriptionCard] Payment verification failed:', error);
             toast({
               title: "Payment Verification Failed",
-              description: "Please contact support if amount was deducted.",
+              description: `Error: ${error.message || 'Unknown error'}. Please contact support if amount was deducted.`,
               variant: "destructive"
             });
           }
         },
         modal: {
           ondismiss: () => {
+            console.log('[SubscriptionCard] Payment cancelled by user');
             toast({
               title: "Payment Cancelled",
               description: "You can try again anytime.",
-              variant: "destructive"
             });
           }
         },
@@ -117,11 +120,19 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
       const paymentObject = new window.Razorpay(options);
       paymentObject.open();
-    } catch (error) {
-      console.error('Subscription error:', error);
+    } catch (error: any) {
+      console.error('[SubscriptionCard] Subscription error:', error);
+      
+      let errorMessage = "Please try again later.";
+      if (error.message) {
+        errorMessage = error.message.includes('Edge Function returned a non-2xx status code')
+          ? "Payment service temporarily unavailable. Please try again."
+          : error.message;
+      }
+      
       toast({
         title: "Subscription Failed",
-        description: "Please try again later.",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -164,7 +175,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
   }
 
   return (
-    <Card className="border-2 border-dashed border-primary/20">
+    <Card className="border-2 border-dashed border-primary/20" data-subscription-card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>

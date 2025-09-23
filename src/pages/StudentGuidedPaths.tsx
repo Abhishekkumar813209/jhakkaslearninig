@@ -1,3 +1,5 @@
+import React from 'react';
+import SEOHead from '@/components/SEOHead';
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -22,34 +24,43 @@ const StudentGuidedPaths = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Guided Learning Paths</h1>
-          <p className="text-muted-foreground">
-            Explore structured learning paths created by your teachers with curated video content and study materials
-          </p>
-        </div>
-        {hasActiveSubscription ? (
-          <GuidedPathsExplorer />
-        ) : (
-          <div className="max-w-xl">
-            <p className="text-muted-foreground mb-4">
-              Roadmaps are part of Premium. Subscribe to unlock structured learning paths.
+    <>
+      <SEOHead 
+        title={hasActiveSubscription ? "Guided Learning Paths" : "Learning Paths - Premium Required"}
+        description="Explore structured learning paths with curated video content, study materials, and expert guidance for comprehensive education."
+        keywords="guided learning, learning paths, structured education, video tutorials, study materials"
+        noIndex={!hasActiveSubscription}
+      />
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        
+        <div className="container mx-auto px-4 py-6">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Guided Learning Paths</h1>
+            <p className="text-muted-foreground">
+              Explore structured learning paths created by your teachers with curated video content and study materials
             </p>
-            <SubscriptionCard
-              hasActiveSubscription={hasActiveSubscription}
-              hasFreeTestUsed={hasFreeTestUsed}
-              onSubscriptionSuccess={async () => {
-                await fetchSubscriptionStatus();
-              }}
-            />
           </div>
-        )}
+
+          {hasActiveSubscription ? (
+            <GuidedPathsExplorer />
+          ) : (
+            <div className="max-w-xl">
+              <p className="text-muted-foreground mb-4">
+                Roadmaps are part of Premium. Subscribe to unlock structured learning paths.
+              </p>
+              <SubscriptionCard
+                hasActiveSubscription={hasActiveSubscription}
+                hasFreeTestUsed={hasFreeTestUsed}
+                onSubscriptionSuccess={async () => {
+                  await fetchSubscriptionStatus();
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

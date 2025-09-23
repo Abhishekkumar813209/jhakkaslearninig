@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen } from 'lucide-react';
+import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
+import PaywallModal from '@/components/PaywallModal';
 import { useSubscription } from '@/hooks/useSubscription';
 
 interface Test {
@@ -28,9 +29,10 @@ interface Test {
 const StudentTests: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
+  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus, markFreeTestUsed } = useSubscription();
 
   useEffect(() => {
     fetchAvailableTests();
@@ -67,7 +69,18 @@ const StudentTests: React.FC = () => {
     }
   };
 
-  const handleStartTest = (testId: string) => {
+  const handleStartTest = async (testId: string) => {
+    // Check if user needs subscription for this test
+    if (!hasActiveSubscription && hasFreeTestUsed) {
+      setShowPaywallModal(true);
+      return;
+    }
+    
+    // If this is the first test and user hasn't used free test, mark it as used
+    if (!hasActiveSubscription && !hasFreeTestUsed) {
+      await markFreeTestUsed();
+    }
+    
     navigate(`/test/${testId}`);
   };
 
@@ -96,11 +109,10 @@ const StudentTests: React.FC = () => {
   const availableTests = tests.filter((t) => (t.question_count || 0) > 0);
   let visibleTests = availableTests;
   let showPaywall = false;
+  
+  // Show all tests but gate them at click level for better UX
   if (!hasActiveSubscription) {
-    if (!hasFreeTestUsed) {
-      visibleTests = availableTests.slice(0, 1);
-    } else {
-      visibleTests = [];
+    if (hasFreeTestUsed) {
       showPaywall = true;
     }
   }
@@ -121,7 +133,7 @@ const StudentTests: React.FC = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{visibleTests.length}</div>
+            <div className="text-2xl font-bold">{availableTests.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -131,7 +143,7 @@ const StudentTests: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {visibleTests.reduce((sum, test) => sum + (test.question_count || 0), 0)}
+              {availableTests.reduce((sum, test) => sum + (test.question_count || 0), 0)}
             </div>
           </CardContent>
         </Card>
@@ -142,7 +154,7 @@ const StudentTests: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {visibleTests.reduce((sum, test) => sum + test.total_marks, 0)}
+              {availableTests.reduce((sum, test) => sum + test.total_marks, 0)}
             </div>
           </CardContent>
         </Card>
@@ -163,7 +175,7 @@ const StudentTests: React.FC = () => {
       )}
 
       {/* Tests Grid */}
-      {visibleTests.length === 0 ? (
+      {availableTests.length === 0 ? (
         <Card>
           <CardContent className="text-center py-8">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -173,52 +185,85 @@ const StudentTests: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleTests.map((test) => (
-            <Card key={test.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{test.title}</CardTitle>
-                  {getDifficultyBadge(test.difficulty)}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {test.subject} • Class {test.target_class} • {test.target_board}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{test.description}</p>
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.duration_minutes}m</span>
+          {availableTests.map((test, index) => {
+            const isPremiumTest = !hasActiveSubscription && hasFreeTestUsed && index > 0;
+            const isFirstTest = index === 0;
+            
+            return (
+              <Card key={test.id} className={`hover:shadow-lg transition-shadow ${isPremiumTest ? 'relative' : ''}`}>
+                {isPremiumTest && (
+                  <div className="absolute inset-0 bg-black/5 backdrop-blur-[2px] rounded-lg z-10 flex items-center justify-center">
+                    <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg text-center">
+                      <Trophy className="h-6 w-6 text-primary mx-auto mb-2" />
+                      <p className="text-sm font-medium">Premium Required</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.question_count} questions</span>
+                )}
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{test.title}</CardTitle>
+                      {isFirstTest && !hasActiveSubscription && !hasFreeTestUsed && (
+                        <Badge variant="secondary" className="text-xs">Free</Badge>
+                      )}
+                    </div>
+                    {getDifficultyBadge(test.difficulty)}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.total_marks} marks</span>
+                  <div className="text-sm text-muted-foreground">
+                    {test.subject} • Class {test.target_class} • {test.target_board}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.passing_marks}% to pass</span>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">{test.description}</p>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.duration_minutes}m</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.question_count} questions</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.total_marks} marks</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.passing_marks}% to pass</span>
+                    </div>
                   </div>
-                </div>
 
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleStartTest(test.id)}
-                  disabled={!test.question_count || test.question_count === 0}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  {test.question_count === 0 ? 'No Questions' : 'Start Test'}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Button 
+                    className="w-full" 
+                    onClick={() => handleStartTest(test.id)}
+                    disabled={!test.question_count || test.question_count === 0}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    {test.question_count === 0 ? 'No Questions' : 'Start Test'}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      <PaywallModal
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        onSubscribe={async () => {
+          setShowPaywallModal(false);
+          // Trigger subscription flow
+          const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+          if (subscriptionCard) {
+            subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+          }
+        }}
+        title="Premium Test Access"
+        description="You've used your free test! Subscribe to access unlimited tests, learning paths, and analytics."
+      />
     </div>
   );
 };

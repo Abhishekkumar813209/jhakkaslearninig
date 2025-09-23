@@ -63,7 +63,7 @@ serve(async (req) => {
       const orderPayload = {
         amount: 29900, // ₹299 in paise
         currency: 'INR',
-        receipt: `order_${user.id}_${Date.now()}`,
+        receipt: `ord_${user.id.substring(0, 8)}_${Date.now().toString().substring(-8)}`.substring(0, 40),
         notes: {
           student_id: user.id,
           subscription_type: 'premium',

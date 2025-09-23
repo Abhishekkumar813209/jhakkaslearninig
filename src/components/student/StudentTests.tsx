@@ -37,7 +37,14 @@ const StudentTests: React.FC = () => {
     try {
       setLoading(true);
       
-      // Use tests-api to get tests with question counts (bypasses RLS for counting)
+      // Get current user's profile to filter tests
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Use tests-api which automatically filters by class/board for students
       const { data, error } = await supabase.functions.invoke('tests-api')
 
       if (error) throw error;

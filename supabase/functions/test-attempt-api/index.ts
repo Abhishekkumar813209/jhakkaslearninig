@@ -18,13 +18,30 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { action, testId, studentId, attemptId, questionId, selectedOption, textAnswer, answers, timeTaken, autoSubmitted, totalMarks } = await req.json();
+    
+    // Get current user from auth header
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : authHeader;
+    
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Authentication required' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const currentUserId = userData.user.id;
+    const { action, testId, attemptId, questionId, selectedOption, textAnswer, answers, timeTaken, autoSubmitted, totalMarks } = await req.json();
 
     console.log('Test attempt API called with action:', action);
 
     switch (action) {
       case 'createAttempt':
-        return await createTestAttempt(supabase, testId, studentId, totalMarks);
+        return await createTestAttempt(supabase, testId, currentUserId, totalMarks);
       
       case 'saveAnswer':
         return await saveAnswer(supabase, attemptId, questionId, selectedOption, textAnswer);

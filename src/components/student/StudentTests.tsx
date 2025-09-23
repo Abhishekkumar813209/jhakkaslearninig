@@ -7,7 +7,7 @@ import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy } fro
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
-import PaywallModal from '@/components/PaywallModal';
+import PremiumFeatureLock from '@/components/common/PremiumFeatureLock';
 import { useSubscription } from '@/hooks/useSubscription';
 
 interface Test {
@@ -160,17 +160,31 @@ const StudentTests: React.FC = () => {
         </Card>
       </div>
 
-      {/* Paywall for premium */}
+      {/* Premium Feature Lock for expired users */}
       {showPaywall && (
         <div className="mb-6">
-          <SubscriptionCard
-            hasActiveSubscription={hasActiveSubscription}
-            hasFreeTestUsed={hasFreeTestUsed}
-            onSubscriptionSuccess={async () => {
-              await fetchSubscriptionStatus();
-              await fetchAvailableTests();
+          <PremiumFeatureLock
+            featureName="Unlimited Tests"
+            description="Your free test has been used and your premium access has expired. Renew your subscription to continue taking unlimited tests and access all learning materials."
+            onUpgrade={() => {
+              // Scroll to subscription card below
+              const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+              if (subscriptionCard) {
+                subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+              }
             }}
           />
+          
+          <div className="mt-6">
+            <SubscriptionCard
+              hasActiveSubscription={hasActiveSubscription}
+              hasFreeTestUsed={hasFreeTestUsed}
+              onSubscriptionSuccess={async () => {
+                await fetchSubscriptionStatus();
+                await fetchAvailableTests();
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -255,20 +269,6 @@ const StudentTests: React.FC = () => {
         </div>
       )}
 
-      <PaywallModal
-        isOpen={showPaywallModal}
-        onClose={() => setShowPaywallModal(false)}
-        onSubscribe={async () => {
-          setShowPaywallModal(false);
-          // Trigger subscription flow
-          const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
-          if (subscriptionCard) {
-            subscriptionCard.scrollIntoView({ behavior: 'smooth' });
-          }
-        }}
-        title="Premium Test Access"
-        description="You've used your free test! Subscribe monthly for ₹299 to access unlimited tests, learning paths, and analytics."
-      />
     </div>
   );
 };

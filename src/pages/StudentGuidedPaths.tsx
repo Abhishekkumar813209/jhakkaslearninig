@@ -4,12 +4,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import GuidedPathsExplorer from "@/components/student/GuidedPathsExplorer";
-import { useSubscription } from "@/hooks/useSubscription";
 import SubscriptionCard from "@/components/student/SubscriptionCard";
+import PremiumFeatureLock from '@/components/common/PremiumFeatureLock';
+import { useSubscription } from "@/hooks/useSubscription";
+import { useToast } from '@/hooks/use-toast';
 
 const StudentGuidedPaths = () => {
   const { user, loading } = useAuth();
-  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
+  const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus, checkRoadmapAccess } = useSubscription();
+  const { toast } = useToast();
+  const hasRoadmapAccess = checkRoadmapAccess();
 
   if (loading) {
     return (
@@ -26,10 +30,10 @@ const StudentGuidedPaths = () => {
   return (
     <>
       <SEOHead 
-        title={hasActiveSubscription ? "Guided Learning Paths" : "Learning Paths - Premium Required"}
+        title={hasRoadmapAccess ? "Guided Learning Paths" : "Learning Paths - Premium Required"}
         description="Explore structured learning paths with curated video content, study materials, and expert guidance for comprehensive education."
         keywords="guided learning, learning paths, structured education, video tutorials, study materials"
-        noIndex={!hasActiveSubscription}
+        noIndex={!hasRoadmapAccess}
       />
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -42,20 +46,35 @@ const StudentGuidedPaths = () => {
             </p>
           </div>
 
-          {hasActiveSubscription ? (
+          {hasRoadmapAccess ? (
             <GuidedPathsExplorer />
           ) : (
-            <div className="max-w-xl">
-              <p className="text-muted-foreground mb-4">
-                Roadmaps are part of Premium. Subscribe to unlock structured learning paths.
-              </p>
-              <SubscriptionCard
-                hasActiveSubscription={hasActiveSubscription}
-                hasFreeTestUsed={hasFreeTestUsed}
-                onSubscriptionSuccess={async () => {
-                  await fetchSubscriptionStatus();
+            <div className="max-w-2xl mx-auto">
+              <PremiumFeatureLock
+                featureName="Guided Learning Paths"
+                description="Access complete guided learning paths with structured curriculum, video playlists, and progress tracking. Perfect for systematic exam preparation."
+                onUpgrade={() => {
+                  // Scroll to subscription card
+                  const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+                  if (subscriptionCard) {
+                    subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+                  }
                 }}
               />
+              
+              <div className="mt-8">
+                <SubscriptionCard
+                  hasActiveSubscription={hasActiveSubscription}
+                  hasFreeTestUsed={hasFreeTestUsed}
+                  onSubscriptionSuccess={async () => {
+                    await fetchSubscriptionStatus();
+                    toast({
+                      title: "Premium Activated! 🎉",
+                      description: "You now have access to all guided learning paths.",
+                    });
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

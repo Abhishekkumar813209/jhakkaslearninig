@@ -14,6 +14,8 @@ import AnalyticsCharts from '@/components/AnalyticsCharts';
 import StudentSearchInput from '@/components/StudentSearchInput';
 import { useSubscription } from '@/hooks/useSubscription';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
+import PremiumFeatureLock from '@/components/common/PremiumFeatureLock';
+import { useToast } from '@/hooks/use-toast';
 
 const Analytics = () => {
   const [selectedStudent, setSelectedStudent] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -23,6 +25,7 @@ const Analytics = () => {
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [leaderboardData, setLeaderboardData] = useState<any>(null);
   const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
+  const { toast } = useToast();
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -72,14 +75,33 @@ const Analytics = () => {
               <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
               <p className="text-muted-foreground">Premium required to access detailed analytics</p>
             </div>
-            <div className="max-w-xl">
-              <SubscriptionCard
-                hasActiveSubscription={hasActiveSubscription}
-                hasFreeTestUsed={hasFreeTestUsed}
-                onSubscriptionSuccess={async () => {
-                  await fetchSubscriptionStatus();
+            
+            <div className="max-w-2xl mx-auto">
+              <PremiumFeatureLock
+                featureName="Detailed Analytics"
+                description="Get comprehensive insights into your learning progress, test performance, strengths, weaknesses, and personalized recommendations to improve your scores."
+                onUpgrade={() => {
+                  // Scroll to subscription card
+                  const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+                  if (subscriptionCard) {
+                    subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+                  }
                 }}
               />
+              
+              <div className="mt-8">
+                <SubscriptionCard
+                  hasActiveSubscription={hasActiveSubscription}
+                  hasFreeTestUsed={hasFreeTestUsed}
+                  onSubscriptionSuccess={async () => {
+                    await fetchSubscriptionStatus();
+                    toast({
+                      title: "Premium Activated! 🎉",
+                      description: "You now have access to detailed analytics.",
+                    });
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

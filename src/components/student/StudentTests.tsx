@@ -75,7 +75,13 @@ const StudentTests: React.FC = () => {
     // Logic: First test is always free for everyone
     // 2nd test onwards requires premium subscription
     if (!isFirstTest && !hasActiveSubscription) {
-      setShowPaywallModal(true);
+      // Show subscription card instead of just modal
+      const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
+      if (subscriptionCard) {
+        subscriptionCard.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        setShowPaywallModal(true);
+      }
       return;
     }
     
@@ -254,18 +260,42 @@ const StudentTests: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleStartTest(test.id, index)}
-                    disabled={!test.question_count || test.question_count === 0}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {test.question_count === 0 ? 'No Questions' : 'Start Test'}
+                   <Button 
+                     className="w-full" 
+                     onClick={() => handleStartTest(test.id, index)}
+                     disabled={!test.question_count || test.question_count === 0}
+                     variant={isPremiumTest && hasFreeTestUsed ? "outline" : "default"}
+                   >
+                     <Play className="h-4 w-4 mr-2" />
+                     {test.question_count === 0 
+                       ? 'No Questions' 
+                       : isPremiumTest && hasFreeTestUsed 
+                         ? 'Subscribe to Access' 
+                         : 'Start Test'
+                     }
                   </Button>
                 </CardContent>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Subscription Card - Always show for non-premium users */}
+      {!hasActiveSubscription && (
+        <div data-subscription-card className="mt-8">
+          <div className="text-center mb-4">
+            <h2 className="text-2xl font-bold mb-2">Unlock All Tests & Learning Paths</h2>
+            <p className="text-muted-foreground">Get unlimited access to all premium features</p>
+          </div>
+          <SubscriptionCard
+            hasActiveSubscription={hasActiveSubscription}
+            hasFreeTestUsed={hasFreeTestUsed}
+            onSubscriptionSuccess={async () => {
+              await fetchSubscriptionStatus();
+              await fetchAvailableTests();
+            }}
+          />
         </div>
       )}
 

@@ -283,7 +283,7 @@ const TestsOverview: React.FC = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-lg">{attempt.percentage.toFixed(1)}%</div>
+                        <div className="font-bold text-lg">{Number(attempt?.percentage ?? 0).toFixed(1)}%</div>
                         <div className="text-sm text-muted-foreground">
                           {attempt.score}/{attempt.total_marks} marks
                         </div>

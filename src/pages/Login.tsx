@@ -28,58 +28,52 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Try using edge function first
-      console.log('Calling auth-login edge function...');
-      const { data } = await supabase.functions.invoke('auth-login', {
-        body: { email, password }
+      // Try direct Supabase auth first (auto-sets session)
+      console.log('Trying direct Supabase auth...');
+      const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      console.log('Edge function response:', data);
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      console.log('Edge function success, setting session...');
-      
-      // Set the session manually since edge function doesn't auto-set it
-      const { error: setSessionError } = await supabase.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token
-      });
-      
-      if (setSessionError) {
-        console.error('Session set error:', setSessionError);
-        throw setSessionError;
-      }
+      console.log('Direct auth result:', { authError, signInData });
+      if (authError) throw authError;
 
       toast({
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',
       });
       navigate('/');
-    } catch (error: any) {
-      console.log('Edge function failed, trying fallback:', error);
-      // Fallback to direct Supabase auth
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    } catch (firstError: any) {
+      console.log('Direct auth failed, trying edge function:', firstError);
 
-      console.log('Direct auth result:', { authError });
-      if (authError) {
-        console.error('Login failed:', authError);
-        toast({
-          variant: 'destructive',
-          title: 'Login Failed',
-          description: authError.message,
+      try {
+        console.log('Calling auth-login edge function...');
+        const { data } = await supabase.functions.invoke('auth-login', {
+          body: { email, password }
         });
-      } else {
-        console.log('Login successful!');
+
+        console.log('Edge function response:', data);
+        if (data.error) throw new Error(data.error);
+
+        console.log('Edge function success, setting session...');
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
+        });
+        if (setSessionError) throw setSessionError;
+
         toast({
           title: 'Welcome back!',
           description: 'You have been logged in successfully.',
         });
         navigate('/');
+      } catch (error: any) {
+        console.error('Login failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: error?.message || 'Unable to sign you in. Please try again.',
+        });
       }
     }
 

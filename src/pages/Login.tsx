@@ -39,6 +39,19 @@ const Login = () => {
         throw new Error(data.error);
       }
 
+      console.log('Edge function success, setting session...');
+      
+      // Set the session manually since edge function doesn't auto-set it
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token
+      });
+      
+      if (setSessionError) {
+        console.error('Session set error:', setSessionError);
+        throw setSessionError;
+      }
+
       toast({
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',

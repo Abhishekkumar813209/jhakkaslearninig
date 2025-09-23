@@ -64,16 +64,16 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         amount: data.amount,
         currency: data.currency,
         name: 'EduTech Learning Platform',
-        description: 'Test Series + Learning Paths Subscription',
-        order_id: data.orderId,
+        description: 'Monthly Test Series + Learning Paths Subscription',
+        subscription_id: data.subscriptionId,
         handler: async (response: any) => {
           try {
             console.log('[SubscriptionCard] Payment success, verifying:', response);
-            // Verify payment
+            // Verify subscription payment
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
               body: {
                 action: 'verify-payment',
-                orderId: response.razorpay_order_id,
+                subscriptionId: response.razorpay_subscription_id,
                 paymentId: response.razorpay_payment_id,
                 signature: response.razorpay_signature
               }
@@ -239,7 +239,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           className="w-full"
           size="lg"
         >
-          Subscribe for ₹299/month
+          Start Monthly Subscription ₹299
         </Button>
       </CardFooter>
     </Card>

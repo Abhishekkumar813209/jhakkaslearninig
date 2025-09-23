@@ -41,10 +41,11 @@ serve(async (req) => {
       );
     }
 
-    const { action, orderId, paymentId, signature } = await req.json();
+    const requestBody = await req.json();
+    const { action, orderId, paymentId, signature, subscriptionId } = requestBody;
 
     if (action === 'create-order') {
-      // Create Razorpay order
+      // Create Razorpay subscription for monthly billing
       const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
@@ -52,44 +53,75 @@ serve(async (req) => {
         throw new Error('Razorpay credentials not configured');
       }
 
-      // Create a short receipt to satisfy Razorpay's 40-char limit
-      const shortUser = user.id.slice(0, 8);
-      const shortTs = Date.now().toString().slice(-8);
-      const receipt = `sub_${shortUser}_${shortTs}`; // always < 40 chars
-      console.log('[razorpay-subscription] Creating order for', user.id, 'receipt:', receipt);
+      console.log('[razorpay-subscription] Creating monthly subscription for user:', user.id);
 
-      const orderResponse = await fetch('https://api.razorpay.com/v1/orders', {
+      // Create Razorpay plan first
+      const planResponse = await fetch('https://api.razorpay.com/v1/plans', {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: 29900, // ₹299 in paise
-          currency: 'INR',
-          receipt,
+          period: 'monthly',
+          interval: 1,
+          item: {
+            name: 'Test Series + Learning Paths Monthly',
+            amount: 29900, // ₹299 in paise
+            currency: 'INR'
+          },
           notes: {
-            student_id: user.id,
-            subscription_type: 'premium',
-            includes_roadmap: 'true',
-            subscription_name: 'Test Series + Learning Paths'
+            description: 'Monthly subscription for test series and learning paths'
           }
         }),
       });
 
-      const order = await orderResponse.json();
+      const plan = await planResponse.json();
       
-      if (!orderResponse.ok) {
-        throw new Error(`Razorpay order creation failed: ${order.error?.description || 'Unknown error'}`);
+      if (!planResponse.ok) {
+        console.error('[razorpay-subscription] Plan creation failed:', plan);
+        throw new Error(`Razorpay plan creation failed: ${plan.error?.description || 'Unknown error'}`);
       }
+
+      console.log('[razorpay-subscription] Plan created:', plan.id);
+
+      // Now create subscription
+      const subscriptionResponse = await fetch('https://api.razorpay.com/v1/subscriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          customer_notify: 1,
+          quantity: 1,
+          total_count: 12, // 12 monthly payments (1 year)
+          notes: {
+            student_id: user.id,
+            subscription_type: 'premium_monthly',
+            includes_roadmap: 'true'
+          }
+        }),
+      });
+
+      const subscription = await subscriptionResponse.json();
+      
+      if (!subscriptionResponse.ok) {
+        console.error('[razorpay-subscription] Subscription creation failed:', subscription);
+        throw new Error(`Razorpay subscription creation failed: ${subscription.error?.description || 'Unknown error'}`);
+      }
+
+      console.log('[razorpay-subscription] Monthly subscription created:', subscription.id);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          orderId: order.id,
-          amount: order.amount,
-          currency: order.currency,
-          keyId: razorpayKeyId
+          subscriptionId: subscription.id,
+          amount: 29900,
+          currency: 'INR',
+          keyId: razorpayKeyId,
+          subscription: true
         }),
         { 
           status: 200, 
@@ -99,16 +131,20 @@ serve(async (req) => {
     }
 
     if (action === 'verify-payment') {
-      // Verify payment signature
+      // Verify subscription payment signature
       const crypto = await import('node:crypto');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
-      const body = orderId + "|" + paymentId;
+      console.log('[razorpay-subscription] Verifying payment:', { subscriptionId, paymentId });
+      
+      // For subscription payments, verify using payment_id + subscription_id
+      const body = paymentId + "|" + subscriptionId;
       const expectedSignature = crypto.createHmac('sha256', razorpayKeySecret!)
         .update(body.toString())
         .digest('hex');
 
       if (expectedSignature !== signature) {
+        console.error('[razorpay-subscription] Signature verification failed');
         return new Response(
           JSON.stringify({ error: 'Payment verification failed' }),
           { 
@@ -118,33 +154,38 @@ serve(async (req) => {
         );
       }
 
-      // Create subscription record
+      console.log('[razorpay-subscription] Payment verified successfully');
+
+      // Create subscription record for monthly billing
       const { error: subscriptionError } = await supabaseClient
         .from('test_subscriptions')
         .insert({
           student_id: user.id,
-          subscription_type: 'premium',
+          subscription_type: 'premium_monthly',
           status: 'active',
           amount: 299,
           payment_id: paymentId,
+          razorpay_subscription_id: subscriptionId,
           payment_method: 'razorpay',
           currency: 'INR',
           start_date: new Date().toISOString(),
           end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
           includes_roadmap: true,
-          subscription_name: 'Test Series + Learning Paths'
+          subscription_name: 'Monthly Test Series + Learning Paths'
         });
 
       if (subscriptionError) {
-        console.error('Subscription creation failed:', subscriptionError);
-        throw new Error('Failed to create subscription');
+        console.error('[razorpay-subscription] Subscription creation failed:', subscriptionError);
+        throw new Error(`Failed to create subscription: ${subscriptionError.message}`);
       }
+
+      console.log('[razorpay-subscription] Monthly subscription activated for user:', user.id);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Payment verified and subscription activated',
-          subscriptionType: 'premium'
+          message: 'Monthly subscription activated successfully',
+          subscriptionType: 'premium_monthly'
         }),
         { 
           status: 200, 

@@ -69,15 +69,17 @@ const StudentTests: React.FC = () => {
     }
   };
 
-  const handleStartTest = async (testId: string) => {
+  const handleStartTest = async (testId: string, testIndex: number) => {
+    const isFirstTest = testIndex === 0;
+    
     // Check if user needs subscription for this test
-    if (!hasActiveSubscription && hasFreeTestUsed) {
+    if (!hasActiveSubscription && !isFirstTest && hasFreeTestUsed) {
       setShowPaywallModal(true);
       return;
     }
     
     // If this is the first test and user hasn't used free test, mark it as used
-    if (!hasActiveSubscription && !hasFreeTestUsed) {
+    if (isFirstTest && !hasActiveSubscription && !hasFreeTestUsed) {
       await markFreeTestUsed();
     }
     
@@ -107,14 +109,11 @@ const StudentTests: React.FC = () => {
   }
 
   const availableTests = tests.filter((t) => (t.question_count || 0) > 0);
-  let visibleTests = availableTests;
-  let showPaywall = false;
   
-  // Show all tests but gate them at click level for better UX
-  if (!hasActiveSubscription) {
-    if (hasFreeTestUsed) {
-      showPaywall = true;
-    }
+  // Always show all tests - lock them at the UI level, not hide them
+  let showPaywall = false;
+  if (!hasActiveSubscription && hasFreeTestUsed) {
+    showPaywall = true;
   }
 
   return (
@@ -186,12 +185,14 @@ const StudentTests: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {availableTests.map((test, index) => {
-            const isPremiumTest = !hasActiveSubscription && hasFreeTestUsed && index > 0;
+            // Show first test as free, rest as premium if no subscription
             const isFirstTest = index === 0;
+            const isPremiumTest = !hasActiveSubscription && !isFirstTest;
+            const shouldShowLockOverlay = isPremiumTest && hasFreeTestUsed;
             
             return (
-              <Card key={test.id} className={`hover:shadow-lg transition-shadow ${isPremiumTest ? 'relative' : ''}`}>
-                {isPremiumTest && (
+              <Card key={test.id} className={`hover:shadow-lg transition-shadow ${shouldShowLockOverlay ? 'relative' : ''}`}>
+                {shouldShowLockOverlay && (
                   <div className="absolute inset-0 bg-black/5 backdrop-blur-[2px] rounded-lg z-10 flex items-center justify-center">
                     <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg text-center">
                       <Trophy className="h-6 w-6 text-primary mx-auto mb-2" />
@@ -203,8 +204,11 @@ const StudentTests: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{test.title}</CardTitle>
-                      {isFirstTest && !hasActiveSubscription && !hasFreeTestUsed && (
+                      {isFirstTest && !hasActiveSubscription && (
                         <Badge variant="secondary" className="text-xs">Free</Badge>
+                      )}
+                      {isPremiumTest && (
+                        <Badge variant="outline" className="text-xs text-primary border-primary">Premium</Badge>
                       )}
                     </div>
                     {getDifficultyBadge(test.difficulty)}
@@ -237,7 +241,7 @@ const StudentTests: React.FC = () => {
 
                   <Button 
                     className="w-full" 
-                    onClick={() => handleStartTest(test.id)}
+                    onClick={() => handleStartTest(test.id, index)}
                     disabled={!test.question_count || test.question_count === 0}
                   >
                     <Play className="h-4 w-4 mr-2" />
@@ -262,7 +266,7 @@ const StudentTests: React.FC = () => {
           }
         }}
         title="Premium Test Access"
-        description="You've used your free test! Subscribe to access unlimited tests, learning paths, and analytics."
+        description="You've used your free test! Subscribe monthly for ₹299 to access unlimited tests, learning paths, and analytics."
       />
     </div>
   );

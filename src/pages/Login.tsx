@@ -24,14 +24,17 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login attempt with:', { email, password: password ? '***' : 'empty' });
     setLoading(true);
 
     try {
       // Try using edge function first
+      console.log('Calling auth-login edge function...');
       const { data } = await supabase.functions.invoke('auth-login', {
         body: { email, password }
       });
 
+      console.log('Edge function response:', data);
       if (data.error) {
         throw new Error(data.error);
       }
@@ -42,19 +45,23 @@ const Login = () => {
       });
       navigate('/');
     } catch (error: any) {
+      console.log('Edge function failed, trying fallback:', error);
       // Fallback to direct Supabase auth
       const { error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log('Direct auth result:', { authError });
       if (authError) {
+        console.error('Login failed:', authError);
         toast({
           variant: 'destructive',
           title: 'Login Failed',
           description: authError.message,
         });
       } else {
+        console.log('Login successful!');
         toast({
           title: 'Welcome back!',
           description: 'You have been logged in successfully.',

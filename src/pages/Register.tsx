@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authAPI } from '@/services/api';
 
 const Register = () => {
@@ -15,6 +16,8 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [studentClass, setStudentClass] = useState('');
+  const [educationBoard, setEducationBoard] = useState('');
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,15 @@ const Register = () => {
       return;
     }
 
+    if (!studentClass || !educationBoard) {
+      toast({
+        variant: 'destructive',
+        title: 'Required Fields Missing',
+        description: 'Please select your class and education board.',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -44,7 +56,9 @@ const Register = () => {
           email, 
           password, 
           full_name: name,
-          role: 'student'
+          role: 'student',
+          student_class: studentClass,
+          education_board: educationBoard
         }
       });
 
@@ -66,6 +80,8 @@ const Register = () => {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: name,
+            student_class: studentClass,
+            education_board: educationBoard,
           },
         },
       });
@@ -248,6 +264,64 @@ const Register = () => {
                     />
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Select value={studentClass} onValueChange={setStudentClass} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Class 1</SelectItem>
+                        <SelectItem value="2">Class 2</SelectItem>
+                        <SelectItem value="3">Class 3</SelectItem>
+                        <SelectItem value="4">Class 4</SelectItem>
+                        <SelectItem value="5">Class 5</SelectItem>
+                        <SelectItem value="6">Class 6</SelectItem>
+                        <SelectItem value="7">Class 7</SelectItem>
+                        <SelectItem value="8">Class 8</SelectItem>
+                        <SelectItem value="9">Class 9</SelectItem>
+                        <SelectItem value="10">Class 10</SelectItem>
+                        <SelectItem value="11">Class 11</SelectItem>
+                        <SelectItem value="12">Class 12</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Select value={educationBoard} onValueChange={setEducationBoard} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Education Board" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CBSE">CBSE</SelectItem>
+                        <SelectItem value="ICSE">ICSE</SelectItem>
+                        <SelectItem value="UP_BOARD">UP Board</SelectItem>
+                        <SelectItem value="BIHAR_BOARD">Bihar Board</SelectItem>
+                        <SelectItem value="RAJASTHAN_BOARD">Rajasthan Board</SelectItem>
+                        <SelectItem value="MAHARASHTRA_BOARD">Maharashtra Board</SelectItem>
+                        <SelectItem value="GUJARAT_BOARD">Gujarat Board</SelectItem>
+                        <SelectItem value="WEST_BENGAL_BOARD">West Bengal Board</SelectItem>
+                        <SelectItem value="KARNATAKA_BOARD">Karnataka Board</SelectItem>
+                        <SelectItem value="TAMIL_NADU_BOARD">Tamil Nadu Board</SelectItem>
+                        <SelectItem value="KERALA_BOARD">Kerala Board</SelectItem>
+                        <SelectItem value="ANDHRA_PRADESH_BOARD">Andhra Pradesh Board</SelectItem>
+                        <SelectItem value="TELANGANA_BOARD">Telangana Board</SelectItem>
+                        <SelectItem value="MADHYA_PRADESH_BOARD">Madhya Pradesh Board</SelectItem>
+                        <SelectItem value="HARYANA_BOARD">Haryana Board</SelectItem>
+                        <SelectItem value="PUNJAB_BOARD">Punjab Board</SelectItem>
+                        <SelectItem value="ASSAM_BOARD">Assam Board</SelectItem>
+                        <SelectItem value="ODISHA_BOARD">Odisha Board</SelectItem>
+                        <SelectItem value="JHARKHAND_BOARD">Jharkhand Board</SelectItem>
+                        <SelectItem value="CHHATTISGARH_BOARD">Chhattisgarh Board</SelectItem>
+                        <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
+                        <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
+                        <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Button>

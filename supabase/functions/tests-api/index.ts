@@ -62,13 +62,46 @@ serve(async (req: Request) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } else {
-          // Get all tests
-          const { data: tests, error } = await supabase
+          // Get all tests with student filtering
+          const authHeader = req.headers.get('Authorization') ?? ''
+          const token = authHeader.startsWith('Bearer ')
+            ? authHeader.replace('Bearer ', '')
+            : authHeader
+
+          const { data: userData } = await supabase.auth.getUser(token)
+          const user = userData?.user
+          
+          let query = supabase
             .from('tests')
             .select(`
               *,
               courses (title, subject)
             `)
+          
+          // If user is logged in, filter tests by their class and board if they are a student
+          if (user) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('student_class, education_board')
+              .eq('id', user.id)
+              .maybeSingle()
+            
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', user.id)
+              .maybeSingle()
+            
+            // Only filter for students with class and board set
+            if (roleData?.role === 'student' && profileData?.student_class && profileData?.education_board) {
+              query = query
+                .eq('target_class', profileData.student_class)
+                .eq('target_board', profileData.education_board)
+            }
+          }
+          
+          const { data: tests, error } = await query
+            .eq('is_published', true)
             .order('created_at', { ascending: false })
 
           if (error) {

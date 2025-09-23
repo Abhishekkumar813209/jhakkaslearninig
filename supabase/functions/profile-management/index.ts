@@ -96,7 +96,7 @@ serve(async (req: Request) => {
       case 'PUT':
         // Update user profile
         const updateData = await req.json()
-        const allowedFields = ['full_name', 'avatar_url']
+        const allowedFields = ['full_name', 'avatar_url', 'student_class', 'education_board']
         
         const profileUpdates = Object.keys(updateData)
           .filter(key => allowedFields.includes(key))

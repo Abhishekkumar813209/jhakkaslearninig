@@ -637,27 +637,37 @@ export type Database = {
           avatar_url: string | null
           batch_id: string | null
           created_at: string | null
+          education_board: Database["public"]["Enums"]["education_board"] | null
           email: string | null
           full_name: string | null
           id: string
+          student_class: Database["public"]["Enums"]["student_class"] | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           batch_id?: string | null
           created_at?: string | null
+          education_board?:
+            | Database["public"]["Enums"]["education_board"]
+            | null
           email?: string | null
           full_name?: string | null
           id: string
+          student_class?: Database["public"]["Enums"]["student_class"] | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           batch_id?: string | null
           created_at?: string | null
+          education_board?:
+            | Database["public"]["Enums"]["education_board"]
+            | null
           email?: string | null
           full_name?: string | null
           id?: string
+          student_class?: Database["public"]["Enums"]["student_class"] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -966,6 +976,8 @@ export type Database = {
           scheduled_at: string | null
           status: string | null
           subject: string
+          target_board: Database["public"]["Enums"]["education_board"] | null
+          target_class: Database["public"]["Enums"]["student_class"] | null
           title: string
           total_marks: number
           updated_at: string | null
@@ -988,6 +1000,8 @@ export type Database = {
           scheduled_at?: string | null
           status?: string | null
           subject: string
+          target_board?: Database["public"]["Enums"]["education_board"] | null
+          target_class?: Database["public"]["Enums"]["student_class"] | null
           title: string
           total_marks: number
           updated_at?: string | null
@@ -1010,6 +1024,8 @@ export type Database = {
           scheduled_at?: string | null
           status?: string | null
           subject?: string
+          target_board?: Database["public"]["Enums"]["education_board"] | null
+          target_class?: Database["public"]["Enums"]["student_class"] | null
           title?: string
           total_marks?: number
           updated_at?: string | null
@@ -1134,7 +1150,44 @@ export type Database = {
     }
     Enums: {
       course_level: "beginner" | "intermediate" | "advanced"
+      education_board:
+        | "CBSE"
+        | "ICSE"
+        | "UP_BOARD"
+        | "BIHAR_BOARD"
+        | "RAJASTHAN_BOARD"
+        | "MAHARASHTRA_BOARD"
+        | "GUJARAT_BOARD"
+        | "WEST_BENGAL_BOARD"
+        | "KARNATAKA_BOARD"
+        | "TAMIL_NADU_BOARD"
+        | "KERALA_BOARD"
+        | "ANDHRA_PRADESH_BOARD"
+        | "TELANGANA_BOARD"
+        | "MADHYA_PRADESH_BOARD"
+        | "HARYANA_BOARD"
+        | "PUNJAB_BOARD"
+        | "ASSAM_BOARD"
+        | "ODISHA_BOARD"
+        | "JHARKHAND_BOARD"
+        | "CHHATTISGARH_BOARD"
+        | "UTTARAKHAND_BOARD"
+        | "HIMACHAL_PRADESH_BOARD"
+        | "JAMMU_KASHMIR_BOARD"
       question_type: "mcq" | "subjective"
+      student_class:
+        | "1"
+        | "2"
+        | "3"
+        | "4"
+        | "5"
+        | "6"
+        | "7"
+        | "8"
+        | "9"
+        | "10"
+        | "11"
+        | "12"
       test_attempt_status:
         | "in_progress"
         | "submitted"
@@ -1270,7 +1323,46 @@ export const Constants = {
   public: {
     Enums: {
       course_level: ["beginner", "intermediate", "advanced"],
+      education_board: [
+        "CBSE",
+        "ICSE",
+        "UP_BOARD",
+        "BIHAR_BOARD",
+        "RAJASTHAN_BOARD",
+        "MAHARASHTRA_BOARD",
+        "GUJARAT_BOARD",
+        "WEST_BENGAL_BOARD",
+        "KARNATAKA_BOARD",
+        "TAMIL_NADU_BOARD",
+        "KERALA_BOARD",
+        "ANDHRA_PRADESH_BOARD",
+        "TELANGANA_BOARD",
+        "MADHYA_PRADESH_BOARD",
+        "HARYANA_BOARD",
+        "PUNJAB_BOARD",
+        "ASSAM_BOARD",
+        "ODISHA_BOARD",
+        "JHARKHAND_BOARD",
+        "CHHATTISGARH_BOARD",
+        "UTTARAKHAND_BOARD",
+        "HIMACHAL_PRADESH_BOARD",
+        "JAMMU_KASHMIR_BOARD",
+      ],
       question_type: ["mcq", "subjective"],
+      student_class: [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+      ],
       test_attempt_status: [
         "in_progress",
         "submitted",

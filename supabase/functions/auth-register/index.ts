@@ -17,7 +17,7 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { email, password, full_name, role = 'student' } = await req.json()
+    const { email, password, full_name, role = 'student', student_class, education_board } = await req.json()
 
     if (!email || !password || !full_name) {
       return new Response(
@@ -42,11 +42,20 @@ serve(async (req: Request) => {
     }
 
     // Profile is automatically created via trigger
-    // Just set role
+    // Set role
     await supabase.from('user_roles').insert({
       user_id: authData.user.id,
       role: role as any
     })
+
+    // Update profile with class and board if provided
+    if (student_class || education_board) {
+      await supabase.from('profiles').update({
+        student_class,
+        education_board,
+        updated_at: new Date().toISOString()
+      }).eq('id', authData.user.id)
+    }
 
     return new Response(
       JSON.stringify({ 

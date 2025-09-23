@@ -58,7 +58,9 @@ serve(async (req) => {
               max_attempts: test.max_attempts,
               scheduled_at: test.scheduled_at,
               expires_at: test.expires_at,
-              instructions: test.instructions
+              instructions: test.instructions,
+              target_class: test.target_class,
+              target_board: test.target_board
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -74,7 +76,9 @@ serve(async (req) => {
             max_attempts: settings.max_attempts,
             scheduled_at: settings.scheduled_at,
             expires_at: settings.expires_at,
-            instructions: settings.instructions
+            instructions: settings.instructions,
+            target_class: settings.target_class,
+            target_board: settings.target_board
           })
           .eq('id', testId)
           .select()

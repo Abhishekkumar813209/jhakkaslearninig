@@ -87,7 +87,7 @@ export const authAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Get profile failed, using fallback:', error);
@@ -142,7 +142,7 @@ export const authAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Update profile failed, using fallback:', error);
@@ -241,7 +241,7 @@ export const coursesAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Course update failed:', error);
@@ -259,7 +259,7 @@ export const coursesAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Course deletion failed:', error);
@@ -573,7 +573,7 @@ export const batchAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Get batch failed:', error);
@@ -623,7 +623,7 @@ export const batchAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Batch update failed:', error);
@@ -641,7 +641,7 @@ export const batchAPI = {
       });
       
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) throw new Error(result?.error || `HTTP ${response.status}: ${response.statusText}`);
       return result;
     } catch (error) {
       console.error('Batch deletion failed:', error);

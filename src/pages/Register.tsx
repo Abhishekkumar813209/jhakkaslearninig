@@ -62,7 +62,7 @@ const Register = () => {
         }
       });
 
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
       }
 

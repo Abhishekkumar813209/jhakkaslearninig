@@ -53,12 +53,26 @@ const Login = () => {
 
       try {
         console.log('Calling auth-login edge function...');
-        const { data } = await supabase.functions.invoke('auth-login', {
+        const { data, error: functionError } = await supabase.functions.invoke('auth-login', {
           body: { email, password }
         });
 
-        console.log('Edge function response:', data);
-        if (data.error) throw new Error(data.error);
+        console.log('Edge function response:', { data, functionError });
+        
+        // Check for edge function invocation error first
+        if (functionError) {
+          throw new Error(functionError.message || 'Edge function invocation failed');
+        }
+        
+        // Check for auth error in response data
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+        
+        // Check if we have the required tokens
+        if (!data?.access_token || !data?.refresh_token) {
+          throw new Error('Invalid response from authentication service');
+        }
 
         console.log('Edge function success, setting session...');
         const { error: setSessionError } = await supabase.auth.setSession({
@@ -82,7 +96,7 @@ const Login = () => {
         toast({
           variant: 'destructive',
           title: 'Login Failed',
-          description: error?.message || 'Unable to sign you in. Please try again.',
+          description: error?.message || 'Unable to sign you in. Please check your credentials and try again.',
         });
       }
     }

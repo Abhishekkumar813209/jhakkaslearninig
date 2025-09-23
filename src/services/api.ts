@@ -106,11 +106,13 @@ export const authAPI = {
           full_name,
           avatar_url,
           batch_id,
+          student_class,
+          education_board,
           created_at,
           updated_at
         `)
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       
       if (profileError) throw new Error(profileError.message);
       

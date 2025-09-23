@@ -957,6 +957,57 @@ export type Database = {
           },
         ]
       }
+      test_subscriptions: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          end_date: string | null
+          free_test_used: boolean | null
+          id: string
+          payment_id: string | null
+          payment_method: string | null
+          start_date: string
+          status: string
+          student_id: string
+          subscription_type: string
+          updated_at: string
+          weekly_tests_count: number | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          end_date?: string | null
+          free_test_used?: boolean | null
+          id?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          start_date?: string
+          status?: string
+          student_id: string
+          subscription_type: string
+          updated_at?: string
+          weekly_tests_count?: number | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          end_date?: string | null
+          free_test_used?: boolean | null
+          id?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          start_date?: string
+          status?: string
+          student_id?: string
+          subscription_type?: string
+          updated_at?: string
+          weekly_tests_count?: number | null
+        }
+        Relationships: []
+      }
       tests: {
         Row: {
           allow_retakes: boolean | null
@@ -1128,9 +1179,22 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_subscription_status: {
+        Args: { student_id_param: string }
+        Returns: {
+          free_test_available: boolean
+          premium_active: boolean
+          status: string
+          subscription_type: string
+        }[]
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      has_active_subscription: {
+        Args: { student_id_param: string }
+        Returns: boolean
       }
       has_completed_test: {
         Args: { test_id_param: string }
@@ -1141,6 +1205,10 @@ export type Database = {
           check_role: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
+        Returns: boolean
+      }
+      has_used_free_test: {
+        Args: { student_id_param: string }
         Returns: boolean
       }
       reorder_lectures: {

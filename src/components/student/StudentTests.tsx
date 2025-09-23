@@ -12,7 +12,9 @@ interface Test {
   title: string;
   description: string;
   subject: string;
-  class: string;
+  class?: string;
+  target_class?: string;
+  target_board?: string;
   difficulty: string;
   duration_minutes: number;
   total_marks: number;
@@ -35,16 +37,33 @@ const StudentTests: React.FC = () => {
     try {
       setLoading(true);
       
-      // Get published tests created by users with admin role
-      const { data, error } = await supabase
+      // Get current user's profile to filter tests
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('student_class, education_board')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      // Get published tests filtered by student's class and board
+      let query = supabase
         .from('tests')
-        .select(`
-          *,
-          user_roles!inner(user_id)
-        `)
-        .eq('is_published', true)
-        .eq('user_roles.role', 'admin')
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('is_published', true);
+
+      // Filter by class and board if profile has them
+      if (profile?.student_class && profile?.education_board) {
+        query = query
+          .eq('target_class', profile.student_class)
+          .eq('target_board', profile.education_board);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -164,7 +183,7 @@ const StudentTests: React.FC = () => {
                   {getDifficultyBadge(test.difficulty)}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {test.subject} • {test.class}
+                  {test.subject} • Class {test.target_class} • {test.target_board}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

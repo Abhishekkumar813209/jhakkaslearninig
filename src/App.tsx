@@ -28,6 +28,7 @@ import TakeTest from "@/components/student/TakeTest";
 import TestResults from "./pages/TestResults";
 import Student from "./pages/Student";
 import StudentGuidedPaths from "./pages/StudentGuidedPaths";
+import CompleteProfile from "./pages/CompleteProfile";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/student" element={<Student />} />
             <Route path="/student/guided-paths" element={<StudentGuidedPaths />} />
             <Route path="/student/tests" element={<StudentTests />} />
+            <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/student-tests" element={<StudentTests />} />
             <Route path="/test/:testId" element={<TakeTest />} />
             <Route path="/test/:testId/results" element={<TestResults />} />

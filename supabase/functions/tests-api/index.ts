@@ -7,14 +7,14 @@ const corsHeaders = {
 }
 
 async function getAllTests(supabase: any, req: Request) {
-  // Get all tests with student filtering
-  const authHeader = req.headers.get('Authorization') ?? ''
-  const token = authHeader.startsWith('Bearer ')
-    ? authHeader.replace('Bearer ', '')
-    : authHeader
-
-  const { data: userData } = await supabase.auth.getUser(token)
-  const user = userData?.user
+  // Get all tests with student filtering  
+  const authHeader = req.headers.get('Authorization')
+  let user = null
+  
+  if (authHeader) {
+    const { data: userData } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    user = userData?.user
+  }
   
   let query = supabase
     .from('tests')
@@ -151,12 +151,10 @@ serve(async (req: Request) => {
 
       case 'POST':
         // Authenticate user and determine role
-        const authHeader = req.headers.get('Authorization') ?? ''
-        const token = authHeader.startsWith('Bearer ')
-          ? authHeader.replace('Bearer ', '')
-          : authHeader
-
-        const { data: userData, error: userError } = await supabase.auth.getUser(token)
+        const authHeader = req.headers.get('Authorization')!
+        
+        // Verify and get user
+        const { data: userData, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
         const user = userData?.user
 
         if (userError || !user) {

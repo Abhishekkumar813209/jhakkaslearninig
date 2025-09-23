@@ -38,13 +38,16 @@ const Login = () => {
       console.log('Direct auth result:', { authError, signInData });
       if (authError) throw authError;
 
+      // Wait for session to be set properly
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       toast({
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',
       });
-setTimeout(() => {
-  window.location.replace('/');
-}, 300);
+      
+      // Force full page reload to ensure auth state is properly initialized
+      window.location.replace('/');
     } catch (firstError: any) {
       console.log('Direct auth failed, trying edge function:', firstError);
 
@@ -64,13 +67,16 @@ setTimeout(() => {
         });
         if (setSessionError) throw setSessionError;
 
+        // Wait for session to be properly set
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         toast({
           title: 'Welcome back!',
           description: 'You have been logged in successfully.',
         });
-setTimeout(() => {
-  window.location.replace('/');
-}, 300);
+        
+        // Force full page reload to ensure auth state is properly initialized
+        window.location.replace('/');
       } catch (error: any) {
         console.error('Login failed:', error);
         toast({

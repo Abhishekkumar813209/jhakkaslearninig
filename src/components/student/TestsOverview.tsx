@@ -181,16 +181,17 @@ const TestsOverview: React.FC = () => {
 
   // Filter tests based on search and filters
   const filteredTests = tests.filter(test => {
+    const hasQuestions = (test.question_count || 0) > 0;
     const matchesSearch = test.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          test.subject.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSubject = selectedSubject === 'all' || test.subject === selectedSubject;
     const matchesDifficulty = selectedDifficulty === 'all' || test.difficulty === selectedDifficulty;
     
-    return matchesSearch && matchesSubject && matchesDifficulty;
+    return hasQuestions && matchesSearch && matchesSubject && matchesDifficulty;
   });
 
-  // Get unique subjects for filter
-  const subjects = Array.from(new Set(tests.map(test => test.subject)));
+  // Get unique subjects for filter (only from tests with questions)
+  const subjects = Array.from(new Set(tests.filter(test => (test.question_count || 0) > 0).map(test => test.subject)));
 
   if (loading) {
     return (
@@ -205,10 +206,10 @@ const TestsOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="tests" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tests">Browse Tests</TabsTrigger>
+          <TabsTrigger value="overview">Test Overview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -220,7 +221,7 @@ const TestsOverview: React.FC = () => {
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{tests.length}</div>
+                <div className="text-2xl font-bold">{tests.filter(test => (test.question_count || 0) > 0).length}</div>
               </CardContent>
             </Card>
             <Card>
@@ -230,7 +231,7 @@ const TestsOverview: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {tests.filter(test => test.user_attempted).length}
+                  {tests.filter(test => test.user_attempted && (test.question_count || 0) > 0).length}
                 </div>
               </CardContent>
             </Card>

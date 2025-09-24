@@ -26,7 +26,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import f1CarImage from '@/assets/f1-car-motion.png';
+
 
 interface TestResult {
   id: string;
@@ -443,70 +443,28 @@ const TestResults: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
-        {/* Racing Background with Moving Car */}
-        <div className="absolute inset-0 opacity-5">
-          <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: '100%' }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            className="absolute top-1/2 transform -translate-y-1/2 w-80 h-40"
-          >
-            <img 
-              src={f1CarImage} 
-              alt="F1 Car" 
-              className="w-full h-full object-contain opacity-30"
-            />
-          </motion.div>
+      <div className="min-h-screen bg-white text-gray-900">
+        <div className="max-w-7xl mx-auto p-6 space-y-8">
           
-          {/* Speed lines */}
-          <div className="absolute inset-0">
-            {[...Array(20)].map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{ x: '100vw' }}
-                animate={{ x: '-100px' }}
-                transition={{
-                  duration: 2 + Math.random() * 2,
-                  repeat: Infinity,
-                  ease: "linear",
-                  delay: Math.random() * 2,
-                }}
-                className="absolute w-20 h-0.5 bg-gradient-to-r from-transparent via-blue-300 to-transparent"
-                style={{
-                  top: `${20 + Math.random() * 60}%`,
-                  opacity: 0.3 + Math.random() * 0.4,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto p-6 space-y-8 relative z-10">
-          
-          {/* Header with Trophy Animation */}
+          {/* Header */}
           <motion.div 
-            initial={{ opacity: 0, y: -50 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center space-y-6"
+            className="text-center space-y-4"
           >
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-              className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${passed ? 'bg-gradient-to-r from-orange-400 to-orange-500' : 'bg-gradient-to-r from-red-500 to-red-600'} text-white text-3xl font-bold shadow-xl`}
+              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+              className={`inline-flex items-center justify-center w-16 h-16 rounded-full ${passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} shadow-lg`}
             >
-              {passed ? <Trophy className="h-12 w-12" /> : <Target className="h-12 w-12" />}
+              {passed ? <Trophy className="h-8 w-8" /> : <Target className="h-8 w-8" />}
             </motion.div>
             
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-              Race Results 🏁
+            <h1 className="text-3xl font-bold text-gray-900">
+              Test Results
             </h1>
-            <p className="text-xl text-gray-600">{result.tests.title} • {result.tests.subject}</p>
+            <p className="text-lg text-gray-600">{result.tests.title} • {result.tests.subject}</p>
           </motion.div>
 
           {/* Score Cards */}
@@ -517,49 +475,49 @@ const TestResults: React.FC = () => {
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
             {/* Score */}
-            <Card className="bg-gradient-to-br from-yellow-100 to-orange-100 border-2 border-orange-200 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <Card className="bg-white border border-gray-200 shadow-lg hover:shadow-xl transition-shadow">
               <CardContent className="p-6 text-center">
-                <Award className="h-8 w-8 mx-auto mb-4 text-orange-600" />
-                <div className="text-5xl font-bold text-gray-900 mb-2">{result.score}/{derivedTotalMarks}</div>
-                <div className="text-3xl font-semibold text-orange-600 mb-4">{safePercentage}%</div>
-                <Badge variant={passed ? "default" : "destructive"} className={`text-lg px-4 py-2 ${passed ? 'bg-orange-500 hover:bg-orange-600' : ''}`}>
-                  {passed ? "🏆 CHAMPION" : "🎯 KEEP RACING"}
+                <Award className="h-8 w-8 mx-auto mb-4 text-blue-600" />
+                <div className="text-4xl font-bold text-gray-900 mb-2">{result.score}/{derivedTotalMarks}</div>
+                <div className="text-2xl font-semibold text-blue-600 mb-4">{safePercentage}%</div>
+                <Badge variant={passed ? "default" : "destructive"} className={`text-base px-3 py-1 ${passed ? 'bg-blue-600 hover:bg-blue-700' : ''}`}>
+                  {passed ? "Passed" : "Failed"}
                 </Badge>
               </CardContent>
             </Card>
 
             {/* Status */}
-            <Card className={`bg-gradient-to-br ${passed ? 'from-green-100 to-emerald-100 border-2 border-green-200' : 'from-red-100 to-pink-100 border-2 border-red-200'} shadow-xl hover:shadow-2xl transition-all duration-300`}>
+            <Card className="bg-white border border-gray-200 shadow-lg hover:shadow-xl transition-shadow">
               <CardContent className="p-6 text-center">
                 {passed ? <CheckCircle className="h-8 w-8 mx-auto mb-4 text-green-600" /> : <XCircle className="h-8 w-8 mx-auto mb-4 text-red-500" />}
-                <div className={`text-4xl font-bold mb-4 ${passed ? 'text-green-600' : 'text-red-500'}`}>
-                  {passed ? 'VICTORY!' : 'TRY AGAIN!'}
+                <div className={`text-2xl font-bold mb-4 ${passed ? 'text-green-600' : 'text-red-500'}`}>
+                  {passed ? 'Passed' : 'Failed'}
                 </div>
                 <Progress 
                   value={safePercentage} 
-                  className="h-4 mb-2"
+                  className="h-3 mb-2"
                 />
                 <p className="text-sm text-gray-600">Target: {result.tests.passing_marks}%</p>
               </CardContent>
             </Card>
 
             {/* Time */}
-            <Card className="bg-gradient-to-br from-purple-500/20 to-pink-600/20 border-purple-400/30 backdrop-blur-sm">
+            <Card className="bg-white border border-gray-200 shadow-lg hover:shadow-xl transition-shadow">
               <CardContent className="p-6 text-center">
-                <Clock className="h-8 w-8 mx-auto mb-4 text-purple-400" />
-                <div className="text-4xl font-bold text-white mb-2">
+                <Clock className="h-8 w-8 mx-auto mb-4 text-blue-600" />
+                <div className="text-3xl font-bold text-gray-900 mb-2">
                   {formatTime(
                     result.time_taken_seconds && result.time_taken_seconds > 0 
                       ? result.time_taken_seconds / 60 
                       : result.time_taken_minutes
                   )}
                 </div>
-                <div className="text-sm text-gray-300 mb-2">
+                <div className="text-sm text-gray-600 mb-2">
                   Total: {result.tests.duration_minutes}m
                 </div>
                 {analytics && (
-                  <div className="text-sm text-purple-300">
-                    Faster than {analytics.fasterThanPercent}% of racers
+                  <div className="text-sm text-blue-600">
+                    Faster than {analytics.fasterThanPercent}% of students
                   </div>
                 )}
               </CardContent>
@@ -714,8 +672,8 @@ const TestResults: React.FC = () => {
             <Card className="bg-gradient-to-br from-yellow-100 to-amber-100 border-2 border-yellow-300 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
                 <CardTitle className="text-gray-900 flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-600" />
-                  Test Champions 🏆
+                  <Trophy className="h-5 w-5 text-blue-600" />
+                  Test Leaderboard
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -761,8 +719,8 @@ const TestResults: React.FC = () => {
             <Card className="bg-gradient-to-br from-indigo-100 to-purple-100 border-2 border-indigo-200 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
                 <CardTitle className="text-gray-900 flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-indigo-600" />
-                  Overall Champions 👑
+                  <Crown className="h-5 w-5 text-blue-600" />
+                  Overall Ranking
                 </CardTitle>
               </CardHeader>
               <CardContent>

@@ -73,12 +73,17 @@ const CompleteProfile = () => {
         description: 'Your profile has been completed successfully.',
       });
 
-      navigate('/student');
+      // Force a small delay to ensure profile is updated in DB
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Force page reload to refresh all auth and profile states
+      window.location.replace('/student');
     } catch (error: any) {
+      console.error('Profile update error:', error);
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description: error.message,
+        description: error.message || 'Failed to update profile. Please try again.',
       });
     }
 

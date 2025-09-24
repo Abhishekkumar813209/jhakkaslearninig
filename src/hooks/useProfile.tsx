@@ -33,18 +33,26 @@ export const useProfile = () => {
       setUser(user);
 
       // Get user's profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
+
       // Get user's role
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
+      }
 
       // If user is a student and doesn't have class/board info, redirect to complete profile
       if (roleData?.role === 'student' && (!profile?.student_class || !profile?.education_board)) {
@@ -60,5 +68,12 @@ export const useProfile = () => {
     }
   };
 
-  return { profile, user, loading, checkAuth };
+  // Function to refresh profile data
+  const refreshProfile = async () => {
+    if (user) {
+      await checkAuth();
+    }
+  };
+
+  return { profile, user, loading, checkAuth, refreshProfile };
 };

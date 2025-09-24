@@ -130,7 +130,8 @@ const OnlineTestInterface: React.FC = () => {
         body: { 
           action: 'createAttempt',
           testId,
-          totalMarks
+          totalMarks,
+          clientStartedAt: new Date().toISOString()
         }
       });
 

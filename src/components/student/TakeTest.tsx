@@ -143,7 +143,8 @@ const TakeTest: React.FC = () => {
           action: 'createAttempt',
           testId: testData.id,
           studentId: user.id,
-          totalMarks: testData.total_marks
+           totalMarks: testData.total_marks,
+           clientStartedAt: new Date().toISOString()
         }
       });
 

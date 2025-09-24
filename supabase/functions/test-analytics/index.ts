@@ -159,15 +159,13 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     const studentTime = studentTimeSeconds / 60;
 
     // Calculate proper ranking with time as tiebreaker
-    // First, sort all attempts: higher percentage first, then lower time for same percentage
+    // Sort: higher score first, then lower time for same score
     const rankedAttempts = [...allAttempts].sort((a, b) => {
-      // Primary sort: percentage (higher is better)
-      if (b.percentage !== a.percentage) {
-        return b.percentage - a.percentage;
-      }
-      // Tiebreaker: time (lower is better)
-      const aTime = a.time_taken_seconds || (a.time_taken_minutes * 60) || 0;
-      const bTime = b.time_taken_seconds || (b.time_taken_minutes * 60) || 0;
+      const aScore = Number(a.score) || 0;
+      const bScore = Number(b.score) || 0;
+      if (bScore !== aScore) return bScore - aScore;
+      const aTime = Number(a.time_taken_seconds) || (Number(a.time_taken_minutes) * 60) || 0;
+      const bTime = Number(b.time_taken_seconds) || (Number(b.time_taken_minutes) * 60) || 0;
       return aTime - bTime;
     });
 
@@ -227,21 +225,19 @@ async function updateTestRanks(supabase: any, testId: string) {
     // Get all submitted attempts with time data
     const { data: attempts, error } = await supabase
       .from('test_attempts')
-      .select('id, percentage, time_taken_seconds, time_taken_minutes')
+      .select('id, score, percentage, time_taken_seconds, time_taken_minutes')
       .eq('test_id', testId)
       .in('status', ['submitted', 'auto_submitted']);
 
     if (error) throw error;
 
-    // Sort attempts: higher percentage first, then lower time for same percentage
+    // Sort attempts: higher score first, then lower time for same score
     const rankedAttempts = attempts.sort((a, b) => {
-      // Primary sort: percentage (higher is better)
-      if (b.percentage !== a.percentage) {
-        return b.percentage - a.percentage;
-      }
-      // Tiebreaker: time (lower is better)
-      const aTime = a.time_taken_seconds || (a.time_taken_minutes * 60) || 0;
-      const bTime = b.time_taken_seconds || (b.time_taken_minutes * 60) || 0;
+      const aScore = Number(a.score) || 0;
+      const bScore = Number(b.score) || 0;
+      if (bScore !== aScore) return bScore - aScore;
+      const aTime = Number(a.time_taken_seconds) || (Number(a.time_taken_minutes) * 60) || 0;
+      const bTime = Number(b.time_taken_seconds) || (Number(b.time_taken_minutes) * 60) || 0;
       return aTime - bTime;
     });
 

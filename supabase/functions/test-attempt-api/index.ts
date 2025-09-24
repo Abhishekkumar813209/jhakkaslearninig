@@ -35,7 +35,7 @@ serve(async (req) => {
     }
     
     const currentUserId = userData.user.id;
-    const { action, testId, attemptId, questionId, selectedOption, textAnswer, answers, timeTaken, autoSubmitted, totalMarks } = await req.json();
+    const { action, testId, attemptId, questionId, selectedOption, textAnswer, answers, timeTaken, autoSubmitted, totalMarks, clientStartedAt } = await req.json();
 
     console.log('Test attempt API called with action:', action);
 
@@ -134,7 +134,7 @@ async function createTestAttempt(supabase: any, testId: string, studentId: strin
         test_id: testId,
         student_id: studentId,
         total_marks: finalTotalMarks,
-        started_at: new Date().toISOString(),
+        started_at: clientStartedAt || new Date().toISOString(),
         status: 'in_progress',
         attempt_number: attemptNumber
       }])

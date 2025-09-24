@@ -442,7 +442,7 @@ const TestResults: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 text-gray-900">
+      <div className="min-h-screen bg-white text-gray-900">
         <div className="max-w-7xl mx-auto p-6 space-y-8">
           
           {/* Header with Trophy Animation */}
@@ -455,15 +455,15 @@ const TestResults: React.FC = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-              className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${passed ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-red-400 to-red-500'} text-white text-3xl font-bold shadow-xl`}
+              className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${passed ? 'bg-gradient-to-r from-orange-400 to-orange-500' : 'bg-gradient-to-r from-red-500 to-red-600'} text-white text-3xl font-bold shadow-xl`}
             >
               {passed ? <Trophy className="h-12 w-12" /> : <Target className="h-12 w-12" />}
             </motion.div>
             
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
               Race Results 🏁
             </h1>
-            <p className="text-xl text-blue-600">{result.tests.title} • {result.tests.subject}</p>
+            <p className="text-xl text-gray-600">{result.tests.title} • {result.tests.subject}</p>
           </motion.div>
 
           {/* Score Cards */}
@@ -474,19 +474,19 @@ const TestResults: React.FC = () => {
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
             {/* Score */}
-            <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-200 backdrop-blur-sm shadow-xl">
+            <Card className="bg-gradient-to-br from-yellow-100 to-orange-100 border-2 border-orange-200 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardContent className="p-6 text-center">
-                <Award className="h-8 w-8 mx-auto mb-4 text-blue-600" />
+                <Award className="h-8 w-8 mx-auto mb-4 text-orange-600" />
                 <div className="text-5xl font-bold text-gray-900 mb-2">{result.score}/{derivedTotalMarks}</div>
-                <div className="text-3xl font-semibold text-blue-600 mb-4">{safePercentage}%</div>
-                <Badge variant={passed ? "default" : "destructive"} className="text-lg px-4 py-2">
+                <div className="text-3xl font-semibold text-orange-600 mb-4">{safePercentage}%</div>
+                <Badge variant={passed ? "default" : "destructive"} className={`text-lg px-4 py-2 ${passed ? 'bg-orange-500 hover:bg-orange-600' : ''}`}>
                   {passed ? "🏆 CHAMPION" : "🎯 KEEP RACING"}
                 </Badge>
               </CardContent>
             </Card>
 
             {/* Status */}
-            <Card className={`bg-gradient-to-br ${passed ? 'from-green-50 to-emerald-50 border-green-200' : 'from-red-50 to-pink-50 border-red-200'} backdrop-blur-sm shadow-xl`}>
+            <Card className={`bg-gradient-to-br ${passed ? 'from-green-100 to-emerald-100 border-2 border-green-200' : 'from-red-100 to-pink-100 border-2 border-red-200'} shadow-xl hover:shadow-2xl transition-all duration-300`}>
               <CardContent className="p-6 text-center">
                 {passed ? <CheckCircle className="h-8 w-8 mx-auto mb-4 text-green-600" /> : <XCircle className="h-8 w-8 mx-auto mb-4 text-red-500" />}
                 <div className={`text-4xl font-bold mb-4 ${passed ? 'text-green-600' : 'text-red-500'}`}>
@@ -531,10 +531,10 @@ const TestResults: React.FC = () => {
             className="grid grid-cols-1 lg:grid-cols-2 gap-6"
           >
             {/* Pie Chart */}
-            <Card className="bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border-indigo-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-br from-blue-100 to-cyan-100 border-2 border-blue-200 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
+                <CardTitle className="text-gray-900 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-blue-600" />
                   Question Analysis
                 </CardTitle>
               </CardHeader>
@@ -561,27 +561,28 @@ const TestResults: React.FC = () => {
             </Card>
 
             {/* Bar Chart */}
-            <Card className="bg-gradient-to-br from-teal-500/20 to-cyan-600/20 border-teal-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-br from-emerald-100 to-green-100 border-2 border-emerald-200 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
+                <CardTitle className="text-gray-900 flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
                   Topic Performance
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={topicData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="topic" stroke="#9ca3af" />
-                    <YAxis stroke="#9ca3af" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" />
+                    <XAxis dataKey="topic" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: '#1f2937', 
-                        border: '1px solid #374151',
-                        borderRadius: '8px'
+                        backgroundColor: '#ffffff', 
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        color: '#374151'
                       }}
                     />
-                    <Bar dataKey="percentage" fill="#06b6d4" />
+                    <Bar dataKey="percentage" fill="#10b981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -594,18 +595,18 @@ const TestResults: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9 }}
           >
-            <Card className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 border-yellow-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-r from-gray-100 to-slate-100 border-2 border-yellow-300 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-white text-center text-2xl">
+                <CardTitle className="text-gray-900 text-center text-2xl">
                   🏁 Race Track Position
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8">
                 {/* Track */}
-                <div className="relative h-20 bg-gray-700 rounded-full mb-6 overflow-hidden">
+                <div className="relative h-20 bg-gray-600 rounded-full mb-6 overflow-hidden">
                   {/* Track Lines */}
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full h-1 bg-yellow-400 opacity-50" 
+                    <div className="w-full h-1 bg-yellow-400 opacity-70" 
                          style={{
                            backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 20px, #fbbf24 20px, #fbbf24 40px)'
                          }}
@@ -627,7 +628,7 @@ const TestResults: React.FC = () => {
                       >
                         🏎️
                       </motion.div>
-                      <div className="bg-blue-500 text-white px-2 py-1 rounded text-sm font-bold">
+                      <div className="bg-orange-500 text-white px-2 py-1 rounded text-sm font-bold">
                         YOU
                       </div>
                     </div>
@@ -648,10 +649,10 @@ const TestResults: React.FC = () => {
                 </div>
 
                 <div className="text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
                     You are ahead of {studentsAhead} students out of {totalStudents} 🚀
                   </h3>
-                  <p className="text-lg text-blue-300 italic">
+                  <p className="text-lg text-orange-600 italic font-medium">
                     "Keep accelerating! The finish line is closer than you think."
                   </p>
                 </div>
@@ -667,10 +668,10 @@ const TestResults: React.FC = () => {
             className="grid grid-cols-1 lg:grid-cols-2 gap-6"
           >
             {/* Individual Test Leaderboard */}
-            <Card className="bg-gradient-to-br from-yellow-500/20 to-orange-600/20 border-yellow-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-br from-yellow-100 to-amber-100 border-2 border-yellow-300 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Trophy className="h-5 w-5" />
+                <CardTitle className="text-gray-900 flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-600" />
                   Test Champions 🏆
                 </CardTitle>
               </CardHeader>
@@ -681,23 +682,23 @@ const TestResults: React.FC = () => {
                       key={entry.student_id}
                       className={`flex items-center justify-between p-3 rounded-lg ${
                         entry.student_id === result.student_id 
-                          ? 'bg-blue-500/30 border border-blue-400' 
-                          : 'bg-gray-700/30'
+                          ? 'bg-orange-200 border-2 border-orange-400' 
+                          : 'bg-white/70 border border-gray-200'
                       }`}
                     >
                       <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                           index === 0 ? 'bg-yellow-500 text-black' :
                           index === 1 ? 'bg-gray-400 text-black' :
-                          index === 2 ? 'bg-amber-600 text-black' : 'bg-gray-600'
+                          index === 2 ? 'bg-amber-600 text-black' : 'bg-gray-500 text-white'
                         }`}>
                           {index + 1}
                         </div>
                         <div>
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-gray-900">
                             Student #{entry.student_id.slice(-4)}
                           </p>
-                          <p className="text-sm text-gray-300">
+                          <p className="text-sm text-gray-600">
                             {entry.score} points • {Math.round(entry.time_taken_seconds / 60)}m
                           </p>
                         </div>
@@ -714,10 +715,10 @@ const TestResults: React.FC = () => {
             </Card>
 
             {/* Cumulative Leaderboard */}
-            <Card className="bg-gradient-to-br from-purple-500/20 to-pink-600/20 border-purple-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-br from-indigo-100 to-purple-100 border-2 border-indigo-200 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Crown className="h-5 w-5" />
+                <CardTitle className="text-gray-900 flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-indigo-600" />
                   Overall Champions 👑
                 </CardTitle>
               </CardHeader>
@@ -728,23 +729,23 @@ const TestResults: React.FC = () => {
                       key={entry.student_id}
                       className={`flex items-center justify-between p-3 rounded-lg ${
                         entry.student_id === result.student_id 
-                          ? 'bg-purple-500/30 border border-purple-400' 
-                          : 'bg-gray-700/30'
+                          ? 'bg-indigo-200 border-2 border-indigo-400' 
+                          : 'bg-white/70 border border-gray-200'
                       }`}
                     >
                       <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                          index === 0 ? 'bg-purple-500 text-white' :
-                          index === 1 ? 'bg-pink-400 text-white' :
-                          index === 2 ? 'bg-indigo-500 text-white' : 'bg-gray-600'
+                          index === 0 ? 'bg-indigo-500 text-white' :
+                          index === 1 ? 'bg-purple-400 text-white' :
+                          index === 2 ? 'bg-pink-400 text-white' : 'bg-gray-500 text-white'
                         }`}>
                           {index + 1}
                         </div>
                         <div>
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-gray-900">
                             Student #{entry.student_id.slice(-4)}
                           </p>
-                          <p className="text-sm text-gray-300">
+                          <p className="text-sm text-gray-600">
                             Avg: {entry.average_score}% • {entry.tests_attempted} tests
                           </p>
                         </div>
@@ -768,12 +769,12 @@ const TestResults: React.FC = () => {
             transition={{ delay: 1.5 }}
             className="text-center"
           >
-            <Card className="bg-gradient-to-r from-orange-500/20 to-red-600/20 border-orange-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-r from-red-100 to-orange-100 border-2 border-red-300 shadow-xl hover:shadow-2xl transition-all duration-300">
               <CardContent className="p-8">
-                <h2 className="text-3xl font-bold text-white mb-4">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   Want to boost your rank and win the race? 🏁
                 </h2>
-                <p className="text-xl text-orange-200 mb-6">
+                <p className="text-xl text-red-600 mb-6 font-medium">
                   Unlock your personalized roadmap + premium test series now.
                 </p>
                 <motion.div
@@ -782,7 +783,7 @@ const TestResults: React.FC = () => {
                 >
                   <Button 
                     size="lg" 
-                    className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-4 px-8 text-xl shadow-2xl"
+                    className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold py-4 px-8 text-xl shadow-xl"
                     onClick={() => navigate('/student')}
                   >
                     <motion.div
@@ -811,7 +812,7 @@ const TestResults: React.FC = () => {
               onClick={() => navigate('/student')}
               variant="outline"
               size="lg"
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="bg-white border-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400"
             >
               <Home className="h-5 w-5 mr-2" />
               Back to Dashboard

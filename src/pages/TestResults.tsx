@@ -26,6 +26,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import f1CarImage from '@/assets/f1-car-motion.png';
 
 interface TestResult {
   id: string;
@@ -442,8 +443,50 @@ const TestResults: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-white text-gray-900">
-        <div className="max-w-7xl mx-auto p-6 space-y-8">
+      <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
+        {/* Racing Background with Moving Car */}
+        <div className="absolute inset-0 opacity-5">
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: '100%' }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="absolute top-1/2 transform -translate-y-1/2 w-80 h-40"
+          >
+            <img 
+              src={f1CarImage} 
+              alt="F1 Car" 
+              className="w-full h-full object-contain opacity-30"
+            />
+          </motion.div>
+          
+          {/* Speed lines */}
+          <div className="absolute inset-0">
+            {[...Array(20)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ x: '100vw' }}
+                animate={{ x: '-100px' }}
+                transition={{
+                  duration: 2 + Math.random() * 2,
+                  repeat: Infinity,
+                  ease: "linear",
+                  delay: Math.random() * 2,
+                }}
+                className="absolute w-20 h-0.5 bg-gradient-to-r from-transparent via-blue-300 to-transparent"
+                style={{
+                  top: `${20 + Math.random() * 60}%`,
+                  opacity: 0.3 + Math.random() * 0.4,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto p-6 space-y-8 relative z-10">
           
           {/* Header with Trophy Animation */}
           <motion.div 

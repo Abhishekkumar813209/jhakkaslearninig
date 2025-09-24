@@ -110,12 +110,30 @@ async function createTestAttempt(supabase: any, testId: string, studentId: strin
     // Calculate attempt number
     const attemptNumber = existingAttempts ? existingAttempts.length + 1 : 1;
 
+    // Ensure we have correct total marks; fallback to test.total_marks or sum of question marks
+    let finalTotalMarks = Number(totalMarks) || 0;
+    if (!finalTotalMarks || finalTotalMarks <= 0) {
+      const { data: testRow } = await supabase
+        .from('tests')
+        .select('total_marks')
+        .eq('id', testId)
+        .maybeSingle();
+      finalTotalMarks = Number(testRow?.total_marks) || 0;
+    }
+    if (!finalTotalMarks || finalTotalMarks <= 0) {
+      const { data: qRows } = await supabase
+        .from('questions')
+        .select('marks')
+        .eq('test_id', testId);
+      finalTotalMarks = (qRows || []).reduce((sum: number, q: any) => sum + (Number(q.marks) || 0), 0);
+    }
+
     const { data, error } = await supabase
       .from('test_attempts')
       .insert([{
         test_id: testId,
         student_id: studentId,
-        total_marks: totalMarks,
+        total_marks: finalTotalMarks,
         started_at: new Date().toISOString(),
         status: 'in_progress',
         attempt_number: attemptNumber
@@ -246,14 +264,23 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
       // Subjective questions will be graded manually later
     }
 
-    // Calculate percentage
-    const percentage = Math.round((totalScore / attempt.total_marks) * 100);
+    // Determine total marks reliably (attempt value > 0, else sum of question marks)
+    let computedTotalMarks = Number(attempt.total_marks) || 0;
+    if (!computedTotalMarks || computedTotalMarks <= 0) {
+      computedTotalMarks = (questions || []).reduce((sum: number, q: any) => sum + (Number(q.marks) || 0), 0);
+    }
+
+    // Calculate percentage safely
+    const percentage = computedTotalMarks > 0 
+      ? Math.round((totalScore / computedTotalMarks) * 100)
+      : 0;
 
     // Update test attempt  
     const { error: updateError } = await supabase
       .from('test_attempts')
       .update({
         score: totalScore,
+        total_marks: computedTotalMarks,
         percentage: percentage,
         time_taken_minutes: Math.max(1, Math.round(timeTaken / 60)), // Keep for backward compatibility
         time_taken_seconds: Math.max(1, Math.round(timeTaken)), // Store actual seconds
@@ -280,6 +307,7 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
     return new Response(JSON.stringify({ 
       success: true,
       score: totalScore,
+      totalMarks: computedTotalMarks,
       percentage: percentage
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

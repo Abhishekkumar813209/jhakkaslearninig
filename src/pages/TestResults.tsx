@@ -349,8 +349,10 @@ const TestResults: React.FC = () => {
     );
   }
 
-  const { grade, color, textColor } = getGradeAndColor(result.percentage);
-  const passed = result.percentage >= result.tests.passing_marks;
+  const derivedTotalMarks = (result.total_marks && result.total_marks > 0) ? result.total_marks : Math.max(answers.reduce((sum, a) => sum + (a.questions?.marks || 0), 0), 0);
+  const safePercentage = derivedTotalMarks > 0 ? Math.round((result.score / derivedTotalMarks) * 100) : (result.percentage || 0);
+  const { grade, color, textColor } = getGradeAndColor(safePercentage);
+  const passed = safePercentage >= result.tests.passing_marks;
 
   return (
     <>
@@ -379,8 +381,8 @@ const TestResults: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-4xl font-bold">{result.score}/{result.total_marks}</div>
-              <div className={`text-2xl font-semibold ${textColor}`}>{result.percentage}%</div>
+              <div className="text-4xl font-bold">{result.score}/{derivedTotalMarks}</div>
+              <div className={`text-2xl font-semibold ${textColor}`}>{safePercentage}%</div>
               <Badge variant={passed ? "default" : "destructive"} className="text-lg px-4 py-2">
                 Grade: {grade}
               </Badge>
@@ -403,7 +405,7 @@ const TestResults: React.FC = () => {
                 Passing Score: {result.tests.passing_marks}%
               </div>
               <Progress 
-                value={result.percentage} 
+                value={safePercentage} 
                 className="h-3"
               />
             </CardContent>

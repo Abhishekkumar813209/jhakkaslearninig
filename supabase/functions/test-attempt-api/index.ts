@@ -41,7 +41,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'createAttempt':
-        return await createTestAttempt(supabase, testId, currentUserId, totalMarks);
+        return await createTestAttempt(supabase, testId, currentUserId, totalMarks, clientStartedAt);
       
       case 'saveAnswer':
         return await saveAnswer(supabase, attemptId, questionId, selectedOption, textAnswer);
@@ -68,7 +68,7 @@ serve(async (req) => {
   }
 });
 
-async function createTestAttempt(supabase: any, testId: string, studentId: string, totalMarks: number) {
+async function createTestAttempt(supabase: any, testId: string, studentId: string, totalMarks: number, clientStartedAt?: string) {
   try {
     // Check if this is a free test and user already has attempts
     const { data: existingAttempts } = await supabase

@@ -132,7 +132,7 @@ export const useSubscription = () => {
         .upsert({
           student_id: user.id,
           subscription_type: 'free',
-          status: 'used',
+          status: 'active',
           free_test_used: true,
           amount: 0,
           currency: 'INR'

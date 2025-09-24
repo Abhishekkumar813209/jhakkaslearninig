@@ -486,7 +486,9 @@ const TestResults: React.FC = () => {
                 <div className="text-center space-y-2">
                   <Star className="h-8 w-8 mx-auto text-yellow-500" />
                   <div className="text-2xl font-bold">#{analytics.studentRank}</div>
-                  <div className="text-sm text-muted-foreground">Class Rank</div>
+                  <div className="text-sm text-muted-foreground">
+                    out of {analytics.totalStudents} students
+                  </div>
                 </div>
               </div>
             ) : (

@@ -70,6 +70,46 @@ serve(async (req) => {
 
 async function createTestAttempt(supabase: any, testId: string, studentId: string, totalMarks: number) {
   try {
+    // Check if this is a free test and user already has attempts
+    const { data: existingAttempts } = await supabase
+      .from('test_attempts')
+      .select('id')
+      .eq('test_id', testId)
+      .eq('student_id', studentId);
+
+    // Check subscription status
+    const { data: subscriptionStatus } = await supabase
+      .rpc('get_subscription_status', { student_id_param: studentId });
+
+    const hasActiveSubscription = subscriptionStatus && subscriptionStatus[0]?.premium_active === true;
+
+    // Get the oldest test to check if it's free
+    const { data: allTests } = await supabase
+      .from('tests')
+      .select('id, created_at')
+      .eq('is_published', true)
+      .order('created_at', { ascending: true });
+
+    const isOldestTest = allTests && allTests.length > 0 && allTests[0].id === testId;
+
+    // If this is the oldest (free) test and user doesn't have subscription
+    if (isOldestTest && !hasActiveSubscription) {
+      // Check if user already attempted this test
+      if (existingAttempts && existingAttempts.length > 0) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Free test can only be attempted once. Subscribe for unlimited attempts.',
+          requiresSubscription: true
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Calculate attempt number
+    const attemptNumber = existingAttempts ? existingAttempts.length + 1 : 1;
+
     const { data, error } = await supabase
       .from('test_attempts')
       .insert([{
@@ -78,7 +118,7 @@ async function createTestAttempt(supabase: any, testId: string, studentId: strin
         total_marks: totalMarks,
         started_at: new Date().toISOString(),
         status: 'in_progress',
-        attempt_number: 1
+        attempt_number: attemptNumber
       }])
       .select()
       .single();

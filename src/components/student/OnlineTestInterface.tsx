@@ -131,11 +131,31 @@ const OnlineTestInterface: React.FC = () => {
 
       if (error) throw error;
 
+      if (!data.success) {
+        if (data.requiresSubscription) {
+          toast({
+            title: "Free Test Already Attempted",
+            description: data.error || "Free test can only be attempted once. Subscribe for unlimited attempts.",
+            variant: "destructive"
+          });
+          // Navigate back to tests page
+          navigate('/student/tests');
+          return;
+        }
+        throw new Error(data.error || 'Failed to create test attempt');
+      }
+
       if (data.success) {
         setAttemptId(data.attemptId);
       }
     } catch (error) {
       console.error('Error creating test attempt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start test. Please try again.",
+        variant: "destructive"
+      });
+      navigate('/student/tests');
     }
   };
 

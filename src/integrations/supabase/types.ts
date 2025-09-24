@@ -641,8 +641,10 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          school_id: string | null
           student_class: Database["public"]["Enums"]["student_class"] | null
           updated_at: string | null
+          zone_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -654,8 +656,10 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
           updated_at?: string | null
+          zone_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -667,10 +671,26 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
           updated_at?: string | null
+          zone_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_profiles_school"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_profiles_zone"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_batch_id_fkey"
             columns: ["batch_id"]
@@ -751,42 +771,98 @@ export type Database = {
           },
         ]
       }
+      schools: {
+        Row: {
+          address: string | null
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          zone_id: string
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          zone_id: string
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_schools_zone"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_analytics: {
         Row: {
           average_score: number | null
           batch_rank: number | null
           id: string
           last_active_date: string | null
+          overall_percentile: number | null
           overall_rank: number | null
+          school_percentile: number | null
+          school_rank: number | null
           streak_days: number | null
           student_id: string
           tests_attempted: number | null
           total_study_time_minutes: number | null
           updated_at: string | null
+          zone_percentile: number | null
+          zone_rank: number | null
         }
         Insert: {
           average_score?: number | null
           batch_rank?: number | null
           id?: string
           last_active_date?: string | null
+          overall_percentile?: number | null
           overall_rank?: number | null
+          school_percentile?: number | null
+          school_rank?: number | null
           streak_days?: number | null
           student_id: string
           tests_attempted?: number | null
           total_study_time_minutes?: number | null
           updated_at?: string | null
+          zone_percentile?: number | null
+          zone_rank?: number | null
         }
         Update: {
           average_score?: number | null
           batch_rank?: number | null
           id?: string
           last_active_date?: string | null
+          overall_percentile?: number | null
           overall_rank?: number | null
+          school_percentile?: number | null
+          school_rank?: number | null
           streak_days?: number | null
           student_id?: string
           tests_attempted?: number | null
           total_study_time_minutes?: number | null
           updated_at?: string | null
+          zone_percentile?: number | null
+          zone_rank?: number | null
         }
         Relationships: []
       }
@@ -1175,11 +1251,45 @@ export type Database = {
           },
         ]
       }
+      zones: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      calculate_zone_rankings: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       can_see_question_answers: {
         Args: { question_test_id: string }
         Returns: boolean

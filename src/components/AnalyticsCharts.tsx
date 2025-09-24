@@ -74,7 +74,7 @@ const weaknessHeatmapData = [
   { topic: 'Literature', risk: 15, color: '#10b981' }
 ];
 
-const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+const COLORS = ['#3B82F6', '#1D4ED8', '#0EA5E9', '#0284C7', '#0369A1', '#075985'];
 
 interface AnalyticsChartsProps {
   activeTab: string;
@@ -105,9 +105,10 @@ const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: An
                 <Radar
                   name="Score"
                   dataKey="score"
-                  stroke="hsl(var(--primary))"
-                  fill="hsl(var(--primary))"
-                  fillOpacity={0.3}
+                  stroke="#3B82F6"
+                  fill="#3B82F6"
+                  fillOpacity={0.1}
+                  strokeWidth={3}
                 />
               </RadarChart>
             </ResponsiveContainer>
@@ -131,8 +132,10 @@ const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: An
                 <Line
                   type="monotone"
                   dataKey="score"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={3}
+                  stroke="#3B82F6"
+                  strokeWidth={4}
+                  dot={{ fill: '#3B82F6', strokeWidth: 2, r: 6 }}
+                  activeDot={{ r: 8, fill: '#1D4ED8' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -153,7 +156,7 @@ const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: An
                 <XAxis dataKey="subject" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="hours" fill="hsl(var(--primary))" />
+                <Bar dataKey="hours" fill="#3B82F6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -179,7 +182,7 @@ const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: An
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="score" stroke="hsl(var(--primary))" strokeWidth={3} />
+                <Line type="monotone" dataKey="score" stroke="#3B82F6" strokeWidth={4} dot={{ fill: '#3B82F6', strokeWidth: 2, r: 6 }} activeDot={{ r: 8, fill: '#1D4ED8' }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -199,7 +202,7 @@ const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: An
                 <XAxis dataKey="subject" />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <Bar dataKey="score" fill="hsl(var(--primary))" />
+                <Bar dataKey="score" fill="#3B82F6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -236,8 +239,10 @@ const AnalyticsCharts = ({ activeTab, subjectPerformance, performanceTrend }: An
                     <Line
                       type="monotone"
                       dataKey="rank"
-                      stroke="hsl(var(--success))"
-                      strokeWidth={3}
+                      stroke="#10B981"
+                      strokeWidth={4}
+                      dot={{ fill: '#10B981', strokeWidth: 2, r: 6 }}
+                      activeDot={{ r: 8, fill: '#059669' }}
                     />
                   </LineChart>
                 </ResponsiveContainer>

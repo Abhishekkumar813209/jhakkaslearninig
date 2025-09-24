@@ -361,9 +361,9 @@ const TestResults: React.FC = () => {
     });
 
     const pieData = [
-      { name: 'Correct', value: correct, color: '#10b981' },
-      { name: 'Wrong', value: wrong, color: '#ef4444' },
-      { name: 'Unattempted', value: unattempted, color: '#6b7280' }
+      { name: 'Correct', value: correct, color: '#3B82F6' }, // Blue
+      { name: 'Wrong', value: wrong, color: '#EF4444' },     // Red
+      { name: 'Unattempted', value: unattempted, color: '#94A3B8' } // Gray-blue
     ];
 
     const topicData = Array.from(topicPerformance.entries()).map(([topic, data]) => ({
@@ -442,7 +442,7 @@ const TestResults: React.FC = () => {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 text-gray-900">
         <div className="max-w-7xl mx-auto p-6 space-y-8">
           
           {/* Header with Trophy Animation */}
@@ -455,15 +455,15 @@ const TestResults: React.FC = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-              className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${passed ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 'bg-gradient-to-r from-red-400 to-pink-500'} text-white text-3xl font-bold shadow-2xl`}
+              className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${passed ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-red-400 to-red-500'} text-white text-3xl font-bold shadow-xl`}
             >
               {passed ? <Trophy className="h-12 w-12" /> : <Target className="h-12 w-12" />}
             </motion.div>
             
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
               Race Results 🏁
             </h1>
-            <p className="text-xl text-blue-200">{result.tests.title} • {result.tests.subject}</p>
+            <p className="text-xl text-blue-600">{result.tests.title} • {result.tests.subject}</p>
           </motion.div>
 
           {/* Score Cards */}
@@ -474,11 +474,11 @@ const TestResults: React.FC = () => {
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
             {/* Score */}
-            <Card className="bg-gradient-to-br from-green-400/20 to-blue-500/20 border-green-400/30 backdrop-blur-sm">
+            <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-200 backdrop-blur-sm shadow-xl">
               <CardContent className="p-6 text-center">
-                <Award className="h-8 w-8 mx-auto mb-4 text-yellow-400" />
-                <div className="text-5xl font-bold text-white mb-2">{result.score}/{derivedTotalMarks}</div>
-                <div className="text-3xl font-semibold text-green-400 mb-4">{safePercentage}%</div>
+                <Award className="h-8 w-8 mx-auto mb-4 text-blue-600" />
+                <div className="text-5xl font-bold text-gray-900 mb-2">{result.score}/{derivedTotalMarks}</div>
+                <div className="text-3xl font-semibold text-blue-600 mb-4">{safePercentage}%</div>
                 <Badge variant={passed ? "default" : "destructive"} className="text-lg px-4 py-2">
                   {passed ? "🏆 CHAMPION" : "🎯 KEEP RACING"}
                 </Badge>
@@ -486,17 +486,17 @@ const TestResults: React.FC = () => {
             </Card>
 
             {/* Status */}
-            <Card className={`bg-gradient-to-br ${passed ? 'from-green-500/20 to-emerald-600/20 border-green-400/30' : 'from-red-500/20 to-pink-600/20 border-red-400/30'} backdrop-blur-sm`}>
+            <Card className={`bg-gradient-to-br ${passed ? 'from-green-50 to-emerald-50 border-green-200' : 'from-red-50 to-pink-50 border-red-200'} backdrop-blur-sm shadow-xl`}>
               <CardContent className="p-6 text-center">
-                {passed ? <CheckCircle className="h-8 w-8 mx-auto mb-4 text-green-400" /> : <XCircle className="h-8 w-8 mx-auto mb-4 text-red-400" />}
-                <div className={`text-4xl font-bold mb-4 ${passed ? 'text-green-400' : 'text-red-400'}`}>
+                {passed ? <CheckCircle className="h-8 w-8 mx-auto mb-4 text-green-600" /> : <XCircle className="h-8 w-8 mx-auto mb-4 text-red-500" />}
+                <div className={`text-4xl font-bold mb-4 ${passed ? 'text-green-600' : 'text-red-500'}`}>
                   {passed ? 'VICTORY!' : 'TRY AGAIN!'}
                 </div>
                 <Progress 
                   value={safePercentage} 
                   className="h-4 mb-2"
                 />
-                <p className="text-sm text-gray-300">Target: {result.tests.passing_marks}%</p>
+                <p className="text-sm text-gray-600">Target: {result.tests.passing_marks}%</p>
               </CardContent>
             </Card>
 

@@ -339,19 +339,22 @@ export const ZoneManagement = () => {
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <Select onValueChange={(zoneId) => {
-                          const defaultSchool = schools.find(s => s.zone_id === zoneId);
-                          handleAssignStudentToZone(student.id, zoneId, defaultSchool?.id);
+                        <Select onValueChange={(value) => {
+                          const [zoneId, schoolId] = value.split('|');
+                          handleAssignStudentToZone(student.id, zoneId, schoolId);
                         }}>
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Zone" />
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Select Zone & School" />
                           </SelectTrigger>
                           <SelectContent>
-                            {zones.map((zone) => (
-                              <SelectItem key={zone.id} value={zone.id}>
-                                {zone.name}
-                              </SelectItem>
-                            ))}
+                            {zones.map((zone) => {
+                              const zoneSchools = schools.filter(s => s.zone_id === zone.id);
+                              return zoneSchools.map((school) => (
+                                <SelectItem key={`${zone.id}|${school.id}`} value={`${zone.id}|${school.id}`}>
+                                  {zone.name} - {school.name}
+                                </SelectItem>
+                              ));
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
@@ -547,9 +550,12 @@ export const ZoneManagement = () => {
         ))}
       </div>
 
-      {/* Schools Section */}
+      {/* Schools by Zone Section */}
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Schools by Zone</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold">Schools Management</h3>
+          <p className="text-sm text-muted-foreground">Each zone can have multiple schools</p>
+        </div>
         
         {zones.map((zone) => {
           const zoneSchools = schools.filter(school => school.zone_id === zone.id);
@@ -557,11 +563,18 @@ export const ZoneManagement = () => {
           return (
             <Card key={zone.id}>
               <CardHeader>
-                <CardTitle className="text-lg">{zone.name} Schools</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">{zone.name} - Schools ({zoneSchools.length})</CardTitle>
+                  <Badge variant="outline">{zone.code}</Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 {zoneSchools.length === 0 ? (
-                  <p className="text-muted-foreground">No schools in this zone</p>
+                  <div className="text-center py-8">
+                    <Building className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No schools in this zone</p>
+                    <p className="text-sm text-muted-foreground">Create a new school and assign it to {zone.name}</p>
+                  </div>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {zoneSchools.map((school) => (

@@ -410,12 +410,6 @@ export const ZoneManagement = () => {
           </Dialog>
 
           <Dialog open={isSchoolDialogOpen} onOpenChange={setIsSchoolDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" onClick={() => setEditingSchool(null)}>
-                <Building className="w-4 h-4 mr-2" />
-                Add School
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingSchool ? 'Edit School' : 'Create New School'}</DialogTitle>

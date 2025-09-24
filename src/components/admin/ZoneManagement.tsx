@@ -49,6 +49,7 @@ export const ZoneManagement = () => {
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
+  const [selectedZoneForSchool, setSelectedZoneForSchool] = useState<string | null>(null);
 
   useEffect(() => {
     fetchZonesAndSchools();
@@ -250,7 +251,7 @@ export const ZoneManagement = () => {
   const handleSaveSchool = async (formData: FormData) => {
     const name = formData.get('name') as string;
     const code = formData.get('code') as string;
-    const zoneId = formData.get('zone_id') as string;
+    const zoneId = formData.get('zone_id') as string || selectedZoneForSchool;
     const address = formData.get('address') as string;
 
     try {
@@ -275,6 +276,7 @@ export const ZoneManagement = () => {
 
       setIsSchoolDialogOpen(false);
       setEditingSchool(null);
+      setSelectedZoneForSchool(null);
       fetchZonesAndSchools();
       fetchStudents();
     } catch (error) {
@@ -439,25 +441,36 @@ export const ZoneManagement = () => {
                     id="school_code"
                     name="code"
                     defaultValue={editingSchool?.code || ''}
-                    placeholder="Enter school code"
+                    placeholder="Enter school code (e.g., SCH002)"
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="zone_select">Zone</Label>
-                  <Select name="zone_id" defaultValue={editingSchool?.zone_id || ''}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a zone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {zones.map((zone) => (
-                        <SelectItem key={zone.id} value={zone.id}>
-                          {zone.name} ({zone.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!selectedZoneForSchool && (
+                  <div>
+                    <Label htmlFor="zone_select">Zone</Label>
+                    <Select name="zone_id" defaultValue={editingSchool?.zone_id || ''}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a zone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {zones.map((zone) => (
+                          <SelectItem key={zone.id} value={zone.id}>
+                            {zone.name} ({zone.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {selectedZoneForSchool && (
+                  <div>
+                    <Label>Zone</Label>
+                    <div className="p-2 bg-muted rounded border">
+                      {zones.find(z => z.id === selectedZoneForSchool)?.name}
+                    </div>
+                    <input type="hidden" name="zone_id" value={selectedZoneForSchool} />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="address">Address</Label>
                   <Input
@@ -517,7 +530,20 @@ export const ZoneManagement = () => {
                   }}
                 >
                   <Edit className="w-4 h-4 mr-1" />
-                  Edit
+                  Edit Zone
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedZoneForSchool(zone.id);
+                    setEditingSchool(null);
+                    setIsSchoolDialogOpen(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add School
                 </Button>
                 
                 {zone.code !== 'A' && (
@@ -525,7 +551,7 @@ export const ZoneManagement = () => {
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" size="sm">
                         <Trash2 className="w-4 h-4 mr-1" />
-                        Delete
+                        Delete Zone
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -578,57 +604,68 @@ export const ZoneManagement = () => {
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {zoneSchools.map((school) => (
-                      <div key={school.id} className="p-3 border rounded-lg">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium">{school.name}</h4>
-                          <Badge variant="outline">{school.code}</Badge>
-                        </div>
-                        {school.address && (
-                          <p className="text-sm text-muted-foreground mb-2">{school.address}</p>
-                        )}
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {school.student_count} students
-                          </span>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingSchool(school);
-                                setIsSchoolDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            
-                            {school.code !== 'SCH001' && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <Trash2 className="w-3 h-3 text-red-500" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete School</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete {school.name}? All students will be moved to the default school.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteSchool(school.id)}>
-                                      Delete School
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
+                      <Card key={school.id} className="p-4 border-2 hover:border-primary/20 transition-colors">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-semibold text-lg">{school.name}</h4>
+                              <Badge variant="outline" className="text-xs">{school.code}</Badge>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingSchool(school);
+                                  setSelectedZoneForSchool(school.zone_id);
+                                  setIsSchoolDialogOpen(true);
+                                }}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              
+                              {school.code !== 'SCH001' && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                      <Trash2 className="w-4 h-4 text-red-500" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete School</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete {school.name}? All students will be moved to the default school.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteSchool(school.id)}>
+                                        Delete School
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {school.address && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">{school.address}</p>
+                          )}
+                          
+                          <div className="flex justify-between items-center pt-2 border-t">
+                            <span className="text-sm flex items-center gap-1 text-muted-foreground">
+                              <Users className="w-4 h-4" />
+                              {school.student_count} students
+                            </span>
+                            <Badge variant={school.is_active ? "default" : "secondary"}>
+                              {school.is_active ? "Active" : "Inactive"}
+                            </Badge>
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 )}

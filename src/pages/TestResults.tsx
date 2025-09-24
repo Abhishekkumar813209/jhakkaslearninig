@@ -15,11 +15,17 @@ import {
   TrendingUp,
   Users,
   Star,
-  Home
+  Home,
+  Zap,
+  Crown,
+  Rocket,
+  Car
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
+import { motion } from 'framer-motion';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface TestResult {
   id: string;
@@ -48,6 +54,7 @@ interface Question {
   correct_answer: string;
   marks: number;
   explanation?: string;
+  tags?: string[];
 }
 
 interface Answer {
@@ -61,20 +68,36 @@ interface Answer {
   questions: Question;
 }
 
+interface LeaderboardEntry {
+  student_id: string;
+  score: number;
+  time_taken_seconds: number;
+  rank: number;
+}
+
 const TestResults: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
   const [result, setResult] = useState<TestResult | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [cumulativeLeaderboard, setCumulativeLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchTestResults();
-    fetchAnswers();
-    fetchAnalytics();
+    fetchAllData();
   }, [testId]);
+
+  const fetchAllData = async () => {
+    await Promise.all([
+      fetchTestResults(),
+      fetchAnswers(),
+      fetchAnalytics(),
+      fetchLeaderboards()
+    ]);
+  };
 
   const fetchTestResults = async () => {
     try {
@@ -86,7 +109,6 @@ const TestResults: React.FC = () => {
         return;
       }
 
-      // Prefer latest SUBMITTED attempt; fallback to most recent created
       const { data: submittedAttempt, error: submittedErr } = await supabase
         .from('test_attempts')
         .select(`
@@ -146,7 +168,6 @@ const TestResults: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Prefer latest SUBMITTED attempt; fallback to most recent created
       const { data: submittedAttempt } = await supabase
         .from('test_attempts')
         .select('id, submitted_at, created_at, status')
@@ -170,14 +191,8 @@ const TestResults: React.FC = () => {
         attempt = fallbackAttempt || null;
       }
 
-      if (!attempt) {
-        console.log('No attempt found');
-        return;
-      }
+      if (!attempt) return;
 
-      console.log('Found attempt:', attempt.id);
-
-      // Fetch questions and answers separately to avoid embedding issues
       const { data: questionsData, error: qErr } = await supabase
         .from('questions')
         .select(`
@@ -188,30 +203,21 @@ const TestResults: React.FC = () => {
           correct_answer,
           marks,
           explanation,
-          order_num
+          order_num,
+          tags
         `)
         .eq('test_id', testId)
         .order('order_num', { ascending: true });
 
-      if (qErr) {
-        console.error('Error fetching questions:', qErr);
-        throw qErr;
-      }
+      if (qErr) throw qErr;
 
       const { data: answersRows, error: aErr } = await supabase
         .from('test_answers')
         .select(`id, question_id, selected_option, option_id, text_answer, is_correct, marks_awarded`)
         .eq('attempt_id', attempt.id);
 
-      if (aErr) {
-        console.error('Error fetching answers:', aErr);
-        throw aErr;
-      }
+      if (aErr) throw aErr;
 
-      console.log('Fetched questions:', questionsData);
-      console.log('Fetched answers rows:', answersRows);
-
-      // Map option_id -> option_text so we can resolve user's answer even when selected_option is null
       const optionIds = Array.from(new Set((answersRows || [])
         .map((a: any) => a.option_id)
         .filter((id: string | null) => !!id)));
@@ -230,7 +236,6 @@ const TestResults: React.FC = () => {
         (answersRows || []).map((a: any) => [a.question_id, a])
       );
 
-      // Transform data to match the expected structure
       const transformedAnswers = (questionsData || []).map((question: any) => {
         const answer = answerByQuestion.get(question.id) || null;
         const selectedText = answer?.selected_option ?? (answer?.option_id ? optionTextById.get(answer.option_id) ?? null : null);
@@ -251,7 +256,8 @@ const TestResults: React.FC = () => {
             correct_answer: question.correct_answer,
             marks: question.marks,
             explanation: question.explanation,
-            order_num: question.order_num
+            order_num: question.order_num,
+            tags: question.tags || []
           }
         };
       });
@@ -279,11 +285,95 @@ const TestResults: React.FC = () => {
 
       if (data.success) {
         setAnalytics(data.analytics);
-        console.log('Analytics data:', data.analytics);
       }
     } catch (error) {
       console.error('Error fetching analytics:', error);
     }
+  };
+
+  const fetchLeaderboards = async () => {
+    try {
+      // Individual test leaderboard
+      const { data: testLeaderboard } = await supabase
+        .from('test_attempts')
+        .select(`
+          student_id,
+          score,
+          time_taken_seconds,
+          rank
+        `)
+        .eq('test_id', testId)
+        .in('status', ['submitted', 'auto_submitted'])
+        .order('rank', { ascending: true })
+        .limit(10);
+
+      setLeaderboard(testLeaderboard || []);
+
+      // Cumulative leaderboard (from student_analytics)
+      const { data: cumulativeData } = await supabase
+        .from('student_analytics')
+        .select(`
+          student_id,
+          average_score,
+          tests_attempted,
+          overall_rank
+        `)
+        .not('overall_rank', 'is', null)
+        .order('overall_rank', { ascending: true })
+        .limit(10);
+
+      setCumulativeLeaderboard(cumulativeData || []);
+    } catch (error) {
+      console.error('Error fetching leaderboards:', error);
+    }
+  };
+
+  const getChartData = () => {
+    if (!answers.length) return { pieData: [], topicData: [] };
+
+    let correct = 0;
+    let wrong = 0;
+    let unattempted = 0;
+    
+    const topicPerformance = new Map<string, { correct: number; total: number }>();
+
+    answers.forEach(answer => {
+      if (answer.is_correct === true) {
+        correct++;
+      } else if (answer.is_correct === false) {
+        wrong++;
+      } else {
+        unattempted++;
+      }
+
+      // Topic-wise performance
+      const tags = answer.questions.tags || ['General'];
+      tags.forEach(tag => {
+        if (!topicPerformance.has(tag)) {
+          topicPerformance.set(tag, { correct: 0, total: 0 });
+        }
+        const topic = topicPerformance.get(tag)!;
+        topic.total++;
+        if (answer.is_correct === true) {
+          topic.correct++;
+        }
+      });
+    });
+
+    const pieData = [
+      { name: 'Correct', value: correct, color: '#10b981' },
+      { name: 'Wrong', value: wrong, color: '#ef4444' },
+      { name: 'Unattempted', value: unattempted, color: '#6b7280' }
+    ];
+
+    const topicData = Array.from(topicPerformance.entries()).map(([topic, data]) => ({
+      topic,
+      percentage: Math.round((data.correct / data.total) * 100),
+      correct: data.correct,
+      total: data.total
+    }));
+
+    return { pieData, topicData };
   };
 
   const formatTime = (minutes: number) => {
@@ -301,34 +391,23 @@ const TestResults: React.FC = () => {
     }
   };
 
-  const getGradeAndColor = (percentage: number) => {
-    if (percentage >= 90) return { grade: 'A+', color: 'bg-green-500', textColor: 'text-green-600' };
-    if (percentage >= 80) return { grade: 'A', color: 'bg-green-400', textColor: 'text-green-600' };
-    if (percentage >= 70) return { grade: 'B+', color: 'bg-blue-500', textColor: 'text-blue-600' };
-    if (percentage >= 60) return { grade: 'B', color: 'bg-blue-400', textColor: 'text-blue-600' };
-    if (percentage >= 50) return { grade: 'C', color: 'bg-yellow-500', textColor: 'text-yellow-600' };
-    return { grade: 'F', color: 'bg-red-500', textColor: 'text-red-600' };
-  };
-
-  const getPerformanceMessage = (percentage: number, passingMarks: number) => {
-    if (percentage >= passingMarks) {
-      if (percentage >= 90) return "Outstanding performance! 🎉";
-      if (percentage >= 80) return "Excellent work! 👏";
-      if (percentage >= 70) return "Great job! 👍";
-      return "Good work! You passed! ✅";
-    }
-    return "Keep practicing! You can do better next time! 💪";
-  };
-
   if (loading) {
     return (
       <>
         <Navbar />
-        <div className="flex items-center justify-center p-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-sm text-muted-foreground">Loading results...</p>
-          </div>
+        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center text-white"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full mx-auto mb-4"
+            />
+            <p className="text-xl">Loading your race results...</p>
+          </motion.div>
         </div>
       </>
     );
@@ -338,12 +417,14 @@ const TestResults: React.FC = () => {
     return (
       <>
         <Navbar />
-        <div className="text-center p-8">
-          <h2 className="text-2xl font-bold mb-4">Results not found</h2>
-          <Button onClick={() => navigate('/student')}>
-            <Home className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center text-white">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-4">Results not found</h2>
+            <Button onClick={() => navigate('/student')} className="bg-white text-black hover:bg-gray-200">
+              <Home className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
       </>
     );
@@ -351,391 +432,400 @@ const TestResults: React.FC = () => {
 
   const derivedTotalMarks = (result.total_marks && result.total_marks > 0) ? result.total_marks : Math.max(answers.reduce((sum, a) => sum + (a.questions?.marks || 0), 0), 0);
   const safePercentage = derivedTotalMarks > 0 ? Math.round((result.score / derivedTotalMarks) * 100) : (result.percentage || 0);
-  const { grade, color, textColor } = getGradeAndColor(safePercentage);
   const passed = safePercentage >= result.tests.passing_marks;
+  const { pieData, topicData } = getChartData();
+
+  const currentUserRank = analytics?.studentRank || 1;
+  const totalStudents = analytics?.totalStudents || 1;
+  const studentsAhead = Math.max(0, totalStudents - currentUserRank);
 
   return (
     <>
       <Navbar />
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${color} text-white text-2xl font-bold`}>
-            {passed ? <Trophy className="h-8 w-8" /> : <Target className="h-8 w-8" />}
-          </div>
-          <h1 className="text-3xl font-bold">Test Results</h1>
-          <p className="text-muted-foreground">{result.tests.title} • {result.tests.subject}</p>
-          <p className={`text-lg font-semibold ${textColor}`}>
-            {getPerformanceMessage(result.percentage, result.tests.passing_marks)}
-          </p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white">
+        <div className="max-w-7xl mx-auto p-6 space-y-8">
+          
+          {/* Header with Trophy Animation */}
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center space-y-6"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+              className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${passed ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 'bg-gradient-to-r from-red-400 to-pink-500'} text-white text-3xl font-bold shadow-2xl`}
+            >
+              {passed ? <Trophy className="h-12 w-12" /> : <Target className="h-12 w-12" />}
+            </motion.div>
+            
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+              Race Results 🏁
+            </h1>
+            <p className="text-xl text-blue-200">{result.tests.title} • {result.tests.subject}</p>
+          </motion.div>
 
-        {/* Main Results */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Score Card */}
-          <Card className="text-center">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-center gap-2">
-                <Award className="h-5 w-5" />
-                Your Score
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-4xl font-bold">{result.score}/{derivedTotalMarks}</div>
-              <div className={`text-2xl font-semibold ${textColor}`}>{safePercentage}%</div>
-              <Badge variant={passed ? "default" : "destructive"} className="text-lg px-4 py-2">
-                Grade: {grade}
-              </Badge>
-            </CardContent>
-          </Card>
+          {/* Score Cards */}
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
+            {/* Score */}
+            <Card className="bg-gradient-to-br from-green-400/20 to-blue-500/20 border-green-400/30 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <Award className="h-8 w-8 mx-auto mb-4 text-yellow-400" />
+                <div className="text-5xl font-bold text-white mb-2">{result.score}/{derivedTotalMarks}</div>
+                <div className="text-3xl font-semibold text-green-400 mb-4">{safePercentage}%</div>
+                <Badge variant={passed ? "default" : "destructive"} className="text-lg px-4 py-2">
+                  {passed ? "🏆 CHAMPION" : "🎯 KEEP RACING"}
+                </Badge>
+              </CardContent>
+            </Card>
 
-          {/* Status Card */}
-          <Card className="text-center">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-center gap-2">
-                {passed ? <CheckCircle className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
-                Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className={`text-3xl font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}>
-                {passed ? 'PASSED' : 'FAILED'}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Passing Score: {result.tests.passing_marks}%
-              </div>
-              <Progress 
-                value={safePercentage} 
-                className="h-3"
-              />
-            </CardContent>
-          </Card>
+            {/* Status */}
+            <Card className={`bg-gradient-to-br ${passed ? 'from-green-500/20 to-emerald-600/20 border-green-400/30' : 'from-red-500/20 to-pink-600/20 border-red-400/30'} backdrop-blur-sm`}>
+              <CardContent className="p-6 text-center">
+                {passed ? <CheckCircle className="h-8 w-8 mx-auto mb-4 text-green-400" /> : <XCircle className="h-8 w-8 mx-auto mb-4 text-red-400" />}
+                <div className={`text-4xl font-bold mb-4 ${passed ? 'text-green-400' : 'text-red-400'}`}>
+                  {passed ? 'VICTORY!' : 'TRY AGAIN!'}
+                </div>
+                <Progress 
+                  value={safePercentage} 
+                  className="h-4 mb-2"
+                />
+                <p className="text-sm text-gray-300">Target: {result.tests.passing_marks}%</p>
+              </CardContent>
+            </Card>
 
-          {/* Time Card */}
-          <Card className="text-center">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-center gap-2">
-                <Clock className="h-5 w-5" />
-                Time Taken
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-3xl font-bold">
-                {formatTime(
-                  result.time_taken_seconds && result.time_taken_seconds > 0 
-                    ? result.time_taken_seconds / 60 
-                    : result.time_taken_minutes
-                )}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Total Duration: {result.tests.duration_minutes}m
-              </div>
-              {analytics ? (
-                <>
-                  <div className="text-sm">Time Efficiency: {analytics.timeEfficiency}%</div>
-                  <div className="text-sm text-muted-foreground">
-                    Class Average: {formatTime(analytics.averageTime)}
-                  </div>
-                  {typeof analytics.fasterThanPercent === 'number' && (
-                    <div className="text-sm">Faster than {analytics.fasterThanPercent}% of class</div>
+            {/* Time */}
+            <Card className="bg-gradient-to-br from-purple-500/20 to-pink-600/20 border-purple-400/30 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <Clock className="h-8 w-8 mx-auto mb-4 text-purple-400" />
+                <div className="text-4xl font-bold text-white mb-2">
+                  {formatTime(
+                    result.time_taken_seconds && result.time_taken_seconds > 0 
+                      ? result.time_taken_seconds / 60 
+                      : result.time_taken_minutes
                   )}
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <div className="h-4 bg-muted animate-pulse rounded"></div>
-                  <div className="h-4 bg-muted animate-pulse rounded"></div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Analytics Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Performance Analytics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {analytics ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Accuracy */}
-                <div className="text-center space-y-2">
-                  <Target className="h-8 w-8 mx-auto text-blue-500" />
-                  <div className="text-2xl font-bold">{analytics.accuracy}%</div>
-                  <div className="text-sm text-muted-foreground">Accuracy</div>
+                <div className="text-sm text-gray-300 mb-2">
+                  Total: {result.tests.duration_minutes}m
                 </div>
-
-                {/* Questions Correct */}
-                <div className="text-center space-y-2">
-                  <CheckCircle className="h-8 w-8 mx-auto text-green-500" />
-                  <div className="text-2xl font-bold">
-                    {analytics.correctAnswers}/{analytics.totalQuestions}
+                {analytics && (
+                  <div className="text-sm text-purple-300">
+                    Faster than {analytics.fasterThanPercent}% of racers
                   </div>
-                  <div className="text-sm text-muted-foreground">Correct Answers</div>
-                </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
 
-                {/* Class Average */}
-                <div className="text-center space-y-2">
-                  <Users className="h-8 w-8 mx-auto text-purple-500" />
-                  <div className="text-2xl font-bold">{analytics.classAverage}</div>
-                  <div className="text-sm text-muted-foreground">Class Average</div>
-                </div>
+          {/* Charts Section */}
+          <motion.div 
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.6 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
+            {/* Pie Chart */}
+            <Card className="bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border-indigo-400/30 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Question Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-                {/* Rank */}
-                <div className="text-center space-y-2">
-                  <Star className="h-8 w-8 mx-auto text-yellow-500" />
-                  <div className="text-2xl font-bold">#{analytics.studentRank}</div>
-                  <div className="text-sm text-muted-foreground">
-                    out of {analytics.totalStudents} students
+            {/* Bar Chart */}
+            <Card className="bg-gradient-to-br from-teal-500/20 to-cyan-600/20 border-teal-400/30 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Topic Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={topicData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="topic" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1f2937', 
+                        border: '1px solid #374151',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar dataKey="percentage" fill="#06b6d4" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Race Track Animation */}
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+          >
+            <Card className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 border-yellow-400/30 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-white text-center text-2xl">
+                  🏁 Race Track Position
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-8">
+                {/* Track */}
+                <div className="relative h-20 bg-gray-700 rounded-full mb-6 overflow-hidden">
+                  {/* Track Lines */}
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full h-1 bg-yellow-400 opacity-50" 
+                         style={{
+                           backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 20px, #fbbf24 20px, #fbbf24 40px)'
+                         }}
+                    />
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="text-center space-y-2">
-                    <div className="h-8 w-8 mx-auto bg-muted animate-pulse rounded-full"></div>
-                    <div className="h-6 bg-muted animate-pulse rounded mx-auto w-16"></div>
-                    <div className="h-4 bg-muted animate-pulse rounded mx-auto w-20"></div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Question Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Question-by-Question Review
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {answers.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No question data available for this test attempt.</p>
-              </div>
-            ) : (
-              answers.map((answer, index) => {
-                const question = answer.questions;
-                const options = question.qtype === 'mcq' && question.options 
-                  ? (typeof question.options === 'string' ? JSON.parse(question.options) : question.options)
-                  : [];
-                
-                const isCorrect = answer.is_correct;
-                const correctOption = options.find((opt: any) => opt.isCorrect);
-
-                return (
-                  <div key={answer.id || index} className="border rounded-lg p-4 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline">Question {index + 1}</Badge>
-                          <Badge variant={isCorrect ? "default" : "destructive"}>
-                            {isCorrect ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
-                            {isCorrect ? "Correct" : "Incorrect"}
-                          </Badge>
-                          <Badge variant="outline">{question.marks} marks</Badge>
-                        </div>
-                        <h4 className="font-medium text-lg mb-3">{question.question_text}</h4>
+                  
+                  {/* Student's Car */}
+                  <motion.div
+                    initial={{ x: '-100%' }}
+                    animate={{ x: `${((totalStudents - currentUserRank) / totalStudents) * 100}%` }}
+                    transition={{ duration: 2, ease: "easeOut" }}
+                    className="absolute top-1/2 transform -translate-y-1/2 z-10"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <motion.div
+                        animate={{ y: [0, -5, 0] }}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                        className="text-3xl"
+                      >
+                        🏎️
+                      </motion.div>
+                      <div className="bg-blue-500 text-white px-2 py-1 rounded text-sm font-bold">
+                        YOU
                       </div>
                     </div>
+                  </motion.div>
 
-                    {question.qtype === 'mcq' ? (
-                      <div className="space-y-2">
-                        {options.map((option: any, optIndex: number) => {
-                          const isSelected = (answer.selected_option || '') === (option.text || '');
-                          const isCorrectOption = option.isCorrect;
-                          
-                          let bgColor = '';
-                          let textColor = '';
-                          let borderColor = '';
-                          let icon = null;
-                          let label = '';
+                  {/* Other Cars */}
+                  {[...Array(Math.min(5, currentUserRank - 1))].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ x: '-50px' }}
+                      animate={{ x: `${((totalStudents - (currentUserRank - i - 1)) / totalStudents) * 100}%` }}
+                      transition={{ duration: 2, delay: i * 0.1, ease: "easeOut" }}
+                      className="absolute top-1/2 transform -translate-y-1/2 text-2xl"
+                    >
+                      🚗
+                    </motion.div>
+                  ))}
+                </div>
 
-                          if (isSelected && isCorrectOption) {
-                            // User selected the correct answer
-                            bgColor = 'bg-green-50';
-                            borderColor = 'border-green-300';
-                            textColor = 'text-green-800';
-                            icon = <CheckCircle className="h-4 w-4 text-green-600" />;
-                            label = 'Your Answer (Correct)';
-                          } else if (isSelected && !isCorrectOption) {
-                            // User selected this wrong option - red
-                            bgColor = 'bg-red-50';
-                            borderColor = 'border-red-300';
-                            textColor = 'text-red-800';
-                            icon = <XCircle className="h-4 w-4 text-red-600" />;
-                            label = 'Your Answer (Wrong)';
-                          } else if (isCorrectOption) {
-                            // Correct answer (not selected)
-                            bgColor = 'bg-green-50';
-                            borderColor = 'border-green-300';
-                            textColor = 'text-green-800';
-                            icon = <CheckCircle className="h-4 w-4 text-green-600" />;
-                            label = 'Correct Answer';
-                          } else {
-                            // Not selected, not correct - neutral
-                            bgColor = 'bg-gray-50';
-                            borderColor = 'border-gray-200';
-                            textColor = 'text-gray-700';
-                          }
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    You are ahead of {studentsAhead} students out of {totalStudents} 🚀
+                  </h3>
+                  <p className="text-lg text-blue-300 italic">
+                    "Keep accelerating! The finish line is closer than you think."
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-                          return (
-                            <div
-                              key={optIndex}
-                              className={`flex items-center justify-between p-3 rounded-lg border-2 ${bgColor} ${borderColor} ${textColor}`}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <span className="font-bold min-w-[24px]">
-                                  {String.fromCharCode(65 + optIndex)}.
-                                </span>
-                                <span className="flex-1">{option.text}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {label && (
-                                  <Badge 
-                                    variant={isCorrectOption ? "default" : "destructive"}
-                                    className={isCorrectOption ? "bg-green-600" : "bg-red-600"}
-                                  >
-                                    {label}
-                                  </Badge>
-                                )}
-                                {icon}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        
-                        {/* Summary line showing user's choice vs correct */}
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="text-sm">
-                            <div className="flex items-center justify-between">
-                              <span>
-                                <strong>Your Answer:</strong> {answer.selected_option ?? 'Not answered'}
-                              </span>
-                              <span>
-                                <strong>Correct Answer:</strong> {correctOption?.text ?? 'N/A'}
-                              </span>
-                            </div>
-                            <div className="mt-2 text-center">
-                              {isCorrect ? (
-                                <span className="text-green-700 font-medium">✅ Correct! Well done!</span>
-                              ) : (
-                                <span className="text-red-700 font-medium">❌ Incorrect. Review the correct answer above.</span>
-                              )}
-                            </div>
-                          </div>
+          {/* Leaderboards */}
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1.2 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
+            {/* Individual Test Leaderboard */}
+            <Card className="bg-gradient-to-br from-yellow-500/20 to-orange-600/20 border-yellow-400/30 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Test Champions 🏆
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {leaderboard.slice(0, 10).map((entry, index) => (
+                    <div 
+                      key={entry.student_id}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        entry.student_id === result.student_id 
+                          ? 'bg-blue-500/30 border border-blue-400' 
+                          : 'bg-gray-700/30'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0 ? 'bg-yellow-500 text-black' :
+                          index === 1 ? 'bg-gray-400 text-black' :
+                          index === 2 ? 'bg-amber-600 text-black' : 'bg-gray-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">
+                            Student #{entry.student_id.slice(-4)}
+                          </p>
+                          <p className="text-sm text-gray-300">
+                            {entry.score} points • {Math.round(entry.time_taken_seconds / 60)}m
+                          </p>
                         </div>
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Your Answer:</label>
-                          <div className="p-3 bg-gray-50 border rounded-lg">
-                            {answer.text_answer || "No answer provided"}
-                          </div>
+                      {index < 3 && (
+                        <div className="text-xl">
+                          {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
                         </div>
-                        {question.correct_answer && (
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium text-green-700">Sample Answer:</label>
-                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                              {question.correct_answer}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {question.explanation && (
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <div className="text-blue-600 mt-0.5">💡</div>
-                          <div>
-                            <p className="font-medium text-blue-800 text-sm">Explanation:</p>
-                            <p className="text-blue-700 text-sm mt-1">{question.explanation}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-                      <span>Points Earned: {answer.marks_awarded}/{question.marks}</span>
-                      {question.qtype === 'mcq' && correctOption && (
-                        <span>Correct Answer: {correctOption.text}</span>
                       )}
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Submission Insights */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Submission Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {analytics ? (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <span>You submitted at</span>
-                  <div className="flex items-center gap-2">
-                    <Progress value={Math.min(100, Math.round(((analytics.studentTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
-                    <span className="text-sm">
-                      {formatTime(analytics.studentTime)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Class average submission</span>
-                  <div className="flex items-center gap-2">
-                    <Progress value={Math.min(100, Math.round(((analytics.averageTime || 0) / (analytics.testDuration || result.tests.duration_minutes)) * 100))} className="w-40" />
-                    <span className="text-sm">
-                      {formatTime(analytics.averageTime)}
-                    </span>
-                  </div>
-                </div>
-                {typeof analytics.fasterThanPercent === 'number' && (
-                  <div className="text-sm text-muted-foreground">You were faster than {analytics.fasterThanPercent}% of the class</div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {[...Array(2)].map((_, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="h-4 bg-muted animate-pulse rounded w-40"></div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-40 h-3 bg-muted animate-pulse rounded"></div>
-                      <div className="h-4 bg-muted animate-pulse rounded w-10"></div>
+            {/* Cumulative Leaderboard */}
+            <Card className="bg-gradient-to-br from-purple-500/20 to-pink-600/20 border-purple-400/30 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Crown className="h-5 w-5" />
+                  Overall Champions 👑
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {cumulativeLeaderboard.slice(0, 10).map((entry, index) => (
+                    <div 
+                      key={entry.student_id}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        entry.student_id === result.student_id 
+                          ? 'bg-purple-500/30 border border-purple-400' 
+                          : 'bg-gray-700/30'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0 ? 'bg-purple-500 text-white' :
+                          index === 1 ? 'bg-pink-400 text-white' :
+                          index === 2 ? 'bg-indigo-500 text-white' : 'bg-gray-600'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">
+                            Student #{entry.student_id.slice(-4)}
+                          </p>
+                          <p className="text-sm text-gray-300">
+                            Avg: {entry.average_score}% • {entry.tests_attempted} tests
+                          </p>
+                        </div>
+                      </div>
+                      {index < 3 && (
+                        <div className="text-xl">
+                          {index === 0 ? '👑' : index === 1 ? '⭐' : '🌟'}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button onClick={() => navigate('/student')} variant="outline" size="lg">
-            <Home className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <Button onClick={() => navigate(`/test/${testId}`)} size="lg">
-            <Target className="h-4 w-4 mr-2" />
-            Retake Test
-          </Button>
+          {/* Call to Action */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.5 }}
+            className="text-center"
+          >
+            <Card className="bg-gradient-to-r from-orange-500/20 to-red-600/20 border-orange-400/30 backdrop-blur-sm">
+              <CardContent className="p-8">
+                <h2 className="text-3xl font-bold text-white mb-4">
+                  Want to boost your rank and win the race? 🏁
+                </h2>
+                <p className="text-xl text-orange-200 mb-6">
+                  Unlock your personalized roadmap + premium test series now.
+                </p>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button 
+                    size="lg" 
+                    className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-4 px-8 text-xl shadow-2xl"
+                    onClick={() => navigate('/student')}
+                  >
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="mr-2"
+                    >
+                      🏆
+                    </motion.div>
+                    Subscribe Now & Accelerate!
+                    <Rocket className="ml-2 h-6 w-6" />
+                  </Button>
+                </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Action Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.8 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+          >
+            <Button 
+              onClick={() => navigate('/student')}
+              variant="outline"
+              size="lg"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+            >
+              <Home className="h-5 w-5 mr-2" />
+              Back to Dashboard
+            </Button>
+            <Button 
+              onClick={() => window.location.reload()}
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Zap className="h-5 w-5 mr-2" />
+              Try Another Test
+            </Button>
+          </motion.div>
+
         </div>
       </div>
     </>

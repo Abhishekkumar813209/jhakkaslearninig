@@ -72,7 +72,12 @@ const OnlineTestInterface: React.FC = () => {
   }, [testId]);
 
   useEffect(() => {
-    if (test && timeRemaining > 0) {
+    if (!test) return;
+    // Clear any existing intervals before starting new ones
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (autoSaveRef.current) clearInterval(autoSaveRef.current);
+
+    if (timeRemaining > 0) {
       startTimer();
       startAutoSave();
     }
@@ -80,7 +85,7 @@ const OnlineTestInterface: React.FC = () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (autoSaveRef.current) clearInterval(autoSaveRef.current);
     };
-  }, [test, timeRemaining]);
+  }, [test]);
 
   const fetchTestData = async () => {
     try {
@@ -103,8 +108,8 @@ const OnlineTestInterface: React.FC = () => {
         setQuestions(questionsData);
         setTimeRemaining(testData.duration_minutes * 60); // Convert to seconds
         
-        // Create test attempt
-        await createTestAttempt(testData.id);
+        // Create test attempt with correct total marks
+        await createTestAttempt(testData.id, testData.total_marks);
       }
     } catch (error) {
       console.error('Error fetching test data:', error);
@@ -119,13 +124,13 @@ const OnlineTestInterface: React.FC = () => {
     }
   };
 
-  const createTestAttempt = async (testId: string) => {
+  const createTestAttempt = async (testId: string, totalMarks: number) => {
     try {
       const { data, error } = await supabase.functions.invoke('test-attempt-api', {
         body: { 
           action: 'createAttempt',
           testId,
-          totalMarks: test?.total_marks || 0
+          totalMarks
         }
       });
 
@@ -231,7 +236,9 @@ const OnlineTestInterface: React.FC = () => {
         body: {
           action: 'submitAttempt',
           attemptId,
-          timeTakenMinutes: Math.ceil((test!.duration_minutes * 60 - timeRemaining) / 60)
+          answers: Object.values(answers),
+          timeTaken: Math.max(0, (test!.duration_minutes * 60) - timeRemaining),
+          autoSubmitted: autoSubmit
         }
       });
 

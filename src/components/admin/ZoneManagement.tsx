@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Users, Building } from 'lucide-react';
+import { Plus, Edit, Users, Building, Trash2, UserCheck, ArrowRight } from 'lucide-react';
 
 interface Zone {
   id: string;
@@ -30,17 +31,28 @@ interface School {
   student_count?: number;
 }
 
+interface Student {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  zone_name?: string;
+  school_name?: string;
+}
+
 export const ZoneManagement = () => {
   const [zones, setZones] = useState<Zone[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSchoolDialogOpen, setIsSchoolDialogOpen] = useState(false);
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
 
   useEffect(() => {
     fetchZonesAndSchools();
+    fetchStudents();
   }, []);
 
   const fetchZonesAndSchools = async () => {
@@ -86,6 +98,117 @@ export const ZoneManagement = () => {
       toast.error('Failed to load zones and schools');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const { data: studentsData, error } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          email,
+          zones!fk_profiles_zone(name),
+          schools!fk_profiles_school(name)
+        `)
+        .not('id', 'is', null);
+
+      if (error) throw error;
+
+      const processedStudents = studentsData?.map(student => ({
+        ...student,
+        zone_name: student.zones?.name || 'No Zone',
+        school_name: student.schools?.name || 'No School'
+      })) || [];
+
+      setStudents(processedStudents);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+  };
+
+  const handleDeleteZone = async (zoneId: string) => {
+    try {
+      // First move all students from this zone to Zone A
+      const zoneA = zones.find(z => z.code === 'A');
+      if (zoneA && zoneA.id !== zoneId) {
+        await supabase
+          .from('profiles')
+          .update({ zone_id: zoneA.id })
+          .eq('zone_id', zoneId);
+      }
+
+      // Delete the zone
+      const { error } = await supabase
+        .from('zones')
+        .delete()
+        .eq('id', zoneId);
+
+      if (error) throw error;
+
+      toast.success('Zone deleted successfully');
+      fetchZonesAndSchools();
+      fetchStudents();
+    } catch (error) {
+      console.error('Error deleting zone:', error);
+      toast.error('Failed to delete zone');
+    }
+  };
+
+  const handleDeleteSchool = async (schoolId: string) => {
+    try {
+      // First move all students from this school to default school
+      const defaultSchool = schools.find(s => s.code === 'SCH001');
+      if (defaultSchool && defaultSchool.id !== schoolId) {
+        await supabase
+          .from('profiles')
+          .update({ school_id: defaultSchool.id })
+          .eq('school_id', schoolId);
+      }
+
+      // Delete the school
+      const { error } = await supabase
+        .from('schools')
+        .delete()
+        .eq('id', schoolId);
+
+      if (error) throw error;
+
+      toast.success('School deleted successfully');
+      fetchZonesAndSchools();
+      fetchStudents();
+    } catch (error) {
+      console.error('Error deleting school:', error);
+      toast.error('Failed to delete school');
+    }
+  };
+
+  const handleAssignStudentToZone = async (studentId: string, zoneId: string, schoolId?: string) => {
+    try {
+      const updateData: any = { zone_id: zoneId };
+      if (schoolId) {
+        updateData.school_id = schoolId;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', studentId);
+
+      if (error) throw error;
+
+      // Recalculate rankings
+      const { error: rankingError } = await supabase.rpc('calculate_zone_rankings');
+      if (rankingError) console.error('Error recalculating rankings:', rankingError);
+
+      toast.success('Student assigned successfully');
+      fetchZonesAndSchools();
+      fetchStudents();
+      setIsStudentDialogOpen(false);
+    } catch (error) {
+      console.error('Error assigning student:', error);
+      toast.error('Failed to assign student');
     }
   };
 
@@ -153,6 +276,7 @@ export const ZoneManagement = () => {
       setIsSchoolDialogOpen(false);
       setEditingSchool(null);
       fetchZonesAndSchools();
+      fetchStudents();
     } catch (error) {
       console.error('Error saving school:', error);
       toast.error('Failed to save school');
@@ -173,7 +297,7 @@ export const ZoneManagement = () => {
       if (rankingError) console.error('Error recalculating rankings:', rankingError);
 
       toast.success('Students moved successfully');
-      fetchZonesAndSchools();
+      fetchStudents();
     } catch (error) {
       console.error('Error moving students:', error);
       toast.error('Failed to move students');
@@ -192,6 +316,52 @@ export const ZoneManagement = () => {
           <p className="text-muted-foreground">Manage student zones and schools</p>
         </div>
         <div className="flex gap-2">
+          <Dialog open={isStudentDialogOpen} onOpenChange={setIsStudentDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="secondary">
+                <UserCheck className="w-4 h-4 mr-2" />
+                Assign Students
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Assign Students to Zones & Schools</DialogTitle>
+              </DialogHeader>
+              <div className="max-h-96 overflow-y-auto">
+                <div className="space-y-3">
+                  {students.map((student) => (
+                    <div key={student.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">{student.full_name || 'Unnamed Student'}</h4>
+                        <p className="text-sm text-muted-foreground">{student.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Current: {student.zone_name} - {student.school_name}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Select onValueChange={(zoneId) => {
+                          const defaultSchool = schools.find(s => s.zone_id === zoneId);
+                          handleAssignStudentToZone(student.id, zoneId, defaultSchool?.id);
+                        }}>
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Zone" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {zones.map((zone) => (
+                              <SelectItem key={zone.id} value={zone.id}>
+                                {zone.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditingZone(null)}>
@@ -346,6 +516,31 @@ export const ZoneManagement = () => {
                   <Edit className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
+                
+                {zone.code !== 'A' && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Zone</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete {zone.name}? All students will be moved to Zone A.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDeleteZone(zone.id)}>
+                          Delete Zone
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -383,16 +578,42 @@ export const ZoneManagement = () => {
                             <Users className="w-3 h-3" />
                             {school.student_count} students
                           </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingSchool(school);
-                              setIsSchoolDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingSchool(school);
+                                setIsSchoolDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            
+                            {school.code !== 'SCH001' && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Trash2 className="w-3 h-3 text-red-500" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete School</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete {school.name}? All students will be moved to the default school.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteSchool(school.id)}>
+                                      Delete School
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

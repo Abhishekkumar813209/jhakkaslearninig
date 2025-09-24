@@ -29,6 +29,7 @@ import TestResults from "./pages/TestResults";
 import Student from "./pages/Student";
 import StudentGuidedPaths from "./pages/StudentGuidedPaths";
 import CompleteProfile from "./pages/CompleteProfile";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -40,29 +41,113 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Index />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/admin/courses" element={<AdminCourses />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/quiz" element={<Quiz />} />
             <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/tests" element={<Tests />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/fees" element={<FeesManagement />} />
-            <Route path="/admin/test-builder/:testId" element={<TestBuilderPortal />} />
-            <Route path="/student/test/:testId" element={<OnlineTestInterface />} />
-            <Route path="/student" element={<Student />} />
-            <Route path="/student/guided-paths" element={<StudentGuidedPaths />} />
-            <Route path="/student/tests" element={<StudentTests />} />
-            <Route path="/complete-profile" element={<CompleteProfile />} />
-            <Route path="/student-tests" element={<StudentTests />} />
-            <Route path="/test/:testId" element={<TakeTest />} />
-            <Route path="/test/:testId/results" element={<TestResults />} />
+            
+            {/* Profile completion route - requires auth but not complete profile */}
+            <Route path="/complete-profile" element={
+              <ProtectedRoute requireAuth={true} requireProfileComplete={false}>
+                <CompleteProfile />
+              </ProtectedRoute>
+            } />
+            
+            {/* Student routes - require complete profile */}
+            <Route path="/courses" element={
+              <ProtectedRoute>
+                <Courses />
+              </ProtectedRoute>
+            } />
+            <Route path="/tests" element={
+              <ProtectedRoute>
+                <Tests />
+              </ProtectedRoute>
+            } />
+            <Route path="/student" element={
+              <ProtectedRoute>
+                <Student />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/guided-paths" element={
+              <ProtectedRoute>
+                <StudentGuidedPaths />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/tests" element={
+              <ProtectedRoute>
+                <StudentTests />
+              </ProtectedRoute>
+            } />
+            <Route path="/student-tests" element={
+              <ProtectedRoute>
+                <StudentTests />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/test/:testId" element={
+              <ProtectedRoute>
+                <OnlineTestInterface />
+              </ProtectedRoute>
+            } />
+            <Route path="/test/:testId" element={
+              <ProtectedRoute>
+                <TakeTest />
+              </ProtectedRoute>
+            } />
+            <Route path="/test/:testId/results" element={
+              <ProtectedRoute>
+                <TestResults />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/analytics" element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/leaderboard" element={
+              <ProtectedRoute>
+                <Leaderboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin routes - require admin access */}
+            <Route path="/admin" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/courses" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <AdminCourses />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/test-builder/:testId" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <TestBuilderPortal />
+              </ProtectedRoute>
+            } />
+            <Route path="/fees" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <FeesManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/quiz" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <Quiz />
+              </ProtectedRoute>
+            } />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

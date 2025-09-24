@@ -33,43 +33,6 @@ const StudentGuidedPaths = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Show profile completion message if not completed
-  if (!profile?.student_class || !profile?.education_board) {
-    return (
-      <>
-        <SEOHead 
-          title="Guided Learning Paths - Complete Profile Required"
-          description="Complete your profile to access personalized guided learning paths and structured education content."
-          keywords="guided learning, profile completion, structured education"
-          noIndex={true}
-        />
-        <div className="min-h-screen bg-background">
-          <Navbar />
-          <div className="container mx-auto px-4 py-6">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-foreground mb-2">Guided Learning Paths</h1>
-              <p className="text-muted-foreground">Complete your profile to access learning paths</p>
-            </div>
-            
-            <Card className="max-w-2xl mx-auto">
-              <CardContent className="text-center py-12">
-                <User className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
-                <h3 className="text-xl font-semibold mb-4">Complete Your Profile First</h3>
-                <p className="text-muted-foreground mb-6">
-                  To access guided learning paths tailored to your academic level, please complete your profile by setting your class and education board.
-                </p>
-                <Button onClick={() => navigate('/complete-profile')} className="w-full max-w-xs">
-                  <User className="h-4 w-4 mr-2" />
-                  Complete Profile
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <SEOHead 

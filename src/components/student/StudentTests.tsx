@@ -39,7 +39,7 @@ const StudentTests: React.FC = () => {
 
   useEffect(() => {
     fetchAvailableTests();
-  }, [profile]);
+  }, []);
 
   const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
     const script = document.createElement('script');
@@ -107,13 +107,6 @@ const StudentTests: React.FC = () => {
   const fetchAvailableTests = async () => {
     try {
       setLoading(true);
-      
-      // Check if user has completed profile (class and board set)
-      if (!profile?.student_class || !profile?.education_board) {
-        setTests([]);
-        setLoading(false);
-        return;
-      }
 
       // Use tests-api which automatically filters by class/board for students
       // Order by creation date (newest first) so oldest test is last in array
@@ -178,32 +171,6 @@ const StudentTests: React.FC = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-2 text-sm text-muted-foreground">Loading available tests...</p>
         </div>
-      </div>
-    );
-  }
-
-  // Show profile completion message if not completed
-  if (!profile?.student_class || !profile?.education_board) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Available Tests</h1>
-          <p className="text-muted-foreground">Practice tests and assessments to enhance your learning</p>
-        </div>
-        
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="text-center py-12">
-            <User className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
-            <h3 className="text-xl font-semibold mb-4">Complete Your Profile First</h3>
-            <p className="text-muted-foreground mb-6">
-              To see tests relevant to your academic level, please complete your profile by setting your class and education board.
-            </p>
-            <Button onClick={() => navigate('/complete-profile')} className="w-full max-w-xs">
-              <User className="h-4 w-4 mr-2" />
-              Complete Profile
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }

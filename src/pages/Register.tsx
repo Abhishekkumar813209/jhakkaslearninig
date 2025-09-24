@@ -70,7 +70,7 @@ const Register = () => {
         title: 'Registration Successful!',
         description: 'Your account has been created successfully.',
       });
-      navigate('/login');
+      navigate('/complete-profile');
     } catch (error: any) {
       // Fallback to direct Supabase auth
       const { error: authError } = await supabase.auth.signUp({
@@ -97,7 +97,7 @@ const Register = () => {
           title: 'Registration Successful!',
           description: 'Please check your email to verify your account.',
         });
-        navigate('/login');
+        navigate('/complete-profile');
       }
     }
 

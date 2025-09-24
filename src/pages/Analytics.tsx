@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { RefreshCw, TrendingUp, Clock, Target, Award, BookOpen, Users, Brain } from 'lucide-react';
+import { RefreshCw, TrendingUp, Clock, Target, Award, BookOpen, Users, Brain, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import AnalyticsCharts from '@/components/AnalyticsCharts';
@@ -16,6 +16,8 @@ import { useSubscription } from '@/hooks/useSubscription';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
 import PremiumFeatureLock from '@/components/common/PremiumFeatureLock';
 import { useToast } from '@/hooks/use-toast';
+import { useProfile } from '@/hooks/useProfile';
+import { useNavigate } from 'react-router-dom';
 
 const Analytics = () => {
   const [selectedStudent, setSelectedStudent] = useState('550e8400-e29b-41d4-a716-446655440001');
@@ -26,6 +28,8 @@ const Analytics = () => {
   const [leaderboardData, setLeaderboardData] = useState<any>(null);
   const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus } = useSubscription();
   const { toast } = useToast();
+  const { profile } = useProfile();
+  const navigate = useNavigate();
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -58,6 +62,43 @@ const Analytics = () => {
     fetchAnalytics();
     fetchLeaderboard();
   }, [selectedStudent, timeframe]);
+
+  // Show profile completion message if not completed
+  if (!profile?.student_class || !profile?.education_board) {
+    return (
+      <>
+        <SEOHead 
+          title="Analytics - Complete Profile Required"
+          description="Complete your profile to access personalized analytics and performance tracking."
+          keywords="student analytics, profile completion, learning insights"
+          noIndex={true}
+        />
+        <div className="min-h-screen bg-background">
+          <Navbar />
+          <div className="container mx-auto p-6 space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+              <p className="text-muted-foreground">Complete your profile to access analytics</p>
+            </div>
+            
+            <Card className="max-w-2xl mx-auto">
+              <CardContent className="text-center py-12">
+                <User className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
+                <h3 className="text-xl font-semibold mb-4">Complete Your Profile First</h3>
+                <p className="text-muted-foreground mb-6">
+                  To access personalized analytics and performance insights, please complete your profile by setting your class and education board.
+                </p>
+                <Button onClick={() => navigate('/complete-profile')} className="w-full max-w-xs">
+                  <User className="h-4 w-4 mr-2" />
+                  Complete Profile
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!hasActiveSubscription) {
     return (

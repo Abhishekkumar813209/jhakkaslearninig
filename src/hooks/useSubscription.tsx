@@ -151,17 +151,14 @@ export const useSubscription = () => {
   };
 
   const checkTestAccess = () => {
-    const { hasActiveSubscription, hasFreeTestUsed } = subscriptionStatus;
+    const { hasActiveSubscription } = subscriptionStatus;
     
     if (hasActiveSubscription) {
       return { canTakeTest: true, isFreeTrial: false };
     }
     
-    if (!hasFreeTestUsed) {
-      return { canTakeTest: true, isFreeTrial: true };
-    }
-    
-    return { canTakeTest: false, isFreeTrial: false };
+    // Allow unlimited free tests for now (development mode)
+    return { canTakeTest: true, isFreeTrial: true };
   };
 
   const checkRoadmapAccess = () => {

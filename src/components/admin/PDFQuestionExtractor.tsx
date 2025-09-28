@@ -41,7 +41,8 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCropMode, setIsCropMode] = useState(false);
   
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const cropRectRef = useRef<Rect | null>(null);
   const pageCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -76,30 +77,40 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
 
   // Render PDF page
   const renderPage = async () => {
-    if (!pdfDoc || !canvasRef.current) return;
+    if (!pdfDoc || !baseCanvasRef.current) return;
 
     try {
       const page = await pdfDoc.getPage(currentPage);
       const viewport = page.getViewport({ scale });
       
-      const canvas = canvasRef.current;
+      const canvas = baseCanvasRef.current;
       const context = canvas.getContext('2d');
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
       const renderContext = {
-        canvasContext: context,
+        canvasContext: context as any,
         viewport: viewport,
-      };
+      } as any;
 
       await page.render(renderContext).promise;
       
-      // Store the page canvas for cropping
+      // Keep an offscreen copy for cropping
       if (pageCanvasRef.current) {
         pageCanvasRef.current.width = canvas.width;
         pageCanvasRef.current.height = canvas.height;
         const pageCtx = pageCanvasRef.current.getContext('2d');
         pageCtx?.drawImage(canvas, 0, 0);
+      }
+
+      // Sync overlay canvas size with base canvas
+      if (overlayCanvasRef.current) {
+        overlayCanvasRef.current.width = canvas.width;
+        overlayCanvasRef.current.height = canvas.height;
+        try {
+          (fabricCanvasRef.current as any)?.setDimensions?.({ width: canvas.width, height: canvas.height });
+          (fabricCanvasRef.current as any)?.renderAll?.();
+        } catch {}
       }
 
     } catch (error) {
@@ -110,14 +121,21 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
 
   // Initialize Fabric canvas for cropping
   const initializeCropCanvas = () => {
-    if (!canvasRef.current || fabricCanvasRef.current) return;
+    if (!overlayCanvasRef.current || fabricCanvasRef.current) return;
 
-    const fabricCanvas = new FabricCanvas(canvasRef.current, {
+    // Match overlay size with base canvas
+    if (baseCanvasRef.current) {
+      overlayCanvasRef.current.width = baseCanvasRef.current.width;
+      overlayCanvasRef.current.height = baseCanvasRef.current.height;
+    }
+
+    const fabricCanvas = new FabricCanvas(overlayCanvasRef.current as HTMLCanvasElement, {
       selection: false,
       preserveObjectStacking: true,
-    });
+      backgroundColor: 'rgba(0,0,0,0)'
+    } as any);
 
-    fabricCanvasRef.current = fabricCanvas;
+    fabricCanvasRef.current = fabricCanvas as any;
 
     // Create crop rectangle
     const cropRect = new Rect({
@@ -133,11 +151,11 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       cornerSize: 8,
       transparentCorners: false,
       hasRotatingPoint: false,
-    });
+    } as any);
 
-    fabricCanvas.add(cropRect);
-    cropRectRef.current = cropRect;
-    fabricCanvas.setActiveObject(cropRect);
+    fabricCanvas.add(cropRect as any);
+    cropRectRef.current = cropRect as any;
+    (fabricCanvas as any).setActiveObject(cropRect);
   };
 
   // Toggle crop mode
@@ -153,6 +171,13 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
         cropRectRef.current = null;
+      }
+      // Clear overlay canvas
+      if (overlayCanvasRef.current) {
+        const octx = overlayCanvasRef.current.getContext('2d');
+        if (octx) {
+          octx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
+        }
       }
       renderPage();
     }
@@ -375,10 +400,14 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
                 </div>
               ) : (
                 <div className="flex justify-center">
-                  <div className="border shadow-lg bg-white">
+                  <div className="relative border shadow-lg bg-white inline-block">
+                    {/* Base PDF canvas */}
+                    <canvas ref={baseCanvasRef} className="block" />
+                    {/* Overlay crop canvas */}
                     <canvas
-                      ref={canvasRef}
-                      className={`block ${isCropMode ? 'cursor-crosshair' : ''}`}
+                      ref={overlayCanvasRef}
+                      className={`absolute inset-0 ${isCropMode ? 'cursor-crosshair' : 'pointer-events-none'}`}
+                      style={{ background: 'transparent' }}
                     />
                   </div>
                 </div>

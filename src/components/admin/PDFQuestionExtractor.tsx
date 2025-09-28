@@ -110,6 +110,17 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         try {
           (fabricCanvasRef.current as any)?.setDimensions?.({ width: canvas.width, height: canvas.height });
           (fabricCanvasRef.current as any)?.renderAll?.();
+
+          const wrapper = ((fabricCanvasRef.current as any)?.upperCanvasEl?.parentElement) as HTMLElement | null;
+          if (wrapper) {
+            wrapper.style.width = `${canvas.width}px`;
+            wrapper.style.height = `${canvas.height}px`;
+            wrapper.style.position = 'absolute';
+            wrapper.style.top = '0';
+            wrapper.style.left = '0';
+            wrapper.style.zIndex = '30';
+            wrapper.style.pointerEvents = 'auto';
+          }
         } catch {}
       }
 
@@ -148,6 +159,23 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     } as any);
 
     fabricCanvasRef.current = fabricCanvas as any;
+
+    // Ensure Fabric wrapper overlays the PDF canvas
+    const wrapper = ((fabricCanvas as any).upperCanvasEl?.parentElement || (overlayCanvasRef.current?.parentElement)) as HTMLElement | null;
+    if (wrapper) {
+      if (baseCanvasRef.current) {
+        const w = baseCanvasRef.current.width;
+        const h = baseCanvasRef.current.height;
+        wrapper.style.width = `${w}px`;
+        wrapper.style.height = `${h}px`;
+      }
+      wrapper.style.position = 'absolute';
+      wrapper.style.top = '0';
+      wrapper.style.left = '0';
+      wrapper.style.zIndex = '30';
+      wrapper.style.pointerEvents = 'auto';
+    }
+
 
     // Create crop rectangle
     const cropRect = new Rect({

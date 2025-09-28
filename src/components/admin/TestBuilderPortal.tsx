@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +80,7 @@ const TestBuilderPortal: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
+  const ocrInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const [newQuestion, setNewQuestion] = useState<Question>({
@@ -569,74 +570,99 @@ const TestBuilderPortal: React.FC = () => {
   const processImageWithOCR = async (file: File) => {
     setOcrProcessing(true);
     try {
+      const preprocessImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.onload = () => {
+            const maxSide = 1600;
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
+            if (width > maxSide || height > maxSide) {
+              const scale = Math.min(maxSide / width, maxSide / height);
+              width = Math.round(width * scale);
+              height = Math.round(height * scale);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('Canvas not supported'));
+            ctx.drawImage(img, 0, 0, width, height);
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            const contrast = 1.4;
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i], g = data[i+1], b = data[i+2];
+              let v = 0.299*r + 0.587*g + 0.114*b;
+              v = (v/255 - 0.5) * contrast + 0.5;
+              v = Math.max(0, Math.min(1, v));
+              const vi = Math.round(v * 255);
+              data[i] = data[i+1] = data[i+2] = vi;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            URL.revokeObjectURL(url);
+            resolve(dataUrl);
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+      };
+
+      const imageDataUrl = await preprocessImage(file);
       const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng');
-      
-      const { data: { text } } = await worker.recognize(file);
+      const worker: any = await (createWorker as any)();
+      if (worker.loadLanguage) {
+        await worker.loadLanguage('eng');
+        await worker.initialize('eng');
+        if (worker.setParameters) {
+          await worker.setParameters({ tessedit_pageseg_mode: '6' });
+        }
+      }
+      const { data: { text } } = await worker.recognize(imageDataUrl);
       await worker.terminate();
-      
-      // Parse the extracted text to identify question and options
-      const lines = text.split('\n').filter(line => line.trim().length > 0);
-      
+
+      const cleaned = (text || '').replace(/\r/g, '').trim();
+      const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
+
       let questionText = '';
-      let options: { text: string; isCorrect: boolean }[] = [];
-      let currentSection = 'question';
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Check if line looks like an option (starts with A, B, C, D or a), b), c), d) or 1, 2, 3, 4)
-        const optionMatch = line.match(/^[A-Da-d1-4][.\)\s]/);
-        
-        if (optionMatch && currentSection === 'question') {
-          currentSection = 'options';
-        }
-        
-        if (currentSection === 'question') {
+      const options: { text: string; isCorrect: boolean }[] = [];
+      let inOptions = false;
+      const optionRegex = /^([A-Da-d]|[1-4])[\.\)]\s*(.+)$/;
+
+      for (const line of lines) {
+        const m = line.match(optionRegex);
+        if (m) {
+          inOptions = true;
+          const optText = m[2].trim();
+          options.push({ text: optText, isCorrect: options.length === 0 });
+        } else if (!inOptions) {
           questionText += (questionText ? ' ' : '') + line;
-        } else if (currentSection === 'options' && optionMatch) {
-          const optionText = line.replace(/^[A-Da-d1-4][.\)\s]/, '').trim();
-          if (optionText) {
-            options.push({
-              text: optionText,
-              isCorrect: options.length === 0 // First option as correct by default
-            });
-          }
         }
       }
-      
-      // If no clear options found, create default empty options
-      if (options.length === 0) {
-        options = [
-          { text: '', isCorrect: true },
-          { text: '', isCorrect: false },
-          { text: '', isCorrect: false },
-          { text: '', isCorrect: false }
-        ];
+
+      while (options.length < 4) {
+        options.push({ text: '', isCorrect: false });
       }
-      
-      // Update the form with extracted data
+
       setNewQuestion(prev => ({
         ...prev,
         question_text: questionText || 'Question extracted from image',
-        options: options.length >= 4 ? options : [
-          ...options,
-          ...Array(4 - options.length).fill({ text: '', isCorrect: false })
-        ],
+        options,
         question_type: 'mcq' as const
       }));
-      
+
       toast({
-        title: "Success",
-        description: `Question extracted from image! Found ${options.filter(o => o.text).length} options.`,
+        title: 'Success',
+        description: 'Image parsed into question & options.'
       });
-      
     } catch (error) {
       console.error('OCR Error:', error);
       toast({
-        title: "Error",
-        description: "Failed to extract text from image. Please try again.",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Failed to extract text from image. Please try again.',
+        variant: 'destructive'
       });
     } finally {
       setOcrProcessing(false);
@@ -750,25 +776,25 @@ const TestBuilderPortal: React.FC = () => {
           <Wand2 className={`h-4 w-4 mr-2 ${aiGenerating ? 'animate-spin' : ''}`} />
           {aiGenerating ? 'Generating...' : 'AI Generate'}
         </Button>
-        <Button variant="outline" disabled={ocrProcessing}>
-          <Label htmlFor="ocr-upload" className="cursor-pointer flex items-center gap-2 m-0">
-            <ScanText className={`h-4 w-4 ${ocrProcessing ? 'animate-spin' : ''}`} />
-            {ocrProcessing ? 'Processing...' : 'Upload Question Image'}
-          </Label>
-          <input
-            id="ocr-upload"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                processImageWithOCR(file);
-                setShowQuestionDialog(true);
-              }
-            }}
-          />
+        <Button variant="outline" onClick={() => ocrInputRef.current?.click()} disabled={ocrProcessing}>
+          <ScanText className={`h-4 w-4 mr-2 ${ocrProcessing ? 'animate-spin' : ''}`} />
+          {ocrProcessing ? 'Processing...' : 'Upload Question Image'}
         </Button>
+        <input
+          ref={ocrInputRef}
+          id="ocr-upload"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              processImageWithOCR(file);
+              setShowQuestionDialog(true);
+              e.currentTarget.value = '';
+            }
+          }}
+        />
         <Button variant="outline" onClick={() => setShowTestSettings(true)}>
           <Settings className="h-4 w-4 mr-2" />
           Test Settings

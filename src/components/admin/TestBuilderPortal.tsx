@@ -638,36 +638,91 @@ const TestBuilderPortal: React.FC = () => {
         /^([1-4])[\.\)]\s*(.+)$/              // 1. or 1) format
       ];
 
-      for (const line of lines) {
-        let isOption = false;
+      // First pass: collect all text
+      const allText = lines.join(' ');
+      
+      // Enhanced parsing - look for option patterns in the entire text
+      let processedText = allText;
+      
+      // Find all option matches in the text
+      const optionMatches: { pattern: RegExp; match: RegExpMatchArray; position: number }[] = [];
+      
+      optionPatterns.forEach(pattern => {
+        const globalPattern = new RegExp(pattern.source, 'gi');
+        let match;
+        while ((match = globalPattern.exec(allText)) !== null) {
+          optionMatches.push({
+            pattern,
+            match,
+            position: match.index
+          });
+        }
+      });
+      
+      // Sort matches by position
+      optionMatches.sort((a, b) => a.position - b.position);
+      
+      // Extract question and options
+      if (optionMatches.length > 0) {
+        // Everything before first option is question
+        const firstOptionPos = optionMatches[0].position;
+        questionText = allText.substring(0, firstOptionPos).trim();
         
-        // Check all option patterns
-        for (const pattern of optionPatterns) {
-          const m = line.match(pattern);
-          if (m) {
-            inOptions = true;
-            const optText = m[2].trim();
-            options.push({ text: optText, isCorrect: options.length === 0 });
-            isOption = true;
-            break;
+        // Extract each option
+        optionMatches.forEach((optMatch, index) => {
+          const nextOptionPos = index < optionMatches.length - 1 
+            ? optionMatches[index + 1].position 
+            : allText.length;
+          
+          const optionFullText = allText.substring(optMatch.position, nextOptionPos);
+          
+          // Extract just the option text (without the letter/number)
+          const cleanMatch = optionFullText.match(optMatch.pattern);
+          if (cleanMatch) {
+            const optionText = cleanMatch[2] ? cleanMatch[2].trim() : cleanMatch[1].trim();
+            
+            // Clean up option text - remove trailing parts that might be next option
+            const cleanedOptionText = optionText
+              .replace(/\s+[A-Da-d][\.\)]\s*.*/g, '') // Remove any following options
+              .replace(/\s+\([A-Da-d]\)\s*.*/g, '')   // Remove parenthetical options
+              .trim();
+            
+            if (cleanedOptionText && options.length < 4) {
+              options.push({ 
+                text: cleanedOptionText, 
+                isCorrect: options.length === 0 
+              });
+            }
           }
-        }
-        
-        // If not an option and we haven't found options yet, add to question
-        if (!isOption && !inOptions) {
-          questionText += (questionText ? ' ' : '') + line;
-        }
-        // If not an option but we've found options, might be continuation of last option
-        else if (!isOption && inOptions && options.length > 0) {
-          const lastOption = options[options.length - 1];
-          if (lastOption.text.length < 100 && !line.match(/^[A-Da-d1-9]/)) {
-            lastOption.text += ' ' + line;
+        });
+      } else {
+        // Fallback: process line by line
+        for (const line of lines) {
+          let isOption = false;
+          
+          for (const pattern of optionPatterns) {
+            const m = line.match(pattern);
+            if (m) {
+              inOptions = true;
+              const optText = m[2].trim();
+              options.push({ text: optText, isCorrect: options.length === 0 });
+              isOption = true;
+              break;
+            }
+          }
+          
+          if (!isOption && !inOptions) {
+            questionText += (questionText ? ' ' : '') + line;
           }
         }
       }
 
-      // Clean question text - remove question numbers
-      questionText = questionText.replace(/^(Q\d+\.?\s*|Question\s*\d+\.?\s*|\d+\.?\s*)/i, '').trim();
+      // Clean question text - remove question numbers and option remnants
+      questionText = questionText
+        .replace(/^(Q\d+\.?\s*|Question\s*\d+\.?\s*|\d+\.?\s*)/i, '') // Remove Q1, Question 1, etc.
+        .replace(/\s+[A-Da-d][\.\)]\s*.*$/g, '') // Remove any trailing options
+        .replace(/\s+\([A-Da-d]\)\s*.*$/g, '')   // Remove parenthetical options
+        .trim();
 
       while (options.length < 4) {
         options.push({ text: '', isCorrect: false });

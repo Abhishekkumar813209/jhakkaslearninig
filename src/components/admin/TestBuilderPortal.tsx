@@ -630,239 +630,241 @@ const TestBuilderPortal: React.FC = () => {
   const processImageWithOCR = async (file: File) => {
     setOcrProcessing(true);
     try {
-      // Store original image for embedding in questions/options
-      const originalImageUrl = URL.createObjectURL(file);
+      console.log('🔍 Starting advanced image processing...');
       
-      const preprocessImage = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
+      // Step 1: Extract text using OCR
+      const extractTextFromImage = async (file: File): Promise<string> => {
+        const preprocessImage = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+              const maxSide = 1600;
+              let width = img.naturalWidth;
+              let height = img.naturalHeight;
+              if (width > maxSide || height > maxSide) {
+                const scale = Math.min(maxSide / width, maxSide / height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return reject(new Error('Canvas not supported'));
+              ctx.drawImage(img, 0, 0, width, height);
+              // Enhance contrast for better OCR
+              const imgData = ctx.getImageData(0, 0, width, height);
+              const data = imgData.data;
+              const contrast = 1.4;
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i+1], b = data[i+2];
+                let v = 0.299*r + 0.587*g + 0.114*b;
+                v = (v/255 - 0.5) * contrast + 0.5;
+                v = Math.max(0, Math.min(1, v));
+                const vi = Math.round(v * 255);
+                data[i] = data[i+1] = data[i+2] = vi;
+              }
+              ctx.putImageData(imgData, 0, 0);
+              const dataUrl = canvas.toDataURL('image/png');
+              URL.revokeObjectURL(url);
+              resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = url;
+          });
+        };
+
+        const imageDataUrl = await preprocessImage(file);
+        const { createWorker } = await import('tesseract.js');
+        const worker: any = await (createWorker as any)();
+        if (worker.loadLanguage) {
+          await worker.loadLanguage('eng');
+          await worker.initialize('eng');
+          if (worker.setParameters) {
+            await worker.setParameters({ 
+              tessedit_pageseg_mode: '6',
+              tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,[]{}()+-=/<>:; ?()'
+            });
+          }
+        }
+        const { data: { text } } = await worker.recognize(imageDataUrl);
+        await worker.terminate();
+        return text || '';
+      };
+
+      // Step 2: Detect and extract diagram/image portions
+      const extractDiagramPortion = async (file: File): Promise<Blob | null> => {
+        return new Promise((resolve) => {
           const img = new Image();
           const url = URL.createObjectURL(file);
+          
           img.onload = () => {
-            const maxSide = 1600;
-            let width = img.naturalWidth;
-            let height = img.naturalHeight;
-            if (width > maxSide || height > maxSide) {
-              const scale = Math.min(maxSide / width, maxSide / height);
-              width = Math.round(width * scale);
-              height = Math.round(height * scale);
-            }
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
             const ctx = canvas.getContext('2d');
-            if (!ctx) return reject(new Error('Canvas not supported'));
-            ctx.drawImage(img, 0, 0, width, height);
-            const imgData = ctx.getImageData(0, 0, width, height);
-            const data = imgData.data;
-            const contrast = 1.4;
-            for (let i = 0; i < data.length; i += 4) {
-              const r = data[i], g = data[i+1], b = data[i+2];
-              let v = 0.299*r + 0.587*g + 0.114*b;
-              v = (v/255 - 0.5) * contrast + 0.5;
-              v = Math.max(0, Math.min(1, v));
-              const vi = Math.round(v * 255);
-              data[i] = data[i+1] = data[i+2] = vi;
+            if (!ctx) {
+              resolve(null);
+              return;
             }
-            ctx.putImageData(imgData, 0, 0);
-            const dataUrl = canvas.toDataURL('image/png');
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            // Get image data for analysis
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // Find regions with high variance (likely diagrams/images)
+            const blockSize = 20;
+            const threshold = 30;
+            let bestRegion = null;
+            let maxVariance = 0;
+
+            for (let y = 0; y < canvas.height - blockSize; y += blockSize) {
+              for (let x = 0; x < canvas.width - blockSize; x += blockSize) {
+                let sum = 0;
+                let sumSquared = 0;
+                let count = 0;
+
+                // Calculate variance in this block
+                for (let dy = 0; dy < blockSize; dy++) {
+                  for (let dx = 0; dx < blockSize; dx++) {
+                    const idx = ((y + dy) * canvas.width + (x + dx)) * 4;
+                    const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+                    sum += gray;
+                    sumSquared += gray * gray;
+                    count++;
+                  }
+                }
+
+                const mean = sum / count;
+                const variance = (sumSquared / count) - (mean * mean);
+
+                if (variance > maxVariance && variance > threshold) {
+                  maxVariance = variance;
+                  bestRegion = { x, y, width: blockSize * 4, height: blockSize * 4 };
+                }
+              }
+            }
+
+            if (bestRegion) {
+              // Expand the region to capture the full diagram
+              const expandedRegion = {
+                x: Math.max(0, bestRegion.x - 20),
+                y: Math.max(0, bestRegion.y - 20),
+                width: Math.min(canvas.width - bestRegion.x + 20, bestRegion.width + 40),
+                height: Math.min(canvas.height - bestRegion.y + 20, bestRegion.height + 40)
+              };
+
+              // Create new canvas for the diagram
+              const diagramCanvas = document.createElement('canvas');
+              const diagramCtx = diagramCanvas.getContext('2d');
+              if (!diagramCtx) {
+                resolve(null);
+                return;
+              }
+
+              diagramCanvas.width = expandedRegion.width;
+              diagramCanvas.height = expandedRegion.height;
+
+              // Fill with white background
+              diagramCtx.fillStyle = '#FFFFFF';
+              diagramCtx.fillRect(0, 0, diagramCanvas.width, diagramCanvas.height);
+
+              // Draw the diagram portion
+              diagramCtx.drawImage(
+                canvas,
+                expandedRegion.x, expandedRegion.y, expandedRegion.width, expandedRegion.height,
+                0, 0, expandedRegion.width, expandedRegion.height
+              );
+
+              diagramCanvas.toBlob(resolve, 'image/png', 1.0);
+            } else {
+              resolve(null);
+            }
+
             URL.revokeObjectURL(url);
-            resolve(dataUrl);
           };
-          img.onerror = reject;
+
+          img.onerror = () => {
+            resolve(null);
+            URL.revokeObjectURL(url);
+          };
+          
           img.src = url;
         });
       };
 
-      const imageDataUrl = await preprocessImage(file);
-      const { createWorker } = await import('tesseract.js');
-      const worker: any = await (createWorker as any)();
-      if (worker.loadLanguage) {
-        await worker.loadLanguage('eng');
-        await worker.initialize('eng');
-        if (worker.setParameters) {
-          // Use better settings for mixed text and symbols
-          await worker.setParameters({ 
-            tessedit_pageseg_mode: '6',
-            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,[]{}()+-=/<>:; '
-          });
-        }
-      }
-      const { data: { text } } = await worker.recognize(imageDataUrl);
-      await worker.terminate();
+      console.log('📝 Extracting text...');
+      const extractedText = await extractTextFromImage(file);
+      
+      console.log('🖼️ Extracting diagram...');
+      const diagramBlob = await extractDiagramPortion(file);
 
-      let cleaned = (text || '').replace(/\r/g, '').trim();
+      // Clean up extracted text
+      let questionText = extractedText.replace(/\r/g, '').trim();
       
-      // Enhanced detection for IMAGE markers with common OCR errors
-      const imageMarkers = [
-        /\[IMAGE\]/gi,
-        /\[IMG\]/gi,
-        /\[TMAGE\]/gi, // T instead of I
-        /\[INAGE\]/gi, // N instead of M
-        /\[1MAGE\]/gi, // 1 instead of I
-        /\[JMAGE\]/gi, // J instead of I
-        /\[IMPGE\]/gi, // P instead of A
-        /IMAGE/gi, // Without brackets
-        /\[.*?IMAGE.*?\]/gi, // Any bracketed text with IMAGE
-      ];
-      
-      // Check if any image marker is detected
-      const hasImageMarker = imageMarkers.some(pattern => pattern.test(cleaned));
-      
-      // If no clear marker found but contains partial matches, add marker
-      if (!hasImageMarker && (
-        cleaned.includes('MAGE') || 
-        cleaned.includes('NAGE') || 
-        cleaned.includes('IAG') || 
-        cleaned.includes('[') && cleaned.includes(']')
-      )) {
-        cleaned += '\n[IMAGE]';
-      }
-      const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
-
-      let questionText = '';
-      const options: { text: string; isCorrect: boolean }[] = [];
-      let inOptions = false;
-      
-      // Enhanced option patterns for better detection
-      const optionPatterns = [
-        /^([A-Da-d])[\.\)]\s*(.+)$/,           // A. or A) format
-        /^\(([A-Da-d])\)\s*(.+)$/,            // (A) format  
-        /^([A-Da-d])[-:]\s*(.+)$/,            // A: or A- format
-        /^([1-4])[\.\)]\s*(.+)$/              // 1. or 1) format
-      ];
-
-      // First pass: collect all text
-      const allText = lines.join(' ');
-      
-      // Enhanced parsing - look for option patterns in the entire text
-      let processedText = allText;
-      
-      // Find all option matches in the text
-      const optionMatches: { pattern: RegExp; match: RegExpMatchArray; position: number }[] = [];
-      
-      optionPatterns.forEach(pattern => {
-        const globalPattern = new RegExp(pattern.source, 'gi');
-        let match;
-        while ((match = globalPattern.exec(allText)) !== null) {
-          optionMatches.push({
-            pattern,
-            match,
-            position: match.index
-          });
-        }
-      });
-      
-      // Sort matches by position
-      optionMatches.sort((a, b) => a.position - b.position);
-      
-      // Extract question and options
-      if (optionMatches.length > 0) {
-        // Everything before first option is question
-        const firstOptionPos = optionMatches[0].position;
-        questionText = allText.substring(0, firstOptionPos).trim();
-        
-        // Extract each option
-        optionMatches.forEach((optMatch, index) => {
-          const nextOptionPos = index < optionMatches.length - 1 
-            ? optionMatches[index + 1].position 
-            : allText.length;
-          
-          const optionFullText = allText.substring(optMatch.position, nextOptionPos);
-          
-          // Extract just the option text (without the letter/number)
-          const cleanMatch = optionFullText.match(optMatch.pattern);
-          if (cleanMatch) {
-            const optionText = cleanMatch[2] ? cleanMatch[2].trim() : cleanMatch[1].trim();
-            
-            // Clean up option text - remove trailing parts that might be next option
-            const cleanedOptionText = optionText
-              .replace(/\s+[A-Da-d][\.\)]\s*.*/g, '') // Remove any following options
-              .replace(/\s+\([A-Da-d]\)\s*.*/g, '')   // Remove parenthetical options
-              .trim();
-            
-            if (cleanedOptionText && options.length < 4) {
-              options.push({ 
-                text: cleanedOptionText, 
-                isCorrect: options.length === 0 
-              });
-            }
-          }
-        });
-      } else {
-        // Fallback: process line by line
-        for (const line of lines) {
-          let isOption = false;
-          
-          for (const pattern of optionPatterns) {
-            const m = line.match(pattern);
-            if (m) {
-              inOptions = true;
-              const optText = m[2].trim();
-              options.push({ text: optText, isCorrect: options.length === 0 });
-              isOption = true;
-              break;
-            }
-          }
-          
-          if (!isOption && !inOptions) {
-            questionText += (questionText ? ' ' : '') + line;
-          }
-        }
-      }
-
-      // Clean question text - remove question numbers and option remnants
+      // Remove common OCR artifacts
       questionText = questionText
-        .replace(/^(Q\d+\.?\s*|Question\s*\d+\.?\s*|\d+\.?\s*)/i, '') // Remove Q1, Question 1, etc.
-        .replace(/\s+[A-Da-d][\.\)]\s*.*$/g, '') // Remove any trailing options
-        .replace(/\s+\([A-Da-d]\)\s*.*$/g, '')   // Remove parenthetical options
+        .replace(/\[IMAGE\]/gi, '')
+        .replace(/\[IMG\]/gi, '')
+        .replace(/\[TMAGE\]/gi, '')
+        .replace(/\[INAGE\]/gi, '')
+        .replace(/\s+/g, ' ')
         .trim();
 
-      while (options.length < 4) {
-        options.push({ text: '', isCorrect: false });
+      console.log('✅ Extracted text:', questionText);
+
+      // Upload diagram if found
+      let diagramUrl = null;
+      if (diagramBlob) {
+        console.log('📤 Uploading extracted diagram...');
+        const fileName = `extracted_diagram_${Date.now()}.png`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('question-images')
+          .upload(fileName, diagramBlob);
+
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('question-images')
+            .getPublicUrl(fileName);
+          diagramUrl = publicUrl;
+          console.log('✅ Diagram uploaded:', diagramUrl);
+        }
       }
 
-      // Enhanced image detection - check for various patterns
-      const imagePatterns = [
-        /\[IMAGE\]/gi,
-        /\[IMG\]/gi,
-        /\[TMAGE\]/gi,
-        /\[INAGE\]/gi,
-        /IMAGE/gi,
-        /IMG/gi,
-        /\[.*IMAGE.*\]/gi,
-      ];
-      
-      const hasImages = imagePatterns.some(pattern => 
-        pattern.test(questionText) || options.some(opt => pattern.test(opt.text))
-      );
-      
-      setNewQuestion(prev => ({
-        ...prev,
-        question_text: questionText || 'Question extracted from image',
-        options,
-        question_type: 'mcq' as const,
-        // Always store original image URL for embedding
-        originalImageUrl,
-        // Mark if image markers were detected
-        hasImageMarkers: hasImages
-      }));
+      // Auto-populate both fields
+      if (editingQuestion) {
+        setEditingQuestion({
+          ...editingQuestion,
+          question_text: questionText,
+          image_url: diagramUrl || editingQuestion.image_url
+        });
+      } else {
+        setNewQuestion({
+          ...newQuestion,
+          question_text: questionText,
+          image_url: diagramUrl || newQuestion.image_url
+        });
+      }
 
       toast({
-        title: 'Success',
-        description: 'Image parsed into question & options.'
+        title: "🎉 Success!",
+        description: `Text extracted${diagramUrl ? ' and diagram separated' : ''}. Both fields populated automatically!`
       });
+
     } catch (error) {
-      console.error('OCR Error:', error);
+      console.error('❌ Auto-extraction error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to extract text from image. Please try again.',
+        description: 'Failed to extract text and image. Please try again.',
         variant: 'destructive'
       });
     } finally {
       setOcrProcessing(false);
     }
   };
-
   // Enhanced image processing function
   const enhanceQuestionImage = async (questionId: string, imageUrl: string) => {
     setIsEnhancing(true);
@@ -968,15 +970,9 @@ const TestBuilderPortal: React.FC = () => {
           : q
       ));
 
-      // Update in database
-      await supabase
-        .from('questions')
-        .update({ image_url: publicUrl })
-        .eq('id', questionId);
-
       toast({
         title: "Success",
-        description: "Image enhanced with white background!"
+        description: "Image enhanced successfully!",
       });
     } catch (error) {
       console.error('Enhancement error:', error);

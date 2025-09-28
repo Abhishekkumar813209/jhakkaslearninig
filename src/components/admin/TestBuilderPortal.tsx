@@ -30,11 +30,15 @@ import {
   Upload,
   Image as ImageIcon,
   X,
-  ScanText
+  ScanText,
+  Crop as CropIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import TestSettingsDialog from './TestSettingsDialog';
+import ReactCrop from 'react-image-crop';
+import type { Crop, PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 // Math rendering helpers (lightweight, no external runtime)
 const escapeHtml = (s: string) => s
@@ -120,6 +124,15 @@ const TestBuilderPortal: React.FC = () => {
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const ocrInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Crop dialog state
+  const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string>('');
+  const [cropImageType, setCropImageType] = useState<'question' | 'option'>('question');
+  const [cropImageIndex, setCropImageIndex] = useState<number>(-1);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
 
   const [newQuestion, setNewQuestion] = useState<Question>({
     question_text: '',
@@ -841,6 +854,135 @@ const TestBuilderPortal: React.FC = () => {
     }
   };
 
+  const openCropDialog = (imageSrc: string, type: 'question' | 'option', index: number = -1) => {
+    setCropImageSrc(imageSrc);
+    setCropImageType(type);
+    setCropImageIndex(index);
+    setCrop(undefined);
+    setIsCropDialogOpen(true);
+  };
+
+  const getCroppedImg = (image: HTMLImageElement, crop: PixelCrop): Promise<File> => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No 2d context');
+    }
+
+    const pixelRatio = window.devicePixelRatio;
+    canvas.width = crop.width * pixelRatio;
+    canvas.height = crop.height * pixelRatio;
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.drawImage(
+      image,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+      0,
+      0,
+      crop.width,
+      crop.height,
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error('Canvas is empty');
+        }
+        const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
+        resolve(file);
+      }, 'image/jpeg', 0.95);
+    });
+  };
+
+  const handleCropSave = async () => {
+    if (!imgRef.current || !completedCrop) {
+      toast({
+        title: "Error",
+        description: "Please select a crop area",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const croppedFile = await getCroppedImg(imgRef.current, completedCrop);
+      
+      // Upload the cropped image
+      const fileExt = 'jpg';
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `question-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, croppedFile);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
+
+      const imageUrl = data.publicUrl;
+
+      // Update the appropriate field
+      if (cropImageType === 'question') {
+        if (editingQuestion) {
+          setEditingQuestion({
+            ...editingQuestion,
+            image_url: imageUrl
+          });
+        } else {
+          setNewQuestion({
+            ...newQuestion,
+            image_url: imageUrl
+          });
+        }
+      } else if (cropImageType === 'option' && cropImageIndex >= 0) {
+        if (editingQuestion) {
+          const updatedOptions = [...(editingQuestion.options || [])];
+          updatedOptions[cropImageIndex] = {
+            ...updatedOptions[cropImageIndex],
+            image_url: imageUrl
+          };
+          setEditingQuestion({
+            ...editingQuestion,
+            options: updatedOptions
+          });
+        } else {
+          const updatedOptions = [...(newQuestion.options || [])];
+          updatedOptions[cropImageIndex] = {
+            ...updatedOptions[cropImageIndex],
+            image_url: imageUrl
+          };
+          setNewQuestion({
+            ...newQuestion,
+            options: updatedOptions
+          });
+        }
+      }
+
+      setIsCropDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Image cropped and updated successfully!"
+      });
+    } catch (error) {
+      console.error('Error cropping image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to crop image",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -1159,6 +1301,16 @@ const TestBuilderPortal: React.FC = () => {
                       type="button"
                       size="sm"
                       variant="outline"
+                      onClick={() => openCropDialog(newQuestion.image_url!, 'question')}
+                      className="flex items-center gap-1"
+                    >
+                       <CropIcon className="h-3 w-3" />
+                       Crop
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
                       onClick={() => setNewQuestion(prev => ({ 
                         ...prev, 
                         image_url: undefined, 
@@ -1248,6 +1400,16 @@ const TestBuilderPortal: React.FC = () => {
                           {option.image_url && (
                             <div className="flex items-center gap-2">
                               <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openCropDialog(option.image_url!, 'option', index)}
+                                className="flex items-center gap-1 text-xs h-6"
+                              >
+                                 <CropIcon className="h-3 w-3" />
+                                 Crop
+                              </Button>
                               <Button
                                 type="button"
                                 size="sm"
@@ -1359,6 +1521,58 @@ const TestBuilderPortal: React.FC = () => {
         testId={testId || ''}
         onSettingsUpdate={fetchTestData}
       />
+
+      {/* Image Crop Dialog */}
+      <Dialog open={isCropDialogOpen} onOpenChange={setIsCropDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Crop Image</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {cropImageSrc && (
+              <div className="flex justify-center">
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c) => setCrop(c)}
+                  onComplete={(c) => setCompletedCrop(c)}
+                  aspect={undefined}
+                  className="max-w-full"
+                >
+                  <img
+                    ref={imgRef}
+                    src={cropImageSrc}
+                    alt="Crop"
+                    className="max-w-full max-h-96 object-contain"
+                    onLoad={() => {
+                      if (imgRef.current) {
+                        const { width, height } = imgRef.current;
+                        setCrop({
+                          unit: 'px',
+                          x: width * 0.1,
+                          y: height * 0.1,
+                          width: width * 0.8,
+                          height: height * 0.8,
+                        });
+                      }
+                    }}
+                  />
+                </ReactCrop>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsCropDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCropSave}>
+                Save Cropped Image
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

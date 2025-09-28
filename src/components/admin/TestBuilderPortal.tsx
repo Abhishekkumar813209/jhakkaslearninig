@@ -678,6 +678,7 @@ const TestBuilderPortal: React.FC = () => {
         /\[INAGE\]/gi, // N instead of M
         /\[1MAGE\]/gi, // 1 instead of I
         /\[JMAGE\]/gi, // J instead of I
+        /\[IMPGE\]/gi, // P instead of A
         /IMAGE/gi, // Without brackets
         /\[.*?IMAGE.*?\]/gi, // Any bracketed text with IMAGE
       ];

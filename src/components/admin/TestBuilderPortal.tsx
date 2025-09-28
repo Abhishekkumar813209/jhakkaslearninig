@@ -865,7 +865,7 @@ const TestBuilderPortal: React.FC = () => {
       setOcrProcessing(false);
     }
   };
-  // Enhanced image processing function
+  // Enhanced image processing function (fixed)
   const enhanceQuestionImage = async (questionId: string, imageUrl: string) => {
     setIsEnhancing(true);
     try {

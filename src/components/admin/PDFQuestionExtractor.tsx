@@ -123,18 +123,26 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
   const initializeCropCanvas = () => {
     if (!overlayCanvasRef.current || fabricCanvasRef.current) return;
 
-    // Match overlay size with base canvas
+    // Match overlay size with base canvas and force overlaying style
     if (baseCanvasRef.current) {
-      overlayCanvasRef.current.width = baseCanvasRef.current.width;
-      overlayCanvasRef.current.height = baseCanvasRef.current.height;
+      const w = baseCanvasRef.current.width;
+      const h = baseCanvasRef.current.height;
+      overlayCanvasRef.current.width = w;
+      overlayCanvasRef.current.height = h;
+      // CSS size to match device pixels
+      overlayCanvasRef.current.style.width = `${w}px`;
+      overlayCanvasRef.current.style.height = `${h}px`;
     }
+    overlayCanvasRef.current.style.position = 'absolute';
+    overlayCanvasRef.current.style.top = '0';
+    overlayCanvasRef.current.style.left = '0';
+    overlayCanvasRef.current.style.zIndex = '20';
+    overlayCanvasRef.current.style.pointerEvents = 'auto';
 
     const fabricCanvas = new FabricCanvas(overlayCanvasRef.current as HTMLCanvasElement, {
       selection: true,
       preserveObjectStacking: true,
       backgroundColor: 'transparent',
-      interactive: true,
-      moveCursor: 'move',
       hoverCursor: 'move',
       defaultCursor: 'default'
     } as any);
@@ -145,9 +153,9 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     const cropRect = new Rect({
       left: 100,
       top: 100,
-      width: 200,
-      height: 150,
-      fill: 'rgba(30, 144, 255, 0.1)',
+      width: 220,
+      height: 140,
+      fill: 'rgba(30, 144, 255, 0.12)',
       stroke: '#1E90FF',
       strokeWidth: 2,
       strokeDashArray: [8, 4],
@@ -162,26 +170,26 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       hasBorders: true,
       hasControls: true,
       selectable: true,
-      moveable: true,
-      evented: true
+      evented: true,
+      objectCaching: false,
+      lockScalingFlip: true,
     } as any);
 
+    (cropRect as any).bringToFront?.();
     fabricCanvas.add(cropRect as any);
     cropRectRef.current = cropRect as any;
     (fabricCanvas as any).setActiveObject(cropRect);
 
-    // Enable object manipulation
+    // Enable object manipulation and re-render
     fabricCanvas.on('selection:created', () => {
-      console.log('Crop area selected');
+      (fabricCanvas as any).requestRenderAll?.();
     });
 
     fabricCanvas.on('object:modified', () => {
-      console.log('Crop area modified');
-      fabricCanvas.renderAll();
+      (fabricCanvas as any).requestRenderAll?.();
     });
 
-    // Render the canvas
-    fabricCanvas.renderAll();
+    fabricCanvas.requestRenderAll();
   };
 
   // Toggle crop mode

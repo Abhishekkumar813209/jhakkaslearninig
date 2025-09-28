@@ -4,15 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import * as pdfjsLib from 'pdfjs-dist';
+// Vite-friendly worker URL and Worker
+// @ts-ignore
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+// @ts-ignore
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
 import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import Tesseract from 'tesseract.js';
 
-// Configure PDF.js worker for Vite
+// Configure PDF.js worker for Vite (primary: workerPort, fallback: workerSrc)
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url
-  ).toString();
+  try {
+    const workerInstance = new (PdfWorker as any)();
+    (pdfjsLib as any).GlobalWorkerOptions.workerPort = workerInstance;
+  } catch (e) {
+    console.warn('PDF.js workerPort init failed, falling back to workerSrc', e);
+  }
+  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerUrl;
+  if (!(pdfjsLib as any).GlobalWorkerOptions.workerSrc) {
+    (pdfjsLib as any).GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${(pdfjsLib as any).version}/pdf.worker.min.mjs`;
+  }
 }
 
 interface PDFQuestionExtractorProps {

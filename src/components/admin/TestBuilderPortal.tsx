@@ -628,9 +628,9 @@ const TestBuilderPortal: React.FC = () => {
   };
 
   const processImageWithOCR = async (file: File) => {
-    // Simplified: upload full image and let user crop manually
     setOcrProcessing(true);
     try {
+      // Step 1: Upload full image first
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
       const fileName = `question_full_${Date.now()}.${ext}`;
       const filePath = `question-images/${fileName}`;
@@ -647,28 +647,108 @@ const TestBuilderPortal: React.FC = () => {
 
       const publicUrl = data.publicUrl;
 
-      // Set the image URL on the current question being edited/created
+      // Step 2: Extract text using OCR
+      const extractTextFromImage = async (file: File): Promise<string> => {
+        const preprocessImage = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+              const maxSide = 1600;
+              let width = img.naturalWidth;
+              let height = img.naturalHeight;
+              if (width > maxSide || height > maxSide) {
+                const scale = Math.min(maxSide / width, maxSide / height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return reject(new Error('Canvas not supported'));
+              ctx.drawImage(img, 0, 0, width, height);
+              // Enhance contrast for better OCR
+              const imgData = ctx.getImageData(0, 0, width, height);
+              const data = imgData.data;
+              const contrast = 1.4;
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i+1], b = data[i+2];
+                let v = 0.299*r + 0.587*g + 0.114*b;
+                v = (v/255 - 0.5) * contrast + 0.5;
+                v = Math.max(0, Math.min(1, v));
+                const vi = Math.round(v * 255);
+                data[i] = data[i+1] = data[i+2] = vi;
+              }
+              ctx.putImageData(imgData, 0, 0);
+              const dataUrl = canvas.toDataURL('image/png');
+              URL.revokeObjectURL(url);
+              resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = url;
+          });
+        };
+
+        const imageDataUrl = await preprocessImage(file);
+        const { createWorker } = await import('tesseract.js');
+        const worker: any = await (createWorker as any)();
+        if (worker.loadLanguage) {
+          await worker.loadLanguage('eng');
+          await worker.initialize('eng');
+          if (worker.setParameters) {
+            await worker.setParameters({ 
+              tessedit_pageseg_mode: '6',
+              tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,[]{}()+-=/<>:; ?()'
+            });
+          }
+        }
+        const { data: { text } } = await worker.recognize(imageDataUrl);
+        await worker.terminate();
+        return text || '';
+      };
+
+      // Extract text using OCR
+      console.log('📝 Extracting text from image...');
+      const extractedText = await extractTextFromImage(file);
+      
+      // Clean up extracted text
+      let questionText = extractedText.replace(/\r/g, '').trim();
+      questionText = questionText
+        .replace(/\[IMAGE\]/gi, '')
+        .replace(/\[IMG\]/gi, '')
+        .replace(/\[TMAGE\]/gi, '')
+        .replace(/\[INAGE\]/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      console.log('✅ Extracted text:', questionText);
+
+      // Set both image URL and extracted text
       if (editingQuestion) {
         setEditingQuestion({
           ...editingQuestion,
           image_url: publicUrl,
+          question_text: questionText || editingQuestion.question_text
         });
       } else {
         setNewQuestion({
           ...newQuestion,
           image_url: publicUrl,
+          question_text: questionText || newQuestion.question_text
         });
       }
 
       toast({
-        title: 'Image added',
-        description: 'Full question image attached. Use Crop to fine-tune if needed.'
+        title: '🎉 Perfect!',
+        description: `Image uploaded & text extracted! ${questionText ? 'Question text auto-filled.' : 'Use crop/enhance for fine-tuning.'}`
       });
+
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('❌ Processing error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to attach image. Please try again.',
+        description: 'Failed to process image. Please try again.',
         variant: 'destructive'
       });
     } finally {

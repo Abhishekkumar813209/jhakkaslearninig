@@ -658,13 +658,42 @@ const TestBuilderPortal: React.FC = () => {
         await worker.loadLanguage('eng');
         await worker.initialize('eng');
         if (worker.setParameters) {
-          await worker.setParameters({ tessedit_pageseg_mode: '6' });
+          // Use better settings for mixed text and symbols
+          await worker.setParameters({ 
+            tessedit_pageseg_mode: '6',
+            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,[]{}()+-=/<>:; '
+          });
         }
       }
       const { data: { text } } = await worker.recognize(imageDataUrl);
       await worker.terminate();
 
-      const cleaned = (text || '').replace(/\r/g, '').trim();
+      let cleaned = (text || '').replace(/\r/g, '').trim();
+      
+      // Enhanced detection for IMAGE markers with common OCR errors
+      const imageMarkers = [
+        /\[IMAGE\]/gi,
+        /\[IMG\]/gi,
+        /\[TMAGE\]/gi, // T instead of I
+        /\[INAGE\]/gi, // N instead of M
+        /\[1MAGE\]/gi, // 1 instead of I
+        /\[JMAGE\]/gi, // J instead of I
+        /IMAGE/gi, // Without brackets
+        /\[.*?IMAGE.*?\]/gi, // Any bracketed text with IMAGE
+      ];
+      
+      // Check if any image marker is detected
+      const hasImageMarker = imageMarkers.some(pattern => pattern.test(cleaned));
+      
+      // If no clear marker found but contains partial matches, add marker
+      if (!hasImageMarker && (
+        cleaned.includes('MAGE') || 
+        cleaned.includes('NAGE') || 
+        cleaned.includes('IAG') || 
+        cleaned.includes('[') && cleaned.includes(']')
+      )) {
+        cleaned += '\n[IMAGE]';
+      }
       const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
 
       let questionText = '';
@@ -769,16 +798,30 @@ const TestBuilderPortal: React.FC = () => {
         options.push({ text: '', isCorrect: false });
       }
 
-      // Add image embedding capability
-      const hasImages = questionText.includes('[IMAGE]') || options.some(opt => opt.text.includes('[IMAGE]'));
+      // Enhanced image detection - check for various patterns
+      const imagePatterns = [
+        /\[IMAGE\]/gi,
+        /\[IMG\]/gi,
+        /\[TMAGE\]/gi,
+        /\[INAGE\]/gi,
+        /IMAGE/gi,
+        /IMG/gi,
+        /\[.*IMAGE.*\]/gi,
+      ];
+      
+      const hasImages = imagePatterns.some(pattern => 
+        pattern.test(questionText) || options.some(opt => pattern.test(opt.text))
+      );
       
       setNewQuestion(prev => ({
         ...prev,
         question_text: questionText || 'Question extracted from image',
         options,
         question_type: 'mcq' as const,
-        // Store original image URL for later embedding
-        ...(hasImages && { originalImageUrl })
+        // Always store original image URL for embedding
+        originalImageUrl,
+        // Mark if image markers were detected
+        hasImageMarkers: hasImages
       }));
 
       toast({
@@ -1070,6 +1113,12 @@ const TestBuilderPortal: React.FC = () => {
                     />
                     {(newQuestion as any).originalImageUrl && (
                       <div className="mt-2">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          {(newQuestion as any).hasImageMarkers 
+                            ? "✅ [IMAGE] marker detected in text" 
+                            : "📷 Image available (add [IMAGE] marker in text to embed)"
+                          }
+                        </div>
                         <img 
                           src={(newQuestion as any).originalImageUrl} 
                           alt="Question Image" 

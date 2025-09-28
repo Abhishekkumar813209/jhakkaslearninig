@@ -608,6 +608,9 @@ const TestBuilderPortal: React.FC = () => {
   const processImageWithOCR = async (file: File) => {
     setOcrProcessing(true);
     try {
+      // Store original image for embedding in questions/options
+      const originalImageUrl = URL.createObjectURL(file);
+      
       const preprocessImage = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
@@ -766,11 +769,16 @@ const TestBuilderPortal: React.FC = () => {
         options.push({ text: '', isCorrect: false });
       }
 
+      // Add image embedding capability
+      const hasImages = questionText.includes('[IMAGE]') || options.some(opt => opt.text.includes('[IMAGE]'));
+      
       setNewQuestion(prev => ({
         ...prev,
         question_text: questionText || 'Question extracted from image',
         options,
-        question_type: 'mcq' as const
+        question_type: 'mcq' as const,
+        // Store original image URL for later embedding
+        ...(hasImages && { originalImageUrl })
       }));
 
       toast({
@@ -1053,12 +1061,23 @@ const TestBuilderPortal: React.FC = () => {
               {newQuestion.question_text && (
                 <div className="mt-2 p-2 border rounded bg-gray-50">
                   <Label className="text-xs text-muted-foreground">Preview:</Label>
-                  <div 
-                    className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{
-                      __html: renderMath(newQuestion.question_text)
-                    }}
-                  />
+                  <div className="space-y-2">
+                    <div 
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMath(newQuestion.question_text)
+                      }}
+                    />
+                    {(newQuestion as any).originalImageUrl && (
+                      <div className="mt-2">
+                        <img 
+                          src={(newQuestion as any).originalImageUrl} 
+                          alt="Question Image" 
+                          className="max-w-full h-auto rounded border max-h-48 object-contain bg-white"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

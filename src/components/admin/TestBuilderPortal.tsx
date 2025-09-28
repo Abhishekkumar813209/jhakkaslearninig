@@ -36,6 +36,34 @@ import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import TestSettingsDialog from './TestSettingsDialog';
 
+// Math rendering helpers (lightweight, no external runtime)
+const escapeHtml = (s: string) => s
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;');
+
+const applySupSub = (t: string) => {
+  // Braced superscripts/subscripts
+  t = t.replace(/(\S)\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
+  t = t.replace(/(\S)\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
+  // Simple superscripts/subscripts (supports negatives and letters)
+  t = t.replace(/(\S)\s*\^\s*(-?[0-9A-Za-z+\-]+)/g, '$1<sup>$2</sup>');
+  t = t.replace(/(\S)\s*_\s*([0-9A-Za-z+\-]+)/g, '$1<sub>$2</sub>');
+  return t;
+};
+
+export const renderMath = (input: string) => {
+  if (!input) return '';
+  // Normalize common OCR glitch: "$_-16" after a number → exponent
+  const normalized = input.replace(/(\S)\s*\$\s*_\s*(-?[0-9A-Za-z]+)/g, '$1^{$2}');
+  let safe = escapeHtml(normalized);
+  // Handle inline $...$ segments first
+  safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => `<span class="math-inline">${applySupSub(content)}</span>`);
+  // Then process remaining plain-text math patterns
+  safe = applySupSub(safe);
+  return safe;
+};
+
 interface Question {
   id?: string;
   question_text: string;
@@ -935,10 +963,7 @@ const TestBuilderPortal: React.FC = () => {
                         <div 
                           className="font-medium mb-2 prose prose-sm max-w-none"
                           dangerouslySetInnerHTML={{
-                            __html: question.question_text
-                              .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
-                              .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
-                              .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')
+                            __html: renderMath(question.question_text)
                           }}
                         />
                         {question.question_type === 'mcq' && question.options && (
@@ -950,10 +975,7 @@ const TestBuilderPortal: React.FC = () => {
                                 )}
                                  <span 
                                    dangerouslySetInnerHTML={{
-                                     __html: `${String.fromCharCode(65 + optIndex)}. ${option.text
-                                       .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
-                                       .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
-                                       .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')}`
+                                     __html: `${String.fromCharCode(65 + optIndex)}. ${renderMath(option.text)}`
                                    }}
                                  />
                                 {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
@@ -1024,10 +1046,7 @@ const TestBuilderPortal: React.FC = () => {
                   <div 
                     className="prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{
-                      __html: newQuestion.question_text
-                        .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
-                        .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
-                        .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')
+                      __html: renderMath(newQuestion.question_text)
                     }}
                   />
                 </div>
@@ -1113,10 +1132,7 @@ const TestBuilderPortal: React.FC = () => {
                                 <span className="text-gray-500">Preview: </span>
                                 <span 
                                   dangerouslySetInnerHTML={{
-                                    __html: option.text
-                                      .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
-                                      .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
-                                      .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')
+                                    __html: renderMath(option.text)
                                   }}
                                 />
                               </div>

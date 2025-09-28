@@ -628,237 +628,47 @@ const TestBuilderPortal: React.FC = () => {
   };
 
   const processImageWithOCR = async (file: File) => {
+    // Simplified: upload full image and let user crop manually
     setOcrProcessing(true);
     try {
-      console.log('🔍 Starting advanced image processing...');
-      
-      // Step 1: Extract text using OCR
-      const extractTextFromImage = async (file: File): Promise<string> => {
-        const preprocessImage = (file: File): Promise<string> => {
-          return new Promise((resolve, reject) => {
-            const img = new Image();
-            const url = URL.createObjectURL(file);
-            img.onload = () => {
-              const maxSide = 1600;
-              let width = img.naturalWidth;
-              let height = img.naturalHeight;
-              if (width > maxSide || height > maxSide) {
-                const scale = Math.min(maxSide / width, maxSide / height);
-                width = Math.round(width * scale);
-                height = Math.round(height * scale);
-              }
-              const canvas = document.createElement('canvas');
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return reject(new Error('Canvas not supported'));
-              ctx.drawImage(img, 0, 0, width, height);
-              // Enhance contrast for better OCR
-              const imgData = ctx.getImageData(0, 0, width, height);
-              const data = imgData.data;
-              const contrast = 1.4;
-              for (let i = 0; i < data.length; i += 4) {
-                const r = data[i], g = data[i+1], b = data[i+2];
-                let v = 0.299*r + 0.587*g + 0.114*b;
-                v = (v/255 - 0.5) * contrast + 0.5;
-                v = Math.max(0, Math.min(1, v));
-                const vi = Math.round(v * 255);
-                data[i] = data[i+1] = data[i+2] = vi;
-              }
-              ctx.putImageData(imgData, 0, 0);
-              const dataUrl = canvas.toDataURL('image/png');
-              URL.revokeObjectURL(url);
-              resolve(dataUrl);
-            };
-            img.onerror = reject;
-            img.src = url;
-          });
-        };
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const fileName = `question_full_${Date.now()}.${ext}`;
+      const filePath = `question-images/${fileName}`;
 
-        const imageDataUrl = await preprocessImage(file);
-        const { createWorker } = await import('tesseract.js');
-        const worker: any = await (createWorker as any)();
-        if (worker.loadLanguage) {
-          await worker.loadLanguage('eng');
-          await worker.initialize('eng');
-          if (worker.setParameters) {
-            await worker.setParameters({ 
-              tessedit_pageseg_mode: '6',
-              tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,[]{}()+-=/<>:; ?()'
-            });
-          }
-        }
-        const { data: { text } } = await worker.recognize(imageDataUrl);
-        await worker.terminate();
-        return text || '';
-      };
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, file);
 
-      // Step 2: Detect and extract diagram/image portions
-      const extractDiagramPortion = async (file: File): Promise<Blob | null> => {
-        return new Promise((resolve) => {
-          const img = new Image();
-          const url = URL.createObjectURL(file);
-          
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              resolve(null);
-              return;
-            }
+      if (uploadError) throw uploadError;
 
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+      const { data } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
 
-            // Get image data for analysis
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
+      const publicUrl = data.publicUrl;
 
-            // Find regions with high variance (likely diagrams/images)
-            const blockSize = 20;
-            const threshold = 30;
-            let bestRegion = null;
-            let maxVariance = 0;
-
-            for (let y = 0; y < canvas.height - blockSize; y += blockSize) {
-              for (let x = 0; x < canvas.width - blockSize; x += blockSize) {
-                let sum = 0;
-                let sumSquared = 0;
-                let count = 0;
-
-                // Calculate variance in this block
-                for (let dy = 0; dy < blockSize; dy++) {
-                  for (let dx = 0; dx < blockSize; dx++) {
-                    const idx = ((y + dy) * canvas.width + (x + dx)) * 4;
-                    const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-                    sum += gray;
-                    sumSquared += gray * gray;
-                    count++;
-                  }
-                }
-
-                const mean = sum / count;
-                const variance = (sumSquared / count) - (mean * mean);
-
-                if (variance > maxVariance && variance > threshold) {
-                  maxVariance = variance;
-                  bestRegion = { x, y, width: blockSize * 4, height: blockSize * 4 };
-                }
-              }
-            }
-
-            if (bestRegion) {
-              // Expand the region to capture the full diagram
-              const expandedRegion = {
-                x: Math.max(0, bestRegion.x - 20),
-                y: Math.max(0, bestRegion.y - 20),
-                width: Math.min(canvas.width - bestRegion.x + 20, bestRegion.width + 40),
-                height: Math.min(canvas.height - bestRegion.y + 20, bestRegion.height + 40)
-              };
-
-              // Create new canvas for the diagram
-              const diagramCanvas = document.createElement('canvas');
-              const diagramCtx = diagramCanvas.getContext('2d');
-              if (!diagramCtx) {
-                resolve(null);
-                return;
-              }
-
-              diagramCanvas.width = expandedRegion.width;
-              diagramCanvas.height = expandedRegion.height;
-
-              // Fill with white background
-              diagramCtx.fillStyle = '#FFFFFF';
-              diagramCtx.fillRect(0, 0, diagramCanvas.width, diagramCanvas.height);
-
-              // Draw the diagram portion
-              diagramCtx.drawImage(
-                canvas,
-                expandedRegion.x, expandedRegion.y, expandedRegion.width, expandedRegion.height,
-                0, 0, expandedRegion.width, expandedRegion.height
-              );
-
-              diagramCanvas.toBlob(resolve, 'image/png', 1.0);
-            } else {
-              resolve(null);
-            }
-
-            URL.revokeObjectURL(url);
-          };
-
-          img.onerror = () => {
-            resolve(null);
-            URL.revokeObjectURL(url);
-          };
-          
-          img.src = url;
-        });
-      };
-
-      console.log('📝 Extracting text...');
-      const extractedText = await extractTextFromImage(file);
-      
-      console.log('🖼️ Extracting diagram...');
-      const diagramBlob = await extractDiagramPortion(file);
-
-      // Clean up extracted text
-      let questionText = extractedText.replace(/\r/g, '').trim();
-      
-      // Remove common OCR artifacts
-      questionText = questionText
-        .replace(/\[IMAGE\]/gi, '')
-        .replace(/\[IMG\]/gi, '')
-        .replace(/\[TMAGE\]/gi, '')
-        .replace(/\[INAGE\]/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      console.log('✅ Extracted text:', questionText);
-
-      // Upload diagram if found
-      let diagramUrl = null;
-      if (diagramBlob) {
-        console.log('📤 Uploading extracted diagram...');
-        const fileName = `extracted_diagram_${Date.now()}.png`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('question-images')
-          .upload(fileName, diagramBlob);
-
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('question-images')
-            .getPublicUrl(fileName);
-          diagramUrl = publicUrl;
-          console.log('✅ Diagram uploaded:', diagramUrl);
-        }
-      }
-
-      // Auto-populate both fields
+      // Set the image URL on the current question being edited/created
       if (editingQuestion) {
         setEditingQuestion({
           ...editingQuestion,
-          question_text: questionText,
-          image_url: diagramUrl || editingQuestion.image_url
+          image_url: publicUrl,
         });
       } else {
         setNewQuestion({
           ...newQuestion,
-          question_text: questionText,
-          image_url: diagramUrl || newQuestion.image_url
+          image_url: publicUrl,
         });
       }
 
       toast({
-        title: "🎉 Success!",
-        description: `Text extracted${diagramUrl ? ' and diagram separated' : ''}. Both fields populated automatically!`
+        title: 'Image added',
+        description: 'Full question image attached. Use Crop to fine-tune if needed.'
       });
-
     } catch (error) {
-      console.error('❌ Auto-extraction error:', error);
+      console.error('Upload error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to extract text and image. Please try again.',
+        description: 'Failed to attach image. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -1003,39 +813,32 @@ const TestBuilderPortal: React.FC = () => {
       try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('No 2d context'));
 
-        if (!ctx) {
-          reject(new Error('No 2d context'));
-          return;
-        }
+        // Always re-load the image via fetch->blob to avoid CORS taint
+        const src = image.src;
+        const response = await fetch(src);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
 
-        // Create a new canvas for the image to avoid CORS issues
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        if (!tempCtx) {
-          reject(new Error('No temp context'));
-          return;
-        }
+        const tempImg = new Image();
+        await new Promise<void>((res, rej) => {
+          tempImg.onload = () => res();
+          tempImg.onerror = () => rej(new Error('Image load failed'));
+          tempImg.src = objectUrl;
+        });
 
-        // Set temp canvas size to image size
-        tempCanvas.width = image.naturalWidth || image.width;
-        tempCanvas.height = image.naturalHeight || image.height;
-        
-        // Draw the image to temp canvas first
-        tempCtx.drawImage(image, 0, 0);
-
-        // Now crop from the temp canvas
         const pixelRatio = window.devicePixelRatio;
-        canvas.width = crop.width * pixelRatio;
-        canvas.height = crop.height * pixelRatio;
+        canvas.width = Math.max(1, Math.floor(crop.width * pixelRatio));
+        canvas.height = Math.max(1, Math.floor(crop.height * pixelRatio));
         ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         ctx.imageSmoothingQuality = 'high';
 
-        const scaleX = tempCanvas.width / image.width;
-        const scaleY = tempCanvas.height / image.height;
+        const scaleX = tempImg.naturalWidth / (image.width || tempImg.naturalWidth);
+        const scaleY = tempImg.naturalHeight / (image.height || tempImg.naturalHeight);
 
         ctx.drawImage(
-          tempCanvas,
+          tempImg,
           crop.x * scaleX,
           crop.y * scaleY,
           crop.width * scaleX,
@@ -1043,16 +846,14 @@ const TestBuilderPortal: React.FC = () => {
           0,
           0,
           crop.width,
-          crop.height,
+          crop.height
         );
 
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Canvas is empty'));
-            return;
-          }
-          const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
-          resolve(file);
+        URL.revokeObjectURL(objectUrl);
+
+        canvas.toBlob((outBlob) => {
+          if (!outBlob) return reject(new Error('Canvas is empty'));
+          resolve(new File([outBlob], 'cropped-image.jpg', { type: 'image/jpeg' }));
         }, 'image/jpeg', 0.95);
       } catch (error) {
         reject(error);

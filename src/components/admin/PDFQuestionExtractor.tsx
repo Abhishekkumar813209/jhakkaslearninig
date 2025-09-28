@@ -294,7 +294,22 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       
       if (extractedText) {
         onQuestionExtracted(extractedText, imageDataUrl);
-        toast.success("Question extracted successfully!");
+        toast.success("Question extracted successfully! You can select another area to extract more questions.");
+        
+        // Reset crop mode to allow selecting new area
+        setIsCropMode(false);
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.dispose();
+          fabricCanvasRef.current = null;
+          cropRectRef.current = null;
+        }
+        // Clear overlay canvas
+        if (overlayCanvasRef.current) {
+          const octx = overlayCanvasRef.current.getContext('2d');
+          if (octx) {
+            octx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
+          }
+        }
       } else {
         toast.warning("No text found in the selected area");
       }
@@ -332,6 +347,20 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     setScale(1.5);
   };
 
+  const selectNewPDF = () => {
+    setPdfFile(null);
+    setPdfDoc(null);
+    setCurrentPage(1);
+    setTotalPages(0);
+    setScale(1.5);
+    setIsCropMode(false);
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.dispose();
+      fabricCanvasRef.current = null;
+      cropRectRef.current = null;
+    }
+  };
+
   // Effects
   useEffect(() => {
     if (pdfDoc && currentPage) {
@@ -357,9 +386,16 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-xl font-semibold">PDF Question Extractor</h2>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex items-center space-x-2">
+            {pdfFile && (
+              <Button variant="outline" onClick={selectNewPDF}>
+                Select New PDF
+              </Button>
+            )}
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
 
         {/* File Upload */}

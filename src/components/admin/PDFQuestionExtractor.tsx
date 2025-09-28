@@ -294,9 +294,9 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       
       if (extractedText) {
         onQuestionExtracted(extractedText, imageDataUrl);
-        toast.success("Question extracted successfully! You can select another area to extract more questions.");
+        toast.success("Question extracted successfully! Click 'Crop Mode' to select another area.");
         
-        // Reset crop mode to allow selecting new area
+        // Reset crop mode to allow selecting new area but keep PDF open
         setIsCropMode(false);
         if (fabricCanvasRef.current) {
           fabricCanvasRef.current.dispose();
@@ -310,6 +310,8 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
             octx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
           }
         }
+        // Keep the PDF rendered and ready for next extraction
+        renderPage();
       } else {
         toast.warning("No text found in the selected area");
       }

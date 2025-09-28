@@ -130,32 +130,58 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     }
 
     const fabricCanvas = new FabricCanvas(overlayCanvasRef.current as HTMLCanvasElement, {
-      selection: false,
+      selection: true,
       preserveObjectStacking: true,
-      backgroundColor: 'rgba(0,0,0,0)'
+      backgroundColor: 'transparent',
+      interactive: true,
+      moveCursor: 'move',
+      hoverCursor: 'move',
+      defaultCursor: 'default'
     } as any);
 
     fabricCanvasRef.current = fabricCanvas as any;
 
     // Create crop rectangle
     const cropRect = new Rect({
-      left: 50,
-      top: 50,
+      left: 100,
+      top: 100,
       width: 200,
-      height: 100,
-      fill: 'rgba(0, 123, 255, 0.1)',
-      stroke: '#007bff',
+      height: 150,
+      fill: 'rgba(30, 144, 255, 0.1)',
+      stroke: '#1E90FF',
       strokeWidth: 2,
-      strokeDashArray: [5, 5],
-      cornerColor: '#007bff',
-      cornerSize: 8,
+      strokeDashArray: [8, 4],
+      cornerColor: '#1E90FF',
+      cornerSize: 12,
+      cornerStyle: 'circle',
       transparentCorners: false,
+      borderColor: '#1E90FF',
+      borderDashArray: [8, 4],
       hasRotatingPoint: false,
+      lockRotation: true,
+      hasBorders: true,
+      hasControls: true,
+      selectable: true,
+      moveable: true,
+      evented: true
     } as any);
 
     fabricCanvas.add(cropRect as any);
     cropRectRef.current = cropRect as any;
     (fabricCanvas as any).setActiveObject(cropRect);
+
+    // Enable object manipulation
+    fabricCanvas.on('selection:created', () => {
+      console.log('Crop area selected');
+    });
+
+    fabricCanvas.on('object:modified', () => {
+      console.log('Crop area modified');
+      fabricCanvas.renderAll();
+    });
+
+    // Render the canvas
+    fabricCanvas.renderAll();
   };
 
   // Toggle crop mode
@@ -406,8 +432,12 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
                     {/* Overlay crop canvas */}
                     <canvas
                       ref={overlayCanvasRef}
-                      className={`absolute inset-0 ${isCropMode ? 'cursor-crosshair' : 'pointer-events-none'}`}
-                      style={{ background: 'transparent' }}
+                      className={`absolute inset-0 ${isCropMode ? 'cursor-grab' : 'pointer-events-none'}`}
+                      style={{ 
+                        background: 'transparent',
+                        zIndex: isCropMode ? 10 : -1,
+                        pointerEvents: isCropMode ? 'auto' : 'none'
+                      }}
                     />
                   </div>
                 </div>

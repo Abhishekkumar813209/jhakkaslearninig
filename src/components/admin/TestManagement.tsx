@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ interface NewTestData {
 }
 
 const TestManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -508,7 +510,7 @@ const TestManagement: React.FC = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => window.open(`/admin/test-builder/${test.id}`, '_blank')}
+                            onClick={() => navigate(`/admin/test-builder/${test.id}`)}
                           >
                             <Edit className="h-3 w-3" />
                           </Button>

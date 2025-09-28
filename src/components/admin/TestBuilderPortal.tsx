@@ -867,14 +867,31 @@ const TestBuilderPortal: React.FC = () => {
   const enhanceQuestionImage = async (questionId: string, imageUrl: string) => {
     setIsEnhancing(true);
     try {
-      // Load the image
+      // Load the image with proper CORS handling
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
+      
+      // Handle blob URLs differently
+      if (imageUrl.startsWith('blob:')) {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        await new Promise((resolve, reject) => {
+          reader.onload = () => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = reader.result as string;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = imageUrl;
+        });
+      }
 
       // Create canvas
       const canvas = document.createElement('canvas');
@@ -985,40 +1002,65 @@ const TestBuilderPortal: React.FC = () => {
     setIsCropDialogOpen(true);
   };
 
-  const getCroppedImg = (image: HTMLImageElement, crop: PixelCrop): Promise<File> => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+  const getCroppedImg = async (image: HTMLImageElement, crop: PixelCrop): Promise<File> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
 
-    if (!ctx) {
-      throw new Error('No 2d context');
-    }
-
-    const pixelRatio = window.devicePixelRatio;
-    canvas.width = crop.width * pixelRatio;
-    canvas.height = crop.height * pixelRatio;
-    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    ctx.imageSmoothingQuality = 'high';
-
-    ctx.drawImage(
-      image,
-      crop.x,
-      crop.y,
-      crop.width,
-      crop.height,
-      0,
-      0,
-      crop.width,
-      crop.height,
-    );
-
-    return new Promise((resolve) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          throw new Error('Canvas is empty');
+        if (!ctx) {
+          reject(new Error('No 2d context'));
+          return;
         }
-        const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
-        resolve(file);
-      }, 'image/jpeg', 0.95);
+
+        // Create a new canvas for the image to avoid CORS issues
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) {
+          reject(new Error('No temp context'));
+          return;
+        }
+
+        // Set temp canvas size to image size
+        tempCanvas.width = image.naturalWidth || image.width;
+        tempCanvas.height = image.naturalHeight || image.height;
+        
+        // Draw the image to temp canvas first
+        tempCtx.drawImage(image, 0, 0);
+
+        // Now crop from the temp canvas
+        const pixelRatio = window.devicePixelRatio;
+        canvas.width = crop.width * pixelRatio;
+        canvas.height = crop.height * pixelRatio;
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        ctx.imageSmoothingQuality = 'high';
+
+        const scaleX = tempCanvas.width / image.width;
+        const scaleY = tempCanvas.height / image.height;
+
+        ctx.drawImage(
+          tempCanvas,
+          crop.x * scaleX,
+          crop.y * scaleY,
+          crop.width * scaleX,
+          crop.height * scaleY,
+          0,
+          0,
+          crop.width,
+          crop.height,
+        );
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Canvas is empty'));
+            return;
+          }
+          const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
+          resolve(file);
+        }, 'image/jpeg', 0.95);
+      } catch (error) {
+        reject(error);
+      }
     });
   };
 

@@ -77,6 +77,7 @@ const TestBuilderPortal: React.FC = () => {
   const [showTestSettings, setShowTestSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const { toast } = useToast();
 
   const [newQuestion, setNewQuestion] = useState<Question>({
@@ -502,6 +503,67 @@ const TestBuilderPortal: React.FC = () => {
     }
   };
 
+  const generateQuestionsWithAI = async () => {
+    if (!test) {
+      toast({
+        title: "Error",
+        description: "Test data not available.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setAiGenerating(true);
+      
+      const { data, error } = await supabase.functions.invoke('ai-question-generator', {
+        body: { 
+          prompt: `Generate 5 multiple choice questions for ${test.subject} subject, ${test.class} class level, ${test.difficulty} difficulty.`,
+          subject: test.subject,
+          class: test.class,
+          difficulty: test.difficulty,
+          testId: testId
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data.questions) {
+        // Add generated questions to the test
+        for (const question of data.questions) {
+          const questionData = {
+            ...question,
+            test_id: testId,
+            order_num: questions.length + 1,
+            question_type: 'mcq' as const
+          };
+          
+          const { data: addedQuestion, error: addError } = await supabase.functions.invoke('tests-api', {
+            body: { action: 'addQuestion', testId, question: questionData }
+          });
+
+          if (!addError && addedQuestion.success) {
+            setQuestions(prev => [...prev, addedQuestion.question]);
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: `Generated ${data.questions.length} questions using AI!`
+        });
+      }
+    } catch (error) {
+      console.error('Error generating AI questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate questions. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -604,6 +666,10 @@ const TestBuilderPortal: React.FC = () => {
         <Button onClick={() => setShowQuestionDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Question
+        </Button>
+        <Button variant="outline" onClick={generateQuestionsWithAI} disabled={aiGenerating}>
+          <Wand2 className={`h-4 w-4 mr-2 ${aiGenerating ? 'animate-spin' : ''}`} />
+          {aiGenerating ? 'Generating...' : 'AI Generate'}
         </Button>
         <Button variant="outline" onClick={() => setShowTestSettings(true)}>
           <Settings className="h-4 w-4 mr-2" />

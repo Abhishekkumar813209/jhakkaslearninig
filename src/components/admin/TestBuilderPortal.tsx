@@ -29,7 +29,8 @@ import {
   Award,
   Upload,
   Image as ImageIcon,
-  X
+  X,
+  ScanText
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -78,6 +79,7 @@ const TestBuilderPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
   const { toast } = useToast();
 
   const [newQuestion, setNewQuestion] = useState<Question>({
@@ -564,6 +566,83 @@ const TestBuilderPortal: React.FC = () => {
     }
   };
 
+  const processImageWithOCR = async (file: File) => {
+    setOcrProcessing(true);
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng');
+      
+      const { data: { text } } = await worker.recognize(file);
+      await worker.terminate();
+      
+      // Parse the extracted text to identify question and options
+      const lines = text.split('\n').filter(line => line.trim().length > 0);
+      
+      let questionText = '';
+      let options: { text: string; isCorrect: boolean }[] = [];
+      let currentSection = 'question';
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Check if line looks like an option (starts with A, B, C, D or a), b), c), d) or 1, 2, 3, 4)
+        const optionMatch = line.match(/^[A-Da-d1-4][.\)\s]/);
+        
+        if (optionMatch && currentSection === 'question') {
+          currentSection = 'options';
+        }
+        
+        if (currentSection === 'question') {
+          questionText += (questionText ? ' ' : '') + line;
+        } else if (currentSection === 'options' && optionMatch) {
+          const optionText = line.replace(/^[A-Da-d1-4][.\)\s]/, '').trim();
+          if (optionText) {
+            options.push({
+              text: optionText,
+              isCorrect: options.length === 0 // First option as correct by default
+            });
+          }
+        }
+      }
+      
+      // If no clear options found, create default empty options
+      if (options.length === 0) {
+        options = [
+          { text: '', isCorrect: true },
+          { text: '', isCorrect: false },
+          { text: '', isCorrect: false },
+          { text: '', isCorrect: false }
+        ];
+      }
+      
+      // Update the form with extracted data
+      setNewQuestion(prev => ({
+        ...prev,
+        question_text: questionText || 'Question extracted from image',
+        options: options.length >= 4 ? options : [
+          ...options,
+          ...Array(4 - options.length).fill({ text: '', isCorrect: false })
+        ],
+        question_type: 'mcq' as const
+      }));
+      
+      toast({
+        title: "Success",
+        description: `Question extracted from image! Found ${options.filter(o => o.text).length} options.`,
+      });
+      
+    } catch (error) {
+      console.error('OCR Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to extract text from image. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setOcrProcessing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -670,6 +749,25 @@ const TestBuilderPortal: React.FC = () => {
         <Button variant="outline" onClick={generateQuestionsWithAI} disabled={aiGenerating}>
           <Wand2 className={`h-4 w-4 mr-2 ${aiGenerating ? 'animate-spin' : ''}`} />
           {aiGenerating ? 'Generating...' : 'AI Generate'}
+        </Button>
+        <Button variant="outline" disabled={ocrProcessing}>
+          <Label htmlFor="ocr-upload" className="cursor-pointer flex items-center gap-2 m-0">
+            <ScanText className={`h-4 w-4 ${ocrProcessing ? 'animate-spin' : ''}`} />
+            {ocrProcessing ? 'Processing...' : 'Upload Question Image'}
+          </Label>
+          <input
+            id="ocr-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                processImageWithOCR(file);
+                setShowQuestionDialog(true);
+              }
+            }}
+          />
         </Button>
         <Button variant="outline" onClick={() => setShowTestSettings(true)}>
           <Settings className="h-4 w-4 mr-2" />

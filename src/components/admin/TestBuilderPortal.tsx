@@ -629,18 +629,45 @@ const TestBuilderPortal: React.FC = () => {
       let questionText = '';
       const options: { text: string; isCorrect: boolean }[] = [];
       let inOptions = false;
-      const optionRegex = /^([A-Da-d]|[1-4])[\.\)]\s*(.+)$/;
+      
+      // Enhanced option patterns for better detection
+      const optionPatterns = [
+        /^([A-Da-d])[\.\)]\s*(.+)$/,           // A. or A) format
+        /^\(([A-Da-d])\)\s*(.+)$/,            // (A) format  
+        /^([A-Da-d])[-:]\s*(.+)$/,            // A: or A- format
+        /^([1-4])[\.\)]\s*(.+)$/              // 1. or 1) format
+      ];
 
       for (const line of lines) {
-        const m = line.match(optionRegex);
-        if (m) {
-          inOptions = true;
-          const optText = m[2].trim();
-          options.push({ text: optText, isCorrect: options.length === 0 });
-        } else if (!inOptions) {
+        let isOption = false;
+        
+        // Check all option patterns
+        for (const pattern of optionPatterns) {
+          const m = line.match(pattern);
+          if (m) {
+            inOptions = true;
+            const optText = m[2].trim();
+            options.push({ text: optText, isCorrect: options.length === 0 });
+            isOption = true;
+            break;
+          }
+        }
+        
+        // If not an option and we haven't found options yet, add to question
+        if (!isOption && !inOptions) {
           questionText += (questionText ? ' ' : '') + line;
         }
+        // If not an option but we've found options, might be continuation of last option
+        else if (!isOption && inOptions && options.length > 0) {
+          const lastOption = options[options.length - 1];
+          if (lastOption.text.length < 100 && !line.match(/^[A-Da-d1-9]/)) {
+            lastOption.text += ' ' + line;
+          }
+        }
       }
+
+      // Clean question text - remove question numbers
+      questionText = questionText.replace(/^(Q\d+\.?\s*|Question\s*\d+\.?\s*|\d+\.?\s*)/i, '').trim();
 
       while (options.length < 4) {
         options.push({ text: '', isCorrect: false });
@@ -1020,12 +1047,26 @@ const TestBuilderPortal: React.FC = () => {
                           <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-medium">
                             {String.fromCharCode(65 + index)}
                           </div>
-                          <Input
-                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                            value={option.text}
-                            onChange={(e) => updateOptionText(index, e.target.value)}
-                            className="flex-1"
-                          />
+                          <div className="flex-1 space-y-1">
+                            <Input
+                              placeholder={`Option ${String.fromCharCode(65 + index)} - Use math: H$_2$O for H₂O, x$^2$ for x²`}
+                              value={option.text}
+                              onChange={(e) => updateOptionText(index, e.target.value)}
+                            />
+                            {option.text && (
+                              <div className="text-xs p-1 bg-gray-50 rounded border">
+                                <span className="text-gray-500">Preview: </span>
+                                <span 
+                                  dangerouslySetInnerHTML={{
+                                    __html: option.text
+                                      .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
+                                      .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
+                                      .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
                           <Button
                             type="button"
                             size="sm"

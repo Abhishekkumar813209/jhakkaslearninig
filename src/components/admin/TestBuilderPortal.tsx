@@ -31,7 +31,8 @@ import {
   Image as ImageIcon,
   X,
   ScanText,
-  Crop as CropIcon
+  Crop as CropIcon,
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -39,6 +40,7 @@ import TestSettingsDialog from './TestSettingsDialog';
 import ReactCrop from 'react-image-crop';
 import type { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+import { pipeline, env } from '@huggingface/transformers';
 
 // Math rendering helpers (lightweight, no external runtime)
 const escapeHtml = (s: string) => s
@@ -133,6 +135,13 @@ const TestBuilderPortal: React.FC = () => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // Initialize transformers.js
+  useEffect(() => {
+    env.allowLocalModels = false;
+    env.useBrowserCache = false;
+  }, []);
 
   const [newQuestion, setNewQuestion] = useState<Question>({
     question_text: '',
@@ -854,6 +863,120 @@ const TestBuilderPortal: React.FC = () => {
     }
   };
 
+  // Enhanced image processing function
+  const enhanceQuestionImage = async (questionId: string, imageUrl: string) => {
+    setIsEnhancing(true);
+    try {
+      // Load the image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context not available');
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      // Fill with pure white background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw the image
+      ctx.drawImage(img, 0, 0);
+
+      // Get image data for processing
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Enhance contrast and remove noise
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // Calculate luminance
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // Make background whiter and text blacker (threshold-based)
+        if (luminance > 200) {
+          // Light pixels become pure white
+          data[i] = 255;     // R
+          data[i + 1] = 255; // G
+          data[i + 2] = 255; // B
+        } else if (luminance < 100) {
+          // Dark pixels become blacker
+          data[i] = Math.max(0, r - 30);
+          data[i + 1] = Math.max(0, g - 30);
+          data[i + 2] = Math.max(0, b - 30);
+        } else {
+          // Medium pixels - enhance contrast
+          const factor = 1.5;
+          data[i] = Math.min(255, Math.max(0, (r - 128) * factor + 128));
+          data[i + 1] = Math.min(255, Math.max(0, (g - 128) * factor + 128));
+          data[i + 2] = Math.min(255, Math.max(0, (b - 128) * factor + 128));
+        }
+      }
+
+      // Apply processed image data
+      ctx.putImageData(imageData, 0, 0);
+
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0);
+      });
+
+      // Upload enhanced image
+      const fileName = `enhanced_question_${questionId}_${Date.now()}.png`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(fileName, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(fileName);
+
+      // Update question with enhanced image
+      setQuestions(prev => prev.map(q => 
+        q.id === questionId 
+          ? { ...q, image_url: publicUrl }
+          : q
+      ));
+
+      // Update in database
+      await supabase
+        .from('questions')
+        .update({ image_url: publicUrl })
+        .eq('id', questionId);
+
+      toast({
+        title: "Success",
+        description: "Image enhanced with white background!"
+      });
+    } catch (error) {
+      console.error('Enhancement error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to enhance image",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleCropQuestionImage = (questionId: string, imageUrl: string) => {
+    openCropDialog(imageUrl, 'question', parseInt(questionId));
+  };
+
   const openCropDialog = (imageSrc: string, type: 'question' | 'option', index: number = -1) => {
     setCropImageSrc(imageSrc);
     setCropImageType(type);
@@ -1155,12 +1278,33 @@ const TestBuilderPortal: React.FC = () => {
                         
                         {/* Display Question Image */}
                         {question.image_url && (
-                          <div className="mb-2">
+                          <div className="mb-2 relative group">
                             <img 
                               src={question.image_url} 
                               alt={question.image_alt || "Question image"} 
-                              className="max-w-md h-auto rounded border"
+                              className="max-w-md h-auto rounded border bg-white"
                             />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded flex items-center justify-center opacity-0 group-hover:opacity-100">
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="secondary"
+                                  onClick={() => handleCropQuestionImage(question.id!, question.image_url!)}
+                                >
+                                  <CropIcon className="h-3 w-3 mr-1" />
+                                  Crop
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="secondary"
+                                  onClick={() => enhanceQuestionImage(question.id!, question.image_url!)}
+                                  disabled={isEnhancing}
+                                >
+                                  <Sparkles className="h-3 w-3 mr-1" />
+                                  {isEnhancing ? 'Processing...' : 'Enhance'}
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         )}
                         

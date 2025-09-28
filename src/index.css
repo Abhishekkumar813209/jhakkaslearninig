@@ -220,4 +220,33 @@
   .shadow-blue-glow {
     box-shadow: var(--shadow-blue-glow);
   }
+
+  /* Math formatting for educational content */
+  .math-inline {
+    font-family: 'Times New Roman', serif;
+    font-style: italic;
+    color: hsl(var(--primary));
+  }
+
+  .math-formula {
+    font-family: 'Times New Roman', serif;
+    font-size: 1.1em;
+  }
+}
+
+/* Enhanced subscript and superscript styling */
+sub, sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  font-weight: 500;
+}
+
+sup {
+  top: -0.5em;
+}
+
+sub {
+  bottom: -0.25em;
 }

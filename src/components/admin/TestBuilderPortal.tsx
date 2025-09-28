@@ -850,7 +850,15 @@ const TestBuilderPortal: React.FC = () => {
                           </div>
                         )}
                         
-                        <p className="font-medium mb-2">{question.question_text}</p>
+                        <div 
+                          className="font-medium mb-2 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: question.question_text
+                              .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
+                              .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
+                              .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')
+                          }}
+                        />
                         {question.question_type === 'mcq' && question.options && (
                           <div className="space-y-1">
                             {question.options.map((option, optIndex) => (
@@ -858,7 +866,14 @@ const TestBuilderPortal: React.FC = () => {
                                 {option.image_url && (
                                   <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
                                 )}
-                                <span>{String.fromCharCode(65 + optIndex)}. {option.text}</span>
+                                 <span 
+                                   dangerouslySetInnerHTML={{
+                                     __html: `${String.fromCharCode(65 + optIndex)}. ${option.text
+                                       .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
+                                       .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
+                                       .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')}`
+                                   }}
+                                 />
                                 {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
                               </div>
                             ))}
@@ -913,11 +928,28 @@ const TestBuilderPortal: React.FC = () => {
               <Label htmlFor="question-text">Question Text</Label>
               <Textarea
                 id="question-text"
-                placeholder="Enter your question here..."
+                placeholder="Enter your question here... Use LaTeX for math: $x^2$ for superscript, $x_2$ for subscript, $\frac{a}{b}$ for fractions"
                 value={newQuestion.question_text}
                 onChange={(e) => setNewQuestion(prev => ({ ...prev, question_text: e.target.value }))}
-                rows={3}
+                rows={4}
               />
+              <div className="text-xs text-muted-foreground mt-1">
+                Math examples: H₂SO₄ → H$_2$SO$_4$, x² → x$^2$, CO₂ → CO$_2$
+              </div>
+              {newQuestion.question_text && (
+                <div className="mt-2 p-2 border rounded bg-gray-50">
+                  <Label className="text-xs text-muted-foreground">Preview:</Label>
+                  <div 
+                    className="prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{
+                      __html: newQuestion.question_text
+                        .replace(/\$([^$]+)\$/g, '<span class="math-inline">$1</span>')
+                        .replace(/(\w)_(\w+)/g, '$1<sub>$2</sub>')
+                        .replace(/(\w)\^(\w+)/g, '$1<sup>$2</sup>')
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Question Image Upload */}

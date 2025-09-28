@@ -54,13 +54,23 @@ const applySupSub = (t: string) => {
 
 export const renderMath = (input: string) => {
   if (!input) return '';
-  // Normalize common OCR glitch: "$_-16" after a number → exponent
-  const normalized = input.replace(/(\S)\s*\$\s*_\s*(-?[0-9A-Za-z]+)/g, '$1^{$2}');
-  let safe = escapeHtml(normalized);
-  // Handle inline $...$ segments first
-  safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => `<span class="math-inline">${applySupSub(content)}</span>`);
+  
+  // Clean input - remove stray dollar signs from OCR
+  let cleaned = input.replace(/\$(?![_{^])/g, ''); // Remove standalone $ but keep $_ and $^
+  
+  // Normalize common OCR glitches: "$_-16" → "^{-16}"
+  cleaned = cleaned.replace(/(\d+)\s*\$\s*_\s*(-?\d+)/g, '$1^{$2}');
+  
+  let safe = escapeHtml(cleaned);
+  
+  // Handle inline $...$ segments first (proper LaTeX)
+  safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => {
+    return `<span class="math-inline">${applySupSub(content)}</span>`;
+  });
+  
   // Then process remaining plain-text math patterns
   safe = applySupSub(safe);
+  
   return safe;
 };
 
@@ -1038,7 +1048,7 @@ const TestBuilderPortal: React.FC = () => {
                 rows={4}
               />
               <div className="text-xs text-muted-foreground mt-1">
-                Math examples: H₂SO₄ → H$_2$SO$_4$, x² → x$^2$, CO₂ → CO$_2$
+                Math examples: H₂SO₄ → H_2SO_4, x² → x^2, 10^-16, CO₂ → CO_2
               </div>
               {newQuestion.question_text && (
                 <div className="mt-2 p-2 border rounded bg-gray-50">
@@ -1123,7 +1133,7 @@ const TestBuilderPortal: React.FC = () => {
                           </div>
                           <div className="flex-1 space-y-1">
                             <Input
-                              placeholder={`Option ${String.fromCharCode(65 + index)} - Use math: H$_2$O for H₂O, x$^2$ for x²`}
+                              placeholder={`Option ${String.fromCharCode(65 + index)} - Use: H_2O for H₂O, x^2 for x², 10^-16`}
                               value={option.text}
                               onChange={(e) => updateOptionText(index, e.target.value)}
                             />

@@ -37,6 +37,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import TestSettingsDialog from './TestSettingsDialog';
+import { PDFQuestionExtractor } from './PDFQuestionExtractor';
 import ReactCrop from 'react-image-crop';
 import type { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -136,6 +137,7 @@ const TestBuilderPortal: React.FC = () => {
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [showPDFExtractor, setShowPDFExtractor] = useState(false);
 
   // Initialize transformers.js
   useEffect(() => {
@@ -755,7 +757,38 @@ const TestBuilderPortal: React.FC = () => {
       setOcrProcessing(false);
     }
   };
-  // Enhanced image processing function (fixed)
+
+  // Handle PDF question extraction
+  const handlePDFQuestionExtracted = async (questionText: string, imageData?: string) => {
+    try {
+      setShowPDFExtractor(false);
+      
+      // Set the extracted text to question field
+      setNewQuestion(prev => ({
+        ...prev,
+        question_text: questionText,
+        image_url: imageData || ''
+      }));
+      
+      // Show the question dialog for further editing
+      setShowQuestionDialog(true);
+      
+      toast({
+        title: "Success",
+        description: "Question extracted from PDF successfully!",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Error handling PDF extraction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process extracted question",
+        variant: "destructive"
+      });
+    }
+  };
+
+   // Enhanced image processing function (fixed)
   const enhanceQuestionImage = async (questionId: string, imageUrl: string) => {
     setIsEnhancing(true);
     try {
@@ -1135,6 +1168,10 @@ const TestBuilderPortal: React.FC = () => {
         <Button variant="outline" onClick={() => ocrInputRef.current?.click()} disabled={ocrProcessing}>
           <ScanText className={`h-4 w-4 mr-2 ${ocrProcessing ? 'animate-spin' : ''}`} />
           {ocrProcessing ? 'Processing...' : 'Upload Question Image'}
+        </Button>
+        <Button variant="outline" onClick={() => setShowPDFExtractor(true)}>
+          <FileText className="h-4 w-4 mr-2" />
+          Extract from PDF
         </Button>
         <input
           ref={ocrInputRef}
@@ -1636,6 +1673,14 @@ const TestBuilderPortal: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Question Extractor */}
+      {showPDFExtractor && (
+        <PDFQuestionExtractor
+          onQuestionExtracted={handlePDFQuestionExtracted}
+          onClose={() => setShowPDFExtractor(false)}
+        />
+      )}
     </div>
   );
 };

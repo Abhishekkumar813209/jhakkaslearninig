@@ -13,9 +13,21 @@ serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase clients
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    const supabaseService = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
           autoRefreshToken: false,
@@ -84,7 +96,6 @@ serve(async (req) => {
       });
 
       console.log('[razorpay-subscription] Order response status:', orderResponse.status);
-      console.log('[razorpay-subscription] Order response headers:', Object.fromEntries(orderResponse.headers.entries()));
 
       const order = await orderResponse.json();
       
@@ -93,7 +104,6 @@ serve(async (req) => {
           status: orderResponse.status,
           statusText: orderResponse.statusText,
           response: order,
-          url: 'https://api.razorpay.com/v1/orders'
         });
         throw new Error(`Razorpay order creation failed: ${order.error?.description || 'Unknown error'}`);
       }
@@ -142,19 +152,8 @@ serve(async (req) => {
 
       console.log('[razorpay-subscription] Payment verified successfully');
 
-      // Create subscription record for 30-day access using service role key to bypass RLS
-      const supabaseServiceClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false
-          }
-        }
-      );
-
-      const { error: subscriptionError } = await supabaseServiceClient
+      // Create subscription record for 30-day access using service role client
+      const { error: subscriptionError } = await supabaseService
         .from('test_subscriptions')
         .insert({
           student_id: user.id,

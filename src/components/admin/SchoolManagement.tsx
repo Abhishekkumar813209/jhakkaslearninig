@@ -158,10 +158,14 @@ const SchoolManagement = () => {
 
   const handleAssignStudent = async (studentId: string, schoolId: string) => {
     try {
+      console.log('Component: Assigning student:', studentId, 'to school:', schoolId);
       await assignStudentToSchool(studentId, schoolId);
+      console.log('Component: Assignment completed, refreshing data...');
       await fetchStudents(); // Refresh students list
       await fetchSchools(); // Refresh schools list
+      console.log('Component: Data refresh completed');
     } catch (error) {
+      console.error('Component: Assignment failed:', error);
       // Error is already handled in the hook
     }
   };

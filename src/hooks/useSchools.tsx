@@ -158,13 +158,19 @@ export const useSchools = () => {
   const assignStudentToSchool = async (studentId: string, schoolId: string) => {
     try {
       setLoading(true);
+      console.log('Assigning student:', studentId, 'to school:', schoolId);
 
       const { error } = await supabase
         .from('profiles')
         .update({ school_id: schoolId })
         .eq('id', studentId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Assignment error:', error);
+        throw error;
+      }
+
+      console.log('Assignment successful');
 
       // Recalculate rankings
       const { error: rankingError } = await supabase.rpc('calculate_zone_rankings');

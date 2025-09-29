@@ -27,7 +27,7 @@ if (typeof window !== 'undefined') {
 }
 
 interface PDFQuestionExtractorProps {
-  onQuestionExtracted: (questionText: string, imageData?: string) => void;
+  onQuestionExtracted: (questionText: string, options?: string[], imageData?: string) => void;
   onClose: () => void;
 }
 
@@ -322,8 +322,28 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         .replace(/\s+/g, ' ')  // Normalize spaces
         .replace(/\n\s*\n/g, '\n');  // Remove extra line breaks
 
-      if (extractedText) {
-        onQuestionExtracted(extractedText, imageDataUrl);
+      // Separate question from options
+      const lines = extractedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      let questionText = '';
+      const options: string[] = [];
+      
+      for (const line of lines) {
+        // Check if line contains options pattern
+        const optionMatch = line.match(/\(([abcd])\)\s*(.+)/i);
+        if (optionMatch) {
+          options.push(optionMatch[2].trim());
+        } else {
+          // Add to question text if it's not an option
+          if (questionText) {
+            questionText += ' ' + line;
+          } else {
+            questionText = line;
+          }
+        }
+      }
+      
+      if (questionText || options.length > 0) {
+        onQuestionExtracted(questionText || extractedText, options.length > 0 ? options : undefined, imageDataUrl);
         toast.success("Question extracted successfully! Click 'Crop Mode' to select another area.");
         
         // Reset crop mode to allow selecting new area but keep PDF open

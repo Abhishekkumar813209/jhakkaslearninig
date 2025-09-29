@@ -759,7 +759,7 @@ const TestBuilderPortal: React.FC = () => {
   };
 
   // Handle PDF question extraction
-  const handlePDFQuestionExtracted = async (questionText: string, imageData?: string) => {
+  const handlePDFQuestionExtracted = async (questionText: string, options?: string[], imageData?: string) => {
     try {
       setShowPDFExtractor(false);
       
@@ -767,7 +767,12 @@ const TestBuilderPortal: React.FC = () => {
       setNewQuestion(prev => ({
         ...prev,
         question_text: questionText,
-        image_url: imageData || ''
+        image_url: imageData || '',
+        // If options were extracted, set them in the options array
+        options: options && options.length > 0 ? options.map((opt, index) => ({
+          text: opt,
+          isCorrect: false
+        })) : prev.options
       }));
       
       // Show the question dialog for further editing
@@ -775,7 +780,9 @@ const TestBuilderPortal: React.FC = () => {
       
       toast({
         title: "Success",
-        description: "Question extracted from PDF successfully!",
+        description: options && options.length > 0 
+          ? `Question extracted with ${options.length} options from PDF!`
+          : "Question extracted from PDF successfully!",
         variant: "default"
       });
     } catch (error) {

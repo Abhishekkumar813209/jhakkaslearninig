@@ -49,6 +49,13 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         return;
       }
 
+      // Fetch user profile for phone number
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user?.id)
+        .single();
+
       // Create Razorpay order
       console.log('[SubscriptionCard] Creating order...');
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
@@ -153,9 +160,9 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           escape: true
         },
         prefill: {
-          name: user?.user_metadata?.full_name || 'Student',
-          email: user?.email || 'student@example.com',
-          // Let user enter their phone number instead of hardcoding
+          name: profile?.full_name || user?.user_metadata?.full_name || 'Student',
+          email: profile?.email || user?.email || '',
+          contact: '' // Leave empty so user can enter their phone number
         },
         theme: {
           color: '#3B82F6',

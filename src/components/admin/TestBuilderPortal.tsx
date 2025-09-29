@@ -764,16 +764,31 @@ const TestBuilderPortal: React.FC = () => {
       setShowPDFExtractor(false);
       
       // Set the extracted text to question field
-      setNewQuestion(prev => ({
-        ...prev,
-        question_text: questionText,
-        image_url: imageData || '',
-        // If options were extracted, set them in the options array
-        options: options && options.length > 0 ? options.map((opt, index) => ({
-          text: opt,
-          isCorrect: false
-        })) : prev.options
-      }));
+      setNewQuestion(prev => {
+        const baseOptions = (prev.options && prev.options.length === 4)
+          ? [...prev.options]
+          : [
+              { text: '', isCorrect: true },
+              { text: '', isCorrect: false },
+              { text: '', isCorrect: false },
+              { text: '', isCorrect: false }
+            ];
+        
+        let nextOptions = baseOptions;
+        if (options && options.length > 0) {
+          nextOptions = baseOptions.map((opt, i) => ({
+            ...opt,
+            text: options[i] !== undefined ? options[i] : opt.text
+          }));
+        }
+        
+        return {
+          ...prev,
+          question_text: questionText,
+          image_url: imageData || '',
+          options: nextOptions
+        };
+      });
       
       // Show the question dialog for further editing
       setShowQuestionDialog(true);

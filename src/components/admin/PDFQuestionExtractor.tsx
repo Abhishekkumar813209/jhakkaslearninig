@@ -325,42 +325,37 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         .replace(/\s+/g, ' ')                 // Normalize spaces
         .replace(/\n\s*\n/g, '\n');           // Remove extra line breaks
 
-      // Separate question from options with improved detection
-      const lines = extractedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-      let questionText = '';
-      const options: string[] = [];
+      // Separate question from options (robust, handles multiple options in one line)
+      const markerIndex = extractedText.search(/\([a-d]\)/i);
+      let questionText = markerIndex > 0 ? extractedText.slice(0, markerIndex).trim() : '';
       
-      for (const line of lines) {
-        // Check if line contains options pattern - improved regex
-        const optionMatch = line.match(/\(([abcd])\)\s*(.+)/i);
-        if (optionMatch) {
-          const optionText = optionMatch[2].trim();
-          // Make sure we don't add empty options
-          if (optionText && optionText.length > 0) {
-            options.push(optionText);
-          }
-        } else {
-          // Check if line contains multiple options in one line
-          const multipleOptionsMatch = line.match(/\(([abcd])\)\s*([^(]+)/gi);
-          if (multipleOptionsMatch && multipleOptionsMatch.length > 1) {
-            // Split line by option patterns
-            const parts = line.split(/(?=\([abcd]\))/i);
-            for (const part of parts) {
-              const partMatch = part.match(/\(([abcd])\)\s*(.+)/i);
-              if (partMatch) {
-                const optionText = partMatch[2].trim();
-                if (optionText && optionText.length > 0) {
-                  options.push(optionText);
-                }
-              }
+      const optionSection = markerIndex >= 0 ? extractedText.slice(markerIndex) : extractedText;
+      const optionMatches = Array.from(optionSection.matchAll(/\(([abcd])\)\s*([\s\S]*?)(?=\s*\([abcd]\)\s*|$)/gi));
+      
+      const optionMap = new Map<string, string>();
+      for (const m of optionMatches) {
+        const letter = m[1].toLowerCase();
+        const text = m[2].trim().replace(/^[,.:;\-]+/, '').trim();
+        if (text) optionMap.set(letter, text);
+      }
+      
+      const ordered = ['a','b','c','d'];
+      const options: string[] = ordered
+        .map((l) => optionMap.get(l))
+        .filter((v): v is string => Boolean(v));
+      
+      // Fallback: if no options were detected, try previous simple line-based parsing
+      if (options.length === 0) {
+        const lines = extractedText.split('\n').map(l => l.trim()).filter(Boolean);
+        for (const line of lines) {
+          const partMatches = Array.from(line.matchAll(/\(([abcd])\)\s*(.+?)(?=(\s*\([abcd]\)\s*)|$)/gi));
+          if (partMatches.length > 0) {
+            for (const pm of partMatches) {
+              const t = pm[2].trim();
+              if (t) options.push(t);
             }
           } else {
-            // Add to question text if it's not an option
-            if (questionText) {
-              questionText += ' ' + line;
-            } else {
-              questionText = line;
-            }
+            questionText = questionText ? questionText + ' ' + line : line;
           }
         }
       }

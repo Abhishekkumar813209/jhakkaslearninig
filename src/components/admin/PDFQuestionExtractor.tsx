@@ -317,27 +317,50 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       // Post-process to fix common OCR mistakes for options
       extractedText = extractedText
         .replace(/[@©®™]/g, '(a)')  // Replace symbols with (a)
-        .replace(/\b[bc]\)/g, (match) => `(${match[0]})`)  // Fix b) c) to (b) (c)
-        .replace(/\bd\)/g, '(d)')  // Fix d) to (d)
-        .replace(/\s+/g, ' ')  // Normalize spaces
-        .replace(/\n\s*\n/g, '\n');  // Remove extra line breaks
+        .replace(/\(\(([abcd])\)\)/g, '($1)')  // Fix ((a)) to (a)
+        .replace(/\(\(([abcd])\)/g, '($1)')   // Fix ((a) to (a)
+        .replace(/([abcd])\)\)/g, '($1)')     // Fix a)) to (a)
+        .replace(/\b[8B]D\b/g, 'BD')          // Fix 8D to BD
+        .replace(/\b0\b/g, 'O')               // Fix 0 to O (letter)
+        .replace(/\s+/g, ' ')                 // Normalize spaces
+        .replace(/\n\s*\n/g, '\n');           // Remove extra line breaks
 
-      // Separate question from options
+      // Separate question from options with improved detection
       const lines = extractedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
       let questionText = '';
       const options: string[] = [];
       
       for (const line of lines) {
-        // Check if line contains options pattern
+        // Check if line contains options pattern - improved regex
         const optionMatch = line.match(/\(([abcd])\)\s*(.+)/i);
         if (optionMatch) {
-          options.push(optionMatch[2].trim());
+          const optionText = optionMatch[2].trim();
+          // Make sure we don't add empty options
+          if (optionText && optionText.length > 0) {
+            options.push(optionText);
+          }
         } else {
-          // Add to question text if it's not an option
-          if (questionText) {
-            questionText += ' ' + line;
+          // Check if line contains multiple options in one line
+          const multipleOptionsMatch = line.match(/\(([abcd])\)\s*([^(]+)/gi);
+          if (multipleOptionsMatch && multipleOptionsMatch.length > 1) {
+            // Split line by option patterns
+            const parts = line.split(/(?=\([abcd]\))/i);
+            for (const part of parts) {
+              const partMatch = part.match(/\(([abcd])\)\s*(.+)/i);
+              if (partMatch) {
+                const optionText = partMatch[2].trim();
+                if (optionText && optionText.length > 0) {
+                  options.push(optionText);
+                }
+              }
+            }
           } else {
-            questionText = line;
+            // Add to question text if it's not an option
+            if (questionText) {
+              questionText += ' ' + line;
+            } else {
+              questionText = line;
+            }
           }
         }
       }

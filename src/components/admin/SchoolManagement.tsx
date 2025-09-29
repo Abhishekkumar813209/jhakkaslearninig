@@ -45,24 +45,41 @@ const SchoolManagement = () => {
     try {
       const { data: studentsData, error } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          full_name,
-          email,
-          school_id,
-          zone_id,
-          schools(name),
-          zones(name)
-        `)
+        .select('id, full_name, email, school_id, zone_id')
         .not('id', 'is', null);
 
       if (error) throw error;
 
-      const processedStudents = studentsData?.map(student => ({
-        ...student,
-        school_name: student.schools?.name || 'No School',
-        zone_name: student.zones?.name || 'No Zone'
-      })) || [];
+      // Get school and zone names separately to avoid foreign key issues
+      const processedStudents = [];
+      for (const student of studentsData || []) {
+        let school_name = 'No School';
+        let zone_name = 'No Zone';
+
+        if (student.school_id) {
+          const { data: schoolData } = await supabase
+            .from('schools')
+            .select('name')
+            .eq('id', student.school_id)
+            .single();
+          school_name = schoolData?.name || 'No School';
+        }
+
+        if (student.zone_id) {
+          const { data: zoneData } = await supabase
+            .from('zones')
+            .select('name')
+            .eq('id', student.zone_id)
+            .single();
+          zone_name = zoneData?.name || 'No Zone';
+        }
+
+        processedStudents.push({
+          ...student,
+          school_name,
+          zone_name
+        });
+      }
 
       setStudents(processedStudents);
     } catch (error) {

@@ -36,21 +36,29 @@ const ZoneManagementNew = () => {
     try {
       const { data: studentsData, error } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          full_name,
-          email,
-          zone_id,
-          zones(name)
-        `)
+        .select('id, full_name, email, zone_id, school_id')
         .not('id', 'is', null);
 
       if (error) throw error;
 
-      const processedStudents = studentsData?.map(student => ({
-        ...student,
-        zone_name: student.zones?.name || 'No Zone'
-      })) || [];
+      // Get zone names separately to avoid foreign key issues
+      const processedStudents = [];
+      for (const student of studentsData || []) {
+        let zone_name = 'No Zone';
+        if (student.zone_id) {
+          const { data: zoneData } = await supabase
+            .from('zones')
+            .select('name')
+            .eq('id', student.zone_id)
+            .single();
+          zone_name = zoneData?.name || 'No Zone';
+        }
+
+        processedStudents.push({
+          ...student,
+          zone_name
+        });
+      }
 
       setStudents(processedStudents);
     } catch (error) {

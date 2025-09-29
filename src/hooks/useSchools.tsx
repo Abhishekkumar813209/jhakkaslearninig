@@ -28,21 +28,31 @@ export const useSchools = () => {
       // Fetch schools with student counts and zone information
       const { data: schoolsData, error: schoolsError } = await supabase
         .from('schools')
-        .select(`
-          *,
-          zones(name),
-          profiles(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (schoolsError) throw schoolsError;
 
-      // Process schools data to include counts and zone names
-      const processedSchools = schoolsData?.map(school => ({
-        ...school,
-        student_count: Array.isArray(school.profiles) ? school.profiles.length : 0,
-        zone_name: school.zones?.name || 'No Zone'
-      })) || [];
+      // Get counts and zone names separately to avoid foreign key issues
+      const processedSchools = [];
+      for (const school of schoolsData || []) {
+        const { count: studentCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('school_id', school.id);
+
+        const { data: zoneData } = await supabase
+          .from('zones')
+          .select('name')
+          .eq('id', school.zone_id)
+          .single();
+
+        processedSchools.push({
+          ...school,
+          student_count: studentCount || 0,
+          zone_name: zoneData?.name || 'No Zone'
+        });
+      }
 
       setSchools(processedSchools);
     } catch (err) {

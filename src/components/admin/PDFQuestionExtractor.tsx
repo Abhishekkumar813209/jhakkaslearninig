@@ -278,10 +278,32 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         croppedCanvas.height
       );
 
-      // Convert to blob for OCR
-      const imageDataUrl = croppedCanvas.toDataURL('image/png');
+      // Preprocess image for better OCR
+      const preprocessedCanvas = document.createElement('canvas');
+      const pCtx = preprocessedCanvas.getContext('2d');
+      preprocessedCanvas.width = croppedCanvas.width;
+      preprocessedCanvas.height = croppedCanvas.height;
       
-      // Extract text using Tesseract
+      // Draw with higher contrast and sharpening
+      pCtx?.drawImage(croppedCanvas, 0, 0);
+      const imageData = pCtx?.getImageData(0, 0, preprocessedCanvas.width, preprocessedCanvas.height);
+      
+      if (imageData) {
+        // Apply contrast enhancement
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          // Convert to grayscale and enhance contrast
+          const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+          const enhanced = gray < 128 ? Math.max(0, gray - 30) : Math.min(255, gray + 30);
+          data[i] = data[i + 1] = data[i + 2] = enhanced;
+        }
+        pCtx?.putImageData(imageData, 0, 0);
+      }
+
+      // Convert to blob for OCR
+      const imageDataUrl = preprocessedCanvas.toDataURL('image/png');
+      
+      // Extract text using Tesseract with improved settings
       const result = await Tesseract.recognize(imageDataUrl, 'eng', {
         logger: (m) => {
           if (m.status === 'recognizing text') {
@@ -290,8 +312,16 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         }
       });
 
-      const extractedText = result.data.text.trim();
+      let extractedText = result.data.text.trim();
       
+      // Post-process to fix common OCR mistakes for options
+      extractedText = extractedText
+        .replace(/[@©®™]/g, '(a)')  // Replace symbols with (a)
+        .replace(/\b[bc]\)/g, (match) => `(${match[0]})`)  // Fix b) c) to (b) (c)
+        .replace(/\bd\)/g, '(d)')  // Fix d) to (d)
+        .replace(/\s+/g, ' ')  // Normalize spaces
+        .replace(/\n\s*\n/g, '\n');  // Remove extra line breaks
+
       if (extractedText) {
         onQuestionExtracted(extractedText, imageDataUrl);
         toast.success("Question extracted successfully! Click 'Crop Mode' to select another area.");

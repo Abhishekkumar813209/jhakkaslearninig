@@ -123,7 +123,8 @@ const ZoneManagementNew = () => {
   const handleAssignStudent = async (studentId: string, zoneId: string) => {
     try {
       await assignStudentToZone(studentId, zoneId);
-      fetchStudents(); // Refresh students list
+      await fetchStudents(); // Refresh students list
+      await fetchZones(); // Refresh zones list
     } catch (error) {
       // Error is already handled in the hook
     }

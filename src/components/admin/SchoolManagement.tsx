@@ -159,7 +159,8 @@ const SchoolManagement = () => {
   const handleAssignStudent = async (studentId: string, schoolId: string) => {
     try {
       await assignStudentToSchool(studentId, schoolId);
-      fetchStudents(); // Refresh students list
+      await fetchStudents(); // Refresh students list
+      await fetchSchools(); // Refresh schools list
     } catch (error) {
       // Error is already handled in the hook
     }

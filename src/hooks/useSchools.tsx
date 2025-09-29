@@ -171,7 +171,7 @@ export const useSchools = () => {
       if (rankingError) console.error('Error recalculating rankings:', rankingError);
 
       toast.success('Student assigned to school successfully');
-      fetchSchools(); // Refresh list
+      await fetchSchools(); // Refresh list
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to assign student to school';
       setError(errorMsg);

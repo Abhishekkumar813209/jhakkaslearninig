@@ -171,7 +171,7 @@ export const useZones = () => {
       if (rankingError) console.error('Error recalculating rankings:', rankingError);
 
       toast.success('Student assigned to zone successfully');
-      fetchZones(); // Refresh list
+      await fetchZones(); // Refresh list
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to assign student to zone';
       setError(errorMsg);

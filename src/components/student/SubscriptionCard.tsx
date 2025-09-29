@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Trophy, BookOpen, Clock, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 declare global {
@@ -24,6 +25,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
   onSubscriptionSuccess
 }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const loadRazorpayScript = () => {
     return new Promise<boolean>((resolve) => {
@@ -151,9 +153,9 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           escape: true
         },
         prefill: {
-          name: 'Student',
-          email: 'student@example.com',
-          contact: '9999999999'
+          name: user?.user_metadata?.full_name || 'Student',
+          email: user?.email || 'student@example.com',
+          // Let user enter their phone number instead of hardcoding
         },
         theme: {
           color: '#3B82F6',

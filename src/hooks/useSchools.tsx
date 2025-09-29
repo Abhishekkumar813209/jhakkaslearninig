@@ -30,8 +30,8 @@ export const useSchools = () => {
         .from('schools')
         .select(`
           *,
-          zones!schools_zone_id_fkey(name),
-          profiles!profiles_school_id_fkey(count)
+          zones(name),
+          profiles(count)
         `)
         .order('created_at', { ascending: false });
 
@@ -41,7 +41,7 @@ export const useSchools = () => {
       const processedSchools = schoolsData?.map(school => ({
         ...school,
         student_count: Array.isArray(school.profiles) ? school.profiles.length : 0,
-        zone_name: (school.zones as any)?.name || 'No Zone'
+        zone_name: school.zones?.name || 'No Zone'
       })) || [];
 
       setSchools(processedSchools);

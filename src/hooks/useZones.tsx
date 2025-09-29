@@ -29,8 +29,8 @@ export const useZones = () => {
         .from('zones')
         .select(`
           *,
-          schools!schools_zone_id_fkey(count),
-          profiles!profiles_zone_id_fkey(count)
+          schools(count),
+          profiles(count)
         `)
         .order('created_at', { ascending: false });
 

@@ -51,8 +51,8 @@ const SchoolManagement = () => {
           email,
           school_id,
           zone_id,
-          schools!profiles_school_id_fkey(name),
-          zones!profiles_zone_id_fkey(name)
+          schools(name),
+          zones(name)
         `)
         .not('id', 'is', null);
 
@@ -60,8 +60,8 @@ const SchoolManagement = () => {
 
       const processedStudents = studentsData?.map(student => ({
         ...student,
-        school_name: (student.schools as any)?.name || 'No School',
-        zone_name: (student.zones as any)?.name || 'No Zone'
+        school_name: student.schools?.name || 'No School',
+        zone_name: student.zones?.name || 'No Zone'
       })) || [];
 
       setStudents(processedStudents);

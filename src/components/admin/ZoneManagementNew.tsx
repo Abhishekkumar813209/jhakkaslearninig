@@ -41,7 +41,7 @@ const ZoneManagementNew = () => {
           full_name,
           email,
           zone_id,
-          zones!profiles_zone_id_fkey(name)
+          zones(name)
         `)
         .not('id', 'is', null);
 
@@ -49,7 +49,7 @@ const ZoneManagementNew = () => {
 
       const processedStudents = studentsData?.map(student => ({
         ...student,
-        zone_name: (student.zones as any)?.name || 'No Zone'
+        zone_name: student.zones?.name || 'No Zone'
       })) || [];
 
       setStudents(processedStudents);

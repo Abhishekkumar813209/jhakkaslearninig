@@ -137,6 +137,7 @@ const TestBuilderPortal: React.FC = () => {
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhancementType, setEnhancementType] = useState<'darken' | 'lighten'>('darken');
   const [showPDFExtractor, setShowPDFExtractor] = useState(false);
 
   // Initialize transformers.js
@@ -811,7 +812,7 @@ const TestBuilderPortal: React.FC = () => {
   };
 
    // Enhanced image processing function (fixed)
-  const enhanceQuestionImage = async (questionId: string, imageUrl: string) => {
+  const enhanceQuestionImage = async (questionId: string, imageUrl: string, enhanceType: 'darken' | 'lighten' = enhancementType) => {
     setIsEnhancing(true);
     try {
       // Load the image with proper CORS handling
@@ -859,7 +860,7 @@ const TestBuilderPortal: React.FC = () => {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
 
-      // Enhance contrast and remove noise
+      // Enhance contrast based on type
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
@@ -868,23 +869,39 @@ const TestBuilderPortal: React.FC = () => {
         // Calculate luminance
         const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
         
-        // Make background whiter and text blacker (threshold-based)
-        if (luminance > 200) {
-          // Light pixels become pure white
-          data[i] = 255;     // R
-          data[i + 1] = 255; // G
-          data[i + 2] = 255; // B
-        } else if (luminance < 100) {
-          // Dark pixels become blacker
-          data[i] = Math.max(0, r - 30);
-          data[i + 1] = Math.max(0, g - 30);
-          data[i + 2] = Math.max(0, b - 30);
+        if (enhanceType === 'darken') {
+          // Darken mode: Make dark areas darker and keep light areas white
+          if (luminance > 200) {
+            // Light pixels become pure white
+            data[i] = 255;     // R
+            data[i + 1] = 255; // G
+            data[i + 2] = 255; // B
+          } else if (luminance < 100) {
+            // Dark pixels become much darker
+            data[i] = Math.max(0, r - 50);
+            data[i + 1] = Math.max(0, g - 50);
+            data[i + 2] = Math.max(0, b - 50);
+          } else {
+            // Medium pixels - enhance contrast towards darker
+            const factor = 1.8;
+            data[i] = Math.min(255, Math.max(0, (r - 128) * factor + 90));
+            data[i + 1] = Math.min(255, Math.max(0, (g - 128) * factor + 90));
+            data[i + 2] = Math.min(255, Math.max(0, (b - 128) * factor + 90));
+          }
         } else {
-          // Medium pixels - enhance contrast
-          const factor = 1.5;
-          data[i] = Math.min(255, Math.max(0, (r - 128) * factor + 128));
-          data[i + 1] = Math.min(255, Math.max(0, (g - 128) * factor + 128));
-          data[i + 2] = Math.min(255, Math.max(0, (b - 128) * factor + 128));
+          // Lighten mode: Make everything lighter and reduce contrast
+          if (luminance > 150) {
+            // Already light pixels become even lighter
+            data[i] = Math.min(255, r + 30);
+            data[i + 1] = Math.min(255, g + 30);
+            data[i + 2] = Math.min(255, b + 30);
+          } else {
+            // Dark pixels become lighter
+            const factor = 0.7;
+            data[i] = Math.min(255, Math.max(0, (r - 128) * factor + 160));
+            data[i + 1] = Math.min(255, Math.max(0, (g - 128) * factor + 160));
+            data[i + 2] = Math.min(255, Math.max(0, (b - 128) * factor + 160));
+          }
         }
       }
 
@@ -1272,15 +1289,25 @@ const TestBuilderPortal: React.FC = () => {
                                   <CropIcon className="h-3 w-3 mr-1" />
                                   Crop
                                 </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="secondary"
-                                  onClick={() => enhanceQuestionImage(question.id!, question.image_url!)}
-                                  disabled={isEnhancing}
-                                >
-                                  <Sparkles className="h-3 w-3 mr-1" />
-                                  {isEnhancing ? 'Processing...' : 'Enhance'}
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <select 
+                                    value={enhancementType} 
+                                    onChange={(e) => setEnhancementType(e.target.value as 'darken' | 'lighten')}
+                                    className="text-xs px-2 py-1 border rounded"
+                                  >
+                                    <option value="darken">Darken</option>
+                                    <option value="lighten">Lighten</option>
+                                  </select>
+                                  <Button 
+                                    size="sm" 
+                                    variant="secondary"
+                                    onClick={() => enhanceQuestionImage(question.id!, question.image_url!)}
+                                    disabled={isEnhancing}
+                                  >
+                                    <Sparkles className="h-3 w-3 mr-1" />
+                                    {isEnhancing ? 'Processing...' : 'Enhance'}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>

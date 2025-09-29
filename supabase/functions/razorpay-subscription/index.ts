@@ -142,8 +142,19 @@ serve(async (req) => {
 
       console.log('[razorpay-subscription] Payment verified successfully');
 
-      // Create subscription record for 30-day access
-      const { error: subscriptionError } = await supabaseClient
+      // Create subscription record for 30-day access using service role key to bypass RLS
+      const supabaseServiceClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        }
+      );
+
+      const { error: subscriptionError } = await supabaseServiceClient
         .from('test_subscriptions')
         .insert({
           student_id: user.id,

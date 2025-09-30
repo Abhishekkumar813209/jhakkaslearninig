@@ -81,7 +81,7 @@ serve(async (req) => {
       let parentName = feeRecord.profiles?.full_name;
 
       if (feeRecord.parent_student_links?.length > 0) {
-        const primaryParent = feeRecord.parent_student_links.find(link => link.is_primary_contact) 
+        const primaryParent = feeRecord.parent_student_links.find((link: any) => link.is_primary_contact) 
           || feeRecord.parent_student_links[0];
         
         if (primaryParent?.profiles) {
@@ -153,7 +153,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Fee reminder error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message || 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -183,7 +183,7 @@ function generateReminderEmail(studentName: string, parentName: string, amount: 
   };
 
   return {
-    subject: subjects[reminderType],
+    subject: (subjects as any)[reminderType] || 'Fee Reminder',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -194,7 +194,7 @@ function generateReminderEmail(studentName: string, parentName: string, amount: 
         <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="margin: 0 0 15px 0; color: #333;">Dear ${parentName},</h3>
           <p style="margin: 10px 0; line-height: 1.6;">
-            ${tones[reminderType]} that the monthly fee for <strong>${studentName}</strong> is pending payment.
+            ${(tones as any)[reminderType] || 'We would like to remind you'} that the monthly fee for <strong>${studentName}</strong> is pending payment.
           </p>
         </div>
 
@@ -232,7 +232,7 @@ function generateReminderEmail(studentName: string, parentName: string, amount: 
 
         <div style="background: ${reminderType === 'final' ? '#ffebee' : '#e3f2fd'}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${reminderType === 'final' ? '#f44336' : '#2196f3'};">
           <p style="margin: 0; line-height: 1.6; font-weight: bold; color: ${reminderType === 'final' ? '#c62828' : '#1565c0'};">
-            ${consequences[reminderType]}
+            ${(consequences as any)[reminderType] || 'Please contact us for more information.'}
           </p>
         </div>
 

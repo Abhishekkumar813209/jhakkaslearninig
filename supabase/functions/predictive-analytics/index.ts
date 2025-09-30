@@ -45,7 +45,7 @@ serve(async (req) => {
       '550e8400-e29b-41d4-a716-446655440010': { name: 'Karthik Rao', currentScore: 76.8, trend: 'stable', performance: 'average' }
     };
 
-    const student = mockStudents[studentId];
+    const student = (mockStudents as any)[studentId];
     if (!student) {
       return new Response(JSON.stringify({
         success: false,
@@ -57,7 +57,7 @@ serve(async (req) => {
     }
 
     // Generate predictive data based on current performance and trend
-    const generatePredictions = (currentScore, trend, timeframeMonths = 3) => {
+    const generatePredictions = (currentScore: number, trend: string, timeframeMonths = 3) => {
       const predictions = [];
       let score = currentScore;
       
@@ -67,7 +67,7 @@ serve(async (req) => {
         'declining': 0.98
       };
 
-      const multiplier = trendMultiplier[trend] || 1.001;
+      const multiplier = (trendMultiplier as any)[trend] || 1.001;
 
       for (let i = 1; i <= timeframeMonths; i++) {
         score = Math.min(100, Math.max(0, score * multiplier + (Math.random() - 0.5) * 2));
@@ -88,7 +88,7 @@ serve(async (req) => {
       '1year': 12
     };
 
-    const months = timeframeMap[timeframe] || 3;
+    const months = (timeframeMap as any)[timeframe] || 3;
     const scorePredictions = generatePredictions(student.currentScore, student.trend, months);
 
     // Rank prediction based on current trajectory
@@ -192,7 +192,7 @@ serve(async (req) => {
     console.error('Error in predictive-analytics function:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: (error as Error).message || 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

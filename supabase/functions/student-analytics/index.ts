@@ -75,7 +75,7 @@ serve(async (req: Request) => {
 
     // Get specific student analytics
     const student = mockStudents.find(s => s.id === studentId);
-    const analytics = mockAnalytics[studentId];
+    const analytics = (mockAnalytics as any)[studentId];
 
     if (!student || !analytics) {
       return new Response(JSON.stringify({
@@ -101,7 +101,7 @@ serve(async (req: Request) => {
 
     // Subject performance specific to each student
     const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English'];
-    const studentScores = mockSubjectScores[studentId] || [85, 78, 92, 74, 88];
+    const studentScores = (mockSubjectScores as any)[studentId] || [85, 78, 92, 74, 88];
     const subjectPerformance = subjects.map((subject, index) => ({
       subject,
       score: studentScores[index]
@@ -179,7 +179,7 @@ serve(async (req: Request) => {
     console.error('Error in student-analytics function:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: (error as Error).message || 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

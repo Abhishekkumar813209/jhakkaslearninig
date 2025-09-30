@@ -44,7 +44,7 @@ serve(async (req) => {
     };
 
     const comparisonData = studentIds.map(id => {
-      const student = mockStudents[id];
+      const student = (mockStudents as any)[id];
       if (!student) return null;
 
       // Generate subject-wise comparison data
@@ -95,15 +95,15 @@ serve(async (req) => {
     // Calculate comparison metrics
     const comparisonMetrics = {
       averageScore: {
-        data: comparisonData.map(s => ({ name: s.name, value: s.overallStats.averageScore })),
+        data: comparisonData.filter(s => s).map(s => ({ name: s!.name, value: s!.overallStats.averageScore })),
         insight: `${comparisonData[0]?.name} leads with highest average score`
       },
       studyTime: {
-        data: comparisonData.map(s => ({ name: s.name, value: s.overallStats.totalStudyTime })),
-        insight: `Study time varies by ${Math.max(...comparisonData.map(s => s.overallStats.totalStudyTime)) - Math.min(...comparisonData.map(s => s.overallStats.totalStudyTime))} hours`
+        data: comparisonData.filter(s => s).map(s => ({ name: s!.name, value: s!.overallStats.totalStudyTime })),
+        insight: `Study time varies by ${Math.max(...comparisonData.filter(s => s).map(s => s!.overallStats.totalStudyTime)) - Math.min(...comparisonData.filter(s => s).map(s => s!.overallStats.totalStudyTime))} hours`
       },
       consistency: {
-        data: comparisonData.map(s => ({ name: s.name, value: s.overallStats.currentStreak })),
+        data: comparisonData.filter(s => s).map(s => ({ name: s!.name, value: s!.overallStats.currentStreak })),
         insight: 'Consistency in study schedule affects performance'
       }
     };
@@ -141,7 +141,7 @@ serve(async (req) => {
     console.error('Error in student-comparison function:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: (error as Error).message || 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

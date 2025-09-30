@@ -121,7 +121,7 @@ serve(async (req: Request) => {
     console.error('Error in student-leaderboard function:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: (error as Error).message || 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

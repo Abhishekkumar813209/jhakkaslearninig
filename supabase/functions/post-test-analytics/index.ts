@@ -196,9 +196,9 @@ serve(async (req) => {
 
     const responseData = {
       testInfo: {
-        title: testAttempt?.tests?.title || '',
-        subject: testAttempt?.tests?.subject || '',
-        difficulty: testAttempt?.tests?.difficulty || '',
+        title: (testAttempt?.tests as any)?.title || '',
+        subject: (testAttempt?.tests as any)?.subject || '',
+        difficulty: (testAttempt?.tests as any)?.difficulty || '',
         score: testAttempt?.score || 0,
         totalMarks: testAttempt?.total_marks || 0,
         percentage: testAttempt?.percentage || 0,

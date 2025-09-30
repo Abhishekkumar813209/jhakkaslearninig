@@ -74,7 +74,7 @@ serve(async (req: Request) => {
             .select('average_score')
             .in('student_id', ids)
 
-          const avgScore = analytics?.length > 0
+          const avgScore = analytics && analytics.length > 0
             ? Math.round(analytics.reduce((sum: number, a: any) => sum + (a.average_score || 0), 0) / analytics.length)
             : 0
 
@@ -122,7 +122,7 @@ serve(async (req: Request) => {
                 .select('average_score')
                 .in('student_id', studentProfiles?.map((p: any) => p.id) || [])
 
-              const avgScore = analytics?.length > 0 
+              const avgScore = analytics && analytics.length > 0
                 ? Math.round(analytics.reduce((sum: number, a: any) => sum + (a.average_score || 0), 0) / analytics.length)
                 : 0
 

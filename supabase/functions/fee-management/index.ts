@@ -74,7 +74,7 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('Fee management error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message || 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -209,7 +209,7 @@ async function getBatchAnalytics() {
   console.log('Fee records found:', feeRecords?.length);
 
   // Process data for charts
-  const batchAnalytics = {};
+  const batchAnalytics: Record<string, { paid: number; unpaid: number; total: number }> = {};
   feeRecords?.forEach(record => {
     const batchName = record.batches?.name || 'No Batch';
     if (!batchAnalytics[batchName]) {

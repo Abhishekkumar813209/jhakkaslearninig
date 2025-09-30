@@ -140,14 +140,14 @@ serve(async (req) => {
     // Analyze weaknesses by topic/tag
     const topicPerformance = new Map();
     testAnswers?.forEach(answer => {
-      const tags = answer.questions?.tags || ['General'];
+      const tags = (answer.questions as any)?.tags || ['General'];
       tags.forEach((tag: string) => {
         if (!topicPerformance.has(tag)) {
           topicPerformance.set(tag, { correct: 0, total: 0, totalMarks: 0, earnedMarks: 0 });
         }
         const topic = topicPerformance.get(tag);
         topic.total++;
-        topic.totalMarks += answer.questions?.marks || 0;
+        topic.totalMarks += (answer.questions as any)?.marks || 0;
         topic.earnedMarks += answer.marks_awarded || 0;
         if (answer.is_correct) {
           topic.correct++;

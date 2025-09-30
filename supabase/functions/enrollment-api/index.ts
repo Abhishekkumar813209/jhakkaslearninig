@@ -28,7 +28,7 @@ serve(async (req: Request) => {
       )
     }
 
-    supabase.auth.setAuth(authHeader.replace('Bearer ', ''))
+    // Auth header will be handled automatically by RLS policies
     const { data: { user } } = await supabase.auth.getUser()
 
     switch (req.method) {

@@ -146,7 +146,7 @@ Requirements:
     console.error('Error in ai-question-generator function:', error);
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
+      error: (error as Error).message || 'Unknown error',
       details: 'Failed to generate questions using AI'
     }), {
       status: 500,

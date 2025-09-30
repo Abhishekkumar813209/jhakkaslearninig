@@ -25,7 +25,7 @@ serve(async (req: Request) => {
       )
     }
 
-    supabase.auth.setAuth(authHeader.replace('Bearer ', ''))
+    // Auth header will be handled automatically by RLS policies
 
     // Get total counts
     const [

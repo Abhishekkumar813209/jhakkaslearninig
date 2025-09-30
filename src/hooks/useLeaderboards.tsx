@@ -87,32 +87,47 @@ export const useSubjectLeaderboards = () => {
     const fetchSubjectLeaderboards = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: analyticsData, error: analyticsError } = await supabase
           .from('subject_analytics')
-          .select(`
-            *,
-            profiles!inner(full_name, student_class, batch_id)
-          `)
+          .select('*')
           .not('subject_rank', 'is', null)
           .order('subject_rank', { ascending: true });
 
-        if (error) throw error;
+        if (analyticsError) throw analyticsError;
 
-        // Group by subject
-        const grouped = (data || []).reduce((acc: Record<string, any[]>, item: any) => {
-          if (!acc[item.subject]) {
-            acc[item.subject] = [];
-          }
-          acc[item.subject].push({
-            ...item,
-            student_name: item.profiles.full_name,
-            student_class: item.profiles.student_class,
-            batch_id: item.profiles.batch_id,
-          });
-          return acc;
-        }, {});
+        // Fetch profiles separately
+        if (analyticsData && analyticsData.length > 0) {
+          const studentIds = [...new Set(analyticsData.map(a => a.student_id))];
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, student_class, batch_id')
+            .in('id', studentIds);
 
-        setSubjects(grouped);
+          if (profilesError) throw profilesError;
+
+          // Merge data
+          const profileMap = new Map<string, any>();
+          profilesData?.forEach(p => profileMap.set(p.id, p));
+          
+          // Group by subject
+          const grouped = (analyticsData || []).reduce((acc: Record<string, any[]>, item: any) => {
+            const profile = profileMap.get(item.student_id);
+            if (!acc[item.subject]) {
+              acc[item.subject] = [];
+            }
+            acc[item.subject].push({
+              ...item,
+              student_name: profile?.full_name,
+              student_class: profile?.student_class,
+              batch_id: profile?.batch_id,
+            });
+            return acc;
+          }, {});
+
+          setSubjects(grouped);
+        } else {
+          setSubjects({});
+        }
       } catch (error: any) {
         console.error('Error fetching subject leaderboards:', error);
         toast.error('Failed to load subject leaderboards');
@@ -135,18 +150,43 @@ export const useAchievements = () => {
     const fetchAchievements = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: achievementsData, error: achievementsError } = await supabase
           .from('achievements')
-          .select(`
-            *,
-            profiles!inner(full_name, student_class),
-            tests(title)
-          `)
+          .select('*')
           .order('achieved_at', { ascending: false })
           .limit(100);
 
-        if (error) throw error;
-        setAchievements(data || []);
+        if (achievementsError) throw achievementsError;
+
+        // Fetch related data separately
+        if (achievementsData && achievementsData.length > 0) {
+          const studentIds = [...new Set(achievementsData.map(a => a.student_id))];
+          const testIds = [...new Set(achievementsData.map(a => a.test_id).filter(Boolean))];
+
+          const [profilesResult, testsResult] = await Promise.all([
+            supabase.from('profiles').select('id, full_name, student_class').in('id', studentIds),
+            testIds.length > 0 ? supabase.from('tests').select('id, title').in('id', testIds) : { data: [], error: null }
+          ]);
+
+          if (profilesResult.error) throw profilesResult.error;
+          if (testsResult.error) throw testsResult.error;
+
+          // Merge data
+          const profileMap = new Map<string, any>();
+          profilesResult.data?.forEach(p => profileMap.set(p.id, p));
+          
+          const testMap = new Map<string, any>();
+          testsResult.data?.forEach(t => testMap.set(t.id, t));
+          
+          const merged = achievementsData.map(a => ({
+            ...a,
+            profiles: profileMap.get(a.student_id),
+            tests: a.test_id ? testMap.get(a.test_id) : null
+          }));
+          setAchievements(merged);
+        } else {
+          setAchievements([]);
+        }
       } catch (error: any) {
         console.error('Error fetching achievements:', error);
         toast.error('Failed to load achievements');

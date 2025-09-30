@@ -29,6 +29,7 @@ import Student from "./pages/Student";
 import StudentGuidedPaths from "./pages/StudentGuidedPaths";
 import CompleteProfile from "./pages/CompleteProfile";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import UIGuide from "./pages/UIGuide";
 
 const queryClient = new QueryClient();
 
@@ -141,6 +142,9 @@ const App = () => (
                 <Quiz />
               </ProtectedRoute>
             } />
+            
+            {/* UI Guide - public route for reference */}
+            <Route path="/ui-guide" element={<UIGuide />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

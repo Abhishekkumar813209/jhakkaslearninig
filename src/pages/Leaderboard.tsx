@@ -12,6 +12,7 @@ interface LeaderboardEntry {
   student_id: string;
   name: string;
   score: number;
+  performance_index: number;
   streak: number;
   batch_name?: string;
   avatar_url?: string;
@@ -49,6 +50,7 @@ const Leaderboard = () => {
         .select(`
           student_id,
           average_score,
+          performance_index,
           tests_attempted,
           streak_days,
           overall_rank
@@ -100,6 +102,7 @@ const Leaderboard = () => {
           student_id: analytics.student_id,
           name: profile?.full_name || 'Unknown Student',
           score: Math.round(analytics.average_score || 0),
+          performance_index: Math.round(analytics.performance_index || 0),
           streak: analytics.streak_days || 0,
           batch_name: batch?.name,
           avatar_url: profile?.avatar_url,
@@ -118,7 +121,7 @@ const Leaderboard = () => {
           // Fetch current user's rank if not in top 50
           const { data: userData } = await supabase
             .from('student_analytics')
-            .select('overall_rank, average_score, streak_days, tests_attempted')
+            .select('overall_rank, average_score, performance_index, streak_days, tests_attempted')
             .eq('student_id', currentUser.id)
             .single();
 
@@ -134,6 +137,7 @@ const Leaderboard = () => {
               student_id: currentUser.id,
               name: userProfile?.full_name || 'You',
               score: Math.round(userData.average_score || 0),
+              performance_index: Math.round(userData.performance_index || 0),
               streak: userData.streak_days || 0,
               tests_attempted: userData.tests_attempted || 0,
             });
@@ -253,8 +257,8 @@ const Leaderboard = () => {
                           </div>
                         </div>
                         <h3 className="font-semibold mb-1">{student.name}</h3>
-                        <div className="text-2xl font-bold text-primary mb-1">{student.score}</div>
-                        <div className="text-sm text-muted-foreground mb-2">avg score</div>
+                        <div className="text-2xl font-bold text-primary mb-1">{student.performance_index}</div>
+                        <div className="text-sm text-muted-foreground mb-2">Performance Index</div>
                         {student.batch_name && (
                           <Badge variant={getBatchColor(student.batch_name)} className="text-xs">
                             {student.batch_name}
@@ -314,8 +318,9 @@ const Leaderboard = () => {
                         )}
                         
                         <div className="text-right">
-                          <div className="font-bold text-primary">{student.score}</div>
-                          <div className="text-sm text-muted-foreground">avg score</div>
+                          <div className="font-bold text-primary text-lg">{student.performance_index}</div>
+                          <div className="text-xs text-muted-foreground">Performance Index</div>
+                          <div className="text-xs text-muted-foreground mt-1">{student.score}% avg</div>
                         </div>
                       </div>
                     );
@@ -340,8 +345,9 @@ const Leaderboard = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-primary">{currentUserRank.score} avg</div>
-                        <div className="text-sm text-muted-foreground">Keep improving!</div>
+                        <div className="font-bold text-primary text-lg">{currentUserRank.performance_index}</div>
+                        <div className="text-xs text-muted-foreground">Performance Index</div>
+                        <div className="text-xs text-muted-foreground mt-1">{currentUserRank.score}% avg</div>
                       </div>
                     </div>
                   </CardContent>

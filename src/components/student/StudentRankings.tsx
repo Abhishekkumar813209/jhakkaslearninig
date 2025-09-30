@@ -182,8 +182,7 @@ export const StudentRankings = ({ userId, studentClass }: StudentRankingsProps) 
         </div>
 
         <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-          <strong>Note:</strong> Rankings update automatically after each test submission and only include students from Class {studentClass}.
-          Only your best attempt per test is considered for ranking.
+          <strong>Note:</strong> Rankings are based on your Performance Index (combining Score, Speed, Consistency & Recent performance) and update automatically after each test. Only includes Class {studentClass} students.
         </div>
       </CardContent>
     </Card>

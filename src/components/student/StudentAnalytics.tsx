@@ -10,6 +10,11 @@ interface StudentAnalyticsProps {
 interface Analytics {
   tests_attempted: number;
   average_score: number;
+  performance_index: number;
+  base_score: number;
+  speed_bonus: number;
+  consistency_factor: number;
+  recency_factor: number;
   streak_days: number;
   total_study_time_minutes: number;
 }
@@ -28,7 +33,7 @@ export const StudentAnalytics = ({ userId }: StudentAnalyticsProps) => {
     try {
       const { data, error } = await supabase
         .from('student_analytics')
-        .select('tests_attempted, average_score, streak_days, total_study_time_minutes')
+        .select('tests_attempted, average_score, performance_index, base_score, speed_bonus, consistency_factor, recency_factor, streak_days, total_study_time_minutes')
         .eq('student_id', userId)
         .maybeSingle();
 
@@ -57,37 +62,81 @@ export const StudentAnalytics = ({ userId }: StudentAnalyticsProps) => {
   return (
     <Card className="shadow-soft">
       <CardHeader>
-        <CardTitle>Learning Statistics</CardTitle>
+        <CardTitle>Performance Metrics</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-primary/10 rounded-lg">
-            <Target className="h-6 w-6 mx-auto mb-2 text-primary" />
-            <div className="text-2xl font-bold text-primary">
+      <CardContent className="space-y-6">
+        {/* Main Performance Index */}
+        <div className="text-center p-6 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg border-2 border-primary/20">
+          <div className="text-sm text-muted-foreground mb-2">Your Performance Index</div>
+          <div className="text-5xl font-bold text-primary mb-2">
+            {analytics?.performance_index?.toFixed(0) || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Based on Score, Speed, Consistency & Recent Performance
+          </div>
+        </div>
+
+        {/* Performance Breakdown */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Base Score</div>
+            <div className="text-lg font-bold text-foreground">
+              {analytics?.base_score?.toFixed(0) || 0}
+            </div>
+            <div className="text-xs text-muted-foreground">50% weight</div>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Speed</div>
+            <div className="text-lg font-bold text-foreground">
+              {((analytics?.speed_bonus || 0) * 100).toFixed(0)}
+            </div>
+            <div className="text-xs text-muted-foreground">20% weight</div>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Consistency</div>
+            <div className="text-lg font-bold text-foreground">
+              {((analytics?.consistency_factor || 0) * 100).toFixed(0)}
+            </div>
+            <div className="text-xs text-muted-foreground">15% weight</div>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Recent</div>
+            <div className="text-lg font-bold text-foreground">
+              {analytics?.recency_factor?.toFixed(0) || 0}
+            </div>
+            <div className="text-xs text-muted-foreground">15% weight</div>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+          <div className="text-center p-3 bg-primary/10 rounded-lg">
+            <Target className="h-5 w-5 mx-auto mb-1 text-primary" />
+            <div className="text-xl font-bold text-primary">
               {analytics?.tests_attempted || 0}
             </div>
-            <div className="text-sm text-muted-foreground">Tests Attempted</div>
+            <div className="text-xs text-muted-foreground">Tests</div>
           </div>
-          <div className="text-center p-4 bg-success/10 rounded-lg">
-            <TrendingUp className="h-6 w-6 mx-auto mb-2 text-success" />
-            <div className="text-2xl font-bold text-success">
-              {analytics?.average_score?.toFixed(1) || 0}%
+          <div className="text-center p-3 bg-success/10 rounded-lg">
+            <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />
+            <div className="text-xl font-bold text-success">
+              {analytics?.average_score?.toFixed(0) || 0}%
             </div>
-            <div className="text-sm text-muted-foreground">Average Score</div>
+            <div className="text-xs text-muted-foreground">Avg Score</div>
           </div>
-          <div className="text-center p-4 bg-warning/10 rounded-lg">
-            <Trophy className="h-6 w-6 mx-auto mb-2 text-warning" />
-            <div className="text-2xl font-bold text-warning">
+          <div className="text-center p-3 bg-warning/10 rounded-lg">
+            <Trophy className="h-5 w-5 mx-auto mb-1 text-warning" />
+            <div className="text-xl font-bold text-warning">
               {Math.floor((analytics?.total_study_time_minutes || 0) / 60)}h
             </div>
-            <div className="text-sm text-muted-foreground">Study Time</div>
+            <div className="text-xs text-muted-foreground">Study Time</div>
           </div>
-          <div className="text-center p-4 bg-primary/10 rounded-lg">
-            <Zap className="h-6 w-6 mx-auto mb-2 text-primary" />
-            <div className="text-2xl font-bold text-primary">
+          <div className="text-center p-3 bg-primary/10 rounded-lg">
+            <Zap className="h-5 w-5 mx-auto mb-1 text-primary" />
+            <div className="text-xl font-bold text-primary">
               {analytics?.streak_days || 0}
             </div>
-            <div className="text-sm text-muted-foreground">Day Streak</div>
+            <div className="text-xs text-muted-foreground">Streak</div>
           </div>
         </div>
       </CardContent>

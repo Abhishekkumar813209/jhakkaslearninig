@@ -478,19 +478,37 @@ const TestResults: React.FC = () => {
     navigate('/student', { state: { showSubscription: true } });
   };
 
-  // Show detailed analytics for free test users
-  if (showDetailedAnalytics && postTestAnalytics) {
-    return (
-      <>
-        <Navbar />
-        <PostTestAnalytics 
-          analyticsData={postTestAnalytics}
-          onSubscribeClick={handleSubscribeClick}
-          loading={loading}
-        />
-      </>
-    );
-  }
+  // Calculate "What If" scenarios
+  const calculateWhatIf = (additionalCorrect: number) => {
+    if (!result || !postTestAnalytics) return null;
+    
+    const currentScore = result.score;
+    const currentPercentage = safePercentage;
+    const currentRank = postTestAnalytics.rankings?.overall?.currentRank || currentUserRank;
+    
+    // Assuming each question is worth equal marks
+    const marksPerQuestion = derivedTotalMarks / answers.length;
+    const potentialScore = currentScore + (additionalCorrect * marksPerQuestion);
+    const potentialPercentage = Math.round((potentialScore / derivedTotalMarks) * 100);
+    
+    // Estimate rank improvement (rough calculation)
+    const rankImprovement = Math.floor(additionalCorrect * 2);
+    const potentialRank = Math.max(1, currentRank - rankImprovement);
+    
+    return {
+      additionalCorrect,
+      potentialScore: Math.round(potentialScore),
+      potentialPercentage,
+      potentialRank,
+      improvement: currentRank - potentialRank
+    };
+  };
+
+  const whatIfScenarios = [
+    calculateWhatIf(3),
+    calculateWhatIf(5),
+    calculateWhatIf(10)
+  ].filter(Boolean);
 
   return (
     <>
@@ -712,6 +730,246 @@ const TestResults: React.FC = () => {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* What If Calculator */}
+          {whatIfScenarios.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0 }}
+            >
+              <Card className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-300 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-gray-900 flex items-center gap-2">
+                    <Target className="h-5 w-5 text-orange-600" />
+                    🎯 "What If" Calculator - Your Rank Improvement Potential
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    See how your rank could improve with a few more correct answers:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {whatIfScenarios.map((scenario: any, index) => (
+                      <div 
+                        key={index}
+                        className="bg-white p-4 rounded-lg border-2 border-orange-200 hover:border-orange-400 transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-2xl font-bold text-orange-600">
+                            +{scenario.additionalCorrect}
+                          </span>
+                          <Badge className="bg-orange-500">
+                            More Correct
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Score:</span>
+                            <span className="font-semibold text-gray-900">
+                              {scenario.potentialScore}/{derivedTotalMarks}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Percentage:</span>
+                            <span className="font-semibold text-green-600">
+                              {scenario.potentialPercentage}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Potential Rank:</span>
+                            <span className="font-bold text-blue-600">
+                              #{scenario.potentialRank}
+                            </span>
+                          </div>
+                          {scenario.improvement > 0 && (
+                            <div className="flex items-center justify-center mt-2 p-2 bg-green-50 rounded">
+                              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                              <span className="text-xs font-semibold text-green-700">
+                                ↑ {scenario.improvement} ranks better!
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Rankings & Percentiles */}
+          {postTestAnalytics?.rankings && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.1 }}
+            >
+              <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-gray-900 flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-purple-600" />
+                    Your Rankings & Percentiles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Zone Ranking */}
+                    {postTestAnalytics.rankings.zone && (
+                      <div className="bg-white p-4 rounded-lg border-2 border-blue-200">
+                        <h4 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                          <Star className="h-4 w-4" />
+                          Zone Rank
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Current Rank:</span>
+                            <Badge className="bg-blue-600 text-lg">
+                              #{postTestAnalytics.rankings.zone.currentRank}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Percentile:</span>
+                            <span className="font-bold text-blue-700">
+                              Top {postTestAnalytics.rankings.zone.percentile}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* School Ranking */}
+                    {postTestAnalytics.rankings.school && (
+                      <div className="bg-white p-4 rounded-lg border-2 border-green-200">
+                        <h4 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+                          <Award className="h-4 w-4" />
+                          School Rank
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Current Rank:</span>
+                            <Badge className="bg-green-600 text-lg">
+                              #{postTestAnalytics.rankings.school.currentRank}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Percentile:</span>
+                            <span className="font-bold text-green-700">
+                              Top {postTestAnalytics.rankings.school.percentile}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Overall Ranking */}
+                    {postTestAnalytics.rankings.overall && (
+                      <div className="bg-white p-4 rounded-lg border-2 border-purple-200">
+                        <h4 className="font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                          <Crown className="h-4 w-4" />
+                          Overall Rank
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Current Rank:</span>
+                            <Badge className="bg-purple-600 text-lg">
+                              #{postTestAnalytics.rankings.overall.currentRank}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Percentile:</span>
+                            <span className="font-bold text-purple-700">
+                              Top {postTestAnalytics.rankings.overall.percentile}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Speed vs Accuracy */}
+          {answers.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.15 }}
+            >
+              <Card className="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-300 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-gray-900 flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-cyan-600" />
+                    Speed vs Accuracy Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-lg border-2 border-cyan-200">
+                      <h4 className="font-semibold text-gray-700 mb-4">Your Performance</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Accuracy Rate:</span>
+                          <span className="text-2xl font-bold text-green-600">
+                            {safePercentage}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Speed:</span>
+                          <span className="text-2xl font-bold text-blue-600">
+                            {formatTime(result.time_taken_minutes)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Avg Time/Question:</span>
+                          <span className="text-lg font-semibold text-gray-900">
+                            {Math.round(result.time_taken_minutes * 60 / answers.length)}s
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg border-2 border-cyan-200">
+                      <h4 className="font-semibold text-gray-700 mb-4">Comparison</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Your Speed</span>
+                            <span className="font-semibold">{result.time_taken_minutes > result.tests.duration_minutes / 2 ? 'Slower' : 'Faster'}</span>
+                          </div>
+                          <Progress 
+                            value={(result.time_taken_minutes / result.tests.duration_minutes) * 100} 
+                            className="h-2"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Your Accuracy</span>
+                            <span className="font-semibold">{safePercentage >= 70 ? 'Great!' : 'Needs Work'}</span>
+                          </div>
+                          <Progress 
+                            value={safePercentage} 
+                            className="h-2"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
+                          {result.time_taken_minutes < result.tests.duration_minutes / 2 && safePercentage >= 80 
+                            ? "⚡ Perfect balance of speed and accuracy!" 
+                            : result.time_taken_minutes > result.tests.duration_minutes * 0.8
+                            ? "⏱️ Take your time, but try to finish faster next time."
+                            : safePercentage < 70
+                            ? "🎯 Focus more on accuracy than speed."
+                            : "Good job! Keep practicing to improve further."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Leaderboards */}
           <motion.div

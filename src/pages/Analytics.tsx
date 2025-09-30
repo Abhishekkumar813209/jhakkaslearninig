@@ -333,7 +333,7 @@ const Analytics = () => {
           )}
         </div>
 
-        <AnalyticsCharts activeTab={activeTab} />
+        <AnalyticsCharts activeTab={activeTab} subjectPerformance={overview?.subjectPerformance} performanceTrend={overview?.performanceTrend} />
 
         {activeTab === "overview" && (
           <div className="grid lg:grid-cols-4 gap-8 mt-8">

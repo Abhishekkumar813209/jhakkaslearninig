@@ -328,7 +328,7 @@ const TestResults: React.FC = () => {
 
   const fetchLeaderboards = async () => {
     try {
-      // Individual test leaderboard
+      // Individual test leaderboard (deduped by student and ordered by best rank/time)
       const { data: testLeaderboard } = await supabase
         .from('test_attempts')
         .select(`
@@ -340,9 +340,18 @@ const TestResults: React.FC = () => {
         .eq('test_id', testId)
         .in('status', ['submitted', 'auto_submitted'])
         .order('rank', { ascending: true })
-        .limit(10);
+        .order('time_taken_seconds', { ascending: true })
+        .limit(50);
 
-      setLeaderboard(testLeaderboard || []);
+      const uniqueMap = new Map<string, LeaderboardEntry>();
+      (testLeaderboard || []).forEach((row: any) => {
+        const existing = uniqueMap.get(row.student_id);
+        if (!existing || row.rank < existing.rank || (row.rank === existing.rank && row.time_taken_seconds < existing.time_taken_seconds)) {
+          uniqueMap.set(row.student_id, row as LeaderboardEntry);
+        }
+      });
+      const uniqueList = Array.from(uniqueMap.values()).sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)).slice(0, 10);
+      setLeaderboard(uniqueList);
 
       // Cumulative leaderboard (from student_analytics)
       const { data: cumulativeData } = await supabase
@@ -478,37 +487,41 @@ const TestResults: React.FC = () => {
     navigate('/student', { state: { showSubscription: true } });
   };
 
-  // Calculate "What If" scenarios
+  // Calculate "What If" scenarios (clamped to valid range)
   const calculateWhatIf = (additionalCorrect: number) => {
-    if (!result || !postTestAnalytics) return null;
-    
+    if (!result || !postTestAnalytics || !answers.length || derivedTotalMarks <= 0) return null;
+
     const currentScore = result.score;
-    const currentPercentage = safePercentage;
     const currentRank = postTestAnalytics.rankings?.overall?.currentRank || currentUserRank;
-    
-    // Assuming each question is worth equal marks
-    const marksPerQuestion = derivedTotalMarks / answers.length;
-    const potentialScore = currentScore + (additionalCorrect * marksPerQuestion);
+
+    // Remaining opportunities = wrong + unattempted
+    const remainingQuestions = answers.filter(a => a.is_correct !== true).length;
+    const adjAdditional = Math.max(0, Math.min(additionalCorrect, remainingQuestions));
+
+    // Assume equal marks per question (fallback to 1 to avoid NaN)
+    const marksPerQuestion = answers.length > 0 ? derivedTotalMarks / answers.length : 1;
+    const rawPotential = currentScore + adjAdditional * marksPerQuestion;
+    const potentialScore = Math.min(derivedTotalMarks, Math.round(rawPotential));
     const potentialPercentage = Math.round((potentialScore / derivedTotalMarks) * 100);
-    
-    // Estimate rank improvement (rough calculation)
-    const rankImprovement = Math.floor(additionalCorrect * 2);
+
+    // Simple rank estimate: every +1 correct improves ~2 places
+    const rankImprovement = Math.floor(adjAdditional * 2);
     const potentialRank = Math.max(1, currentRank - rankImprovement);
-    
+
     return {
-      additionalCorrect,
-      potentialScore: Math.round(potentialScore),
+      additionalCorrect: adjAdditional,
+      potentialScore,
       potentialPercentage,
       potentialRank,
-      improvement: currentRank - potentialRank
+      improvement: currentRank - potentialRank,
     };
   };
 
   const whatIfScenarios = [
     calculateWhatIf(3),
     calculateWhatIf(5),
-    calculateWhatIf(10)
-  ].filter(Boolean);
+    calculateWhatIf(10),
+  ].filter(Boolean as any);
 
   return (
     <>
@@ -832,7 +845,7 @@ const TestResults: React.FC = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">Percentile:</span>
                             <span className="font-bold text-blue-700">
-                              Top {postTestAnalytics.rankings.zone.percentile}%
+                              Top {(postTestAnalytics.rankings.zone.percentile ?? postTestAnalytics.rankings.zone.currentPercentile ?? 0)}%
                             </span>
                           </div>
                         </div>
@@ -856,7 +869,7 @@ const TestResults: React.FC = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">Percentile:</span>
                             <span className="font-bold text-green-700">
-                              Top {postTestAnalytics.rankings.school.percentile}%
+                              Top {(postTestAnalytics.rankings.school.percentile ?? postTestAnalytics.rankings.school.currentPercentile ?? 0)}%
                             </span>
                           </div>
                         </div>
@@ -880,7 +893,7 @@ const TestResults: React.FC = () => {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">Percentile:</span>
                             <span className="font-bold text-purple-700">
-                              Top {postTestAnalytics.rankings.overall.percentile}%
+                              Top {(postTestAnalytics.rankings.overall.percentile ?? postTestAnalytics.rankings.overall.currentPercentile ?? 0)}%
                             </span>
                           </div>
                         </div>
@@ -990,7 +1003,7 @@ const TestResults: React.FC = () => {
                 <div className="space-y-3">
                   {leaderboard.slice(0, 10).map((entry, index) => (
                     <div 
-                      key={entry.student_id}
+                      key={`${entry.student_id}-${index}`}
                       className={`flex items-center justify-between p-3 rounded-lg ${
                         entry.student_id === result.student_id 
                           ? 'bg-orange-200 border-2 border-orange-400' 

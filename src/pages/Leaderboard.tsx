@@ -22,12 +22,28 @@ const Leaderboard = () => {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserRank, setCurrentUserRank] = useState<LeaderboardEntry | null>(null);
+  const [userClass, setUserClass] = useState<string>('');
 
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
       
-      // Fetch top performers with their profile data
+      // First, get the current user's class
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      let studentClass: any = '';
+      
+      if (currentUser) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('student_class')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+        
+        studentClass = profile?.student_class || '';
+        setUserClass(studentClass);
+      }
+      
+      // Fetch top performers with their profile data from the same class
       const { data: analyticsData, error: analyticsError } = await supabase
         .from('student_analytics')
         .select(`
@@ -47,12 +63,19 @@ const Leaderboard = () => {
         return;
       }
 
-      // Fetch profiles for these students
+      // Fetch profiles for these students (filter by class)
       const studentIds = analyticsData.map(a => a.student_id);
-      const { data: profilesData, error: profilesError } = await supabase
+      let profileQuery = supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, batch_id')
+        .select('id, full_name, avatar_url, batch_id, student_class')
         .in('id', studentIds);
+      
+      // Filter by class if user has a class
+      if (studentClass) {
+        profileQuery = profileQuery.eq('student_class', studentClass as any);
+      }
+      
+      const { data: profilesData, error: profilesError } = await profileQuery;
 
       if (profilesError) throw profilesError;
 
@@ -87,9 +110,8 @@ const Leaderboard = () => {
       setLeaderboardData(combined);
 
       // Check if current user is in the list
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const userEntry = combined.find(entry => entry.student_id === user.id);
+      if (currentUser) {
+        const userEntry = combined.find(entry => entry.student_id === currentUser.id);
         if (userEntry) {
           setCurrentUserRank(userEntry);
         } else {
@@ -97,19 +119,19 @@ const Leaderboard = () => {
           const { data: userData } = await supabase
             .from('student_analytics')
             .select('overall_rank, average_score, streak_days, tests_attempted')
-            .eq('student_id', user.id)
+            .eq('student_id', currentUser.id)
             .single();
 
           if (userData) {
             const { data: userProfile } = await supabase
               .from('profiles')
               .select('full_name, avatar_url')
-              .eq('id', user.id)
+              .eq('id', currentUser.id)
               .single();
 
             setCurrentUserRank({
               rank: userData.overall_rank || 0,
-              student_id: user.id,
+              student_id: currentUser.id,
               name: userProfile?.full_name || 'You',
               score: Math.round(userData.average_score || 0),
               streak: userData.streak_days || 0,
@@ -187,8 +209,13 @@ const Leaderboard = () => {
           <div>
             <h1 className="text-3xl font-bold mb-2">Live Leaderboard</h1>
             <p className="text-muted-foreground">
-              Real-time rankings • Updates automatically
+              Real-time rankings • Class-wise • Updates automatically
             </p>
+            {userClass && (
+              <Badge variant="outline" className="mt-2">
+                Class {userClass} Rankings
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />

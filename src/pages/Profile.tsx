@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { User, Mail, Calendar, Edit2, Save, X } from 'lucide-react';
+import { StudentAnalytics } from '@/components/student/StudentAnalytics';
+import { StudentRankings } from '@/components/student/StudentRankings';
 
 const Profile = () => {
   const { user, isAdmin, isStudent } = useAuth();
@@ -259,31 +261,10 @@ const Profile = () => {
           </Card>
 
           {isStudent && (
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle>Learning Statistics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">24</div>
-                    <div className="text-sm text-muted-foreground">Courses Enrolled</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-success">89%</div>
-                    <div className="text-sm text-muted-foreground">Average Score</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-warning">156h</div>
-                    <div className="text-sm text-muted-foreground">Study Time</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">15</div>
-                    <div className="text-sm text-muted-foreground">Day Streak</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <>
+              <StudentAnalytics userId={user?.id} />
+              <StudentRankings userId={user?.id} studentClass={studentClass} />
+            </>
           )}
         </div>
       </div>

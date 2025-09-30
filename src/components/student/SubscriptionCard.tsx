@@ -161,8 +161,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         },
         prefill: {
           name: profile?.full_name || user?.user_metadata?.full_name || 'Student',
-          email: profile?.email || user?.email || '',
-          contact: '' // Leave empty so user can enter their phone number
+          email: profile?.email || user?.email || ''
         },
         theme: {
           color: '#3B82F6',

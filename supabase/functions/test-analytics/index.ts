@@ -133,13 +133,13 @@ async function getTestAnalytics(supabase: any, testId: string, studentId: string
     
     // Calculate class average score (marks)
     const classAverage = allAttempts.length > 0 
-      ? Math.round(allAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / allAttempts.length)
+      ? Math.round(allAttempts.reduce((sum: number, attempt: any) => sum + attempt.score, 0) / allAttempts.length)
       : 0;
 
     // Calculate time analytics - work with seconds for accuracy
-    const validTimes = allAttempts.filter(a => (a.time_taken_seconds || 0) > 0);
+    const validTimes = allAttempts.filter((a: any) => (a.time_taken_seconds || 0) > 0);
     const averageTimeSeconds = validTimes.length > 0 
-      ? Math.round(validTimes.reduce((sum, attempt) => sum + (attempt.time_taken_seconds || 0), 0) / validTimes.length)
+      ? Math.round(validTimes.reduce((sum: number, attempt: any) => sum + (attempt.time_taken_seconds || 0), 0) / validTimes.length)
       : 0;
     
     const studentTimeSeconds = studentAttempt.time_taken_seconds || 0;
@@ -232,7 +232,7 @@ async function updateTestRanks(supabase: any, testId: string) {
     if (error) throw error;
 
     // Sort attempts: higher score first, then lower time for same score
-    const rankedAttempts = attempts.sort((a, b) => {
+    const rankedAttempts = attempts.sort((a: any, b: any) => {
       const aScore = Number(a.score) || 0;
       const bScore = Number(b.score) || 0;
       if (bScore !== aScore) return bScore - aScore;

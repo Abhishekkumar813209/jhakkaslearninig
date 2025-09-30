@@ -125,7 +125,7 @@ const TestResults: React.FC = () => {
         
         // Check if this was a free test to determine if we should show subscription flow
         const testAccess = await checkTestAccess();
-        if (!testAccess.canTake && testAccess.isFreeTrialExhausted) {
+        if (!testAccess.canTakeTest && !testAccess.isFreeTrial) {
           setShowDetailedAnalytics(true);
         }
       }

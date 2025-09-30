@@ -64,7 +64,7 @@ async function getAllTests(supabase: any, req: Request) {
   )
 
   const testsWithCounts = await Promise.all(
-    (tests || []).map(async (test) => {
+    (tests || []).map(async (test: any) => {
       const { count } = await serviceSupabase
         .from('questions')
         .select('id', { count: 'exact' })
@@ -484,7 +484,7 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('Tests API error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error', details: (error as Error).message || 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

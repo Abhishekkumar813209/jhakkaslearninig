@@ -244,6 +244,12 @@ serve(async (req: Request) => {
         )
     }
 
+    // If we reach here, method not supported
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
   } catch (error) {
     console.log(error)
     return new Response(

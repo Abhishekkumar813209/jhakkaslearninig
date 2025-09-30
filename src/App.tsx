@@ -7,7 +7,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Courses from "./pages/Courses";
 import AdminCourses from "./pages/AdminCourses";
-import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Quiz from "./pages/Quiz";
 import About from "./pages/About";
@@ -98,11 +97,6 @@ const App = () => (
             <Route path="/test/:testId/results" element={
               <ProtectedRoute>
                 <TestResults />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={

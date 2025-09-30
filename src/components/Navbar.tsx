@@ -72,11 +72,6 @@ const Navbar = () => {
             ) : isStudent ? (
               // Student Navigation
               <>
-                <Link to="/dashboard">
-                  <Button variant="nav" size="sm">
-                    Dashboard
-                  </Button>
-                </Link>
                 <Link to="/student">
                   <Button variant="nav" size="sm">
                     Roadmap
@@ -216,12 +211,6 @@ const Navbar = () => {
               ) : isStudent ? (
                 // Student Mobile Navigation
                 <>
-                  <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="nav" size="sm" className="w-full justify-start">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </Button>
-                  </Link>
                   <Link to="/student" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Map className="h-4 w-4 mr-2" />

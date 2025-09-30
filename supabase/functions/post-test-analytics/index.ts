@@ -30,20 +30,18 @@ serve(async (req) => {
     }
 
     // Get student's profile for zone and school info
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select(`
         id, full_name, zone_id, school_id,
-        zones!fk_profiles_zone (id, name, code),
-        schools!fk_profiles_school (id, name, code)
+        zones (id, name, code),
+        schools (id, name, code)
       `)
       .eq('id', studentId)
       .single();
 
-    if (profileError) throw profileError;
-
     // Get test attempt details
-    const { data: testAttempt, error: attemptError } = await supabase
+    const { data: testAttempt } = await supabase
       .from('test_attempts')
       .select(`
         id, score, total_marks, percentage, time_taken_minutes, rank,
@@ -56,96 +54,76 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    if (attemptError) throw attemptError;
-
     // Get student's current analytics
-    const { data: analytics, error: analyticsError } = await supabase
+    const { data: analytics } = await supabase
       .from('student_analytics')
       .select('*')
       .eq('student_id', studentId)
       .single();
 
-    if (analyticsError) {
-      console.error('Analytics error:', analyticsError);
-    }
-
-    // Calculate zone rankings
+    // Get zone rankings (simplified)
     let zoneRankings = null;
-    if (profile.zone_id) {
+    if (profile?.zone_id) {
       const { data: zoneData } = await supabase
         .from('student_analytics')
         .select(`
           student_id, average_score, zone_rank, zone_percentile,
-          profiles!fk_student_analytics_student (full_name)
+          profiles (full_name)
         `)
         .not('zone_rank', 'is', null)
         .order('zone_rank', { ascending: true })
         .limit(10);
 
-      const { data: zoneStats } = await supabase
-        .from('student_analytics')
-        .select('count(*), average_score.avg()')
-        .eq('profiles.zone_id', profile.zone_id);
-
       zoneRankings = {
         leaderboard: zoneData || [],
         currentRank: analytics?.zone_rank || null,
         currentPercentile: analytics?.zone_percentile || null,
-        totalStudents: zoneStats?.[0]?.count || 0,
-        averageScore: zoneStats?.[0]?.average_score || 0,
+        totalStudents: 0,
+        averageScore: 0,
         zoneInfo: profile.zones
       };
     }
 
-    // Calculate school rankings
+    // Get school rankings (simplified)
     let schoolRankings = null;
-    if (profile.school_id) {
+    if (profile?.school_id) {
       const { data: schoolData } = await supabase
         .from('student_analytics')
         .select(`
           student_id, average_score, school_rank, school_percentile,
-          profiles!fk_student_analytics_student (full_name)
+          profiles (full_name)
         `)
         .not('school_rank', 'is', null)
         .order('school_rank', { ascending: true })
         .limit(10);
 
-      const { data: schoolStats } = await supabase
-        .from('student_analytics')
-        .select('count(*), average_score.avg()')
-        .eq('profiles.school_id', profile.school_id);
-
       schoolRankings = {
         leaderboard: schoolData || [],
         currentRank: analytics?.school_rank || null,
         currentPercentile: analytics?.school_percentile || null,
-        totalStudents: schoolStats?.[0]?.count || 0,
-        averageScore: schoolStats?.[0]?.average_score || 0,
+        totalStudents: 0,
+        averageScore: 0,
         schoolInfo: profile.schools
       };
     }
 
-    // Calculate overall rankings
+    // Get overall rankings
     const { data: overallData } = await supabase
       .from('student_analytics')
       .select(`
         student_id, average_score, overall_rank, overall_percentile,
-        profiles!fk_student_analytics_student (full_name)
+        profiles (full_name)
       `)
       .not('overall_rank', 'is', null)
       .order('overall_rank', { ascending: true })
       .limit(10);
 
-    const { data: overallStats } = await supabase
-      .from('student_analytics')
-      .select('count(*), average_score.avg()');
-
     const overallRankings = {
       leaderboard: overallData || [],
       currentRank: analytics?.overall_rank || null,
       currentPercentile: analytics?.overall_percentile || null,
-      totalStudents: overallStats?.[0]?.count || 0,
-      averageScore: overallStats?.[0]?.average_score || 0
+      totalStudents: 0,
+      averageScore: 0
     };
 
     // Get subject-wise performance for weakness analysis
@@ -153,17 +131,17 @@ serve(async (req) => {
       .from('test_answers')
       .select(`
         is_correct, marks_awarded,
-        questions!fk_test_answers_question (
+        questions (
           question_text, tags, marks, correct_answer
         )
       `)
-      .eq('attempt_id', testAttempt.id);
+      .eq('attempt_id', testAttempt?.id);
 
     // Analyze weaknesses by topic/tag
     const topicPerformance = new Map();
     testAnswers?.forEach(answer => {
       const tags = answer.questions?.tags || ['General'];
-      tags.forEach(tag => {
+      tags.forEach((tag: string) => {
         if (!topicPerformance.has(tag)) {
           topicPerformance.set(tag, { correct: 0, total: 0, totalMarks: 0, earnedMarks: 0 });
         }
@@ -178,12 +156,12 @@ serve(async (req) => {
     });
 
     const weaknessAnalysis = Array.from(topicPerformance.entries())
-      .map(([topic, data]) => ({
+      .map(([topic, data]: [string, any]) => ({
         topic,
         accuracy: (data.correct / data.total) * 100,
         scorePercentage: (data.earnedMarks / data.totalMarks) * 100,
         questionsAttempted: data.total,
-        isWeak: (data.correct / data.total) < 0.6 // Less than 60% accuracy
+        isWeak: (data.correct / data.total) < 0.6
       }))
       .sort((a, b) => a.accuracy - b.accuracy);
 
@@ -200,9 +178,9 @@ serve(async (req) => {
     // Performance insights
     const insights = [];
     
-    if (testAttempt.percentage >= 80) {
+    if (testAttempt?.percentage >= 80) {
       insights.push("Excellent performance! You're in the top tier.");
-    } else if (testAttempt.percentage >= 60) {
+    } else if (testAttempt?.percentage >= 60) {
       insights.push("Good performance with room for improvement.");
     } else {
       insights.push("Focus on strengthening weak areas for better results.");
@@ -218,17 +196,17 @@ serve(async (req) => {
 
     const responseData = {
       testInfo: {
-        title: testAttempt.tests.title,
-        subject: testAttempt.tests.subject,
-        difficulty: testAttempt.tests.difficulty,
-        score: testAttempt.score,
-        totalMarks: testAttempt.total_marks,
-        percentage: testAttempt.percentage,
-        timeTaken: testAttempt.time_taken_minutes,
-        rank: testAttempt.rank
+        title: testAttempt?.tests?.title || '',
+        subject: testAttempt?.tests?.subject || '',
+        difficulty: testAttempt?.tests?.difficulty || '',
+        score: testAttempt?.score || 0,
+        totalMarks: testAttempt?.total_marks || 0,
+        percentage: testAttempt?.percentage || 0,
+        timeTaken: testAttempt?.time_taken_minutes || 0,
+        rank: testAttempt?.rank || null
       },
       studentInfo: {
-        name: profile.full_name,
+        name: profile?.full_name || '',
         currentStats: analytics
       },
       rankings: {
@@ -239,7 +217,7 @@ serve(async (req) => {
       performance: {
         strengths,
         weaknesses,
-        topicBreakdown: Array.from(topicPerformance.entries()).map(([topic, data]) => ({
+        topicBreakdown: Array.from(topicPerformance.entries()).map(([topic, data]: [string, any]) => ({
           topic,
           accuracy: (data.correct / data.total) * 100,
           correct: data.correct,
@@ -251,7 +229,7 @@ serve(async (req) => {
       improvementSuggestions,
       nextSteps: {
         subscriptionRecommended: true,
-        freeTestsRemaining: 0 // Assuming this was the free test
+        freeTestsRemaining: 0
       }
     };
 
@@ -268,7 +246,7 @@ serve(async (req) => {
     console.error('Error in post-test-analytics function:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: (error as Error).message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

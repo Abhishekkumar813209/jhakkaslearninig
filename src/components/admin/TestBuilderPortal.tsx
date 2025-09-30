@@ -1183,15 +1183,6 @@ const TestBuilderPortal: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center p-4">
-            <Award className="h-8 w-8 text-purple-500 mr-3" />
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Passing %</p>
-              <p className="text-2xl font-bold">{totalMarks > 0 ? Math.round((test.passing_marks / totalMarks) * 100) : 0}%</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Action Buttons */}

@@ -74,7 +74,7 @@ const weaknessHeatmapData = [
   { topic: 'Literature', risk: 15, color: '#10b981' }
 ];
 
-const COLORS = ['#3B82F6', '#1D4ED8', '#0EA5E9', '#0284C7', '#0369A1', '#075985'];
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#10b981', '#f59e0b', '#ef4444'];
 
 interface AnalyticsChartsProps {
   activeTab: string;

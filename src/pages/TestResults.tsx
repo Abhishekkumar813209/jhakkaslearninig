@@ -26,6 +26,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PostTestAnalytics } from '@/components/student/PostTestAnalytics';
+import { useSubscription } from '@/hooks/useSubscription';
 
 
 interface TestResult {
@@ -84,8 +86,11 @@ const TestResults: React.FC = () => {
   const [analytics, setAnalytics] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [cumulativeLeaderboard, setCumulativeLeaderboard] = useState<any[]>([]);
+  const [postTestAnalytics, setPostTestAnalytics] = useState<any>(null);
+  const [showDetailedAnalytics, setShowDetailedAnalytics] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { checkTestAccess } = useSubscription();
 
   useEffect(() => {
     fetchAllData();
@@ -96,8 +101,37 @@ const TestResults: React.FC = () => {
       fetchTestResults(),
       fetchAnswers(),
       fetchAnalytics(),
-      fetchLeaderboards()
+      fetchLeaderboards(),
+      fetchPostTestAnalytics()
     ]);
+  };
+
+  const fetchPostTestAnalytics = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !testId) return;
+
+      const { data, error } = await supabase.functions.invoke('post-test-analytics', {
+        body: {
+          testId,
+          studentId: user.id
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setPostTestAnalytics(data.data);
+        
+        // Check if this was a free test to determine if we should show subscription flow
+        const testAccess = await checkTestAccess();
+        if (!testAccess.canTake && testAccess.isFreeTrialExhausted) {
+          setShowDetailedAnalytics(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching post-test analytics:', error);
+    }
   };
 
   const fetchTestResults = async () => {
@@ -439,6 +473,24 @@ const TestResults: React.FC = () => {
   const currentUserRank = analytics?.studentRank || 1;
   const totalStudents = analytics?.totalStudents || 1;
   const studentsAhead = Math.max(0, totalStudents - currentUserRank);
+
+  const handleSubscribeClick = () => {
+    navigate('/student', { state: { showSubscription: true } });
+  };
+
+  // Show detailed analytics for free test users
+  if (showDetailedAnalytics && postTestAnalytics) {
+    return (
+      <>
+        <Navbar />
+        <PostTestAnalytics 
+          analyticsData={postTestAnalytics}
+          onSubscribeClick={handleSubscribeClick}
+          loading={loading}
+        />
+      </>
+    );
+  }
 
   return (
     <>

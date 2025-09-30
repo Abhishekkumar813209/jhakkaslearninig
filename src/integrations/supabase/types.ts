@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          achieved_at: string | null
+          achievement_type: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          score: number | null
+          student_id: string
+          subject: string | null
+          test_id: string | null
+        }
+        Insert: {
+          achieved_at?: string | null
+          achievement_type: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          score?: number | null
+          student_id: string
+          subject?: string | null
+          test_id?: string | null
+        }
+        Update: {
+          achieved_at?: string | null
+          achievement_type?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          score?: number | null
+          student_id?: string
+          subject?: string | null
+          test_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievements_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batches: {
         Row: {
           created_at: string | null
@@ -972,6 +1016,60 @@ export type Database = {
           },
         ]
       }
+      subject_analytics: {
+        Row: {
+          average_score: number | null
+          best_score: number | null
+          created_at: string | null
+          id: string
+          last_test_date: string | null
+          mastery_level: string | null
+          student_id: string
+          subject: string
+          subject_percentile: number | null
+          subject_performance_index: number | null
+          subject_rank: number | null
+          tests_taken: number | null
+          total_marks_obtained: number | null
+          total_marks_possible: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          average_score?: number | null
+          best_score?: number | null
+          created_at?: string | null
+          id?: string
+          last_test_date?: string | null
+          mastery_level?: string | null
+          student_id: string
+          subject: string
+          subject_percentile?: number | null
+          subject_performance_index?: number | null
+          subject_rank?: number | null
+          tests_taken?: number | null
+          total_marks_obtained?: number | null
+          total_marks_possible?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          average_score?: number | null
+          best_score?: number | null
+          created_at?: string | null
+          id?: string
+          last_test_date?: string | null
+          mastery_level?: string | null
+          student_id?: string
+          subject?: string
+          subject_percentile?: number | null
+          subject_performance_index?: number | null
+          subject_rank?: number | null
+          tests_taken?: number | null
+          total_marks_obtained?: number | null
+          total_marks_possible?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       test_answers: {
         Row: {
           attempt_id: string
@@ -1012,6 +1110,13 @@ export type Database = {
             columns: ["attempt_id"]
             isOneToOne: false
             referencedRelation: "test_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "test_leaderboards"
             referencedColumns: ["id"]
           },
           {
@@ -1363,7 +1468,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      test_leaderboards: {
+        Row: {
+          accuracy_rank: number | null
+          batch_id: string | null
+          id: string | null
+          percentage: number | null
+          score: number | null
+          score_rank: number | null
+          speed_rank: number | null
+          student_class: Database["public"]["Enums"]["student_class"] | null
+          student_id: string | null
+          student_name: string | null
+          subject: string | null
+          submitted_at: string | null
+          test_id: string | null
+          test_title: string | null
+          time_taken_minutes: number | null
+          total_marks: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_attempts_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_performance_index: {

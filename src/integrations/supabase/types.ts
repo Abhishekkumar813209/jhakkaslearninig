@@ -582,6 +582,59 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          payment_method: string | null
+          razorpay_order_id: string
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: string
+          student_id: string
+          subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_method?: string | null
+          razorpay_order_id: string
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+          student_id: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_method?: string | null
+          razorpay_order_id?: string
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string
+          student_id?: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "test_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       playlists: {
         Row: {
           chapter: string | null
@@ -1042,9 +1095,13 @@ export type Database = {
           free_test_used: boolean | null
           id: string
           includes_roadmap: boolean | null
+          paid_amount: number | null
           payment_id: string | null
           payment_method: string | null
+          payment_status: string | null
           razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
           start_date: string
           status: string
           student_id: string
@@ -1061,9 +1118,13 @@ export type Database = {
           free_test_used?: boolean | null
           id?: string
           includes_roadmap?: boolean | null
+          paid_amount?: number | null
           payment_id?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
           start_date?: string
           status?: string
           student_id: string
@@ -1080,9 +1141,13 @@ export type Database = {
           free_test_used?: boolean | null
           id?: string
           includes_roadmap?: boolean | null
+          paid_amount?: number | null
           payment_id?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
           start_date?: string
           status?: string
           student_id?: string

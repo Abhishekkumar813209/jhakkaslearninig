@@ -106,6 +106,27 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
     { name: 'Remaining', value: 100 - testInfo.percentage, color: '#e5e7eb' }
   ];
 
+  // Calculate "What If" scenarios
+  const calculateWhatIf = (additionalCorrect: number) => {
+    const avgMarksPerQuestion = testInfo.totalMarks / (performance.topicBreakdown.reduce((sum, t) => sum + t.total, 0) || 1);
+    const potentialScore = testInfo.score + (additionalCorrect * avgMarksPerQuestion);
+    const potentialPercentage = Math.round((potentialScore / testInfo.totalMarks) * 100);
+    
+    // Rough rank estimation (assuming linear distribution)
+    const currentRankPosition = rankings.overall.currentRank || 1;
+    const totalStudents = rankings.overall.totalStudents || currentRankPosition;
+    const rankImprovement = Math.floor((additionalCorrect * avgMarksPerQuestion / testInfo.totalMarks) * totalStudents * 0.15);
+    const potentialRank = Math.max(1, currentRankPosition - rankImprovement);
+    
+    return { potentialScore: Math.round(potentialScore), potentialPercentage, potentialRank };
+  };
+
+  const whatIfScenarios = [
+    { label: '3 more correct', ...calculateWhatIf(3) },
+    { label: '5 more correct', ...calculateWhatIf(5) },
+    { label: '10 more correct', ...calculateWhatIf(10) }
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -184,8 +205,58 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
           </Card>
         </motion.div>
 
-        {/* Rankings */}
+        {/* "What If" Scenarios Calculator */}
         <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <Card className="border-orange-500/30 bg-gradient-to-br from-orange-50 to-amber-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-600">
+                <Zap className="h-5 w-5" />
+                What If Calculator
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">See how your rank would change with more correct answers</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4">
+                {whatIfScenarios.map((scenario, index) => (
+                  <div key={index} className="p-4 rounded-lg border-2 border-orange-200 bg-white hover:border-orange-400 transition-all hover:shadow-md">
+                    <p className="text-sm font-semibold text-orange-700 mb-3">{scenario.label}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Score</span>
+                        <span className="text-lg font-bold text-orange-600">{scenario.potentialScore}/{testInfo.totalMarks}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Percentage</span>
+                        <span className="text-sm font-semibold">{scenario.potentialPercentage}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Potential Rank</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-green-600">#{scenario.potentialRank}</span>
+                          {scenario.potentialRank < (rankings.overall.currentRank || 999) && (
+                            <TrendingUp className="h-3 w-3 text-green-600" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-center text-muted-foreground">
+                  💡 <strong>Pro Tip:</strong> Focus on your weak topics to achieve these improvements in your next test!
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Rankings */}
+        <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}

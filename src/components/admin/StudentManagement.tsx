@@ -43,11 +43,14 @@ const StudentManagement = () => {
   const fetchStudents = async (search?: string) => {
     try {
       setLoading(true);
+      console.log('🔍 [StudentManagement] Fetching students with search term:', search);
       const { students } = await usersAPI.getStudents(search);
+      console.log('✅ [StudentManagement] Received students:', students?.length || 0, 'students');
+      console.log('📋 [StudentManagement] First student sample:', students?.[0]);
       setStudents(students as Student[]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch students";
-      console.error("Students fetch error:", err);
+      console.error("❌ [StudentManagement] Students fetch error:", err);
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -62,13 +65,16 @@ const StudentManagement = () => {
   // Debounced server-side search
   useEffect(() => {
     const t = setTimeout(() => {
-      fetchStudents(searchTerm.trim() || undefined);
+      const trimmed = searchTerm.trim();
+      console.log('⏱️ [StudentManagement] Search debounce triggered. Term:', trimmed || '(empty)');
+      fetchStudents(trimmed || undefined);
     }, 350);
     return () => clearTimeout(t);
   }, [searchTerm]);
 
   const filteredStudents = useMemo(() => {
     let list = students;
+    console.log('🔧 [StudentManagement] Starting filter. Total students:', list.length);
     
     // Filter by batch
     if (selectedBatch !== "all") {
@@ -77,6 +83,7 @@ const StudentManagement = () => {
       } else {
         list = list.filter((s) => s.batches?.name === selectedBatch || s.batch_id === selectedBatch);
       }
+      console.log('🔧 [StudentManagement] After batch filter:', list.length);
     }
     
     // Filter by zone
@@ -86,6 +93,7 @@ const StudentManagement = () => {
       } else {
         list = list.filter((s) => s.zone_id === selectedZone);
       }
+      console.log('🔧 [StudentManagement] After zone filter:', list.length);
     }
     
     // Filter by school
@@ -95,8 +103,10 @@ const StudentManagement = () => {
       } else {
         list = list.filter((s) => s.school_id === selectedSchool);
       }
+      console.log('🔧 [StudentManagement] After school filter:', list.length);
     }
     
+    console.log('✅ [StudentManagement] Final filtered count:', list.length);
     return list;
   }, [students, selectedBatch, selectedZone, selectedSchool]);
 

@@ -448,10 +448,17 @@ export const usersAPI = {
     const url = new URL(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students`);
     if (search) url.searchParams.set('search', search);
 
+    console.log('🌐 [API] Fetching students from:', url.toString());
+    console.log('🔍 [API] Search parameter:', search || '(none)');
+
     const response = await fetch(url.toString(), {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     const result = await response.json().catch(() => ({}));
+    
+    console.log('📡 [API] Response status:', response.status);
+    console.log('📦 [API] Response data:', result);
+    
     if (!response.ok) throw new Error(result?.error || 'Failed to fetch students');
     return result as { students: any[] };
   },

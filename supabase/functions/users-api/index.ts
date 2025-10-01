@@ -98,6 +98,7 @@ serve(async (req: Request) => {
           )
 
           const search = url.searchParams.get('search')?.trim()
+          console.log('🔍 [Edge Function] Received search parameter:', search || '(none)')
 
           // 1) Get IDs of users with 'student' role
           const { data: studentIdsRows, error: roleListErr } = await service
@@ -106,18 +107,18 @@ serve(async (req: Request) => {
             .eq('role', 'student')
 
           if (roleListErr) {
-            console.log(roleListErr)
+            console.log('❌ [Edge Function] Role fetch error:', roleListErr)
             return new Response(
               JSON.stringify({ error: `Role fetch error: ${roleListErr.message}` }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
 
-          console.log(`users-api: Found ${studentIdsRows?.length || 0} student roles`)
+          console.log(`✅ [Edge Function] Found ${studentIdsRows?.length || 0} student roles`)
 
           const studentIds = (studentIdsRows || []).map((r: any) => r.user_id)
           if (studentIds.length === 0) {
-            console.log('users-api: No students found in user_roles')
+            console.log('⚠️ [Edge Function] No students found in user_roles')
             return new Response(
               JSON.stringify({ students: [] }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -144,20 +145,27 @@ serve(async (req: Request) => {
             .order('created_at', { ascending: false })
 
           if (search) {
+            console.log(`🔎 [Edge Function] Applying search filter: full_name OR email ILIKE %${search}%`)
             query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`)
           }
 
           const { data: students, error } = await query
 
           if (error) {
-            console.log(error)
+            console.log('❌ [Edge Function] Profiles fetch error:', error)
             return new Response(
               JSON.stringify({ error: `Profiles fetch error: ${error.message}` }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
           }
 
-          console.log(`users-api: Successfully fetched ${students?.length || 0} student profiles`)
+          console.log(`✅ [Edge Function] Successfully fetched ${students?.length || 0} student profiles`)
+          if (search && students && students.length > 0) {
+            console.log('📋 [Edge Function] Sample matched student:', {
+              email: students[0].email,
+              full_name: students[0].full_name
+            })
+          }
 
           return new Response(
             JSON.stringify({ students }),

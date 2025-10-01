@@ -351,13 +351,29 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       const markerIndex = normalizedText.search(/\([a-d]\)/i);
       let questionText = markerIndex > 0 ? normalizedText.slice(0, markerIndex).trim() : '';
       
+      // Remove question numbers and common prefixes from question text
+      if (questionText) {
+        questionText = questionText
+          .replace(/^Q\d+[.:)\s]+/i, '')           // Remove Q3., Q1:, Q2) etc.
+          .replace(/^\d+[.:)\s]+/, '')             // Remove 3., 1:, 2) etc.
+          .replace(/^Question\s*\d+[.:)\s]*/i, '') // Remove Question 3:, Question 1. etc.
+          .replace(/^\([A-Za-z]+\)\s*/, '')        // Remove subject tags like (Biology), (Physics)
+          .trim();
+      }
+      
       const optionSection = markerIndex >= 0 ? normalizedText.slice(markerIndex) : normalizedText;
       const optionMatches = Array.from(optionSection.matchAll(/\(([abcd])\)\s*([\s\S]*?)(?=\s*\([abcd]\)\s*|$)/gi));
       
       const optionMap = new Map<string, string>();
       for (const m of optionMatches) {
         const letter = m[1].toLowerCase();
-        const text = m[2].trim().replace(/^[,.:;\-]+/, '').trim();
+        let text = m[2].trim()
+          .replace(/^[,.:;\-]+/, '')           // Remove leading punctuation
+          .replace(/[\(\)]+$/, '')             // Remove trailing brackets (incomplete or extra)
+          .replace(/[\(\)]{2,}/g, '')          // Remove multiple consecutive brackets
+          .replace(/\(\s*$/, '')               // Remove trailing opening bracket with spaces
+          .replace(/^\s*\)/, '')               // Remove leading closing bracket
+          .trim();
         if (text) optionMap.set(letter, text);
       }
       

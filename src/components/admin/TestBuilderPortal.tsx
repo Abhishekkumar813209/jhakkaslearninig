@@ -762,7 +762,7 @@ const TestBuilderPortal: React.FC = () => {
   // Handle PDF question extraction
   const handlePDFQuestionExtracted = async (questionText: string, options?: string[], imageData?: string) => {
     try {
-      setShowPDFExtractor(false);
+      // Keep PDF extractor open for continuous extraction
       
       // Set the extracted text to question field
       setNewQuestion(prev => {

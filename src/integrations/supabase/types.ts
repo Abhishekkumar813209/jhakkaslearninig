@@ -280,6 +280,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fee_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       fee_reminders: {
@@ -725,6 +732,57 @@ export type Database = {
             columns: ["learning_path_id"]
             isOneToOne: false
             referencedRelation: "learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_audit_log: {
+        Row: {
+          action: string
+          changed_fields: Json | null
+          id: string
+          ip_address: string | null
+          performed_at: string
+          performed_by: string
+          profile_id: string
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          changed_fields?: Json | null
+          id?: string
+          ip_address?: string | null
+          performed_at?: string
+          performed_by: string
+          profile_id: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          changed_fields?: Json | null
+          id?: string
+          ip_address?: string | null
+          performed_at?: string
+          performed_by?: string
+          profile_id?: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_audit_log_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_audit_log_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1468,6 +1526,58 @@ export type Database = {
       }
     }
     Views: {
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          batch_id: string | null
+          full_name: string | null
+          id: string | null
+          school_id: string | null
+          student_class: Database["public"]["Enums"]["student_class"] | null
+          zone_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          batch_id?: string | null
+          full_name?: string | null
+          id?: string | null
+          school_id?: string | null
+          student_class?: Database["public"]["Enums"]["student_class"] | null
+          zone_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          batch_id?: string | null
+          full_name?: string | null
+          id?: string | null
+          school_id?: string | null
+          student_class?: Database["public"]["Enums"]["student_class"] | null
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_profiles_school"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_profiles_zone"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_leaderboards: {
         Row: {
           accuracy_rank: number | null

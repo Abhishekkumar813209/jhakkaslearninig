@@ -1518,6 +1518,10 @@ export type Database = {
         Args: { question_test_id: string }
         Returns: boolean
       }
+      can_view_leaderboard: {
+        Args: { test_id_param: string }
+        Returns: boolean
+      }
       generate_monthly_fees: {
         Args: Record<PropertyKey, never>
         Returns: undefined

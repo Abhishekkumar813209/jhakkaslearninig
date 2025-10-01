@@ -12,6 +12,7 @@ import { useSchools, School } from "@/hooks/useSchools";
 import { useZones } from "@/hooks/useZones";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { usersAPI } from "@/services/api";
 
 interface Student {
   id: string;
@@ -41,50 +42,24 @@ const SchoolManagement = () => {
   const { zones } = useZones();
   const { toast } = useToast();
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (search?: string) => {
     try {
-      const { data: studentsData, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, school_id, zone_id')
-        .not('id', 'is', null);
-
-      if (error) throw error;
-
-      // Get school and zone names separately to avoid foreign key issues
-      const processedStudents = [];
-      for (const student of studentsData || []) {
-        let school_name = 'No School';
-        let zone_name = 'No Zone';
-
-        if (student.school_id) {
-          const { data: schoolData } = await supabase
-            .from('schools')
-            .select('name')
-            .eq('id', student.school_id)
-            .single();
-          school_name = schoolData?.name || 'No School';
-        }
-
-        if (student.zone_id) {
-          const { data: zoneData } = await supabase
-            .from('zones')
-            .select('name')
-            .eq('id', student.zone_id)
-            .single();
-          zone_name = zoneData?.name || 'No Zone';
-        }
-
-        processedStudents.push({
-          ...student,
-          school_name,
-          zone_name
-        });
-      }
-
-      setStudents(processedStudents);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      toast({ title: "Error", description: "Failed to fetch students", variant: "destructive" });
+      console.log('🔍 [SchoolManagement] Fetching students. Search:', search || '(none)');
+      const { students } = await usersAPI.getStudents(search);
+      const mapped = (students || []).map((s: any) => ({
+        id: s.id,
+        full_name: s.full_name,
+        email: s.email,
+        school_id: s.school_id,
+        zone_name: s.zones?.name || 'No Zone',
+        school_name: s.schools?.name || 'No School',
+      }));
+      console.log('✅ [SchoolManagement] Students received:', mapped.length);
+      setStudents(mapped);
+    } catch (error: any) {
+      console.error('❌ [SchoolManagement] Fetch students failed:', error);
+      const msg = error?.message || 'Failed to fetch students';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     }
   };
 
@@ -120,8 +95,20 @@ const SchoolManagement = () => {
       }
     }
     
-    return filtered;
+  return filtered;
   }, [students, searchTerm, selectedSchool]);
+
+  const triggerSearch = () => {
+    const term = searchTerm.trim();
+    console.log('🖱️ [SchoolManagement] Manual search. Term:', term || '(empty)');
+    fetchStudents(term || undefined);
+  };
+
+  const clearSearch = () => {
+    console.log('🧹 [SchoolManagement] Clear search');
+    setSearchTerm('');
+    fetchStudents(undefined);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,12 +332,20 @@ const SchoolManagement = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search students by name or email..."
+                placeholder="Search by name or email… (Press Enter or click Search)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') triggerSearch(); }}
                 className="pl-10"
               />
             </div>
+            <Button onClick={triggerSearch} className="md:w-28">
+              <Search className="h-4 w-4 mr-2" />
+              Search
+            </Button>
+            <Button variant="outline" onClick={clearSearch} disabled={!searchTerm} className="md:w-24">
+              Clear
+            </Button>
             <Select value={selectedZone} onValueChange={setSelectedZone}>
               <SelectTrigger className="w-56">
                 <Filter className="h-4 w-4 mr-2" />

@@ -373,7 +373,7 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       
       if (questionText || options.length > 0) {
         onQuestionExtracted(questionText || extractedText, options.length > 0 ? options : undefined, imageDataUrl);
-        toast.success("Question extracted successfully! Click 'Crop Mode' to select another area.");
+        toast.success("Question extracted! Crop another area or close when done.");
         
         // Reset crop mode to allow selecting new area but keep PDF open
         setIsCropMode(false);

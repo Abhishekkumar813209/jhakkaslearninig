@@ -784,24 +784,76 @@ const TestBuilder: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="marks">Marks</Label>
-                <Input
-                  id="marks"
-                  type="number"
-                  value={newQuestion.marks}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '' || value === '0') {
-                      setNewQuestion(prev => ({ ...prev, marks: 1 }));
-                    } else {
-                      const numValue = parseInt(value);
-                      if (!isNaN(numValue) && numValue > 0) {
-                        setNewQuestion(prev => ({ ...prev, marks: numValue }));
+                <div className="flex gap-2">
+                  <Input
+                    id="marks"
+                    type="number"
+                    value={newQuestion.marks}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow empty string temporarily for easy replacement
+                      if (value === '') {
+                        setNewQuestion(prev => ({ ...prev, marks: '' as any }));
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue) && numValue > 0 && numValue <= 20) {
+                          setNewQuestion(prev => ({ ...prev, marks: numValue }));
+                        }
                       }
-                    }
-                  }}
-                  min="1"
-                  max="20"
-                />
+                    }}
+                    onBlur={(e) => {
+                      // Validate on blur - set to 1 if empty
+                      if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // Select all text on focus for easy replacement
+                      e.target.select();
+                    }}
+                    min="1"
+                    max="20"
+                    className="flex-1"
+                  />
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 1 }))}
+                      className="px-2"
+                    >
+                      1
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 2 }))}
+                      className="px-2"
+                    >
+                      2
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 4 }))}
+                      className="px-2"
+                    >
+                      4
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 5 }))}
+                      className="px-2"
+                    >
+                      5
+                    </Button>
+                  </div>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="tags">Tags (optional)</Label>

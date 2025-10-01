@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Filter, Loader2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, UserCheck, UserX, Eye, Filter, Loader2, MapPin, Building } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 import { usersAPI } from "@/services/api";
+import { useZones } from "@/hooks/useZones";
+import { useSchools } from "@/hooks/useSchools";
 
 interface Student {
   id: string;
@@ -17,8 +19,12 @@ interface Student {
   full_name: string | null;
   avatar_url?: string | null;
   batch_id?: string | null;
+  zone_id?: string | null;
+  school_id?: string | null;
   user_roles?: { role: string } | null;
   batches?: { id: string; name: string; level: string } | null;
+  zones?: { name: string } | null;
+  schools?: { name: string } | null;
 }
 
 const StudentManagement = () => {
@@ -26,8 +32,12 @@ const StudentManagement = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBatch, setSelectedBatch] = useState("all");
+  const [selectedZone, setSelectedZone] = useState("all");
+  const [selectedSchool, setSelectedSchool] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { batches, fetchBatches } = useBatches();
+  const { zones } = useZones();
+  const { schools, getSchoolsByZone } = useSchools();
   const { toast } = useToast();
 
   const fetchStudents = async (search?: string) => {
@@ -58,13 +68,37 @@ const StudentManagement = () => {
   }, [searchTerm]);
 
   const filteredStudents = useMemo(() => {
-    const list = students;
-    if (selectedBatch === "all") return list;
-    if (selectedBatch === "unassigned") {
-      return list.filter((s) => !s.batch_id || s.batch_id === null);
+    let list = students;
+    
+    // Filter by batch
+    if (selectedBatch !== "all") {
+      if (selectedBatch === "unassigned") {
+        list = list.filter((s) => !s.batch_id || s.batch_id === null);
+      } else {
+        list = list.filter((s) => s.batches?.name === selectedBatch || s.batch_id === selectedBatch);
+      }
     }
-    return list.filter((s) => s.batches?.name === selectedBatch || s.batch_id === selectedBatch);
-  }, [students, selectedBatch]);
+    
+    // Filter by zone
+    if (selectedZone !== "all") {
+      if (selectedZone === "unassigned") {
+        list = list.filter((s) => !s.zone_id);
+      } else {
+        list = list.filter((s) => s.zone_id === selectedZone);
+      }
+    }
+    
+    // Filter by school
+    if (selectedSchool !== "all") {
+      if (selectedSchool === "unassigned") {
+        list = list.filter((s) => !s.school_id);
+      } else {
+        list = list.filter((s) => s.school_id === selectedSchool);
+      }
+    }
+    
+    return list;
+  }, [students, selectedBatch, selectedZone, selectedSchool]);
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -88,6 +122,40 @@ const StudentManagement = () => {
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssignZone = async (studentId: string, zoneId: string) => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase
+        .from('profiles')
+        .update({ zone_id: zoneId })
+        .eq('id', studentId);
+      
+      if (error) throw error;
+      
+      toast({ title: "Success", description: "Student assigned to zone" });
+      fetchStudents(searchTerm.trim() || undefined);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to assign zone", variant: "destructive" });
+    }
+  };
+
+  const handleAssignSchool = async (studentId: string, schoolId: string) => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase
+        .from('profiles')
+        .update({ school_id: schoolId })
+        .eq('id', studentId);
+      
+      if (error) throw error;
+      
+      toast({ title: "Success", description: "Student assigned to school" });
+      fetchStudents(searchTerm.trim() || undefined);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to assign school", variant: "destructive" });
     }
   };
 
@@ -149,15 +217,43 @@ const StudentManagement = () => {
               />
             </div>
             <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-48">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by batch" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Students</SelectItem>
-                <SelectItem value="unassigned">Unassigned Students</SelectItem>
+                <SelectItem value="all">All Batches</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {batches.map((b) => (
                   <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={selectedZone} onValueChange={setSelectedZone}>
+              <SelectTrigger className="w-48">
+                <MapPin className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by zone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Zones</SelectItem>
+                <SelectItem value="unassigned">No Zone</SelectItem>
+                {zones.map((z) => (
+                  <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={selectedSchool} onValueChange={setSelectedSchool}>
+              <SelectTrigger className="w-48">
+                <Building className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by school" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Schools</SelectItem>
+                <SelectItem value="unassigned">No School</SelectItem>
+                {schools.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -176,22 +272,23 @@ const StudentManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
+                  <TableHead>Zone</TableHead>
+                  <TableHead>School</TableHead>
                   <TableHead>Batch</TableHead>
-                  <TableHead>Assign to Batch</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8">
+                    <TableCell colSpan={5} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8">
+                    <TableCell colSpan={5} className="text-center py-8">
                       No students found
                     </TableCell>
                   </TableRow>
@@ -205,12 +302,42 @@ const StudentManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{student.batches?.name || 'Unassigned'}</Badge>
+                        <Select 
+                          value={student.zone_id || ''} 
+                          onValueChange={(val) => handleAssignZone(student.id, val)}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder={student.zones?.name || 'No zone'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {zones.map((z) => (
+                              <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
-                        <Select onValueChange={(val) => handleAssign(student.id, val)}>
-                          <SelectTrigger className="w-56">
-                            <SelectValue placeholder="Select batch" />
+                        <Select 
+                          value={student.school_id || ''} 
+                          onValueChange={(val) => handleAssignSchool(student.id, val)}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder={student.schools?.name || 'No school'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {schools.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select 
+                          value={student.batch_id || ''} 
+                          onValueChange={(val) => handleAssign(student.id, val)}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder={student.batches?.name || 'No batch'} />
                           </SelectTrigger>
                           <SelectContent>
                             {batches.map((b) => (
@@ -223,12 +350,6 @@ const StudentManagement = () => {
                         <div className="flex items-center gap-2">
                           <Button size="sm" variant="outline">
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-red-600">
-                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>

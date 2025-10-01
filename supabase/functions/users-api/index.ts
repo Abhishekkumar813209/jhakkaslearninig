@@ -124,7 +124,7 @@ serve(async (req: Request) => {
             )
           }
 
-          // 2) Fetch profiles for those IDs (with batch info)
+          // 2) Fetch profiles for those IDs (with batch, zone, and school info)
           let query = service
             .from('profiles')
             .select(`
@@ -133,8 +133,12 @@ serve(async (req: Request) => {
               full_name,
               avatar_url,
               batch_id,
+              zone_id,
+              school_id,
               created_at,
-              batches!profiles_batch_id_fkey (id, name, level)
+              batches!profiles_batch_id_fkey (id, name, level),
+              zones!fk_profiles_zone (name),
+              schools!fk_profiles_school (name)
             `)
             .in('id', studentIds)
             .order('created_at', { ascending: false })

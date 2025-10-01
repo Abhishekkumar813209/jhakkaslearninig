@@ -32,6 +32,7 @@ import FeesManagement from "@/components/admin/FeesManagement";
 import GuidedPathsManagement from "@/components/admin/GuidedPathsManagement";
 import ZoneManagementNew from "@/components/admin/ZoneManagementNew";
 import SchoolManagement from "@/components/admin/SchoolManagement";
+import { ZoneSchoolAnalytics } from "@/components/admin/ZoneSchoolAnalytics";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -85,6 +86,12 @@ const AdminDashboard = () => {
       label: "Schools",
       icon: Building,
       component: SchoolManagement
+    },
+    {
+      value: "zone-analytics",
+      label: "Zone Analytics",
+      icon: TrendingUp,
+      component: ZoneSchoolAnalytics
     },
     {
       value: "tests",

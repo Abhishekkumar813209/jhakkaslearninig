@@ -187,8 +187,8 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     const cropRect = new Rect({
       left: 100,
       top: 100,
-      width: 220,
-      height: 140,
+      width: 320,
+      height: 56,
       fill: 'rgba(30, 144, 255, 0.12)',
       stroke: '#1E90FF',
       strokeWidth: 2,

@@ -57,6 +57,18 @@ const StudentManagement = () => {
     }
   };
 
+  const triggerSearch = () => {
+    const trimmed = searchTerm.trim();
+    console.log('🖱️ [StudentManagement] Manual search triggered. Term:', trimmed || '(empty)');
+    fetchStudents(trimmed || undefined);
+  };
+
+  const clearSearch = () => {
+    console.log('🧹 [StudentManagement] Clearing search');
+    setSearchTerm('');
+    fetchStudents(undefined);
+  };
+
   useEffect(() => {
     fetchStudents();
     fetchBatches();
@@ -220,12 +232,22 @@ const StudentManagement = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search students by name or email..."
+                placeholder="Search by name or email… (Press Enter or click Search)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') triggerSearch();
+                }}
                 className="pl-10"
               />
             </div>
+            <Button onClick={triggerSearch} disabled={loading} className="md:w-28">
+              <Search className="h-4 w-4 mr-2" />
+              Search
+            </Button>
+            <Button variant="outline" onClick={clearSearch} disabled={loading || !searchTerm} className="md:w-24">
+              Clear
+            </Button>
             <Select value={selectedBatch} onValueChange={setSelectedBatch}>
               <SelectTrigger className="w-48">
                 <Filter className="h-4 w-4 mr-2" />

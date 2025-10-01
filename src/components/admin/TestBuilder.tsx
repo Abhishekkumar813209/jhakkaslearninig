@@ -789,47 +789,19 @@ const TestBuilder: React.FC = () => {
                     id="marks"
                     type="text"
                     inputMode="numeric"
-                    value={newQuestion.marks}
+                    value={newQuestion.marks || ''}
                     onChange={(e) => {
                       const value = e.target.value;
-                      // Allow empty string temporarily for easy replacement
                       if (value === '') {
                         setNewQuestion(prev => ({ ...prev, marks: '' as any }));
                         return;
                       }
-                      // Only allow numeric input
                       if (!/^\d+$/.test(value)) {
                         return;
                       }
                       const numValue = parseInt(value);
-                      if (!isNaN(numValue) && numValue >= 0 && numValue <= 20) {
+                      if (!isNaN(numValue) && numValue > 0 && numValue <= 20) {
                         setNewQuestion(prev => ({ ...prev, marks: numValue }));
-                      }
-                    }}
-                    onBlur={(e) => {
-                      // Validate on blur - set to 1 if empty
-                      if (e.target.value === '' || parseInt(e.target.value) < 1) {
-                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
-                      }
-                    }}
-                    onFocus={(e) => {
-                      // Select all text on focus for easy replacement
-                      e.target.select();
-                    }}
-                    onKeyDown={(e) => {
-                      // Quick shortcuts for common values
-                      if (e.key === '1' && !e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
-                      } else if (e.key === '2' && !e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        setNewQuestion(prev => ({ ...prev, marks: 2 }));
-                      } else if (e.key === '4' && !e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        setNewQuestion(prev => ({ ...prev, marks: 4 }));
-                      } else if (e.key === '5' && !e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        setNewQuestion(prev => ({ ...prev, marks: 5 }));
                       }
                     }}
                     placeholder="Enter marks (1-20)"

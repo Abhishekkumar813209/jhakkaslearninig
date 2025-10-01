@@ -26,7 +26,6 @@ const ZoneManagementNew = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedZone, setSelectedZone] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showStudentDialog, setShowStudentDialog] = useState(false);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
   
@@ -82,7 +81,6 @@ const ZoneManagementNew = () => {
     const term = searchTerm.trim();
     console.log('🖱️ [ZoneManagement] Manual search. Term:', term || '(empty)');
     fetchStudents(term || undefined);
-    setShowStudentDialog(true);
   };
 
   const clearSearch = () => {
@@ -146,45 +144,6 @@ const ZoneManagementNew = () => {
           <p className="text-muted-foreground">Manage student zones and assignments</p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={showStudentDialog} onOpenChange={setShowStudentDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Assign Students
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>Assign Students to Zones</DialogTitle>
-              </DialogHeader>
-              <div className="max-h-96 overflow-y-auto">
-                <div className="space-y-3">
-                  {filteredStudents.map((student) => (
-                    <div key={student.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{student.full_name || 'Unnamed Student'}</h4>
-                        <p className="text-sm text-muted-foreground">{student.email}</p>
-                        <p className="text-xs text-muted-foreground">Current: {student.zone_name}</p>
-                      </div>
-                      <Select onValueChange={(value) => handleAssignStudent(student.id, value)}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Select Zone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {zones.map((zone) => (
-                            <SelectItem key={zone.id} value={zone.id}>
-                              {zone.name} ({zone.code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button 
@@ -368,6 +327,73 @@ const ZoneManagementNew = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Students Assignment Table */}
+      <Card className="card-gradient shadow-soft">
+        <CardHeader>
+          <CardTitle>Assign Students to Zones ({filteredStudents.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Current Zone</TableHead>
+                  <TableHead>Assign Zone</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      Loading students...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredStudents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-8">
+                      No students found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-foreground">{student.full_name || 'Unnamed Student'}</div>
+                          <div className="text-sm text-muted-foreground">{student.email}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{student.zone_name}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select 
+                          value={student.zone_id || ''} 
+                          onValueChange={(value) => handleAssignStudent(student.id, value)}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Select Zone" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {zones.map((zone) => (
+                              <SelectItem key={zone.id} value={zone.id}>
+                                {zone.name} ({zone.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                     </TableRow>
                   ))

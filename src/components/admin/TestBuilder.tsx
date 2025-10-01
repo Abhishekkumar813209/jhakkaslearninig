@@ -787,18 +787,23 @@ const TestBuilder: React.FC = () => {
                 <div className="flex gap-2">
                   <Input
                     id="marks"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={newQuestion.marks}
                     onChange={(e) => {
                       const value = e.target.value;
                       // Allow empty string temporarily for easy replacement
                       if (value === '') {
                         setNewQuestion(prev => ({ ...prev, marks: '' as any }));
-                      } else {
-                        const numValue = parseInt(value);
-                        if (!isNaN(numValue) && numValue > 0 && numValue <= 20) {
-                          setNewQuestion(prev => ({ ...prev, marks: numValue }));
-                        }
+                        return;
+                      }
+                      // Only allow numeric input
+                      if (!/^\d+$/.test(value)) {
+                        return;
+                      }
+                      const numValue = parseInt(value);
+                      if (!isNaN(numValue) && numValue >= 0 && numValue <= 20) {
+                        setNewQuestion(prev => ({ ...prev, marks: numValue }));
                       }
                     }}
                     onBlur={(e) => {
@@ -811,8 +816,23 @@ const TestBuilder: React.FC = () => {
                       // Select all text on focus for easy replacement
                       e.target.select();
                     }}
-                    min="1"
-                    max="20"
+                    onKeyDown={(e) => {
+                      // Quick shortcuts for common values
+                      if (e.key === '1' && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault();
+                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                      } else if (e.key === '2' && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault();
+                        setNewQuestion(prev => ({ ...prev, marks: 2 }));
+                      } else if (e.key === '4' && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault();
+                        setNewQuestion(prev => ({ ...prev, marks: 4 }));
+                      } else if (e.key === '5' && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault();
+                        setNewQuestion(prev => ({ ...prev, marks: 5 }));
+                      }
+                    }}
+                    placeholder="Enter marks (1-20)"
                     className="flex-1"
                   />
                   <div className="flex gap-1">

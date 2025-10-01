@@ -452,6 +452,60 @@ export type Database = {
         }
         Relationships: []
       }
+      leaderboard_access_log: {
+        Row: {
+          access_granted: boolean
+          accessed_at: string
+          accessed_by: string
+          id: string
+          ip_address: string | null
+          test_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          access_granted: boolean
+          accessed_at?: string
+          accessed_by: string
+          id?: string
+          ip_address?: string | null
+          test_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          access_granted?: boolean
+          accessed_at?: string
+          accessed_by?: string
+          id?: string
+          ip_address?: string | null
+          test_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      leaderboard_query_rate_limit: {
+        Row: {
+          id: string
+          last_query_at: string
+          query_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          id?: string
+          last_query_at?: string
+          query_count?: number
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          id?: string
+          last_query_at?: string
+          query_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       learning_paths: {
         Row: {
           created_at: string | null
@@ -1526,6 +1580,28 @@ export type Database = {
       }
     }
     Views: {
+      limited_leaderboards: {
+        Row: {
+          percentage: number | null
+          score: number | null
+          score_rank: number | null
+          student_class: Database["public"]["Enums"]["student_class"] | null
+          student_name: string | null
+          subject: string | null
+          test_id: string | null
+          test_title: string | null
+          total_marks: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_attempts_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_profiles: {
         Row: {
           avatar_url: string | null
@@ -1636,6 +1712,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_accessible_leaderboard_tests: {
+        Args: { user_id_param: string }
+        Returns: {
+          can_access: boolean
+          test_id: string
+          test_title: string
+        }[]
+      }
       get_subscription_status: {
         Args: { student_id_param: string }
         Returns: {
@@ -1675,6 +1759,10 @@ export type Database = {
       update_battery_level: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      validate_leaderboard_access: {
+        Args: { requesting_user_id: string; test_id_param: string }
+        Returns: boolean
       }
     }
     Enums: {

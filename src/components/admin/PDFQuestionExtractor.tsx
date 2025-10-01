@@ -314,22 +314,33 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
 
       let extractedText = result.data.text.trim();
       
-      // Post-process to fix common OCR mistakes for options
+      // Post-process to fix common OCR mistakes and normalize option formats
       extractedText = extractedText
         .replace(/[@©®™]/g, '(a)')  // Replace symbols with (a)
-        .replace(/\(\(([abcd])\)\)/g, '($1)')  // Fix ((a)) to (a)
-        .replace(/\(\(([abcd])\)/g, '($1)')   // Fix ((a) to (a)
-        .replace(/([abcd])\)\)/g, '($1)')     // Fix a)) to (a)
+        .replace(/\(\(([abcd])\)\)/gi, '($1)')  // Fix ((a)) to (a)
+        .replace(/\(\(([abcd])\)/gi, '($1)')   // Fix ((a) to (a)
+        .replace(/([abcd])\)\)/gi, '($1)')     // Fix a)) to (a)
+        .replace(/\b([abcd])\)/gi, '($1)')     // Normalize a) to (a)
+        .replace(/\b([abcd])\./gi, '($1)')     // Normalize a. to (a)
+        .replace(/\b([ABCD])\)/g, (match, p1) => `(${p1.toLowerCase()})`)  // Normalize A) to (a)
+        .replace(/\b([ABCD])\./g, (match, p1) => `(${p1.toLowerCase()})`)  // Normalize A. to (a)
         .replace(/\b[8B]D\b/g, 'BD')          // Fix 8D to BD
         .replace(/\b0\b/g, 'O')               // Fix 0 to O (letter)
         .replace(/\s+/g, ' ')                 // Normalize spaces
         .replace(/\n\s*\n/g, '\n');           // Remove extra line breaks
 
-      // Separate question from options (robust, handles multiple options in one line)
-      const markerIndex = extractedText.search(/\([a-d]\)/i);
-      let questionText = markerIndex > 0 ? extractedText.slice(0, markerIndex).trim() : '';
+      // Separate question from options (supports multiple formats: (a), a), A), a.)
+      // First normalize all formats to (a) format
+      const normalizedText = extractedText
+        .replace(/\b([abcd])\)/gi, '($1)')     // a) -> (a)
+        .replace(/\b([abcd])\./gi, '($1)')     // a. -> (a)
+        .replace(/\b([ABCD])\)/g, (match, p1) => `(${p1.toLowerCase()})`)  // A) -> (a)
+        .replace(/\b([ABCD])\./g, (match, p1) => `(${p1.toLowerCase()})`);  // A. -> (a)
       
-      const optionSection = markerIndex >= 0 ? extractedText.slice(markerIndex) : extractedText;
+      const markerIndex = normalizedText.search(/\([a-d]\)/i);
+      let questionText = markerIndex > 0 ? normalizedText.slice(0, markerIndex).trim() : '';
+      
+      const optionSection = markerIndex >= 0 ? normalizedText.slice(markerIndex) : normalizedText;
       const optionMatches = Array.from(optionSection.matchAll(/\(([abcd])\)\s*([\s\S]*?)(?=\s*\([abcd]\)\s*|$)/gi));
       
       const optionMap = new Map<string, string>();
@@ -344,9 +355,9 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
         .map((l) => optionMap.get(l))
         .filter((v): v is string => Boolean(v));
       
-      // Fallback: if no options were detected, try previous simple line-based parsing
+      // Fallback: if no options were detected, try line-based parsing with multiple format support
       if (options.length === 0) {
-        const lines = extractedText.split('\n').map(l => l.trim()).filter(Boolean);
+        const lines = normalizedText.split('\n').map(l => l.trim()).filter(Boolean);
         for (const line of lines) {
           const partMatches = Array.from(line.matchAll(/\(([abcd])\)\s*(.+?)(?=(\s*\([abcd]\)\s*)|$)/gi));
           if (partMatches.length > 0) {

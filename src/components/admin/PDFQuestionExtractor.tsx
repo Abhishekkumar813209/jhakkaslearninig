@@ -358,6 +358,8 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
           .replace(/^\d+[.:)\s]+/, '')             // Remove 3., 1:, 2) etc.
           .replace(/^Question\s*\d+[.:)\s]*/i, '') // Remove Question 3:, Question 1. etc.
           .replace(/^\([A-Za-z]+\)\s*/, '')        // Remove subject tags like (Biology), (Physics)
+          .replace(/\(\s*$/, '')                   // Remove trailing opening bracket with spaces
+          .replace(/\(+\s*$/, '')                  // Remove multiple trailing opening brackets
           .trim();
       }
       

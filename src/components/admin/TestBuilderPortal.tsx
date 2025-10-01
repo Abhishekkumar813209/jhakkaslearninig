@@ -155,7 +155,7 @@ const TestBuilderPortal: React.FC = () => {
       { text: '', isCorrect: false },
       { text: '', isCorrect: false }
     ],
-    marks: 1,
+    marks: '' as any,
     order_num: 0,
     explanation: '',
     tags: [],
@@ -343,7 +343,7 @@ const TestBuilderPortal: React.FC = () => {
         { text: '', isCorrect: false },
         { text: '', isCorrect: false }
       ],
-      marks: 1,
+      marks: '' as any,
       order_num: 0,
       explanation: '',
       tags: [],
@@ -1596,8 +1596,8 @@ const TestBuilderPortal: React.FC = () => {
                     value={newQuestion.marks}
                     onChange={(e) => {
                       const value = e.target.value;
-                      if (value === '' || value === '0') {
-                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                      if (value === '') {
+                        setNewQuestion(prev => ({ ...prev, marks: '' as any }));
                       } else {
                         const numValue = parseInt(value);
                         if (!isNaN(numValue) && numValue > 0) {
@@ -1619,8 +1619,8 @@ const TestBuilderPortal: React.FC = () => {
                   value={newQuestion.marks}
                   onChange={(e) => {
                     const value = e.target.value;
-                    if (value === '' || value === '0') {
-                      setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                    if (value === '') {
+                      setNewQuestion(prev => ({ ...prev, marks: '' as any }));
                     } else {
                       const numValue = parseInt(value);
                       if (!isNaN(numValue) && numValue > 0) {

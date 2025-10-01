@@ -214,6 +214,42 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     cropRectRef.current = cropRect as any;
     (fabricCanvas as any).setActiveObject(cropRect);
 
+    // Click-to-place crop box functionality
+    fabricCanvas.on('mouse:down', (event: any) => {
+      if (!event.pointer || !cropRect) return;
+      
+      // Only reposition if clicking on empty canvas (not on the crop rectangle)
+      const target = event.target;
+      if (target && target === cropRect) return;
+      
+      // Get click coordinates
+      const clickX = event.pointer.x;
+      const clickY = event.pointer.y;
+      
+      // Get crop box dimensions (considering scale)
+      const cropWidth = (cropRect.width || 280) * (cropRect.scaleX || 1);
+      const cropHeight = (cropRect.height || 160) * (cropRect.scaleY || 1);
+      
+      // Calculate new position (centered on click)
+      let newLeft = clickX - cropWidth / 2;
+      let newTop = clickY - cropHeight / 2;
+      
+      // Boundary checks
+      const canvasWidth = fabricCanvas.width || 0;
+      const canvasHeight = fabricCanvas.height || 0;
+      
+      newLeft = Math.max(0, Math.min(newLeft, canvasWidth - cropWidth));
+      newTop = Math.max(0, Math.min(newTop, canvasHeight - cropHeight));
+      
+      // Position the crop box
+      cropRect.set({ left: newLeft, top: newTop });
+      fabricCanvas.setActiveObject(cropRect);
+      fabricCanvas.requestRenderAll();
+      
+      // Auto-scroll to new crop position
+      scrollToCropRect();
+    });
+
     // Enable object manipulation and re-render
     fabricCanvas.on('selection:created', () => {
       (fabricCanvas as any).requestRenderAll?.();

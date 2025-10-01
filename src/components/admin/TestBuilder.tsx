@@ -82,7 +82,7 @@ const TestBuilder: React.FC = () => {
       { text: '', isCorrect: false },
       { text: '', isCorrect: false }
     ],
-    marks: 1,
+    marks: '' as any,
     position: 0,
     explanation: '',
     tags: []
@@ -274,7 +274,7 @@ const TestBuilder: React.FC = () => {
         { text: '', isCorrect: false },
         { text: '', isCorrect: false }
       ],
-      marks: 1,
+      marks: '' as any,
       position: 0,
       explanation: '',
       tags: []

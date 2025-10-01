@@ -10,7 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // @ts-ignore
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
-import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Check, Maximize, Square, Minimize2, Map } from "lucide-react";
 import Tesseract from 'tesseract.js';
 
 // Configure PDF.js worker for Vite (primary: workerPort, fallback: workerSrc)
@@ -43,12 +43,15 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
   const [isCropMode, setIsCropMode] = useState(false);
   const [extractedCount, setExtractedCount] = useState(0);
   const [justExtracted, setJustExtracted] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(false);
   
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const cropRectRef = useRef<Rect | null>(null);
   const pageCanvasRef = useRef<HTMLCanvasElement>(null);
+  const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Load PDF
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,6 +234,7 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     if (!isCropMode) {
       // Entering crop mode
       initializeCropCanvas();
+      setShowMinimap(true);
     } else {
       // Exiting crop mode
       if (fabricCanvasRef.current) {
@@ -245,7 +249,127 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
           octx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
         }
       }
+      setShowMinimap(false);
       renderPage();
+    }
+  };
+
+  // Preset crop sizes
+  const applyCropPreset = (size: 'small' | 'medium' | 'large') => {
+    if (!cropRectRef.current || !fabricCanvasRef.current) return;
+    
+    const sizes = {
+      small: { width: 180, height: 100 },
+      medium: { width: 280, height: 160 },
+      large: { width: 400, height: 240 }
+    };
+    
+    const { width, height } = sizes[size];
+    cropRectRef.current.set({ width, height, scaleX: 1, scaleY: 1 });
+    fabricCanvasRef.current.setActiveObject(cropRectRef.current);
+    fabricCanvasRef.current.requestRenderAll();
+    toast.success(`Crop size set to ${size}`);
+  };
+
+  // Keyboard controls
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (!isCropMode || !cropRectRef.current || !fabricCanvasRef.current) return;
+    
+    const step = e.shiftKey ? 50 : 10;
+    const cropRect = cropRectRef.current;
+    
+    switch(e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        cropRect.set({ top: Math.max(0, (cropRect.top || 0) - step) });
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        cropRect.set({ top: Math.min(baseCanvasRef.current!.height - (cropRect.height || 0), (cropRect.top || 0) + step) });
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        cropRect.set({ left: Math.max(0, (cropRect.left || 0) - step) });
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        cropRect.set({ left: Math.min(baseCanvasRef.current!.width - (cropRect.width || 0), (cropRect.left || 0) + step) });
+        break;
+      case 'Enter':
+        e.preventDefault();
+        extractCroppedText();
+        return;
+      default:
+        return;
+    }
+    
+    fabricCanvasRef.current.requestRenderAll();
+    scrollToCropRect();
+  };
+
+  // Auto-scroll to crop rectangle
+  const scrollToCropRect = () => {
+    if (!cropRectRef.current || !scrollContainerRef.current || !baseCanvasRef.current) return;
+    
+    const cropRect = cropRectRef.current;
+    const container = scrollContainerRef.current;
+    const canvas = baseCanvasRef.current;
+    
+    const cropCenterY = (cropRect.top || 0) + ((cropRect.height || 0) * (cropRect.scaleY || 1)) / 2;
+    const containerHeight = container.clientHeight;
+    
+    // Scroll to center the crop rectangle
+    const targetScroll = cropCenterY - containerHeight / 2;
+    container.scrollTo({
+      top: Math.max(0, targetScroll),
+      behavior: 'smooth'
+    });
+  };
+
+  // Render minimap
+  const renderMinimap = () => {
+    if (!minimapCanvasRef.current || !baseCanvasRef.current || !scrollContainerRef.current) return;
+    
+    const miniCanvas = minimapCanvasRef.current;
+    const baseCanvas = baseCanvasRef.current;
+    const ctx = miniCanvas.getContext('2d');
+    if (!ctx) return;
+    
+    const minimapScale = 0.15; // Minimap scale
+    miniCanvas.width = baseCanvas.width * minimapScale;
+    miniCanvas.height = baseCanvas.height * minimapScale;
+    
+    // Draw PDF page thumbnail
+    ctx.drawImage(baseCanvas, 0, 0, miniCanvas.width, miniCanvas.height);
+    
+    // Draw viewport indicator
+    const container = scrollContainerRef.current;
+    const viewportHeight = container.clientHeight;
+    const scrollTop = container.scrollTop;
+    const totalHeight = baseCanvas.height;
+    
+    const viewportY = (scrollTop / totalHeight) * miniCanvas.height;
+    const viewportH = (viewportHeight / totalHeight) * miniCanvas.height;
+    
+    ctx.strokeStyle = '#1E90FF';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, viewportY, miniCanvas.width, viewportH);
+    ctx.fillStyle = 'rgba(30, 144, 255, 0.2)';
+    ctx.fillRect(0, viewportY, miniCanvas.width, viewportH);
+    
+    // Draw crop rectangle on minimap
+    if (cropRectRef.current) {
+      const cropRect = cropRectRef.current;
+      const cropX = (cropRect.left || 0) * minimapScale;
+      const cropY = (cropRect.top || 0) * minimapScale;
+      const cropW = (cropRect.width || 0) * (cropRect.scaleX || 1) * minimapScale;
+      const cropH = (cropRect.height || 0) * (cropRect.scaleY || 1) * minimapScale;
+      
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cropX, cropY, cropW, cropH);
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+      ctx.fillRect(cropX, cropY, cropW, cropH);
     }
   };
 
@@ -366,7 +490,7 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       const optionSection = markerIndex >= 0 ? normalizedText.slice(markerIndex) : normalizedText;
       const optionMatches = Array.from(optionSection.matchAll(/\(([abcd])\)\s*([\s\S]*?)(?=\s*\([abcd]\)\s*|$)/gi));
       
-      const optionMap = new Map<string, string>();
+      const optionMap: Record<string, string> = {};
       for (const m of optionMatches) {
         const letter = m[1].toLowerCase();
         let text = m[2].trim()
@@ -376,12 +500,12 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
           .replace(/\(\s*$/, '')               // Remove trailing opening bracket with spaces
           .replace(/^\s*\)/, '')               // Remove leading closing bracket
           .trim();
-        if (text) optionMap.set(letter, text);
+        if (text) optionMap[letter] = text;
       }
       
       const ordered = ['a','b','c','d'];
       const options: string[] = ordered
-        .map((l) => optionMap.get(l))
+        .map((l) => optionMap[l])
         .filter((v): v is string => Boolean(v));
       
       // Fallback: if no options were detected, try line-based parsing with multiple format support
@@ -494,6 +618,29 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     };
   }, []);
 
+  // Keyboard event listener
+  useEffect(() => {
+    if (isCropMode) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isCropMode]);
+
+  // Render minimap when crop moves or scrolls
+  useEffect(() => {
+    if (showMinimap && isCropMode) {
+      const interval = setInterval(renderMinimap, 100);
+      return () => clearInterval(interval);
+    }
+  }, [showMinimap, isCropMode]);
+
+  // Auto-scroll on crop mode entry
+  useEffect(() => {
+    if (isCropMode && cropRectRef.current) {
+      setTimeout(scrollToCropRect, 100);
+    }
+  }, [isCropMode]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-6xl h-[90vh] flex flex-col">
@@ -585,7 +732,7 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
                 </Button>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-2">
                 {!isCropMode && !justExtracted && (
                   <Button
                     variant="default"
@@ -599,6 +746,34 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
                 
                 {isCropMode && (
                   <>
+                    <div className="flex items-center gap-2 border-r pr-2">
+                      <span className="text-xs text-muted-foreground">Preset:</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyCropPreset('small')}
+                        title="Small crop (180x100)"
+                      >
+                        <Minimize2 className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyCropPreset('medium')}
+                        title="Medium crop (280x160)"
+                      >
+                        <Square className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyCropPreset('large')}
+                        title="Large crop (400x240)"
+                      >
+                        <Maximize className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    
                     <Button
                       variant="outline"
                       size="sm"
@@ -620,7 +795,7 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-1" />
-                          Extract Question
+                          Extract (Enter)
                         </>
                       )}
                     </Button>
@@ -641,28 +816,77 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
               </div>
             </div>
 
-            {/* Canvas Container */}
-            <div className="flex-1 overflow-auto p-4">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-8 h-8 animate-spin" />
-                  <span className="ml-2">Loading PDF...</span>
-                </div>
-              ) : (
-                <div className="flex justify-center">
-                  <div className="relative border shadow-lg bg-white inline-block">
-                    {/* Base PDF canvas */}
-                    <canvas ref={baseCanvasRef} className="block" />
-                    {/* Overlay crop canvas */}
-                    <canvas
-                      ref={overlayCanvasRef}
-                      className={`absolute inset-0 ${isCropMode ? 'cursor-grab' : 'pointer-events-none'}`}
-                      style={{ 
-                        background: 'transparent',
-                        zIndex: isCropMode ? 10 : -1,
-                        pointerEvents: isCropMode ? 'auto' : 'none'
+            {/* Canvas Container with Minimap */}
+            <div className="flex-1 flex gap-2 overflow-hidden">
+              <div className="flex-1 overflow-auto p-4" ref={scrollContainerRef}>
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="ml-2">Loading PDF...</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-center">
+                    <div className="relative border shadow-lg bg-white inline-block">
+                      {/* Base PDF canvas */}
+                      <canvas ref={baseCanvasRef} className="block" />
+                      {/* Overlay crop canvas */}
+                      <canvas
+                        ref={overlayCanvasRef}
+                        className={`absolute inset-0 ${isCropMode ? 'cursor-grab' : 'pointer-events-none'}`}
+                        style={{ 
+                          background: 'transparent',
+                          zIndex: isCropMode ? 10 : -1,
+                          pointerEvents: isCropMode ? 'auto' : 'none'
+                        }}
+                      />
+                      
+                      {/* Keyboard hints */}
+                      {isCropMode && (
+                        <div className="absolute bottom-4 right-4 bg-black/80 text-white text-xs p-3 rounded-lg space-y-1 z-50">
+                          <div className="font-semibold mb-1">Keyboard Shortcuts:</div>
+                          <div>↑↓←→ : Move crop (10px)</div>
+                          <div>Shift + ↑↓←→ : Move crop (50px)</div>
+                          <div>Enter : Extract question</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Minimap */}
+              {showMinimap && isCropMode && (
+                <div className="w-32 p-2 border-l flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium">Navigator</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowMinimap(false)}
+                      className="h-6 w-6 p-0"
+                    >
+                      ×
+                    </Button>
+                  </div>
+                  <div className="border rounded overflow-hidden bg-muted">
+                    <canvas 
+                      ref={minimapCanvasRef} 
+                      className="w-full h-auto cursor-pointer"
+                      onClick={(e) => {
+                        if (!scrollContainerRef.current || !baseCanvasRef.current || !minimapCanvasRef.current) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const y = e.clientY - rect.top;
+                        const clickScale = baseCanvasRef.current.height / minimapCanvasRef.current.height;
+                        const targetY = y * clickScale;
+                        scrollContainerRef.current.scrollTo({
+                          top: targetY - scrollContainerRef.current.clientHeight / 2,
+                          behavior: 'smooth'
+                        });
                       }}
                     />
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center">
+                    Click to jump
                   </div>
                 </div>
               )}

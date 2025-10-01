@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Canvas as FabricCanvas, Rect } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import * as pdfjsLib from 'pdfjs-dist';
 // Vite-friendly worker URL and Worker
@@ -9,7 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // @ts-ignore
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
-import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import Tesseract from 'tesseract.js';
 
 // Configure PDF.js worker for Vite (primary: workerPort, fallback: workerSrc)
@@ -40,6 +41,8 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCropMode, setIsCropMode] = useState(false);
+  const [extractedCount, setExtractedCount] = useState(0);
+  const [justExtracted, setJustExtracted] = useState(false);
   
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -223,6 +226,7 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
   // Toggle crop mode
   const toggleCropMode = () => {
     setIsCropMode(!isCropMode);
+    setJustExtracted(false);
     
     if (!isCropMode) {
       // Entering crop mode
@@ -243,6 +247,13 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       }
       renderPage();
     }
+  };
+
+  // Start cropping another question
+  const cropAnotherQuestion = () => {
+    setJustExtracted(false);
+    setIsCropMode(true);
+    initializeCropCanvas();
   };
 
   // Extract text from cropped area
@@ -373,7 +384,9 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       
       if (questionText || options.length > 0) {
         onQuestionExtracted(questionText || extractedText, options.length > 0 ? options : undefined, imageDataUrl);
-        toast.success("Question extracted! Crop another area or close when done.");
+        setExtractedCount(prev => prev + 1);
+        setJustExtracted(true);
+        toast.success(`Question #${extractedCount + 1} extracted successfully!`);
         
         // Reset crop mode to allow selecting new area but keep PDF open
         setIsCropMode(false);
@@ -435,6 +448,8 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
     setTotalPages(0);
     setScale(1.5);
     setIsCropMode(false);
+    setExtractedCount(0);
+    setJustExtracted(false);
     if (fabricCanvasRef.current) {
       fabricCanvasRef.current.dispose();
       fabricCanvasRef.current = null;
@@ -466,7 +481,15 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       <Card className="w-full max-w-6xl h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-xl font-semibold">PDF Question Extractor</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold">PDF Question Extractor</h2>
+            {extractedCount > 0 && (
+              <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                <Check className="w-3 h-3 mr-1" />
+                {extractedCount} Extracted
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center space-x-2">
             {pdfFile && (
               <Button variant="outline" onClick={selectNewPDF}>
@@ -545,26 +568,56 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
               </div>
 
               <div className="flex items-center space-x-2">
-                <Button
-                  variant={isCropMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={toggleCropMode}
-                >
-                  <Crop className="w-4 h-4 mr-1" />
-                  {isCropMode ? "Exit Crop" : "Crop Mode"}
-                </Button>
+                {!isCropMode && !justExtracted && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={toggleCropMode}
+                  >
+                    <Crop className="w-4 h-4 mr-1" />
+                    Start Cropping
+                  </Button>
+                )}
                 
                 {isCropMode && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleCropMode}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={extractCroppedText}
+                      disabled={isExtracting}
+                      size="sm"
+                      variant="default"
+                    >
+                      {isExtracting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          Extracting...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-1" />
+                          Extract Question
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+
+                {justExtracted && (
                   <Button
-                    onClick={extractCroppedText}
-                    disabled={isExtracting}
+                    variant="default"
                     size="sm"
+                    onClick={cropAnotherQuestion}
+                    className="bg-green-600 hover:bg-green-700"
                   >
-                    {isExtracting ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      "Extract Question"
-                    )}
+                    <Crop className="w-4 h-4 mr-1" />
+                    Crop Another Question
                   </Button>
                 )}
               </div>

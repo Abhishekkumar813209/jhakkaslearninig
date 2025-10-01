@@ -6,14 +6,23 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from 'lucide-react';
+import { useZones } from '@/hooks/useZones';
+import { useSchools } from '@/hooks/useSchools';
 
 const CompleteProfile = () => {
   const [studentClass, setStudentClass] = useState('');
   const [educationBoard, setEducationBoard] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
+  const [selectedSchool, setSelectedSchool] = useState('');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  const { zones, loading: zonesLoading } = useZones();
+  const { schools, loading: schoolsLoading, getSchoolsByZone } = useSchools();
+  
+  const filteredSchools = selectedZone ? getSchoolsByZone(selectedZone) : [];
 
   useEffect(() => {
     checkUserAndProfile();
@@ -32,11 +41,11 @@ const CompleteProfile = () => {
     // Check if profile is already complete
     const { data: profile } = await supabase
       .from('profiles')
-      .select('student_class, education_board')
+      .select('student_class, education_board, zone_id, school_id')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profile?.student_class && profile?.education_board) {
+    if (profile?.student_class && profile?.education_board && profile?.zone_id && profile?.school_id) {
       // Profile already complete, redirect to dashboard
       navigate('/student');
     }
@@ -45,11 +54,11 @@ const CompleteProfile = () => {
   const handleCompleteProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!studentClass || !educationBoard) {
+    if (!studentClass || !educationBoard || !selectedZone || !selectedSchool) {
       toast({
         variant: 'destructive',
         title: 'Required Fields Missing',
-        description: 'Please select your class and education board.',
+        description: 'Please fill in all required fields.',
       });
       return;
     }
@@ -62,6 +71,8 @@ const CompleteProfile = () => {
         .update({
           student_class: studentClass as any,
           education_board: educationBoard as any,
+          zone_id: selectedZone,
+          school_id: selectedSchool,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -96,7 +107,7 @@ const CompleteProfile = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Complete Your Profile</CardTitle>
           <p className="text-muted-foreground">
-            Please provide your class and board information to access relevant tests
+            Please provide your details to access relevant tests
           </p>
         </CardHeader>
         <CardContent>
@@ -161,6 +172,51 @@ const CompleteProfile = () => {
                     <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
                     <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
                     <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Zone</label>
+                <Select 
+                  value={selectedZone} 
+                  onValueChange={(value) => {
+                    setSelectedZone(value);
+                    setSelectedSchool(''); // Reset school when zone changes
+                  }}
+                  disabled={zonesLoading}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your zone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {zones.filter(z => z.is_active).map((zone) => (
+                      <SelectItem key={zone.id} value={zone.id}>
+                        {zone.name} ({zone.student_count || 0} students)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">School</label>
+                <Select 
+                  value={selectedSchool} 
+                  onValueChange={setSelectedSchool}
+                  disabled={!selectedZone || schoolsLoading}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={selectedZone ? "Select your school" : "Select zone first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredSchools.filter(s => s.is_active).map((school) => (
+                      <SelectItem key={school.id} value={school.id}>
+                        {school.name} ({school.student_count || 0} students)
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

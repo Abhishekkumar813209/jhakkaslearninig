@@ -102,6 +102,7 @@ const SchoolManagement = () => {
     const term = searchTerm.trim();
     console.log('🖱️ [SchoolManagement] Manual search. Term:', term || '(empty)');
     fetchStudents(term || undefined);
+    setShowStudentDialog(true);
   };
 
   const clearSearch = () => {

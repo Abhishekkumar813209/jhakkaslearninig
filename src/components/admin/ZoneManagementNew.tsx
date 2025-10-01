@@ -82,6 +82,7 @@ const ZoneManagementNew = () => {
     const term = searchTerm.trim();
     console.log('🖱️ [ZoneManagement] Manual search. Term:', term || '(empty)');
     fetchStudents(term || undefined);
+    setShowStudentDialog(true);
   };
 
   const clearSearch = () => {

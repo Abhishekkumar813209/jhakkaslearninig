@@ -487,7 +487,11 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
       
       // Post-process to fix common OCR mistakes and normalize option formats
       extractedText = extractedText
-        .replace(/[@©®™]/g, '(a)')  // Replace symbols with (a)
+        .replace(/[@]/g, '(a)')              // Replace @ symbol with (a)
+        .replace(/[©¢çÇ]/g, '(c)')          // Replace copyright, cent, cedilla symbols with (c)
+        .replace(/[®™]/g, '(b)')             // Replace registered, trademark with (b)
+        .replace(/\s¢\s/g, ' (c) ')          // Standalone cent symbol to (c)
+        .replace(/\sç\s/gi, ' (c) ')         // Standalone c with cedilla to (c)
         .replace(/\(\(([abcd])\)\)/gi, '($1)')  // Fix ((a)) to (a)
         .replace(/\(\(([abcd])\)/gi, '($1)')   // Fix ((a) to (a)
         .replace(/([abcd])\)\)/gi, '($1)')     // Fix a)) to (a)

@@ -411,9 +411,19 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
 
   // Start cropping another question
   const cropAnotherQuestion = () => {
+    // Save current scroll position
+    const currentScrollTop = scrollContainerRef.current?.scrollTop || 0;
+    
     setJustExtracted(false);
     setIsCropMode(true);
     initializeCropCanvas();
+    
+    // Restore scroll position after canvas initialization
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = currentScrollTop;
+      }
+    }, 100);
   };
 
   // Extract text from cropped area

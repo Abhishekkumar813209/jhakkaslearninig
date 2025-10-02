@@ -217,7 +217,8 @@ const TestBuilder: React.FC = () => {
         body: { 
           action: 'updateQuestion', 
           questionId: editingQuestion.id,
-          updates
+          updates,
+          removeImage: !newQuestion.image_url // force server to null image fields when removed
         }
       });
 

@@ -265,28 +265,41 @@ serve(async (req: Request) => {
             )
 
           case 'updateQuestion':
-            const { questionId, updates } = requestData as any
-            console.log('Updating question:', questionId, updates)
+            const { questionId, updates, removeImage } = requestData as any
+            console.log('Updating question:', questionId, { ...updates, removeImage })
+
+            // Build update payload dynamically so we can force-clear image fields
+            const updatePayload: any = {
+              question_text: updates?.question_text,
+              question_type: updates?.qtype === 'mcq' ? 'mcq' : 'subjective',
+              options: updates?.options ? JSON.stringify(updates.options) : null,
+              correct_answer: updates?.correct_answer || (
+                updates?.options?.find((opt: any) => opt.isCorrect)?.text || null
+              ),
+              marks: updates?.marks,
+              order_num: updates?.position,
+              explanation: updates?.explanation,
+              sample_answer: updates?.sample_answer,
+              word_limit: updates?.word_limit,
+              tags: updates?.tags || [],
+              allow_multiple_correct: updates?.allow_multiple_correct || false,
+            }
+
+            // If client explicitly sent image fields, honor them; otherwise, clear if removeImage is true
+            if (typeof updates?.image_url !== 'undefined') {
+              updatePayload.image_url = updates.image_url
+            } else if (removeImage === true) {
+              updatePayload.image_url = null
+            }
+            if (typeof updates?.image_alt !== 'undefined') {
+              updatePayload.image_alt = updates.image_alt
+            } else if (removeImage === true) {
+              updatePayload.image_alt = null
+            }
 
             const { data: updatedQuestion, error: updateError } = await supabase
               .from('questions')
-              .update({
-                question_text: updates.question_text,
-                question_type: updates.qtype === 'mcq' ? 'mcq' : 'subjective',
-                options: updates.options ? JSON.stringify(updates.options) : null,
-                correct_answer: updates.correct_answer || (
-                  updates.options?.find((opt: any) => opt.isCorrect)?.text || null
-                ),
-                marks: updates.marks,
-                order_num: updates.position,
-                explanation: updates.explanation,
-                sample_answer: updates.sample_answer,
-                word_limit: updates.word_limit,
-                tags: updates.tags || [],
-                allow_multiple_correct: updates.allow_multiple_correct || false,
-                image_url: updates.image_url,
-                image_alt: updates.image_alt
-              })
+              .update(updatePayload)
               .eq('id', questionId)
               .select()
               .single()

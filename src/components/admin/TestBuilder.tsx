@@ -749,11 +749,17 @@ const TestBuilder: React.FC = () => {
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => setNewQuestion(prev => ({ 
-                      ...prev, 
-                      image_url: undefined, 
-                      image_alt: undefined 
-                    }))}
+                    onClick={() => {
+                      setNewQuestion(prev => ({ 
+                        ...prev, 
+                        image_url: undefined, 
+                        image_alt: undefined 
+                      }));
+                      toast({
+                        title: "Success",
+                        description: "Image removed successfully"
+                      });
+                    }}
                   >
                     <X className="h-4 w-4 mr-1" />
                     Remove
@@ -848,6 +854,14 @@ const TestBuilder: React.FC = () => {
                         setNewQuestion(prev => ({ ...prev, marks: numValue }));
                       }
                     }}
+                    onBlur={(e) => {
+                      e.target.blur();
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
+                    }}
                     placeholder="Enter marks (1-20)"
                     className="flex-1"
                   />
@@ -856,7 +870,10 @@ const TestBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 1 }))}
+                      onClick={() => {
+                        setNewQuestion(prev => ({ ...prev, marks: 1 }));
+                        setTimeout(() => document.getElementById('marks')?.blur(), 0);
+                      }}
                       className="px-2"
                     >
                       1
@@ -865,7 +882,10 @@ const TestBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 2 }))}
+                      onClick={() => {
+                        setNewQuestion(prev => ({ ...prev, marks: 2 }));
+                        setTimeout(() => document.getElementById('marks')?.blur(), 0);
+                      }}
                       className="px-2"
                     >
                       2
@@ -874,7 +894,10 @@ const TestBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 4 }))}
+                      onClick={() => {
+                        setNewQuestion(prev => ({ ...prev, marks: 4 }));
+                        setTimeout(() => document.getElementById('marks')?.blur(), 0);
+                      }}
                       className="px-2"
                     >
                       4
@@ -883,7 +906,10 @@ const TestBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setNewQuestion(prev => ({ ...prev, marks: 5 }))}
+                      onClick={() => {
+                        setNewQuestion(prev => ({ ...prev, marks: 5 }));
+                        setTimeout(() => document.getElementById('marks')?.blur(), 0);
+                      }}
                       className="px-2"
                     >
                       5

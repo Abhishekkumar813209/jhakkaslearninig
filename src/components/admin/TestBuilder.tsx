@@ -25,7 +25,9 @@ import {
   AlertCircle,
   Move,
   Copy,
-  Settings
+  Settings,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -34,6 +36,8 @@ interface Question {
   id?: string;
   qtype: 'mcq' | 'subjective';
   question_text: string;
+  image_url?: string;
+  image_alt?: string;
   options?: { text: string; isCorrect: boolean }[];
   correct_answer?: string;
   marks: number;
@@ -268,6 +272,8 @@ const TestBuilder: React.FC = () => {
     setNewQuestion({
       qtype: 'mcq',
       question_text: '',
+      image_url: undefined,
+      image_alt: undefined,
       options: [
         { text: '', isCorrect: true },
         { text: '', isCorrect: false },
@@ -617,6 +623,15 @@ const TestBuilder: React.FC = () => {
                             <Badge variant="outline">{question.marks} marks</Badge>
                           </div>
                           <h4 className="font-medium">{question.question_text}</h4>
+                          {question.image_url && (
+                            <div className="mt-2">
+                              <img 
+                                src={question.image_url} 
+                                alt={question.image_alt || "Question image"} 
+                                className="h-20 w-20 object-cover rounded border"
+                              />
+                            </div>
+                          )}
                           {question.qtype === 'mcq' && question.options && (
                             <div className="grid grid-cols-2 gap-2">
                               {question.options.map((option, optIndex) => (
@@ -717,6 +732,35 @@ const TestBuilder: React.FC = () => {
                 rows={3}
               />
             </div>
+
+            {newQuestion.image_url && (
+              <div className="grid gap-2">
+                <Label>Question Image</Label>
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                  <img 
+                    src={newQuestion.image_url} 
+                    alt="Question" 
+                    className="h-20 w-20 object-cover rounded border"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Image attached to question</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setNewQuestion(prev => ({ 
+                      ...prev, 
+                      image_url: undefined, 
+                      image_alt: undefined 
+                    }))}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {newQuestion.qtype === 'mcq' && (
               <div className="grid gap-2">

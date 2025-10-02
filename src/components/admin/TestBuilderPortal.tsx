@@ -1323,11 +1323,10 @@ const TestBuilderPortal: React.FC = () => {
                                 {option.image_url && (
                                   <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
                                 )}
-                                 <span 
-                                   dangerouslySetInnerHTML={{
-                                     __html: `${String.fromCharCode(65 + optIndex)}. ${renderMath(option.text)}`
-                                   }}
-                                 />
+                                 <span>
+                                   <span className="font-medium">{String.fromCharCode(65 + optIndex)}. </span>
+                                   <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
+                                 </span>
                                 {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
                               </div>
                             ))}

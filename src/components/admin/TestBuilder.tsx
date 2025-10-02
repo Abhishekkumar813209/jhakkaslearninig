@@ -206,11 +206,18 @@ const TestBuilder: React.FC = () => {
     if (!editingQuestion?.id) return;
 
     try {
+      // Ensure removed image fields are persisted as null (undefined is ignored by backend)
+      const updates = {
+        ...newQuestion,
+        image_url: newQuestion.image_url ?? null,
+        image_alt: newQuestion.image_alt ?? null,
+      };
+
       const { data, error } = await supabase.functions.invoke('tests-api', {
         body: { 
           action: 'updateQuestion', 
           questionId: editingQuestion.id,
-          updates: newQuestion
+          updates
         }
       });
 

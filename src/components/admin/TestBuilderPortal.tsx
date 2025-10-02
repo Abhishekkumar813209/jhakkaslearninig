@@ -62,8 +62,17 @@ const applySupSub = (t: string) => {
 export const renderMath = (input: string) => {
   if (!input) return '';
   
+  // Protect MCQ tokens from transformations
+  const mcqTokens: Record<string, string> = {};
+  let tokenIndex = 0;
+  let protectedInput = input.replace(/\([A-Da-d]\)/g, (match) => {
+    const placeholder = `__MCQ_TOKEN_${tokenIndex++}__`;
+    mcqTokens[placeholder] = match;
+    return placeholder;
+  });
+  
   // Clean input - remove stray dollar signs from OCR
-  let cleaned = input.replace(/\$(?![_{^])/g, ''); // Remove standalone $ but keep $_ and $^
+  let cleaned = protectedInput.replace(/\$(?![_{^])/g, ''); // Remove standalone $ but keep $_ and $^
   
   // Normalize common OCR glitches: "$_-16" → "^{-16}"
   cleaned = cleaned.replace(/(\d+)\s*\$\s*_\s*(-?\d+)/g, '$1^{$2}');
@@ -77,6 +86,11 @@ export const renderMath = (input: string) => {
   
   // Then process remaining plain-text math patterns
   safe = applySupSub(safe);
+  
+  // Restore MCQ tokens
+  Object.keys(mcqTokens).forEach(placeholder => {
+    safe = safe.replace(placeholder, mcqTokens[placeholder]);
+  });
   
   return safe;
 };

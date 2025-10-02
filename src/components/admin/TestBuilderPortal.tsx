@@ -259,6 +259,9 @@ const TestBuilderPortal: React.FC = () => {
     if (!editingQuestion?.id) return;
 
     try {
+      // Detect if image was removed
+      const removeImage = Boolean(editingQuestion?.image_url) && !newQuestion.image_url;
+      
       const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
         body: { 
@@ -266,8 +269,11 @@ const TestBuilderPortal: React.FC = () => {
           questionId: editingQuestion.id,
           updates: {
             ...newQuestion,
-            qtype: newQuestion.question_type
-          }
+            qtype: newQuestion.question_type,
+            image_url: newQuestion.image_url ?? null,
+            image_alt: newQuestion.image_alt ?? null
+          },
+          removeImage
         },
         headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
@@ -1450,14 +1456,22 @@ const TestBuilderPortal: React.FC = () => {
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      onClick={() => setNewQuestion(prev => ({ 
-                        ...prev, 
-                        image_url: undefined, 
-                        image_alt: undefined 
-                      }))}
+                      variant="destructive"
+                      onClick={() => {
+                        setNewQuestion(prev => ({ 
+                          ...prev, 
+                          image_url: undefined, 
+                          image_alt: undefined 
+                        }));
+                        toast({
+                          title: "Image removed",
+                          description: "Click 'Update Question' to save changes"
+                        });
+                      }}
+                      className="flex items-center gap-1"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
+                      Remove
                     </Button>
                   </div>
                 )}
@@ -1605,6 +1619,8 @@ const TestBuilderPortal: React.FC = () => {
                         }
                       }
                     }}
+                    onBlur={(e) => e.currentTarget.blur()}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                   />
                 </div>
               </div>
@@ -1628,6 +1644,8 @@ const TestBuilderPortal: React.FC = () => {
                       }
                     }
                   }}
+                  onBlur={(e) => e.currentTarget.blur()}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                 />
               </div>
             )}

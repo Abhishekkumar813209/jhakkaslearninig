@@ -59,15 +59,30 @@ const applySupSub = (t: string) => {
   return t;
 };
 
+// Utility to strip leading option labels like "A.", "(A)", "a)" from text
+const stripLeadingOptionLabel = (text: string) => {
+  if (!text) return text;
+  return text.replace(/^\s*(?:\(([A-Da-d])\)|([A-Da-d])[.)])\s*/, '');
+};
+
 export const renderMath = (input: string) => {
   if (!input) return '';
   
-  // Protect MCQ tokens from transformations
-  const mcqTokens: Record<string, string> = {};
+  // Protect ALL single-character parentheses from transformations (not just MCQ tokens)
+  const protectedTokens: Record<string, string> = {};
   let tokenIndex = 0;
+  
+  // Protect (A)-(D) MCQ tokens (case-insensitive)
   let protectedInput = input.replace(/\([A-Da-d]\)/g, (match) => {
-    const placeholder = `__MCQ_TOKEN_${tokenIndex++}__`;
-    mcqTokens[placeholder] = match;
+    const placeholder = `__PROTECTED_TOKEN_${tokenIndex++}__`;
+    protectedTokens[placeholder] = match;
+    return placeholder;
+  });
+  
+  // Protect ALL single-digit/letter parentheses like (8), (1), (x), (B), etc.
+  protectedInput = protectedInput.replace(/\(([A-Za-z0-9])\)/g, (match) => {
+    const placeholder = `__PROTECTED_TOKEN_${tokenIndex++}__`;
+    protectedTokens[placeholder] = match;
     return placeholder;
   });
   
@@ -87,9 +102,9 @@ export const renderMath = (input: string) => {
   // Then process remaining plain-text math patterns
   safe = applySupSub(safe);
   
-  // Restore MCQ tokens
-  Object.keys(mcqTokens).forEach(placeholder => {
-    safe = safe.replace(placeholder, mcqTokens[placeholder]);
+  // Restore ALL protected tokens
+  Object.keys(protectedTokens).forEach(placeholder => {
+    safe = safe.replace(placeholder, protectedTokens[placeholder]);
   });
   
   return safe;
@@ -1332,18 +1347,33 @@ const TestBuilderPortal: React.FC = () => {
                         />
                         {question.question_type === 'mcq' && question.options && (
                           <div className="space-y-1">
-                            {question.options.map((option, optIndex) => (
-                              <div key={optIndex} className={`text-sm p-2 rounded flex items-center gap-2 ${option.isCorrect ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50'}`}>
-                                {option.image_url && (
-                                  <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
-                                )}
-                                 <span>
-                                   <span className="font-medium">{String.fromCharCode(65 + optIndex)}. </span>
-                                   <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
-                                 </span>
-                                {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
-                              </div>
-                            ))}
+                            {question.options.map((option, optIndex) => {
+                              const sanitizedText = stripLeadingOptionLabel(option.text);
+                              console.log('Render option', {
+                                qId: question.id,
+                                optIndex,
+                                raw: option.text,
+                                sanitized: sanitizedText
+                              });
+                              return (
+                                <div 
+                                  key={`opt-${question.id ?? index}-${optIndex}`} 
+                                  className={`text-sm p-2 rounded flex items-center gap-2 ${option.isCorrect ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50'}`}
+                                >
+                                  {option.image_url && (
+                                    <img src={option.image_url} alt="Option" className="h-8 w-8 object-cover rounded" />
+                                  )}
+                                  <span>
+                                    <span className="font-medium">{String.fromCharCode(65 + optIndex)}. </span>
+                                    <span 
+                                      className="font-sans"
+                                      dangerouslySetInnerHTML={{ __html: renderMath(sanitizedText) }} 
+                                    />
+                                  </span>
+                                  {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1528,9 +1558,11 @@ const TestBuilderPortal: React.FC = () => {
                             {option.text && (
                               <div className="text-xs p-1 bg-gray-50 rounded border">
                                 <span className="text-gray-500">Preview: </span>
+                                <span className="font-medium">{String.fromCharCode(65 + index)}. </span>
                                 <span 
+                                  className="font-sans"
                                   dangerouslySetInnerHTML={{
-                                    __html: renderMath(option.text)
+                                    __html: renderMath(stripLeadingOptionLabel(option.text))
                                   }}
                                 />
                               </div>

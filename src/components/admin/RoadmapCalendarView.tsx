@@ -223,13 +223,10 @@ export const RoadmapCalendarView = ({
 
     if (!activeChapter || !overChapter) return;
 
-    // Swap dates and subjects
+    // Only change date, preserve subject
     const updatedChapters = chapters.map(chapter => {
       if (chapter.id === active.id) {
-        return { ...chapter, date: overChapter.date, subject: overChapter.subject };
-      }
-      if (chapter.id === over.id) {
-        return { ...chapter, date: activeChapter.date, subject: activeChapter.subject };
+        return { ...chapter, date: overChapter.date };
       }
       return chapter;
     });
@@ -249,6 +246,26 @@ export const RoadmapCalendarView = ({
     setChapters(updatedChapters);
     onChaptersChange?.(updatedChapters);
     toast.success('Chapter deleted');
+  };
+
+  const handleAddChapter = (date: string, subject: string) => {
+    const newChapterId = `chapter-${Date.now()}`;
+    
+    const newChapter: CalendarChapter = {
+      id: newChapterId,
+      date,
+      subject,
+      chapterName: 'New Chapter',
+      isBufferTime: false
+    };
+
+    const updatedChapters = [...chapters, newChapter].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    setChapters(updatedChapters);
+    onChaptersChange?.(updatedChapters);
+    toast.success('Chapter added');
   };
 
   const handleAddBufferTime = (afterDate: string) => {
@@ -418,23 +435,33 @@ export const RoadmapCalendarView = ({
                           const subjectChapters = dateData[subject] || [];
                           return (
                             <td key={`${date}-${subject}`} className="border p-2 align-top">
-                              {subjectChapters.length > 0 ? (
-                                <div className="space-y-2">
-                                  {subjectChapters.map(chapter => (
-                                    <SortableChapterCell
-                                      key={chapter.id}
-                                      chapter={chapter}
-                                      isEditable={isEditable}
-                                      onUpdate={handleUpdateChapter}
-                                      onDelete={handleDeleteChapter}
-                                    />
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="min-h-[60px] text-center text-muted-foreground text-sm flex items-center justify-center">
-                                  -
-                                </div>
-                              )}
+                              <div className="space-y-2">
+                                {subjectChapters.map(chapter => (
+                                  <SortableChapterCell
+                                    key={chapter.id}
+                                    chapter={chapter}
+                                    isEditable={isEditable}
+                                    onUpdate={handleUpdateChapter}
+                                    onDelete={handleDeleteChapter}
+                                  />
+                                ))}
+                                {isEditable && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAddChapter(date, subject)}
+                                    className="w-full h-10 border-dashed hover:bg-primary/5"
+                                  >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Add Chapter
+                                  </Button>
+                                )}
+                                {!isEditable && subjectChapters.length === 0 && (
+                                  <div className="min-h-[60px] text-center text-muted-foreground text-sm flex items-center justify-center">
+                                    -
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           );
                         })}

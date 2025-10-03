@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Map, Plus, Calendar, Users, BookOpen, Sparkles, Edit, Trash2, Play, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,9 @@ const RoadmapManagement = () => {
   const [selectedBoard, setSelectedBoard] = useState("");
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
+  const [autoDetect, setAutoDetect] = useState(true);
+  const [durationType, setDurationType] = useState<'days' | 'date'>('days');
+  const [finishByDate, setFinishByDate] = useState("");
   const [roadmapData, setRoadmapData] = useState({
     title: "",
     description: "",
@@ -30,19 +34,29 @@ const RoadmapManagement = () => {
   });
 
   const handleAIGenerate = async () => {
-    if (!selectedBatch) {
-      toast.error("Please select a batch first");
+    // Validation
+    const missingFields: string[] = [];
+    if (!selectedBatch) missingFields.push("Batch");
+    if (!roadmapData.title) missingFields.push("Title");
+    if (!selectedClass) missingFields.push("Target Class");
+    if (selectedSubjects.length === 0) missingFields.push("Subjects");
+
+    if (missingFields.length > 0) {
+      toast.error(`Missing required fields: ${missingFields.join(', ')}`);
       return;
     }
 
-    if (!selectedClass) {
-      toast.error("Please select a target class");
-      return;
-    }
-
-    if (selectedSubjects.length === 0) {
-      toast.error("Please add at least one subject");
-      return;
+    // Calculate total_days based on durationType
+    let calculatedDays = roadmapData.total_days;
+    if (durationType === 'date' && finishByDate) {
+      const start = roadmapData.start_date ? new Date(roadmapData.start_date) : new Date();
+      const end = new Date(finishByDate);
+      calculatedDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (calculatedDays <= 0) {
+        toast.error("Finish date must be after start date");
+        return;
+      }
     }
 
     try {
@@ -51,10 +65,12 @@ const RoadmapManagement = () => {
       const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
         body: {
           batch_id: selectedBatch,
-          total_days: roadmapData.total_days,
+          total_days: calculatedDays,
           subjects: selectedSubjects,
           target_class: selectedClass,
-          target_board: selectedBoard || undefined
+          target_board: selectedBoard || undefined,
+          existing_syllabus: roadmapData.description || undefined,
+          auto_detect: autoDetect
         }
       });
 
@@ -79,6 +95,15 @@ const RoadmapManagement = () => {
       toast.dismiss();
       toast.success("AI Roadmap generated successfully!");
       setIsCreating(false);
+      
+      // Reset form
+      setSelectedBatch("");
+      setSelectedClass("");
+      setSelectedBoard("");
+      setSelectedSubjects([]);
+      setSubjectInput("");
+      setRoadmapData({ title: "", description: "", total_days: 15, start_date: "", end_date: "" });
+      setFinishByDate("");
       
       // Refresh roadmaps list
       fetchRoadmaps();
@@ -165,15 +190,32 @@ const RoadmapManagement = () => {
               Create Roadmap
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Create New Roadmap</DialogTitle>
+              <DialogDescription>
+                Generate a structured learning roadmap for a batch using AI
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Auto-detect toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="auto-detect" className="cursor-pointer">Auto-detect from description</Label>
+                  <span className="text-xs text-muted-foreground">(Recommended)</span>
+                </div>
+                <Switch
+                  id="auto-detect"
+                  checked={autoDetect}
+                  onCheckedChange={setAutoDetect}
+                />
+              </div>
+
+              {/* Batch Selection */}
               <div>
-                <Label>Select Batch</Label>
+                <Label className="text-base">Select Batch *</Label>
                 <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Choose a batch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -186,98 +228,114 @@ const RoadmapManagement = () => {
                 </Select>
               </div>
 
-              <div>
-                <Label>Roadmap Title</Label>
-                <Input
-                  placeholder="e.g., JEE Advanced Physics Mastery"
-                  value={roadmapData.title}
-                  onChange={(e) => setRoadmapData({...roadmapData, title: e.target.value})}
-                />
+              {/* Title and Description */}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title" className="text-base">Roadmap Title *</Label>
+                  <Input
+                    id="title"
+                    placeholder="e.g., JEE Advanced Physics Mastery"
+                    value={roadmapData.title}
+                    onChange={(e) => setRoadmapData({...roadmapData, title: e.target.value})}
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="description" className="text-base">
+                    Description {autoDetect && <span className="text-xs text-muted-foreground">(AI will extract class & subjects)</span>}
+                  </Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Describe the roadmap goals, syllabus, or specific requirements (e.g., 'Complete CBSE Class 12 Physics and Chemistry for JEE preparation')..."
+                    value={roadmapData.description}
+                    onChange={(e) => setRoadmapData({...roadmapData, description: e.target.value})}
+                    rows={3}
+                    className="mt-1.5"
+                  />
+                </div>
               </div>
 
-              <div>
-                <Label>Description</Label>
-                <Textarea
-                  placeholder="Describe the roadmap goals and objectives"
-                  value={roadmapData.description}
-                  onChange={(e) => setRoadmapData({...roadmapData, description: e.target.value})}
-                />
-              </div>
+              {/* Target Class, Board, and Subjects */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-base">Target Class *</Label>
+                  <Select value={selectedClass} onValueChange={setSelectedClass}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="6">Class 6</SelectItem>
+                      <SelectItem value="7">Class 7</SelectItem>
+                      <SelectItem value="8">Class 8</SelectItem>
+                      <SelectItem value="9">Class 9</SelectItem>
+                      <SelectItem value="10">Class 10</SelectItem>
+                      <SelectItem value="11">Class 11</SelectItem>
+                      <SelectItem value="12">Class 12</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!selectedClass && <p className="text-xs text-destructive mt-1">Required field</p>}
+                </div>
 
-              <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Target Class *</Label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="class_6">Class 6</SelectItem>
-                    <SelectItem value="class_7">Class 7</SelectItem>
-                    <SelectItem value="class_8">Class 8</SelectItem>
-                    <SelectItem value="class_9">Class 9</SelectItem>
-                    <SelectItem value="class_10">Class 10</SelectItem>
-                    <SelectItem value="class_11">Class 11</SelectItem>
-                    <SelectItem value="class_12">Class 12</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div>
+                  <Label className="text-base">Board (optional)</Label>
+                  <Select value={selectedBoard} onValueChange={setSelectedBoard}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Select board" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CBSE">CBSE</SelectItem>
+                      <SelectItem value="ICSE">ICSE</SelectItem>
+                      <SelectItem value="State Board">State Board</SelectItem>
+                      <SelectItem value="IB">IB</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <Label>Target Board (Optional)</Label>
-                <Select value={selectedBoard} onValueChange={setSelectedBoard}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select board" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cbse">CBSE</SelectItem>
-                    <SelectItem value="icse">ICSE</SelectItem>
-                    <SelectItem value="state">State Board</SelectItem>
-                    <SelectItem value="igcse">IGCSE</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Subjects *</Label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
+                <div>
+                  <Label className="text-base">
+                    Subjects * {selectedSubjects.length > 0 && <span className="text-xs text-muted-foreground">({selectedSubjects.length} added)</span>}
+                  </Label>
+                  <div className="flex gap-2 mt-1.5">
                     <Input
-                      placeholder="Enter subject name and press Enter"
                       value={subjectInput}
                       onChange={(e) => setSubjectInput(e.target.value)}
-                      onKeyDown={(e) => {
+                      placeholder="Add subject"
+                      onKeyPress={(e) => {
                         if (e.key === 'Enter' && subjectInput.trim()) {
                           e.preventDefault();
                           if (!selectedSubjects.includes(subjectInput.trim())) {
                             setSelectedSubjects([...selectedSubjects, subjectInput.trim()]);
                           }
-                          setSubjectInput("");
+                          setSubjectInput('');
                         }
                       }}
                     />
                     <Button
                       type="button"
-                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         if (subjectInput.trim() && !selectedSubjects.includes(subjectInput.trim())) {
                           setSelectedSubjects([...selectedSubjects, subjectInput.trim()]);
-                          setSubjectInput("");
+                          setSubjectInput('');
                         }
                       }}
                     >
                       Add
                     </Button>
                   </div>
+                  {selectedSubjects.length === 0 && <p className="text-xs text-destructive mt-1">At least one subject required</p>}
                   {selectedSubjects.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedSubjects.map((subject, index) => (
-                        <Badge key={index} variant="secondary" className="gap-1">
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedSubjects.map((subject, idx) => (
+                        <Badge key={idx} variant="secondary" className="gap-1">
                           {subject}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
-                            onClick={() => setSelectedSubjects(selectedSubjects.filter((_, i) => i !== index))}
-                          />
+                          <button
+                            onClick={() => setSelectedSubjects(selectedSubjects.filter((_, i) => i !== idx))}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            ×
+                          </button>
                         </Badge>
                       ))}
                     </div>
@@ -285,44 +343,78 @@ const RoadmapManagement = () => {
                 </div>
               </div>
 
+              {/* Duration Selection */}
               <div>
-                <Label>Duration (Days)</Label>
-                <Input
-                  type="number"
-                  value={roadmapData.total_days}
-                  onChange={(e) => setRoadmapData({...roadmapData, total_days: parseInt(e.target.value)})}
-                />
-              </div>
+                <Label className="text-base">Completion Time *</Label>
+                <div className="flex gap-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id="duration-days"
+                      checked={durationType === 'days'}
+                      onChange={() => setDurationType('days')}
+                      className="cursor-pointer"
+                    />
+                    <Label htmlFor="duration-days" className="cursor-pointer">Duration (days)</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id="duration-date"
+                      checked={durationType === 'date'}
+                      onChange={() => setDurationType('date')}
+                      className="cursor-pointer"
+                    />
+                    <Label htmlFor="duration-date" className="cursor-pointer">Finish by Date</Label>
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Start Date</Label>
-                  <Input
-                    type="date"
-                    value={roadmapData.start_date}
-                    onChange={(e) => setRoadmapData({...roadmapData, start_date: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label>End Date</Label>
-                  <Input
-                    type="date"
-                    value={roadmapData.end_date}
-                    onChange={(e) => setRoadmapData({...roadmapData, end_date: e.target.value})}
-                  />
-                </div>
+                {durationType === 'days' ? (
+                  <div className="mt-3">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={roadmapData.total_days}
+                      onChange={(e) => setRoadmapData({...roadmapData, total_days: parseInt(e.target.value) || 15})}
+                      placeholder="Number of days"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div>
+                      <Label htmlFor="start-date" className="text-sm">Start Date</Label>
+                      <Input
+                        id="start-date"
+                        type="date"
+                        value={roadmapData.start_date}
+                        onChange={(e) => setRoadmapData({...roadmapData, start_date: e.target.value})}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="finish-date" className="text-sm">Finish By *</Label>
+                      <Input
+                        id="finish-date"
+                        type="date"
+                        value={finishByDate}
+                        onChange={(e) => setFinishByDate(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex gap-2 pt-4">
-                <Button onClick={handleAIGenerate} variant="outline" className="gap-2 flex-1">
-                  <Sparkles className="h-4 w-4" />
-                  Generate with AI
-                </Button>
-                <Button onClick={handleCreateManual} className="flex-1">
-                  Create Manually
-                </Button>
-              </div>
+              <Button onClick={handleAIGenerate} variant="outline" className="gap-2 flex-1">
+                <Sparkles className="h-4 w-4" />
+                Generate with AI
+              </Button>
+              <Button onClick={handleCreateManual} className="flex-1">
+                Create Manually
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

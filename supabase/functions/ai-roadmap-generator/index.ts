@@ -32,11 +32,58 @@ serve(async (req) => {
       subjects,
       target_class,
       target_board,
-      existing_syllabus
+      existing_syllabus,
+      auto_detect = true
     } = await req.json();
 
-    if (!batch_id || !subjects || !target_class) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    console.log('Received request:', { batch_id, total_days, subjects, target_class, target_board, auto_detect });
+
+    // Smart extraction from description if auto_detect is enabled
+    let extractedClass = target_class;
+    let extractedSubjects = subjects;
+
+    if (auto_detect && existing_syllabus && (!target_class || !subjects || subjects.length === 0)) {
+      console.log('Auto-detecting class and subjects from description...');
+      
+      // Extract class (look for "Class 10", "Class X", "10th", etc.)
+      if (!extractedClass) {
+        const classMatch = existing_syllabus.match(/(?:class|grade)\s*(\d+|[IVX]+)/i);
+        if (classMatch) {
+          extractedClass = classMatch[1];
+          console.log('Auto-detected class:', extractedClass);
+        }
+      }
+
+      // Extract subjects (common subject names)
+      if (!extractedSubjects || extractedSubjects.length === 0) {
+        const commonSubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi', 'Science', 'Social Science', 'Computer Science'];
+        extractedSubjects = commonSubjects.filter(subject => 
+          existing_syllabus.toLowerCase().includes(subject.toLowerCase())
+        );
+        console.log('Auto-detected subjects:', extractedSubjects);
+      }
+    }
+
+    // Final validation
+    if (!batch_id) {
+      console.error('Validation failed: Missing batch_id');
+      return new Response(JSON.stringify({ error: 'Batch ID is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!extractedClass) {
+      console.error('Validation failed: Missing target_class');
+      return new Response(JSON.stringify({ error: 'Target class is required. Please specify or enable auto-detect.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!extractedSubjects || extractedSubjects.length === 0) {
+      console.error('Validation failed: Missing subjects');
+      return new Response(JSON.stringify({ error: 'At least one subject is required. Please specify or enable auto-detect.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -54,10 +101,10 @@ serve(async (req) => {
     const systemPrompt = `You are an expert educational curriculum planner. Create a detailed ${total_days}-day learning roadmap.`;
     
     const userPrompt = `Generate a ${total_days}-day learning roadmap for:
-- Class: ${target_class}
-- Board: ${target_board}
-- Subjects: ${subjects.join(', ')}
-${existing_syllabus ? `- Existing Syllabus: ${existing_syllabus}` : ''}
+- Class: ${extractedClass}
+- Board: ${target_board || 'General'}
+- Subjects: ${extractedSubjects.join(', ')}
+${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
 
 Create a JSON response with this structure:
 {
@@ -151,7 +198,7 @@ IMPORTANT:
     const endDate = new Date();
     endDate.setDate(startDate.getDate() + total_days);
 
-    // Insert roadmap
+    // Insert roadmap with metadata
     const { data: roadmap, error: roadmapError } = await supabase
       .from('batch_roadmaps')
       .insert({
@@ -162,11 +209,21 @@ IMPORTANT:
         start_date: startDate.toISOString().split('T')[0],
         end_date: endDate.toISOString().split('T')[0],
         status: 'draft',
-        ai_generated_plan: roadmapData,
+        ai_generated_plan: {
+          ...roadmapData,
+          metadata: {
+            target_class: extractedClass,
+            target_board: target_board,
+            subjects: extractedSubjects,
+            auto_detected: auto_detect && (extractedClass !== target_class || JSON.stringify(extractedSubjects) !== JSON.stringify(subjects))
+          }
+        },
         created_by: user.id
       })
       .select()
       .single();
+
+    console.log('Roadmap created:', roadmap?.id);
 
     if (roadmapError) {
       console.error('Roadmap insert error:', roadmapError);

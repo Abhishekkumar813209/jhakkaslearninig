@@ -86,8 +86,8 @@ Output MUST be a JSON array of objects with this exact structure:
 Rules:
 - suggested_days should be 2-7 days based on complexity
 - difficulty: "easy", "medium", or "hard"
-- Include 5-15 main topics per chapter
-- Be specific and comprehensive`;
+- Include 5-8 core topics per chapter (concise but comprehensive)
+- Be specific and exam-focused`;
 
     let userPrompt = `Generate chapters for:\nExam Type: ${exam_type}\nSubject: ${subject}`;
     if (student_class) userPrompt += `\nClass: ${student_class}`;
@@ -106,7 +106,7 @@ Rules:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 4000
       }),
     });
 

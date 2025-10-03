@@ -66,7 +66,11 @@ export type Database = {
           created_by: string
           description: string | null
           end_date: string
+          exam_name: string | null
+          exam_type: string | null
           id: string
+          pdf_source_id: string | null
+          selected_subjects: Json | null
           start_date: string
           status: Database["public"]["Enums"]["roadmap_status"] | null
           title: string
@@ -80,7 +84,11 @@ export type Database = {
           created_by: string
           description?: string | null
           end_date: string
+          exam_name?: string | null
+          exam_type?: string | null
           id?: string
+          pdf_source_id?: string | null
+          selected_subjects?: Json | null
           start_date: string
           status?: Database["public"]["Enums"]["roadmap_status"] | null
           title: string
@@ -94,7 +102,11 @@ export type Database = {
           created_by?: string
           description?: string | null
           end_date?: string
+          exam_name?: string | null
+          exam_type?: string | null
           id?: string
+          pdf_source_id?: string | null
+          selected_subjects?: Json | null
           start_date?: string
           status?: Database["public"]["Enums"]["roadmap_status"] | null
           title?: string
@@ -107,6 +119,13 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_roadmaps_pdf_source_id_fkey"
+            columns: ["pdf_source_id"]
+            isOneToOne: false
+            referencedRelation: "content_sources"
             referencedColumns: ["id"]
           },
         ]
@@ -152,6 +171,51 @@ export type Database = {
           max_capacity?: number
           name?: string
           start_date?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      chapter_library: {
+        Row: {
+          chapter_name: string
+          created_at: string | null
+          created_by: string | null
+          difficulty: string | null
+          exam_type: string
+          id: string
+          is_active: boolean | null
+          is_custom: boolean | null
+          subject: string
+          suggested_days: number | null
+          topics: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_name: string
+          created_at?: string | null
+          created_by?: string | null
+          difficulty?: string | null
+          exam_type: string
+          id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
+          subject: string
+          suggested_days?: number | null
+          topics?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_name?: string
+          created_at?: string | null
+          created_by?: string | null
+          difficulty?: string | null
+          exam_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
+          subject?: string
+          suggested_days?: number | null
+          topics?: Json | null
           updated_at?: string | null
         }
         Relationships: []
@@ -410,6 +474,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      exam_templates: {
+        Row: {
+          created_at: string | null
+          exam_name: string
+          exam_type: string
+          id: string
+          is_active: boolean | null
+          standard_subjects: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          exam_name: string
+          exam_type: string
+          id?: string
+          is_active?: boolean | null
+          standard_subjects: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          exam_name?: string
+          exam_type?: string
+          id?: string
+          is_active?: boolean | null
+          standard_subjects?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       fee_records: {
         Row: {
@@ -1316,42 +1410,61 @@ export type Database = {
       }
       roadmap_chapters: {
         Row: {
+          chapter_library_id: string | null
           chapter_name: string
           created_at: string | null
           day_end: number
           day_start: number
           estimated_days: number
           id: string
+          is_custom: boolean | null
+          is_selected: boolean | null
           order_num: number
           roadmap_id: string
+          selected_from_library: boolean | null
           subject: string
           xp_reward: number | null
         }
         Insert: {
+          chapter_library_id?: string | null
           chapter_name: string
           created_at?: string | null
           day_end: number
           day_start: number
           estimated_days: number
           id?: string
+          is_custom?: boolean | null
+          is_selected?: boolean | null
           order_num: number
           roadmap_id: string
+          selected_from_library?: boolean | null
           subject: string
           xp_reward?: number | null
         }
         Update: {
+          chapter_library_id?: string | null
           chapter_name?: string
           created_at?: string | null
           day_end?: number
           day_start?: number
           estimated_days?: number
           id?: string
+          is_custom?: boolean | null
+          is_selected?: boolean | null
           order_num?: number
           roadmap_id?: string
+          selected_from_library?: boolean | null
           subject?: string
           xp_reward?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "roadmap_chapters_chapter_library_id_fkey"
+            columns: ["chapter_library_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_library"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "roadmap_chapters_roadmap_id_fkey"
             columns: ["roadmap_id"]
@@ -1654,6 +1767,47 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      study_configurations: {
+        Row: {
+          chapters_per_day: number | null
+          created_at: string | null
+          id: string
+          parallel_study_enabled: boolean | null
+          roadmap_id: string | null
+          study_days_per_week: Json | null
+          updated_at: string | null
+          weekly_subject_distribution: Json | null
+        }
+        Insert: {
+          chapters_per_day?: number | null
+          created_at?: string | null
+          id?: string
+          parallel_study_enabled?: boolean | null
+          roadmap_id?: string | null
+          study_days_per_week?: Json | null
+          updated_at?: string | null
+          weekly_subject_distribution?: Json | null
+        }
+        Update: {
+          chapters_per_day?: number | null
+          created_at?: string | null
+          id?: string
+          parallel_study_enabled?: boolean | null
+          roadmap_id?: string | null
+          study_days_per_week?: Json | null
+          updated_at?: string | null
+          weekly_subject_distribution?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_configurations_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       study_content: {
         Row: {

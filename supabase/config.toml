@@ -79,3 +79,15 @@ verify_jwt = false
 
 [functions.razorpay-subscription]
 verify_jwt = false
+
+[functions.pdf-content-extractor]
+verify_jwt = true
+
+[functions.ai-content-generator]
+verify_jwt = true
+
+[functions.ai-question-generator-v2]
+verify_jwt = true
+
+[functions.content-approval-api]
+verify_jwt = true

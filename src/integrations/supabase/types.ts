@@ -103,6 +103,115 @@ export type Database = {
         }
         Relationships: []
       }
+      content_approval_queue: {
+        Row: {
+          admin_feedback: string | null
+          content_id: string
+          content_type: string
+          created_at: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_id: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_feedback?: string | null
+          content_id: string
+          content_type: string
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_feedback?: string | null
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_id?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_approval_queue_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_approval_queue_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_approval_queue_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "content_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_sources: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          source_type: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          source_type: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          source_type?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_sources_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_sources_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           created_at: string | null
@@ -315,6 +424,98 @@ export type Database = {
           sent_at?: string
         }
         Relationships: []
+      }
+      generated_questions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          chapter_name: string | null
+          correct_answer: string
+          created_at: string
+          difficulty: string | null
+          explanation: string | null
+          id: string
+          is_approved: boolean | null
+          marks: number | null
+          options: Json | null
+          question_text: string
+          question_type: string
+          source_id: string | null
+          study_content_id: string | null
+          subject: string | null
+          topic_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          chapter_name?: string | null
+          correct_answer: string
+          created_at?: string
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          is_approved?: boolean | null
+          marks?: number | null
+          options?: Json | null
+          question_text: string
+          question_type: string
+          source_id?: string | null
+          study_content_id?: string | null
+          subject?: string | null
+          topic_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          chapter_name?: string | null
+          correct_answer?: string
+          created_at?: string
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          is_approved?: boolean | null
+          marks?: number | null
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          source_id?: string | null
+          study_content_id?: string | null
+          subject?: string | null
+          topic_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_questions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "content_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_study_content_id_fkey"
+            columns: ["study_content_id"]
+            isOneToOne: false
+            referencedRelation: "study_content"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guided_path_chapters: {
         Row: {
@@ -1124,6 +1325,82 @@ export type Database = {
             columns: ["guided_path_id"]
             isOneToOne: false
             referencedRelation: "guided_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_content: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          chapter_name: string
+          content: string
+          content_type: string | null
+          created_at: string
+          id: string
+          is_approved: boolean | null
+          order_num: number | null
+          source_id: string | null
+          subject: string
+          target_board: Database["public"]["Enums"]["education_board"] | null
+          target_class: Database["public"]["Enums"]["student_class"] | null
+          topic_name: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          chapter_name: string
+          content: string
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          is_approved?: boolean | null
+          order_num?: number | null
+          source_id?: string | null
+          subject: string
+          target_board?: Database["public"]["Enums"]["education_board"] | null
+          target_class?: Database["public"]["Enums"]["student_class"] | null
+          topic_name: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          chapter_name?: string
+          content?: string
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          is_approved?: boolean | null
+          order_num?: number | null
+          source_id?: string | null
+          subject?: string
+          target_board?: Database["public"]["Enums"]["education_board"] | null
+          target_class?: Database["public"]["Enums"]["student_class"] | null
+          topic_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_content_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_content_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_content_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "content_sources"
             referencedColumns: ["id"]
           },
         ]

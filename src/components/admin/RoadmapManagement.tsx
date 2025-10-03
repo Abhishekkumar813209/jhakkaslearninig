@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Map, Plus, Calendar, Users, BookOpen, Sparkles, Edit, Trash2, Play } from "lucide-react";
+import { Map, Plus, Calendar, Users, BookOpen, Sparkles, Edit, Trash2, Play, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBatches } from "@/hooks/useBatches";
@@ -17,6 +17,10 @@ const RoadmapManagement = () => {
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedBoard, setSelectedBoard] = useState("");
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [subjectInput, setSubjectInput] = useState("");
   const [roadmapData, setRoadmapData] = useState({
     title: "",
     description: "",
@@ -31,28 +35,62 @@ const RoadmapManagement = () => {
       return;
     }
 
+    if (!selectedClass) {
+      toast.error("Please select a target class");
+      return;
+    }
+
+    if (selectedSubjects.length === 0) {
+      toast.error("Please add at least one subject");
+      return;
+    }
+
     try {
       toast.loading("AI is generating your roadmap...");
       
       const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
         body: {
           batch_id: selectedBatch,
-          duration_days: roadmapData.total_days,
-          subjects: ["Physics", "Chemistry", "Mathematics"] // Can be dynamic
+          total_days: roadmapData.total_days,
+          subjects: selectedSubjects,
+          target_class: selectedClass,
+          target_board: selectedBoard || undefined
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        toast.dismiss();
+        if (data.error.includes('Rate limit')) {
+          toast.error('Rate limit exceeded. Please try again later.');
+        } else if (data.error.includes('Payment required')) {
+          toast.error('Payment required. Please add credits to your workspace.');
+        } else if (data.error.includes('Unauthorized')) {
+          toast.error('Unauthorized. Please check your permissions.');
+        } else {
+          toast.error(data.error);
+        }
+        return;
+      }
       
       toast.dismiss();
       toast.success("AI Roadmap generated successfully!");
+      setIsCreating(false);
       
       // Refresh roadmaps list
       fetchRoadmaps();
     } catch (error: any) {
       toast.dismiss();
       console.error('Error generating roadmap:', error);
-      toast.error('Failed to generate roadmap');
+      
+      if (error.message) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to generate roadmap');
+      }
     }
   };
 
@@ -106,9 +144,9 @@ const RoadmapManagement = () => {
     }
   };
 
-  useState(() => {
+  useEffect(() => {
     fetchRoadmaps();
-  });
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -167,14 +205,96 @@ const RoadmapManagement = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Duration (Days)</Label>
-                  <Input
-                    type="number"
-                    value={roadmapData.total_days}
-                    onChange={(e) => setRoadmapData({...roadmapData, total_days: parseInt(e.target.value)})}
-                  />
+              <div>
+                <Label>Target Class *</Label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="class_6">Class 6</SelectItem>
+                    <SelectItem value="class_7">Class 7</SelectItem>
+                    <SelectItem value="class_8">Class 8</SelectItem>
+                    <SelectItem value="class_9">Class 9</SelectItem>
+                    <SelectItem value="class_10">Class 10</SelectItem>
+                    <SelectItem value="class_11">Class 11</SelectItem>
+                    <SelectItem value="class_12">Class 12</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Target Board (Optional)</Label>
+                <Select value={selectedBoard} onValueChange={setSelectedBoard}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select board" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cbse">CBSE</SelectItem>
+                    <SelectItem value="icse">ICSE</SelectItem>
+                    <SelectItem value="state">State Board</SelectItem>
+                    <SelectItem value="igcse">IGCSE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Subjects *</Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter subject name and press Enter"
+                      value={subjectInput}
+                      onChange={(e) => setSubjectInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && subjectInput.trim()) {
+                          e.preventDefault();
+                          if (!selectedSubjects.includes(subjectInput.trim())) {
+                            setSelectedSubjects([...selectedSubjects, subjectInput.trim()]);
+                          }
+                          setSubjectInput("");
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (subjectInput.trim() && !selectedSubjects.includes(subjectInput.trim())) {
+                          setSelectedSubjects([...selectedSubjects, subjectInput.trim()]);
+                          setSubjectInput("");
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  {selectedSubjects.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedSubjects.map((subject, index) => (
+                        <Badge key={index} variant="secondary" className="gap-1">
+                          {subject}
+                          <X
+                            className="h-3 w-3 cursor-pointer"
+                            onClick={() => setSelectedSubjects(selectedSubjects.filter((_, i) => i !== index))}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <Label>Duration (Days)</Label>
+                <Input
+                  type="number"
+                  value={roadmapData.total_days}
+                  onChange={(e) => setRoadmapData({...roadmapData, total_days: parseInt(e.target.value)})}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Start Date</Label>
                   <Input
@@ -192,8 +312,9 @@ const RoadmapManagement = () => {
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-2 pt-4">
+            <div className="flex gap-2 pt-4">
                 <Button onClick={handleAIGenerate} variant="outline" className="gap-2 flex-1">
                   <Sparkles className="h-4 w-4" />
                   Generate with AI

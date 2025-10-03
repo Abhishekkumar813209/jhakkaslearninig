@@ -27,17 +27,33 @@ const RoadmapManagement = () => {
 
   const fetchRoadmaps = async () => {
     try {
+      console.log('🔍 RoadmapManagement: Starting fetchRoadmaps...');
+      
       // Use RPC to bypass RLS correctly (admins see all, students see their batch)
       const { data, error } = await supabase.rpc('get_accessible_roadmaps');
-      if (error) throw error;
+      
+      console.log('🔍 RoadmapManagement: RPC response:', { 
+        dataCount: data?.length, 
+        error: error?.message,
+        rawData: data 
+      });
+      
+      if (error) {
+        console.error('❌ RoadmapManagement: RPC error:', error);
+        toast.error(`Failed to fetch roadmaps: ${error.message}`);
+        throw error;
+      }
 
       const normalized = (data || []).map((r: any) => ({
         ...r,
         batches: { name: r.batch_name, level: r.batch_level },
       }));
+      
+      console.log('✅ RoadmapManagement: Setting roadmaps:', normalized.length, 'items');
       setRoadmaps(normalized);
     } catch (error: any) {
-      console.error('Error fetching roadmaps:', error);
+      console.error('❌ RoadmapManagement: Error fetching roadmaps:', error);
+      toast.error('Failed to load roadmaps. Check console for details.');
     }
   };
 

@@ -132,48 +132,74 @@ export type Database = {
       }
       batches: {
         Row: {
+          auto_assign_roadmap: boolean | null
           created_at: string | null
           current_strength: number | null
           description: string | null
           end_date: string | null
+          exam_name: string | null
+          exam_type: string | null
           id: string
           instructor_id: string
           is_active: boolean | null
           level: string
+          linked_roadmap_id: string | null
           max_capacity: number
           name: string
           start_date: string
+          target_board: Database["public"]["Enums"]["education_board"] | null
+          target_class: Database["public"]["Enums"]["student_class"] | null
           updated_at: string | null
         }
         Insert: {
+          auto_assign_roadmap?: boolean | null
           created_at?: string | null
           current_strength?: number | null
           description?: string | null
           end_date?: string | null
+          exam_name?: string | null
+          exam_type?: string | null
           id?: string
           instructor_id: string
           is_active?: boolean | null
           level: string
+          linked_roadmap_id?: string | null
           max_capacity: number
           name: string
           start_date: string
+          target_board?: Database["public"]["Enums"]["education_board"] | null
+          target_class?: Database["public"]["Enums"]["student_class"] | null
           updated_at?: string | null
         }
         Update: {
+          auto_assign_roadmap?: boolean | null
           created_at?: string | null
           current_strength?: number | null
           description?: string | null
           end_date?: string | null
+          exam_name?: string | null
+          exam_type?: string | null
           id?: string
           instructor_id?: string
           is_active?: boolean | null
           level?: string
+          linked_roadmap_id?: string | null
           max_capacity?: number
           name?: string
           start_date?: string
+          target_board?: Database["public"]["Enums"]["education_board"] | null
+          target_class?: Database["public"]["Enums"]["student_class"] | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "batches_linked_roadmap_id_fkey"
+            columns: ["linked_roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chapter_library: {
         Row: {
@@ -474,6 +500,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      exam_domains: {
+        Row: {
+          available_exams: Json | null
+          category: string
+          created_at: string | null
+          description: string | null
+          domain_name: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          available_exams?: Json | null
+          category: string
+          created_at?: string | null
+          description?: string | null
+          domain_name: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          available_exams?: Json | null
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          domain_name?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       exam_templates: {
         Row: {
@@ -1276,10 +1335,13 @@ export type Database = {
           created_at: string | null
           education_board: Database["public"]["Enums"]["education_board"] | null
           email: string | null
+          exam_domain: string | null
           full_name: string | null
           id: string
+          preparation_level: string | null
           school_id: string | null
           student_class: Database["public"]["Enums"]["student_class"] | null
+          target_exam: string | null
           updated_at: string | null
           zone_id: string | null
         }
@@ -1291,10 +1353,13 @@ export type Database = {
             | Database["public"]["Enums"]["education_board"]
             | null
           email?: string | null
+          exam_domain?: string | null
           full_name?: string | null
           id: string
+          preparation_level?: string | null
           school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
+          target_exam?: string | null
           updated_at?: string | null
           zone_id?: string | null
         }
@@ -1306,10 +1371,13 @@ export type Database = {
             | Database["public"]["Enums"]["education_board"]
             | null
           email?: string | null
+          exam_domain?: string | null
           full_name?: string | null
           id?: string
+          preparation_level?: string | null
           school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
+          target_exam?: string | null
           updated_at?: string | null
           zone_id?: string | null
         }

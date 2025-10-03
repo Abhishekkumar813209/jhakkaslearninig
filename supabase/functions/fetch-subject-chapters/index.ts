@@ -71,7 +71,7 @@ serve(async (req) => {
     // Generate using AI
     console.log('Generating chapters using AI');
     
-    const systemPrompt = `You are an expert syllabus designer. Generate a comprehensive list of chapters for the given subject and exam type.
+    const systemPrompt = `You are an expert syllabus designer. Generate a comprehensive list of ALL chapters for the given subject and exam type.
 
 Output MUST be a JSON array of objects with this exact structure:
 [
@@ -83,10 +83,13 @@ Output MUST be a JSON array of objects with this exact structure:
 ]
 
 Rules:
-- Generate 8-15 chapters based on the subject complexity
+- Generate 20-40 chapters based on the ACTUAL COMPLETE syllabus for competitive exams like NEET/JEE
+- Include ALL major chapters - don't skip important topics
 - suggested_days should be 2-7 days based on chapter complexity
 - difficulty: "easy", "medium", or "hard"
 - Be specific and exam-focused
+- For NEET Physics: ~30 chapters, Chemistry: ~28 chapters, Biology: ~38 chapters
+- For JEE: Cover complete syllabus comprehensively
 - Only return chapter names, NOT topics`;
 
     let userPrompt = `Generate chapters for:\nExam Type: ${exam_type}\nSubject: ${subject}`;
@@ -106,7 +109,7 @@ Rules:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 4000
       }),
     });
 
@@ -166,7 +169,70 @@ Rules:
       console.error('Error caching chapters:', insertError);
     }
 
-    console.log('Generated chapters:', chapters.length);
+    console.log('Generated chapters (Phase 1):', chapters.length);
+
+    // Phase 2: If we got many chapters but might have more, fetch remaining
+    if (chapters.length >= 35) {
+      console.log('Attempting Phase 2 for remaining chapters');
+      
+      const phase2Prompt = `Continue generating remaining chapters for:\nExam Type: ${exam_type}\nSubject: ${subject}\n\nAlready covered: ${chapters.map(ch => ch.chapter_name).join(', ')}\n\nGenerate any remaining important chapters NOT in the above list.`;
+      
+      const phase2Response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: phase2Prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        }),
+      });
+
+      if (phase2Response.ok) {
+        const phase2Data = await phase2Response.json();
+        if (phase2Data.choices?.[0]?.message?.content) {
+          try {
+            const cleanedPhase2 = stripMarkdownCodeBlocks(phase2Data.choices[0].message.content);
+            const phase2Chapters = JSON.parse(cleanedPhase2);
+            if (Array.isArray(phase2Chapters) && phase2Chapters.length > 0) {
+              console.log('Phase 2 added:', phase2Chapters.length, 'chapters');
+              chapters = [...chapters, ...phase2Chapters];
+            }
+          } catch (e) {
+            console.log('Phase 2 parsing failed, continuing with Phase 1 only');
+          }
+        }
+      }
+    }
+
+    console.log('Total chapters generated:', chapters.length);
+
+    // Save all chapters to library
+    const chaptersToInsert = chapters.map((ch: any) => ({
+      exam_type,
+      subject,
+      chapter_name: ch.chapter_name,
+      suggested_days: ch.suggested_days || 3,
+      difficulty: ch.difficulty || 'medium',
+      topics: [],
+      is_custom: false,
+      is_active: true
+    }));
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('chapter_library')
+      .insert(chaptersToInsert)
+      .select();
+
+    if (insertError) {
+      console.error('Error caching chapters:', insertError);
+    }
 
     return new Response(
       JSON.stringify({

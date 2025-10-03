@@ -602,13 +602,20 @@ const RoadmapManagement = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {roadmaps.map((roadmap) => (
-          <Card key={roadmap.id} className="card-gradient shadow-soft hover:shadow-lg transition-shadow cursor-pointer">
+          <Card 
+            key={roadmap.id} 
+            className="card-gradient shadow-soft hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => handleViewDetails(roadmap)}
+          >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <CardTitle className="text-lg mb-2">{roadmap.title}</CardTitle>
                   <div className="flex gap-2 flex-wrap">
-                    <Badge variant={roadmap.status === 'active' ? 'default' : 'secondary'}>
+                    <Badge 
+                      variant={roadmap.status === 'active' ? 'default' : 'secondary'}
+                      className={roadmap.status === 'active' ? 'bg-green-600' : ''}
+                    >
                       {roadmap.status}
                     </Badge>
                     {roadmap.ai_generated_plan?.metadata?.subjects && (
@@ -642,14 +649,53 @@ const RoadmapManagement = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button size="sm" variant="outline" className="flex-1">
+              <div className="flex gap-2 pt-2 flex-wrap">
+                <Button 
+                  size="sm" 
+                  variant="default"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewDetails(roadmap);
+                  }}
+                  className="flex-1"
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  View
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(roadmap);
+                  }}
+                  className="flex-1"
+                >
                   <Edit className="h-3 w-3 mr-1" />
                   Edit
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleActivate(roadmap);
+                  }}
+                  disabled={roadmap.status === 'active'}
+                >
                   <Play className="h-3 w-3 mr-1" />
-                  Activate
+                  {roadmap.status === 'active' ? 'Active' : 'Activate'}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRoadmap(roadmap);
+                    setDeleteDialogOpen(true);
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </CardContent>

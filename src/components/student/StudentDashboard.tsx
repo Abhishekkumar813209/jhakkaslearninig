@@ -4,7 +4,10 @@ import SubscriptionCard from './SubscriptionCard';
 import SubscriptionExpiryNotice from './SubscriptionExpiryNotice';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { BookOpen, Trophy, Clock, TrendingUp } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const StudentDashboard: React.FC = () => {
   const { 
@@ -15,6 +18,35 @@ const StudentDashboard: React.FC = () => {
     fetchSubscriptionStatus,
     loading 
   } = useSubscription();
+
+  const { data: profile } = useQuery({
+    queryKey: ["student-profile-dashboard"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          *,
+          batches:batch_id (
+            id,
+            name,
+            exam_type,
+            exam_name,
+            target_class,
+            target_board,
+            start_date,
+            end_date
+          )
+        `)
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const hasRoadmapAccess = checkRoadmapAccess();
 
@@ -46,6 +78,38 @@ const StudentDashboard: React.FC = () => {
           }
         </p>
       </div>
+
+      {/* Batch Info Card */}
+      {profile?.batches && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5" />
+              Your Batch
+            </CardTitle>
+            <CardDescription>Current enrollment details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-lg font-semibold">{profile.batches.name}</p>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary">{profile.batches.exam_type}</Badge>
+                <Badge variant="outline">{profile.batches.exam_name}</Badge>
+                {profile.batches.target_class && (
+                  <Badge>Class {profile.batches.target_class}</Badge>
+                )}
+                {profile.batches.target_board && (
+                  <Badge variant="secondary">{profile.batches.target_board}</Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                {new Date(profile.batches.start_date).toLocaleDateString()} - {new Date(profile.batches.end_date).toLocaleDateString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Subscription Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1699,6 +1699,47 @@ export type Database = {
         }
         Relationships: []
       }
+      student_chapter_progress: {
+        Row: {
+          chapter_id: string
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          started_at: string | null
+          status: string | null
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_chapter_progress_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_guided_paths: {
         Row: {
           completed_at: string | null
@@ -1790,6 +1831,85 @@ export type Database = {
           },
           {
             foreignKeyName: "student_roadmap_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_roadmaps: {
+        Row: {
+          batch_roadmap_id: string
+          created_at: string | null
+          id: string
+          progress: number | null
+          status: string | null
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          batch_roadmap_id: string
+          created_at?: string | null
+          id?: string
+          progress?: number | null
+          status?: string | null
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          batch_roadmap_id?: string
+          created_at?: string | null
+          id?: string
+          progress?: number | null
+          status?: string | null
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_roadmaps_batch_roadmap_id_fkey"
+            columns: ["batch_roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_topic_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          started_at: string | null
+          status: string | null
+          student_id: string
+          topic_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          student_id: string
+          topic_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          student_id?: string
+          topic_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_topic_progress_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "roadmap_topics"

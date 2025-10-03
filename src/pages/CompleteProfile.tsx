@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +16,10 @@ const CompleteProfile = () => {
   const [educationBoard, setEducationBoard] = useState('');
   const [selectedZone, setSelectedZone] = useState('');
   const [selectedSchool, setSelectedSchool] = useState('');
+  const [examDomain, setExamDomain] = useState('');
+  const [targetExam, setTargetExam] = useState('');
+  const [preparationLevel, setPreparationLevel] = useState('');
+  const [domains, setDomains] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
@@ -23,6 +29,17 @@ const CompleteProfile = () => {
   const { schools, loading: schoolsLoading, getSchoolsByZone } = useSchools();
   
   const filteredSchools = selectedZone ? getSchoolsByZone(selectedZone) : [];
+
+  useEffect(() => {
+    const fetchDomains = async () => {
+      const { data } = await supabase
+        .from("exam_domains")
+        .select("*")
+        .eq("is_active", true);
+      if (data) setDomains(data);
+    };
+    fetchDomains();
+  }, []);
 
   useEffect(() => {
     checkUserAndProfile();
@@ -73,6 +90,9 @@ const CompleteProfile = () => {
           education_board: educationBoard as any,
           zone_id: selectedZone,
           school_id: selectedSchool,
+          exam_domain: examDomain || null,
+          target_exam: targetExam || null,
+          preparation_level: preparationLevel || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -217,6 +237,46 @@ const CompleteProfile = () => {
                         {school.name} ({school.student_count || 0} students)
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="examDomain">Exam Domain (Optional)</Label>
+                <Select value={examDomain} onValueChange={setExamDomain}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select exam domain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {domains.map((domain) => (
+                      <SelectItem key={domain.id} value={domain.domain_name}>
+                        {domain.domain_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="targetExam">Target Exam (Optional)</Label>
+                <Input
+                  id="targetExam"
+                  value={targetExam}
+                  onChange={(e) => setTargetExam(e.target.value)}
+                  placeholder="e.g., JEE Main, NEET, UPSC"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="preparationLevel">Preparation Level (Optional)</Label>
+                <Select value={preparationLevel} onValueChange={setPreparationLevel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Beginner</SelectItem>
+                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                    <SelectItem value="advanced">Advanced</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

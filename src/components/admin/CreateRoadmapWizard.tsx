@@ -40,7 +40,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
   const totalSteps = 4;
 
   // Step 1: Exam Type
-  const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
+  const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
   const [examName, setExamName] = useState("");
   const [conditionalClass, setConditionalClass] = useState("");
   const [conditionalBoard, setConditionalBoard] = useState("");
@@ -66,7 +66,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
 
   // Auto-adjust totalDays based on roadmap type for Engineering/Medical
   useEffect(() => {
-    if ((examType === 'Engineering' || examType === 'Medical') && conditionalClass) {
+    if ((examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && conditionalClass) {
       const calculateRemainingDays = (): number => {
         const currentDate = new Date();
         const currentYear = currentDate.getFullYear();
@@ -379,12 +379,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
             ? `${conditionalBoard} Class ${conditionalClass}` 
             : examType === 'Engineering' 
             ? 'IIT JEE' 
-            : examType === 'Medical'
-            ? 'NEET'
+            : examType === 'Medical-UG'
+            ? 'NEET UG'
+            : examType === 'Medical-PG'
+            ? 'NEET PG'
             : examName,
           conditional_class: conditionalClass,
           conditional_board: examType === 'School' ? conditionalBoard : undefined,
-          roadmap_type: (examType === 'Engineering' || examType === 'Medical') ? roadmapType : undefined,
+          roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
           selected_subjects,
           total_days: totalDays,
           title: roadmapTitle,
@@ -460,15 +462,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         toast.error("Please select class and board");
         return;
       }
-      if ((examType === 'Engineering' || examType === 'Medical') && !conditionalClass) {
+      if ((examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && !conditionalClass) {
         toast.error("Please select student category");
         return;
       }
-      if ((examType === 'Engineering' || examType === 'Medical') && conditionalClass === '11' && !roadmapType) {
+      if ((examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && conditionalClass === '11' && !roadmapType) {
         toast.error("Please select roadmap duration");
         return;
       }
-      if (examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical' && !examName) {
+      if (examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && !examName) {
         toast.error("Please enter exam name");
         return;
       }

@@ -27,7 +27,8 @@ interface ExamTypeStepProps {
 const examTypes = [
   { value: 'School', label: 'School/Board Exams', icon: GraduationCap, color: 'bg-blue-500' },
   { value: 'Engineering', label: 'IIT JEE (Main, Advanced)', icon: Wrench, color: 'bg-red-500' },
-  { value: 'Medical', label: 'NEET (UG, PG)', icon: Heart, color: 'bg-pink-500' },
+  { value: 'Medical-UG', label: 'NEET UG', icon: Heart, color: 'bg-pink-500' },
+  { value: 'Medical-PG', label: 'NEET PG', icon: Heart, color: 'bg-rose-500' },
   { value: 'SSC', label: 'SSC (CGL, CHSL, MTS, GD)', icon: Briefcase, color: 'bg-green-500' },
   { value: 'Banking', label: 'Banking (IBPS, SBI, RBI)', icon: Building2, color: 'bg-purple-500' },
   { value: 'UPSC', label: 'UPSC (Civil Services, IES)', icon: Globe, color: 'bg-orange-500' },
@@ -80,7 +81,8 @@ export const ExamTypeStep = ({
   const examTypeToDomain: Record<string, string> = {
     'School': 'School Education',
     'Engineering': 'Engineering Entrance',
-    'Medical': 'Medical Entrance',
+    'Medical-UG': 'Medical Entrance',
+    'Medical-PG': 'Medical Entrance',
     'SSC': 'SSC Exams',
     'Banking': 'Banking Exams',
     'UPSC': 'UPSC Exams',
@@ -97,7 +99,7 @@ export const ExamTypeStep = ({
       return batch.exam_type === 'School Education' &&
              batch.target_class === conditionalClass &&
              batch.exam_name === conditionalBoard;
-    } else if (examType === 'Engineering' || examType === 'Medical') {
+    } else if (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') {
       // Filter by domain AND student category (class or dropper)
       if (conditionalClass === 'dropper') {
         return batch.exam_type === mappedDomain && batch.level === 'Dropper';
@@ -176,7 +178,7 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {(examType === 'Engineering' || examType === 'Medical') && (
+      {(examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && (
         <div className="space-y-4">
           <div>
             <Label>Student Category *</Label>
@@ -231,7 +233,7 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical' && (
+      {examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && (
         <div>
           <Label>Exam Name *</Label>
           <Input

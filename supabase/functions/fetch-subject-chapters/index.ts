@@ -11,6 +11,22 @@ const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+function stripMarkdownCodeBlocks(content: string): string {
+  let cleaned = content.trim();
+  
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.substring(7);
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.substring(3);
+  }
+  
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.substring(0, cleaned.length - 3);
+  }
+  
+  return cleaned.trim();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -119,7 +135,15 @@ Rules:
       throw new Error('Invalid AI response format');
     }
     
-    const chapters = JSON.parse(aiData.choices[0].message.content);
+    let chapters;
+    try {
+      const cleanedContent = stripMarkdownCodeBlocks(aiData.choices[0].message.content);
+      chapters = JSON.parse(cleanedContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      console.error('Raw content:', aiData.choices[0].message.content);
+      throw new Error('Failed to parse chapters from AI response');
+    }
 
     // Save to chapter library
     const chaptersToInsert = chapters.map((ch: any) => ({

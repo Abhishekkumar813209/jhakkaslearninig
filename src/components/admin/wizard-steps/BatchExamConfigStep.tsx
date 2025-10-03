@@ -108,7 +108,7 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
               </SelectTrigger>
               <SelectContent>
                 {classes.map((cls) => (
-                  <SelectItem key={cls} value={`class_${cls}`}>
+                  <SelectItem key={cls} value={cls}>
                     Class {cls}
                   </SelectItem>
                 ))}

@@ -65,34 +65,51 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess }: CreateBatch
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: "Error",
+          description: "Authentication required",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const batchData = {
-      ...formData,
-      exam_type: selectedDomain,
-      instructor_id: user.id,
-      is_active: true,
-    };
+      const batchData = {
+        ...formData,
+        exam_type: selectedDomain,
+      };
 
-    const { error } = await supabase.from("batches").insert([batchData]);
+      const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(batchData),
+      });
 
-    if (error) {
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create batch');
+      }
+
+      toast({
+        title: "Success",
+        description: "Batch created successfully!",
+      });
+
+      handleReset();
+      onSuccess();
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create batch",
         variant: "destructive",
       });
-      return;
     }
-
-    toast({
-      title: "Success",
-      description: "Batch created successfully!",
-    });
-
-    handleReset();
-    onSuccess();
   };
 
   const handleReset = () => {

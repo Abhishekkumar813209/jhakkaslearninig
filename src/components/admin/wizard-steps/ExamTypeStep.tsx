@@ -50,6 +50,31 @@ export const ExamTypeStep = ({
 }: ExamTypeStepProps) => {
   const { batches } = useBatches();
 
+  // Map exam types to batch exam_type values
+  const examTypeToDomain: Record<string, string> = {
+    'School': 'School Education',
+    'SSC': 'SSC Exams',
+    'Banking': 'Banking Exams',
+    'UPSC': 'UPSC Exams',
+    'Railway': 'Railway Exams',
+    'Defence': 'Defence Exams',
+    'Custom': 'Custom Exam',
+  };
+
+  // Filter batches based on selected exam type
+  const filteredBatches = batches.filter((batch: any) => {
+    const mappedDomain = examTypeToDomain[examType];
+    
+    if (examType === 'School') {
+      return batch.exam_type === 'School Education' &&
+             batch.target_class === `class_${conditionalClass}` &&
+             batch.exam_name === conditionalBoard;
+    } else if (mappedDomain) {
+      return batch.exam_type === mappedDomain;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -134,11 +159,17 @@ export const ExamTypeStep = ({
               <SelectValue placeholder="Choose a batch" />
             </SelectTrigger>
             <SelectContent>
-              {batches.map((batch) => (
-                <SelectItem key={batch.id} value={batch.id}>
-                  {batch.name} - {batch.level}
-                </SelectItem>
-              ))}
+              {filteredBatches.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  No batches available for this exam type
+                </div>
+              ) : (
+                filteredBatches.map((batch: any) => (
+                  <SelectItem key={batch.id} value={batch.id}>
+                    {batch.name} - {batch.level}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>

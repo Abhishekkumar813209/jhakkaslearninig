@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CreateBatchWizard } from "./CreateBatchWizard";
 
 const BatchManagement = () => {
-  const { batches, loading, deleteBatch, totalStudents, avgPerformance } = useBatches();
+  const { batches, loading, deleteBatch, fetchBatches, totalStudents, avgPerformance } = useBatches();
   const [showWizard, setShowWizard] = useState(false);
   const [domainFilter, setDomainFilter] = useState<string>("all");
   const { toast } = useToast();
@@ -218,7 +218,7 @@ const BatchManagement = () => {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          <span>{batch.current_strength || 0}</span>
+                          <span>{batch.student_count ?? batch.current_strength ?? 0}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -255,7 +255,7 @@ const BatchManagement = () => {
         open={showWizard} 
         onOpenChange={setShowWizard}
         onSuccess={() => {
-          // Batches will auto-refresh via useBatches hook
+          fetchBatches();
           toast({
             title: "Success",
             description: "Batch created successfully!",

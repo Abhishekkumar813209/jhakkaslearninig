@@ -196,7 +196,13 @@ serve(async (req: Request) => {
           max_capacity: body.max_capacity || 50,
           current_strength: 0,
           instructor_id: userData.user.id,
-          is_active: body.is_active !== false
+          is_active: body.is_active !== false,
+          exam_type: body.exam_type || null,
+          exam_name: body.exam_name || null,
+          target_class: body.target_class || null,
+          target_board: body.target_board || null,
+          auto_assign_roadmap: body.auto_assign_roadmap || false,
+          linked_roadmap_id: body.linked_roadmap_id || null
         }
 
         console.log('Inserting batch data:', batchData)

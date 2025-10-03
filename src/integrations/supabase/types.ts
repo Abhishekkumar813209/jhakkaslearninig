@@ -58,6 +58,59 @@ export type Database = {
           },
         ]
       }
+      batch_roadmaps: {
+        Row: {
+          ai_generated_plan: Json | null
+          batch_id: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          end_date: string
+          id: string
+          start_date: string
+          status: Database["public"]["Enums"]["roadmap_status"] | null
+          title: string
+          total_days: number
+          updated_at: string | null
+        }
+        Insert: {
+          ai_generated_plan?: Json | null
+          batch_id: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          end_date: string
+          id?: string
+          start_date: string
+          status?: Database["public"]["Enums"]["roadmap_status"] | null
+          title: string
+          total_days?: number
+          updated_at?: string | null
+        }
+        Update: {
+          ai_generated_plan?: Json | null
+          batch_id?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["roadmap_status"] | null
+          title?: string
+          total_days?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_roadmaps_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batches: {
         Row: {
           created_at: string | null
@@ -163,6 +216,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      content_modification_history: {
+        Row: {
+          content_id: string
+          content_type: string
+          id: string
+          modification_prompt: string | null
+          modified_at: string | null
+          modified_by: string
+          modified_content: string
+          original_content: string
+        }
+        Insert: {
+          content_id: string
+          content_type: string
+          id?: string
+          modification_prompt?: string | null
+          modified_at?: string | null
+          modified_by: string
+          modified_content: string
+          original_content: string
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          id?: string
+          modification_prompt?: string | null
+          modified_at?: string | null
+          modified_by?: string
+          modified_content?: string
+          original_content?: string
+        }
+        Relationships: []
       }
       content_sources: {
         Row: {
@@ -424,6 +510,53 @@ export type Database = {
           sent_at?: string
         }
         Relationships: []
+      }
+      gamified_exercises: {
+        Row: {
+          coin_reward: number | null
+          correct_answer: Json | null
+          created_at: string | null
+          difficulty: string | null
+          exercise_data: Json
+          exercise_type: Database["public"]["Enums"]["exercise_type"]
+          explanation: string | null
+          id: string
+          topic_content_id: string
+          xp_reward: number | null
+        }
+        Insert: {
+          coin_reward?: number | null
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty?: string | null
+          exercise_data: Json
+          exercise_type: Database["public"]["Enums"]["exercise_type"]
+          explanation?: string | null
+          id?: string
+          topic_content_id: string
+          xp_reward?: number | null
+        }
+        Update: {
+          coin_reward?: number | null
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty?: string | null
+          exercise_data?: Json
+          exercise_type?: Database["public"]["Enums"]["exercise_type"]
+          explanation?: string | null
+          id?: string
+          topic_content_id?: string
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamified_exercises_topic_content_id_fkey"
+            columns: ["topic_content_id"]
+            isOneToOne: false
+            referencedRelation: "topic_content_mapping"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       generated_questions: {
         Row: {
@@ -1181,6 +1314,100 @@ export type Database = {
           },
         ]
       }
+      roadmap_chapters: {
+        Row: {
+          chapter_name: string
+          created_at: string | null
+          day_end: number
+          day_start: number
+          estimated_days: number
+          id: string
+          order_num: number
+          roadmap_id: string
+          subject: string
+          xp_reward: number | null
+        }
+        Insert: {
+          chapter_name: string
+          created_at?: string | null
+          day_end: number
+          day_start: number
+          estimated_days: number
+          id?: string
+          order_num: number
+          roadmap_id: string
+          subject: string
+          xp_reward?: number | null
+        }
+        Update: {
+          chapter_name?: string
+          created_at?: string | null
+          day_end?: number
+          day_start?: number
+          estimated_days?: number
+          id?: string
+          order_num?: number
+          roadmap_id?: string
+          subject?: string
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_chapters_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmap_topics: {
+        Row: {
+          chapter_id: string
+          coin_reward: number | null
+          created_at: string | null
+          day_number: number
+          estimated_hours: number
+          id: string
+          order_num: number
+          topic_name: string
+          unlock_condition: string | null
+          xp_reward: number | null
+        }
+        Insert: {
+          chapter_id: string
+          coin_reward?: number | null
+          created_at?: string | null
+          day_number: number
+          estimated_hours: number
+          id?: string
+          order_num: number
+          topic_name: string
+          unlock_condition?: string | null
+          xp_reward?: number | null
+        }
+        Update: {
+          chapter_id?: string
+          coin_reward?: number | null
+          created_at?: string | null
+          day_number?: number
+          estimated_hours?: number
+          id?: string
+          order_num?: number
+          topic_name?: string
+          unlock_condition?: string | null
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_topics_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schools: {
         Row: {
           address: string | null
@@ -1328,6 +1555,105 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      student_roadmap_progress: {
+        Row: {
+          completed_at: string | null
+          completed_exercises: number | null
+          id: string
+          last_accessed_at: string | null
+          progress_percentage: number | null
+          roadmap_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["topic_status"] | null
+          student_id: string
+          time_spent_minutes: number | null
+          topic_id: string
+          total_exercises: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_exercises?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          progress_percentage?: number | null
+          roadmap_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["topic_status"] | null
+          student_id: string
+          time_spent_minutes?: number | null
+          topic_id: string
+          total_exercises?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_exercises?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          progress_percentage?: number | null
+          roadmap_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["topic_status"] | null
+          student_id?: string
+          time_spent_minutes?: number | null
+          topic_id?: string
+          total_exercises?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_roadmap_progress_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_roadmap_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_xp_coins: {
+        Row: {
+          created_at: string | null
+          current_streak_days: number | null
+          id: string
+          last_activity_date: string | null
+          level: number | null
+          longest_streak_days: number | null
+          student_id: string
+          total_coins: number | null
+          total_xp: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_streak_days?: number | null
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          longest_streak_days?: number | null
+          student_id: string
+          total_coins?: number | null
+          total_xp?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_streak_days?: number | null
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          longest_streak_days?: number | null
+          student_id?: string
+          total_coins?: number | null
+          total_xp?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       study_content: {
         Row: {
@@ -1753,6 +2079,67 @@ export type Database = {
           },
         ]
       }
+      topic_content_mapping: {
+        Row: {
+          content_id: string | null
+          content_type: Database["public"]["Enums"]["exercise_type"]
+          created_at: string | null
+          id: string
+          is_required: boolean | null
+          order_num: number
+          question_id: string | null
+          study_content_id: string | null
+          topic_id: string
+          xp_value: number | null
+        }
+        Insert: {
+          content_id?: string | null
+          content_type: Database["public"]["Enums"]["exercise_type"]
+          created_at?: string | null
+          id?: string
+          is_required?: boolean | null
+          order_num: number
+          question_id?: string | null
+          study_content_id?: string | null
+          topic_id: string
+          xp_value?: number | null
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: Database["public"]["Enums"]["exercise_type"]
+          created_at?: string | null
+          id?: string
+          is_required?: boolean | null
+          order_num?: number
+          question_id?: string | null
+          study_content_id?: string | null
+          topic_id?: string
+          xp_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_content_mapping_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "generated_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_content_mapping_study_content_id_fkey"
+            columns: ["study_content_id"]
+            isOneToOne: false
+            referencedRelation: "study_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_content_mapping_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -2071,7 +2458,17 @@ export type Database = {
         | "UTTARAKHAND_BOARD"
         | "HIMACHAL_PRADESH_BOARD"
         | "JAMMU_KASHMIR_BOARD"
+      exercise_type:
+        | "theory"
+        | "mcq"
+        | "fill_up"
+        | "true_false"
+        | "match_column"
+        | "subjective"
+        | "drag_drop_sort"
+        | "interactive_label"
       question_type: "mcq" | "subjective"
+      roadmap_status: "draft" | "active" | "completed" | "archived"
       student_class:
         | "1"
         | "2"
@@ -2091,6 +2488,7 @@ export type Database = {
         | "auto_submitted"
         | "abandoned"
       test_difficulty: "easy" | "medium" | "hard"
+      topic_status: "locked" | "unlocked" | "in_progress" | "completed"
       user_role: "admin" | "student"
     }
     CompositeTypes: {
@@ -2245,7 +2643,18 @@ export const Constants = {
         "HIMACHAL_PRADESH_BOARD",
         "JAMMU_KASHMIR_BOARD",
       ],
+      exercise_type: [
+        "theory",
+        "mcq",
+        "fill_up",
+        "true_false",
+        "match_column",
+        "subjective",
+        "drag_drop_sort",
+        "interactive_label",
+      ],
       question_type: ["mcq", "subjective"],
+      roadmap_status: ["draft", "active", "completed", "archived"],
       student_class: [
         "1",
         "2",
@@ -2267,6 +2676,7 @@ export const Constants = {
         "abandoned",
       ],
       test_difficulty: ["easy", "medium", "hard"],
+      topic_status: ["locked", "unlocked", "in_progress", "completed"],
       user_role: ["admin", "student"],
     },
   },

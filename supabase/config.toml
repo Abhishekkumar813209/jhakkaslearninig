@@ -91,3 +91,15 @@ verify_jwt = true
 
 [functions.content-approval-api]
 verify_jwt = true
+
+[functions.ai-roadmap-generator]
+verify_jwt = true
+
+[functions.ai-topic-breakdown]
+verify_jwt = true
+
+[functions.student-roadmap-api]
+verify_jwt = true
+
+[functions.xp-coin-reward-system]
+verify_jwt = true

@@ -292,11 +292,11 @@ const BatchManagement = () => {
                       <TableCell>{getDomainBadge(batch.exam_type)}</TableCell>
                       <TableCell>
                         <div className="font-medium">{batch.exam_name || "-"}</div>
-                        {batch.target_class && (
-                          <div className="text-xs text-muted-foreground">
-                            Class {batch.target_class}
-                          </div>
-                        )}
+                    {batch.target_class && (
+                      <div className="text-xs text-muted-foreground">
+                        {batch.level === "Dropper" ? "Dropper" : `Class ${batch.target_class}`}
+                      </div>
+                    )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

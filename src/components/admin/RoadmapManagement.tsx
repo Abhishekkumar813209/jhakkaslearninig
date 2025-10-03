@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Map, Plus, Calendar, Users, BookOpen, Sparkles, Edit, Trash2, Play, X } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Map, Plus, Calendar, Users, BookOpen, Sparkles, Edit, Trash2, Play, X, Eye, Clock, Award } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBatches } from "@/hooks/useBatches";
@@ -32,6 +34,14 @@ const RoadmapManagement = () => {
     start_date: "",
     end_date: ""
   });
+  
+  // New state for details/edit dialogs
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedRoadmap, setSelectedRoadmap] = useState<any>(null);
+  const [roadmapDetails, setRoadmapDetails] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleAIGenerate = async () => {
     // Validation
@@ -166,6 +176,176 @@ const RoadmapManagement = () => {
       setRoadmaps(data || []);
     } catch (error: any) {
       console.error('Error fetching roadmaps:', error);
+    }
+  };
+
+  const fetchRoadmapDetails = async (roadmapId: string) => {
+    setIsLoading(true);
+    try {
+      const { data: roadmap, error: roadmapError } = await supabase
+        .from('batch_roadmaps')
+        .select('*, batches(name, level)')
+        .eq('id', roadmapId)
+        .single();
+
+      if (roadmapError) throw roadmapError;
+
+      const { data: chapters, error: chaptersError } = await supabase
+        .from('roadmap_chapters')
+        .select('*')
+        .eq('roadmap_id', roadmapId)
+        .order('order_num', { ascending: true });
+
+      if (chaptersError) throw chaptersError;
+
+      const chapterIds = chapters.map(c => c.id);
+      const { data: topics, error: topicsError } = await supabase
+        .from('roadmap_topics')
+        .select('*')
+        .in('chapter_id', chapterIds)
+        .order('order_num', { ascending: true });
+
+      if (topicsError) throw topicsError;
+
+      const chaptersWithTopics = chapters.map(chapter => ({
+        ...chapter,
+        topics: topics.filter(t => t.chapter_id === chapter.id)
+      }));
+
+      setRoadmapDetails({
+        ...roadmap,
+        chapters: chaptersWithTopics
+      });
+    } catch (error: any) {
+      console.error('Error fetching roadmap details:', error);
+      toast.error('Failed to load roadmap details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewDetails = async (roadmap: any) => {
+    setSelectedRoadmap(roadmap);
+    await fetchRoadmapDetails(roadmap.id);
+    setViewDetailsOpen(true);
+  };
+
+  const handleActivate = async (roadmap: any) => {
+    try {
+      setIsLoading(true);
+      
+      // First, deactivate all other roadmaps for this batch
+      const { error: deactivateError } = await supabase
+        .from('batch_roadmaps')
+        .update({ status: 'draft' })
+        .eq('batch_id', roadmap.batch_id)
+        .neq('id', roadmap.id);
+
+      if (deactivateError) throw deactivateError;
+
+      // Then activate the selected roadmap
+      const { error: activateError } = await supabase
+        .from('batch_roadmaps')
+        .update({ status: 'active' })
+        .eq('id', roadmap.id);
+
+      if (activateError) throw activateError;
+
+      toast.success('Roadmap activated successfully!');
+      fetchRoadmaps();
+    } catch (error: any) {
+      console.error('Error activating roadmap:', error);
+      toast.error('Failed to activate roadmap');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEdit = async (roadmap: any) => {
+    setSelectedRoadmap(roadmap);
+    setRoadmapData({
+      title: roadmap.title,
+      description: roadmap.description || "",
+      total_days: roadmap.total_days,
+      start_date: roadmap.start_date,
+      end_date: roadmap.end_date
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedRoadmap) return;
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase
+        .from('batch_roadmaps')
+        .update({
+          title: roadmapData.title,
+          description: roadmapData.description,
+          total_days: roadmapData.total_days,
+          start_date: roadmapData.start_date,
+          end_date: roadmapData.end_date,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedRoadmap.id);
+
+      if (error) throw error;
+
+      toast.success('Roadmap updated successfully!');
+      setEditDialogOpen(false);
+      fetchRoadmaps();
+    } catch (error: any) {
+      console.error('Error updating roadmap:', error);
+      toast.error('Failed to update roadmap');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedRoadmap) return;
+
+    try {
+      setIsLoading(true);
+      
+      // Delete topics first
+      const { data: chapters } = await supabase
+        .from('roadmap_chapters')
+        .select('id')
+        .eq('roadmap_id', selectedRoadmap.id);
+
+      if (chapters && chapters.length > 0) {
+        const chapterIds = chapters.map(c => c.id);
+        await supabase
+          .from('roadmap_topics')
+          .delete()
+          .in('chapter_id', chapterIds);
+      }
+
+      // Delete chapters
+      await supabase
+        .from('roadmap_chapters')
+        .delete()
+        .eq('roadmap_id', selectedRoadmap.id);
+
+      // Delete roadmap
+      const { error } = await supabase
+        .from('batch_roadmaps')
+        .delete()
+        .eq('id', selectedRoadmap.id);
+
+      if (error) throw error;
+
+      toast.success('Roadmap deleted successfully!');
+      setDeleteDialogOpen(false);
+      setSelectedRoadmap(null);
+      fetchRoadmaps();
+    } catch (error: any) {
+      console.error('Error deleting roadmap:', error);
+      toast.error('Failed to delete roadmap');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -422,14 +602,23 @@ const RoadmapManagement = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {roadmaps.map((roadmap) => (
-          <Card key={roadmap.id} className="card-gradient shadow-soft">
+          <Card key={roadmap.id} className="card-gradient shadow-soft hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <CardTitle className="text-lg mb-2">{roadmap.title}</CardTitle>
-                  <Badge variant={roadmap.status === 'active' ? 'default' : 'secondary'}>
-                    {roadmap.status}
-                  </Badge>
+                  <div className="flex gap-2 flex-wrap">
+                    <Badge variant={roadmap.status === 'active' ? 'default' : 'secondary'}>
+                      {roadmap.status}
+                    </Badge>
+                    {roadmap.ai_generated_plan?.metadata?.subjects && (
+                      roadmap.ai_generated_plan.metadata.subjects.slice(0, 2).map((subject: string, idx: number) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {subject}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -467,6 +656,248 @@ const RoadmapManagement = () => {
           </Card>
         ))}
       </div>
+
+      {/* View Details Dialog */}
+      <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">{roadmapDetails?.title}</DialogTitle>
+            <DialogDescription>
+              Complete roadmap structure with chapters and topics
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : roadmapDetails && (
+            <div className="space-y-6">
+              {/* Metadata */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">Batch</p>
+                  <p className="font-medium">{roadmapDetails.batches?.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                  <p className="font-medium">{roadmapDetails.total_days} days</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <Badge variant={roadmapDetails.status === 'active' ? 'default' : 'secondary'}>
+                    {roadmapDetails.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Chapters</p>
+                  <p className="font-medium">{roadmapDetails.chapters?.length || 0}</p>
+                </div>
+              </div>
+
+              {/* Subjects */}
+              {roadmapDetails.ai_generated_plan?.metadata?.subjects && (
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Subjects</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {roadmapDetails.ai_generated_plan.metadata.subjects.map((subject: string, idx: number) => (
+                      <Badge key={idx} variant="secondary">{subject}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Chapters with Topics */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Chapters & Topics</h3>
+                <Accordion type="multiple" className="space-y-2">
+                  {roadmapDetails.chapters?.map((chapter: any, idx: number) => (
+                    <AccordionItem key={chapter.id} value={chapter.id} className="border rounded-lg px-4">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center justify-between w-full pr-4">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="font-mono">
+                              {idx + 1}
+                            </Badge>
+                            <div className="text-left">
+                              <p className="font-semibold">{chapter.chapter_name}</p>
+                              <p className="text-sm text-muted-foreground">{chapter.subject}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Day {chapter.day_start}-{chapter.day_end}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Award className="h-3 w-3" />
+                              {chapter.xp_reward} XP
+                            </span>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2 pt-2">
+                          {chapter.topics?.map((topic: any, topicIdx: number) => (
+                            <div key={topic.id} className="p-3 bg-muted/30 rounded-lg">
+                              <div className="flex items-start justify-between">
+                                <div className="flex gap-3 flex-1">
+                                  <Badge variant="secondary" className="font-mono h-6">
+                                    {topicIdx + 1}
+                                  </Badge>
+                                  <div>
+                                    <p className="font-medium">{topic.topic_name}</p>
+                                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {topic.estimated_hours}h
+                                      </span>
+                                      <span>Day {topic.day_number}</span>
+                                      <span className="flex items-center gap-1">
+                                        <Award className="h-3 w-3" />
+                                        {topic.xp_reward} XP • {topic.coin_reward} coins
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                {roadmapDetails.status !== 'active' && (
+                  <Button 
+                    onClick={() => {
+                      handleActivate(roadmapDetails);
+                      setViewDetailsOpen(false);
+                    }}
+                    className="gap-2"
+                    disabled={isLoading}
+                  >
+                    <Play className="h-4 w-4" />
+                    Activate Roadmap
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setViewDetailsOpen(false);
+                    handleEdit(roadmapDetails);
+                  }}
+                  className="gap-2"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setViewDetailsOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Roadmap</DialogTitle>
+            <DialogDescription>
+              Update roadmap details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={roadmapData.title}
+                onChange={(e) => setRoadmapData({...roadmapData, title: e.target.value})}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={roadmapData.description}
+                onChange={(e) => setRoadmapData({...roadmapData, description: e.target.value})}
+                rows={3}
+                className="mt-1.5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-start-date">Start Date</Label>
+                <Input
+                  id="edit-start-date"
+                  type="date"
+                  value={roadmapData.start_date}
+                  onChange={(e) => setRoadmapData({...roadmapData, start_date: e.target.value})}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-end-date">End Date</Label>
+                <Input
+                  id="edit-end-date"
+                  type="date"
+                  value={roadmapData.end_date}
+                  onChange={(e) => setRoadmapData({...roadmapData, end_date: e.target.value})}
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-total-days">Total Days</Label>
+              <Input
+                id="edit-total-days"
+                type="number"
+                value={roadmapData.total_days}
+                onChange={(e) => setRoadmapData({...roadmapData, total_days: parseInt(e.target.value) || 0})}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-4">
+            <Button onClick={handleSaveEdit} disabled={isLoading}>
+              Save Changes
+            </Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the roadmap "{selectedRoadmap?.title}" and all its chapters and topics.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

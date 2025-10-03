@@ -32,15 +32,22 @@ serve(async (req) => {
       subjects,
       target_class,
       target_board,
+      conditional_class,    // From wizard frontend
+      conditional_board,    // From wizard frontend
+      exam_type,            // 'School', 'SSC', etc.
+      exam_name,            // Specific exam name
+      selected_subjects,    // New structure from wizard
       existing_syllabus,
       auto_detect = true
     } = await req.json();
 
-    console.log('Received request:', { batch_id, total_days, subjects, target_class, target_board, auto_detect });
+    console.log('Received request:', { batch_id, total_days, subjects, target_class, target_board, conditional_class, conditional_board, exam_type, exam_name, auto_detect });
 
     // Smart extraction from description if auto_detect is enabled
-    let extractedClass = target_class;
-    let extractedSubjects = subjects;
+    // Use conditional fields if provided (from wizard), fallback to target fields
+    let extractedClass = conditional_class || target_class;
+    let extractedBoard = conditional_board || target_board;
+    let extractedSubjects = subjects || selected_subjects?.map(s => s.subject);
 
     if (auto_detect && existing_syllabus && (!target_class || !subjects || subjects.length === 0)) {
       console.log('Auto-detecting class and subjects from description...');
@@ -73,9 +80,10 @@ serve(async (req) => {
       });
     }
 
-    if (!extractedClass) {
-      console.error('Validation failed: Missing target_class');
-      return new Response(JSON.stringify({ error: 'Target class is required. Please specify or enable auto-detect.' }), {
+    // Class is only required for School exams
+    if (exam_type === 'School' && !extractedClass) {
+      console.error('Validation failed: Missing class for School exam');
+      return new Response(JSON.stringify({ error: 'Class is required for School exams. Please specify or enable auto-detect.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -101,8 +109,10 @@ serve(async (req) => {
     const systemPrompt = `You are an expert educational curriculum planner. Create a detailed ${total_days}-day learning roadmap.`;
     
     const userPrompt = `Generate a ${total_days}-day learning roadmap for:
-- Class: ${extractedClass}
-- Board: ${target_board || 'General'}
+${exam_type === 'School' 
+  ? `- Class: ${extractedClass}\n- Board: ${extractedBoard || 'General'}`
+  : `- Exam: ${exam_name || exam_type}`
+}
 - Subjects: ${extractedSubjects.join(', ')}
 ${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
 
@@ -212,8 +222,10 @@ IMPORTANT:
         ai_generated_plan: {
           ...roadmapData,
           metadata: {
+            exam_type,
+            exam_name,
             target_class: extractedClass,
-            target_board: target_board,
+            target_board: extractedBoard,
             subjects: extractedSubjects,
             auto_detected: auto_detect && (extractedClass !== target_class || JSON.stringify(extractedSubjects) !== JSON.stringify(subjects))
           }

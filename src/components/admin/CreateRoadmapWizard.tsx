@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
 import { SubjectSelectionStep } from "./wizard-steps/SubjectSelectionStep";
 import { ChapterSelectionStep } from "./wizard-steps/ChapterSelectionStep";
-import { StudyConfigurationStep } from "./wizard-steps/StudyConfigurationStep";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -37,7 +37,7 @@ export interface ChaptersBySubject {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 3;
 
   // Step 1: Exam Type
   const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
@@ -58,11 +58,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
   const [isFetchingChapters, setIsFetchingChapters] = useState(false);
   const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
 
-  // Step 4: Study Configuration
-  const [chaptersPerDay, setChaptersPerDay] = useState(3);
-  const [studyDays, setStudyDays] = useState([1, 2, 3, 4, 5, 6]); // Mon-Sat by default
-  const [parallelStudy, setParallelStudy] = useState(false);
-  const [weeklyDistribution, setWeeklyDistribution] = useState<{ [subject: string]: number }>({});
 
   // Auto-adjust totalDays based on roadmap type for Engineering/Medical
   useEffect(() => {
@@ -406,13 +401,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
           roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
           selected_subjects,
           total_days: totalDays,
-          title: roadmapTitle,
-          study_config: {
-            chapters_per_day: chaptersPerDay,
-            study_days_per_week: studyDays,
-            parallel_study_enabled: parallelStudy,
-            weekly_subject_distribution: weeklyDistribution
-          }
+          title: roadmapTitle
         }
       });
 
@@ -466,10 +455,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
     setFetchedSubjects([]);
     setFetchedChapters({});
     setUploadedPdf(null);
-    setChaptersPerDay(3);
-    setStudyDays([1, 2, 3, 4, 5, 6]);
-    setParallelStudy(false);
-    setWeeklyDistribution({});
   };
 
   const handleNext = () => {
@@ -582,19 +567,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
             />
           )}
 
-          {currentStep === 4 && (
-            <StudyConfigurationStep
-              chaptersPerDay={chaptersPerDay}
-              setChaptersPerDay={setChaptersPerDay}
-              studyDays={studyDays}
-              setStudyDays={setStudyDays}
-              parallelStudy={parallelStudy}
-              setParallelStudy={setParallelStudy}
-              weeklyDistribution={weeklyDistribution}
-              setWeeklyDistribution={setWeeklyDistribution}
-              subjects={fetchedSubjects.filter(s => s.isSelected).map(s => s.name)}
-            />
-          )}
         </div>
 
         <div className="flex justify-between pt-4 border-t">

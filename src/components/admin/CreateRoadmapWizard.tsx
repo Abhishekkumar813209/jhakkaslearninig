@@ -35,7 +35,14 @@ export interface ChaptersBySubject {
   [subjectName: string]: Chapter[];
 }
 
-export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoadmapWizardProps) => {
+interface CreateRoadmapWizardProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  onSwitchToManual?: (prefillData: any) => void;
+}
+
+export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
 
@@ -442,6 +449,40 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
     }
   };
 
+  const handleSwitchToManual = () => {
+    if (!onSwitchToManual) return;
+
+    // Transform fetchedChapters to manual builder format
+    const subjects = fetchedSubjects
+      .filter(s => s.isSelected)
+      .map((subject, idx) => ({
+        id: `${idx + 1}`,
+        name: subject.name,
+        isEditingName: false,
+        chapters: (fetchedChapters[subject.name] || [])
+          .filter(ch => ch.isSelected)
+          .map((ch, chIdx) => ({
+            id: `${idx + 1}-${chIdx + 1}`,
+            name: ch.chapter_name,
+            estimatedDays: ch.suggested_days || 3,
+            isEditing: false
+          }))
+      }));
+
+    const prefillData = {
+      batchId,
+      examType,
+      examName: getDerivedExamName(),
+      roadmapTitle,
+      totalDays,
+      subjects
+    };
+
+    onSwitchToManual(prefillData);
+    onOpenChange(false);
+    handleReset();
+  };
+
   const handleReset = () => {
     setCurrentStep(1);
     setExamType('School');
@@ -579,16 +620,38 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
             Back
           </Button>
 
-          {currentStep < totalSteps ? (
-            <Button onClick={handleNext}>
-              Next
-              <ChevronRight className="h-4 w-4 ml-2" />
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                handleReset();
+                onOpenChange(false);
+              }}
+            >
+              Cancel
             </Button>
-          ) : (
-            <Button onClick={handleGenerateRoadmap}>
-              Generate Roadmap
-            </Button>
-          )}
+
+            {currentStep < totalSteps ? (
+              <Button onClick={handleNext}>
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <>
+                {onSwitchToManual && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSwitchToManual}
+                  >
+                    Switch to Manual Builder
+                  </Button>
+                )}
+                <Button onClick={handleGenerateRoadmap}>
+                  Generate AI Roadmap
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

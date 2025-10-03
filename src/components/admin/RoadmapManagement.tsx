@@ -18,6 +18,7 @@ const RoadmapManagement = () => {
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isManualBuilding, setIsManualBuilding] = useState(false);
+  const [manualBuilderPrefillData, setManualBuilderPrefillData] = useState<any>(null);
   
   // State for details/edit/delete dialogs
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
@@ -216,28 +217,30 @@ const RoadmapManagement = () => {
           </h2>
           <p className="text-muted-foreground">Create and manage learning roadmaps for batches</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setIsManualBuilding(true)}>
-            <Edit className="h-4 w-4" />
-            Manual Builder
-          </Button>
-          <Button className="gap-2" onClick={() => setIsCreating(true)}>
-            <Plus className="h-4 w-4" />
-            AI Roadmap
-          </Button>
-        </div>
+        <Button className="gap-2" onClick={() => setIsCreating(true)}>
+          <Plus className="h-4 w-4" />
+          Create AI Roadmap
+        </Button>
       </div>
 
       <CreateRoadmapWizard
         open={isCreating}
         onOpenChange={setIsCreating}
         onSuccess={fetchRoadmaps}
+        onSwitchToManual={(prefillData) => {
+          setManualBuilderPrefillData(prefillData);
+          setIsManualBuilding(true);
+        }}
       />
 
       <ManualRoadmapBuilder
         open={isManualBuilding}
-        onOpenChange={setIsManualBuilding}
+        onOpenChange={(open) => {
+          setIsManualBuilding(open);
+          if (!open) setManualBuilderPrefillData(null);
+        }}
         onSuccess={fetchRoadmaps}
+        prefillData={manualBuilderPrefillData}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

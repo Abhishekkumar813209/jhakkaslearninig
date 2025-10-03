@@ -18,6 +18,14 @@ interface ManualRoadmapBuilderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  prefillData?: {
+    batchId?: string;
+    examType?: string;
+    examName?: string;
+    roadmapTitle?: string;
+    totalDays?: number;
+    subjects?: SubjectColumn[];
+  };
 }
 
 interface ChapterRow {
@@ -34,7 +42,7 @@ interface SubjectColumn {
   isEditingName?: boolean;
 }
 
-export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess }: ManualRoadmapBuilderProps) => {
+export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillData }: ManualRoadmapBuilderProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [batchId, setBatchId] = useState("");
@@ -47,8 +55,17 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess }: ManualRo
   useEffect(() => {
     if (open) {
       fetchBatches();
+      
+      // Prefill data from AI wizard if available
+      if (prefillData) {
+        if (prefillData.batchId) setBatchId(prefillData.batchId);
+        if (prefillData.roadmapTitle) setTitle(prefillData.roadmapTitle);
+        if (prefillData.subjects && prefillData.subjects.length > 0) {
+          setSubjects(prefillData.subjects);
+        }
+      }
     }
-  }, [open]);
+  }, [open, prefillData]);
 
   const fetchBatches = async () => {
     try {

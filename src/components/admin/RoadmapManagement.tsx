@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
 import { EditRoadmapDialog } from "./EditRoadmapDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 const RoadmapManagement = () => {
+  const { loading: authLoading } = useAuth();
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   
@@ -169,8 +171,23 @@ const RoadmapManagement = () => {
   };
 
   useEffect(() => {
-    fetchRoadmaps();
-  }, []);
+    // Wait for auth to load before fetching roadmaps
+    if (!authLoading) {
+      fetchRoadmaps();
+    }
+  }, [authLoading]);
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

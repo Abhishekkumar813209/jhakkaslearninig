@@ -78,16 +78,16 @@ Output MUST be a JSON array of objects with this exact structure:
   {
     "chapter_name": "Chapter Name",
     "suggested_days": 3,
-    "difficulty": "easy/medium/hard",
-    "topics": ["Topic 1", "Topic 2"]
+    "difficulty": "easy/medium/hard"
   }
 ]
 
 Rules:
-- suggested_days should be 2-7 days based on complexity
+- Generate 8-15 chapters based on the subject complexity
+- suggested_days should be 2-7 days based on chapter complexity
 - difficulty: "easy", "medium", or "hard"
-- Include 5-8 core topics per chapter (concise but comprehensive)
-- Be specific and exam-focused`;
+- Be specific and exam-focused
+- Only return chapter names, NOT topics`;
 
     let userPrompt = `Generate chapters for:\nExam Type: ${exam_type}\nSubject: ${subject}`;
     if (student_class) userPrompt += `\nClass: ${student_class}`;
@@ -106,7 +106,7 @@ Rules:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 4000
+        max_tokens: 2000
       }),
     });
 
@@ -145,14 +145,14 @@ Rules:
       throw new Error('Failed to parse chapters from AI response');
     }
 
-    // Save to chapter library
+    // Save to chapter library (without topics for now)
     const chaptersToInsert = chapters.map((ch: any) => ({
       exam_type,
       subject,
       chapter_name: ch.chapter_name,
       suggested_days: ch.suggested_days || 3,
       difficulty: ch.difficulty || 'medium',
-      topics: ch.topics || [],
+      topics: [],
       is_custom: false,
       is_active: true
     }));

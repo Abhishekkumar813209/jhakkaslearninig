@@ -8,11 +8,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Plus, Trash2, Edit2, Save } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Edit2, Save, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface ManualRoadmapBuilderProps {
   open: boolean;
@@ -42,6 +45,98 @@ interface SubjectColumn {
   isEditingName?: boolean;
 }
 
+interface SortableChapterProps {
+  chapter: ChapterRow;
+  subjectId: string;
+  chapterIndex: number;
+  isEditing: boolean;
+  onNameChange: (value: string) => void;
+  onDaysChange: (value: number) => void;
+  onSaveEdit: () => void;
+  onToggleEdit: () => void;
+  onDelete: () => void;
+}
+
+const SortableChapter = ({
+  chapter,
+  subjectId,
+  chapterIndex,
+  isEditing,
+  onNameChange,
+  onDaysChange,
+  onSaveEdit,
+  onToggleEdit,
+  onDelete
+}: SortableChapterProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
+    id: chapter.id 
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="border rounded-md p-2 space-y-2 bg-muted/50">
+      {isEditing ? (
+        <>
+          <Input
+            value={chapter.name}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder="Chapter name"
+            className="h-8 text-sm"
+          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="1"
+              value={chapter.estimatedDays}
+              onChange={(e) => onDaysChange(parseInt(e.target.value) || 1)}
+              className="h-8 text-sm"
+            />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">days</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSaveEdit}
+              className="h-8"
+            >
+              <Save className="h-3 w-3" />
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium">{chapterIndex + 1}. {chapter.name}</div>
+            <div className="text-xs text-muted-foreground">{chapter.estimatedDays} days</div>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleEdit}
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillData }: ManualRoadmapBuilderProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -51,6 +146,13 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
   const [batches, setBatches] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (open) {
@@ -169,6 +271,27 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
           }
         : s
     ));
+  };
+
+  const handleDragEnd = (subjectId: string) => (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setSubjects((prevSubjects) =>
+        prevSubjects.map((subject) => {
+          if (subject.id === subjectId) {
+            const oldIndex = subject.chapters.findIndex((ch) => ch.id === active.id);
+            const newIndex = subject.chapters.findIndex((ch) => ch.id === over.id);
+            
+            return {
+              ...subject,
+              chapters: arrayMove(subject.chapters, oldIndex, newIndex),
+            };
+          }
+          return subject;
+        })
+      );
+    }
   };
 
   const handleSave = async (status: 'draft' | 'active') => {
@@ -406,61 +529,33 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {subject.chapters.map((chapter, idx) => (
-                      <div key={chapter.id} className="border rounded-md p-2 space-y-2 bg-muted/50">
-                        {chapter.isEditing ? (
-                          <>
-                            <Input
-                              value={chapter.name}
-                              onChange={(e) => updateChapter(subject.id, chapter.id, 'name', e.target.value)}
-                              placeholder="Chapter name"
-                              className="h-8 text-sm"
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd(subject.id)}
+                    >
+                      <SortableContext
+                        items={subject.chapters.map(ch => ch.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          {subject.chapters.map((chapter, idx) => (
+                            <SortableChapter
+                              key={chapter.id}
+                              chapter={chapter}
+                              subjectId={subject.id}
+                              chapterIndex={idx}
+                              isEditing={chapter.isEditing || false}
+                              onNameChange={(value) => updateChapter(subject.id, chapter.id, 'name', value)}
+                              onDaysChange={(value) => updateChapter(subject.id, chapter.id, 'estimatedDays', value)}
+                              onSaveEdit={() => toggleEditChapter(subject.id, chapter.id)}
+                              onToggleEdit={() => toggleEditChapter(subject.id, chapter.id)}
+                              onDelete={() => deleteChapter(subject.id, chapter.id)}
                             />
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min="1"
-                                value={chapter.estimatedDays}
-                                onChange={(e) => updateChapter(subject.id, chapter.id, 'estimatedDays', parseInt(e.target.value) || 1)}
-                                className="h-8 text-sm"
-                              />
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">days</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleEditChapter(subject.id, chapter.id)}
-                                className="h-8"
-                              >
-                                <Save className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="text-sm font-medium">{idx + 1}. {chapter.name}</div>
-                              <div className="text-xs text-muted-foreground">{chapter.estimatedDays} days</div>
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleEditChapter(subject.id, chapter.id)}
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteChapter(subject.id, chapter.id)}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                     <Button
                       variant="outline"
                       size="sm"

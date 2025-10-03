@@ -98,9 +98,15 @@ export const ExamTypeStep = ({
              batch.target_class === conditionalClass &&
              batch.exam_name === conditionalBoard;
     } else if (examType === 'Engineering' || examType === 'Medical') {
-      // Filter by domain AND student category (class)
-      return batch.exam_type === mappedDomain &&
-             (conditionalClass ? batch.target_class === conditionalClass : true);
+      // Filter by domain AND student category (class or dropper)
+      if (conditionalClass === 'dropper') {
+        return batch.exam_type === mappedDomain && batch.level === 'Dropper';
+      } else if (conditionalClass) {
+        return batch.exam_type === mappedDomain && 
+               batch.target_class === conditionalClass && 
+               batch.level !== 'Dropper';
+      }
+      return batch.exam_type === mappedDomain;
     } else if (mappedDomain) {
       return batch.exam_type === mappedDomain;
     }

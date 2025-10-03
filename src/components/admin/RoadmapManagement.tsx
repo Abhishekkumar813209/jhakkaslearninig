@@ -9,13 +9,15 @@ import { Map, Plus, Edit, Trash2, Play, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
+import { EditRoadmapDialog } from "./EditRoadmapDialog";
 
 const RoadmapManagement = () => {
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   
-  // State for details/delete dialogs
+  // State for details/edit/delete dialogs
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRoadmap, setSelectedRoadmap] = useState<any>(null);
   const [roadmapDetails, setRoadmapDetails] = useState<any>(null);
@@ -193,10 +195,11 @@ const RoadmapManagement = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {roadmaps.map((roadmap) => (
+        {roadmaps.map((roadmap, idx) => (
           <Card 
             key={roadmap.id} 
-            className="hover:shadow-lg transition-shadow cursor-pointer"
+            className="hover:shadow-lg transition-all hover-scale cursor-pointer animate-fade-in"
+            style={{ animationDelay: `${idx * 0.1}s` }}
             onClick={() => handleViewDetails(roadmap)}
           >
             <CardHeader>
@@ -244,18 +247,30 @@ const RoadmapManagement = () => {
                   <Eye className="h-3 w-3" />
                   View
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRoadmap(roadmap);
+                    setEditDialogOpen(true);
+                  }}
+                >
+                  <Edit className="h-3 w-3" />
+                  Edit
+                </Button>
                 {roadmap.status !== 'active' && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 gap-1"
+                    className="gap-1"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleActivate(roadmap);
                     }}
                   >
                     <Play className="h-3 w-3" />
-                    Activate
                   </Button>
                 )}
                 <Button
@@ -276,7 +291,7 @@ const RoadmapManagement = () => {
       </div>
 
       {roadmaps.length === 0 && (
-        <Card className="text-center p-12">
+        <Card className="text-center p-12 animate-scale-in">
           <Map className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No roadmaps created yet</h3>
           <p className="text-muted-foreground mb-4">
@@ -289,6 +304,14 @@ const RoadmapManagement = () => {
         </Card>
       )}
 
+      {/* Edit Roadmap Dialog */}
+      <EditRoadmapDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        roadmapId={selectedRoadmap?.id}
+        onSuccess={fetchRoadmaps}
+      />
+
       {/* View Details Dialog */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
@@ -296,9 +319,12 @@ const RoadmapManagement = () => {
             <DialogTitle>{selectedRoadmap?.title}</DialogTitle>
           </DialogHeader>
           {isLoading ? (
-            <div className="text-center py-8">Loading roadmap details...</div>
+            <div className="text-center py-8 animate-fade-in">
+              <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-muted-foreground">Loading roadmap details...</p>
+            </div>
           ) : roadmapDetails ? (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-fade-in">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Batch:</span>
@@ -325,7 +351,7 @@ const RoadmapManagement = () => {
               {roadmapDetails.chapters && roadmapDetails.chapters.length > 0 ? (
                 <Accordion type="multiple" className="space-y-2">
                   {roadmapDetails.chapters.map((chapter: any, idx: number) => (
-                    <AccordionItem key={chapter.id} value={chapter.id}>
+                    <AccordionItem key={chapter.id} value={chapter.id} className="animate-fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center justify-between w-full pr-4">
                           <span className="font-semibold">

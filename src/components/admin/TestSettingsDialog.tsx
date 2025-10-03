@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarIcon, ClockIcon, InfoIcon } from 'lucide-react';
+import { CalendarIcon, InfoIcon } from 'lucide-react';
 
 interface TestSettingsDialogProps {
   open: boolean;
@@ -124,7 +125,7 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <InfoIcon className="h-5 w-5" />
@@ -137,7 +138,8 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <div className="space-y-4">
             {/* Target Settings */}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -200,40 +202,8 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
               </div>
             </div>
 
-            {/* Basic Settings */}
+            {/* Allow Retakes */}
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration" className="flex items-center gap-2">
-                  <ClockIcon className="h-4 w-4" />
-                  Duration (minutes)
-                </Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  value={settings.duration_minutes}
-                  onChange={(e) => setSettings(prev => ({
-                    ...prev,
-                    duration_minutes: parseInt(e.target.value) || 0
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="passing_marks">Passing Marks (%)</Label>
-                <Input
-                  id="passing_marks"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={settings.passing_marks}
-                  onChange={(e) => setSettings(prev => ({
-                    ...prev,
-                    passing_marks: parseInt(e.target.value) || 0
-                  }))}
-                />
-              </div>
-
               <div className="flex items-center justify-between">
                 <Label htmlFor="allow_retakes">Allow Retakes</Label>
                 <Switch
@@ -264,7 +234,7 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
             </div>
 
             {/* Scheduling */}
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="scheduled_at" className="flex items-center gap-2">
                   <CalendarIcon className="h-4 w-4" />
@@ -294,7 +264,7 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
               <Label htmlFor="instructions">Instructions</Label>
               <Textarea
                 id="instructions"
-                rows={3}
+                rows={2}
                 placeholder="Enter test instructions for students..."
                 value={settings.instructions}
                 onChange={(e) => setSettings(prev => ({
@@ -339,6 +309,7 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
               </Button>
             </div>
           </div>
+          </ScrollArea>
         )}
       </DialogContent>
     </Dialog>

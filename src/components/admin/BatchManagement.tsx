@@ -12,8 +12,30 @@ import { CreateBatchWizard } from "./CreateBatchWizard";
 const BatchManagement = () => {
   const { batches, loading, deleteBatch, fetchBatches, totalStudents, avgPerformance } = useBatches();
   const [showWizard, setShowWizard] = useState(false);
-  const [domainFilter, setDomainFilter] = useState<string>("all");
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [examFilter, setExamFilter] = useState<string>("all");
   const { toast } = useToast();
+
+  const examDomains = [
+    { value: "School Education", label: "School Education", icon: "🎓", color: "from-blue-500 to-blue-600" },
+    { value: "SSC Exams", label: "SSC Exams", icon: "📝", color: "from-green-500 to-green-600" },
+    { value: "Banking Exams", label: "Banking Exams", icon: "🏦", color: "from-purple-500 to-purple-600" },
+    { value: "UPSC Exams", label: "UPSC Exams", icon: "🏛️", color: "from-orange-500 to-orange-600" },
+    { value: "Engineering Entrance", label: "Engineering", icon: "⚙️", color: "from-red-500 to-red-600" },
+    { value: "Medical Entrance", label: "Medical", icon: "⚕️", color: "from-pink-500 to-pink-600" },
+    { value: "Custom Exam", label: "Custom", icon: "📚", color: "from-gray-500 to-gray-600" },
+  ];
+
+  const getDomainBatchCount = (domain: string) => {
+    return batches.filter((b: any) => b.exam_type === domain).length;
+  };
+
+  const getUniqueExamNames = () => {
+    if (!selectedDomain) return [];
+    const domainBatches = batches.filter((b: any) => b.exam_type === selectedDomain);
+    const examNames = [...new Set(domainBatches.map((b: any) => b.exam_name).filter(Boolean))];
+    return examNames;
+  };
 
   const handleDelete = async (batchId: string) => {
     if (window.confirm('Are you sure you want to delete this batch? All students will be unassigned.')) {
@@ -63,9 +85,13 @@ const BatchManagement = () => {
     );
   };
 
-  const filteredBatches = domainFilter === "all" 
-    ? batches 
-    : batches.filter((b: any) => b.exam_type === domainFilter);
+  const filteredBatches = !selectedDomain 
+    ? [] 
+    : batches.filter((b: any) => {
+        if (b.exam_type !== selectedDomain) return false;
+        if (examFilter === "all") return true;
+        return b.exam_name === examFilter;
+      });
 
   return (
     <div className="space-y-6">
@@ -73,87 +99,147 @@ const BatchManagement = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-3xl font-bold">Batch Management</h2>
-          <p className="text-muted-foreground mt-1">Create and manage exam-specific batches</p>
+          <p className="text-muted-foreground mt-1">
+            {selectedDomain 
+              ? `Managing ${selectedDomain} batches` 
+              : "Select an exam domain to view batches"}
+          </p>
         </div>
-        <Button onClick={() => setShowWizard(true)} className="animate-scale-in">
-          <Plus className="mr-2 h-4 w-4" />
-          Create Batch
-        </Button>
+        <div className="flex gap-2">
+          {selectedDomain && (
+            <Button onClick={() => { setSelectedDomain(null); setExamFilter("all"); }} variant="outline">
+              Change Domain
+            </Button>
+          )}
+          <Button onClick={() => setShowWizard(true)} className="animate-scale-in">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Batch
+          </Button>
+        </div>
       </div>
 
-      {/* Batch Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="animate-fade-in">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Batches</p>
-                <p className="text-2xl font-bold">{batches?.length || 0}</p>
-              </div>
-              <div className="p-3 rounded-full bg-primary/10">
-                <Users className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-                <p className="text-2xl font-bold">{totalStudents || 0}</p>
-              </div>
-              <div className="p-3 rounded-full bg-primary/10">
-                <TrendingUp className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Performance</p>
-                <p className="text-2xl font-bold">{avgPerformance || 0}%</p>
-              </div>
-              <div className="p-3 rounded-full bg-primary/10">
-                <Award className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Batches Table */}
-      <Card className="animate-fade-in">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>All Batches</CardTitle>
-              <CardDescription>Manage your exam-specific batches</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={domainFilter} onValueChange={setDomainFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by domain" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Domains</SelectItem>
-                  <SelectItem value="School Education">School Education</SelectItem>
-                  <SelectItem value="SSC Exams">SSC Exams</SelectItem>
-                  <SelectItem value="Banking Exams">Banking Exams</SelectItem>
-                  <SelectItem value="UPSC Exams">UPSC Exams</SelectItem>
-                  <SelectItem value="Engineering Entrance">Engineering</SelectItem>
-                  <SelectItem value="Medical Entrance">Medical</SelectItem>
-                  <SelectItem value="Custom Exam">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Domain Selection Cards */}
+      {!selectedDomain ? (
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold">Select Exam Domain</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {examDomains.map((domain, index) => (
+              <Card 
+                key={domain.value}
+                className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
+                style={{ animationDelay: `${index * 0.1}s` }}
+                onClick={() => setSelectedDomain(domain.value)}
+              >
+                <CardContent className="p-6">
+                  <div className={`w-full h-24 bg-gradient-to-br ${domain.color} rounded-lg mb-4 flex items-center justify-center text-4xl`}>
+                    {domain.icon}
+                  </div>
+                  <h4 className="font-semibold text-lg mb-2">{domain.label}</h4>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{getDomainBatchCount(domain.value)} batches</span>
+                    <Badge variant="secondary">{getDomainBatchCount(domain.value)}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </CardHeader>
+        </div>
+      ) : (
+        <>
+          {/* Selected Domain Badge */}
+          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">
+                  {examDomains.find(d => d.value === selectedDomain)?.icon}
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Selected Domain</p>
+                  <p className="text-xl font-bold">{selectedDomain}</p>
+                </div>
+              </div>
+              <Badge className="text-lg px-4 py-2">{filteredBatches.length} batches</Badge>
+            </CardContent>
+          </Card>
+
+          {/* Batch Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="animate-fade-in">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Domain Batches</p>
+                    <p className="text-2xl font-bold">{filteredBatches.length}</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Users className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Students</p>
+                    <p className="text-2xl font-bold">
+                      {filteredBatches.reduce((sum: number, b: any) => sum + (b.student_count || 0), 0)}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <TrendingUp className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Capacity Used</p>
+                    <p className="text-2xl font-bold">
+                      {Math.round(
+                        (filteredBatches.reduce((sum: number, b: any) => sum + (b.student_count || 0), 0) /
+                        filteredBatches.reduce((sum: number, b: any) => sum + (b.max_capacity || 1), 1)) * 100
+                      )}%
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Award className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Batches Table */}
+          <Card className="animate-fade-in">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>{selectedDomain} Batches</CardTitle>
+                  <CardDescription>Manage batches in this domain</CardDescription>
+                </div>
+                {getUniqueExamNames().length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Select value={examFilter} onValueChange={setExamFilter}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Filter by exam" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Exams</SelectItem>
+                        {getUniqueExamNames().map((exam: any) => (
+                          <SelectItem key={exam} value={exam}>{exam}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
@@ -182,16 +268,13 @@ const BatchManagement = () => {
                     <TableCell colSpan={8} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <p className="text-muted-foreground">
-                          {domainFilter === "all" 
-                            ? "No batches found. Create your first batch!" 
-                            : "No batches in this domain."}
+                          No batches found in {selectedDomain}
+                          {examFilter !== "all" && ` for ${examFilter}`}
                         </p>
-                        {domainFilter === "all" && (
-                          <Button onClick={() => setShowWizard(true)} variant="outline">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Create Batch
-                          </Button>
-                        )}
+                        <Button onClick={() => setShowWizard(true)} variant="outline">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Batch
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -249,9 +332,11 @@ const BatchManagement = () => {
             </Table>
           </div>
         </CardContent>
-      </Card>
+          </Card>
+        </>
+      )}
 
-      <CreateBatchWizard 
+      <CreateBatchWizard
         open={showWizard} 
         onOpenChange={setShowWizard}
         onSuccess={() => {

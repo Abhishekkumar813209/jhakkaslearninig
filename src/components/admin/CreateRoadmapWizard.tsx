@@ -193,15 +193,21 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
     }
   };
 
-  const handleFetchChaptersForSubject = async (subjectName: string) => {
+  const handleFetchChaptersForSubject = async (subjectName: string, fetchMode: 'initial' | 'remaining' = 'initial') => {
     setIsFetchingChapters(true);
     try {
+      const alreadyFetched = fetchMode === 'remaining'
+        ? (fetchedChapters[subjectName] || []).map(ch => ch.chapter_name)
+        : [];
+
       const { data, error } = await supabase.functions.invoke('fetch-subject-chapters', {
         body: {
           exam_type: examType,
           subject: subjectName,
           student_class: examType === 'School' ? conditionalClass : undefined,
           board: examType === 'School' ? conditionalBoard : undefined,
+          fetch_mode: fetchMode,
+          already_fetched: alreadyFetched,
         }
       });
 
@@ -222,10 +228,13 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
 
       setFetchedChapters(prev => ({
         ...prev,
-        [subjectName]: chapters
+        [subjectName]: fetchMode === 'remaining'
+          ? [...(prev[subjectName] || []), ...chapters]
+          : chapters
       }));
 
-      toast.success(`Fetched ${chapters.length} chapters for ${subjectName}`);
+      const mode = fetchMode === 'remaining' ? 'remaining' : 'initial';
+      toast.success(`Fetched ${chapters.length} ${mode} chapters for ${subjectName}`);
     } catch (error: any) {
       console.error('Error fetching chapters:', error);
       toast.error(`Failed to fetch chapters for ${subjectName}`);

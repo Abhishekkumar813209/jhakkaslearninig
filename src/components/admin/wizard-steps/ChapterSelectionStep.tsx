@@ -14,7 +14,7 @@ interface ChapterSelectionStepProps {
   subjects: Subject[];
   chapters: ChaptersBySubject;
   isFetching: boolean;
-  onFetchChapters: (subjectName: string) => void;
+  onFetchChapters: (subjectName: string, fetchMode?: 'initial' | 'remaining') => void;
   onToggleChapter: (subjectName: string, chapterId: string) => void;
   onAddChapter: (subjectName: string, chapterName: string, suggestedDays: number) => void;
   onDeleteChapter: (subjectName: string, chapterId: string) => void;
@@ -37,6 +37,7 @@ export const ChapterSelectionStep = ({
 }: ChapterSelectionStepProps) => {
   const [customChapterInputs, setCustomChapterInputs] = useState<{ [key: string]: { name: string; days: number } }>({});
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [fetchedInitial, setFetchedInitial] = useState<Set<string>>(new Set());
 
   const handleAddCustomChapter = (subjectName: string) => {
     const input = customChapterInputs[subjectName];
@@ -133,26 +134,51 @@ export const ChapterSelectionStep = ({
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 pt-4">
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => onFetchChapters(subject.name)}
-                        disabled={isFetching || subjectChapters.length > 0}
-                        size="sm"
-                        variant="secondary"
-                        className="gap-2"
-                      >
-                        {isFetching ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-3 w-3" />
-                            Fetch Chapters
-                          </>
-                        )}
-                      </Button>
+                    <div className="flex gap-2 flex-wrap">
+                      {!fetchedInitial.has(subject.name) ? (
+                        <Button
+                          onClick={async () => {
+                            await onFetchChapters(subject.name, 'initial');
+                            setFetchedInitial(prev => new Set(prev).add(subject.name));
+                          }}
+                          disabled={isFetching}
+                          size="sm"
+                          variant="secondary"
+                          className="gap-2"
+                        >
+                          {isFetching ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Fetching...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3 w-3" />
+                              Fetch Half Chapters
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => onFetchChapters(subject.name, 'remaining')}
+                          disabled={isFetching}
+                          size="sm"
+                          variant="secondary"
+                          className="gap-2"
+                        >
+                          {isFetching ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Fetching...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3" />
+                              Fetch Remaining Chapters
+                            </>
+                          )}
+                        </Button>
+                      )}
                       {subjectChapters.length > 0 && (
                         <Button
                           size="sm"
@@ -167,6 +193,11 @@ export const ChapterSelectionStep = ({
                         </Button>
                       )}
                     </div>
+                    {fetchedInitial.has(subject.name) && subjectChapters.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {subjectChapters.length} chapters loaded. Click "Fetch Remaining" for more.
+                      </p>
+                    )}
 
                     {subjectChapters.length === 0 ? (
                       <Card className="bg-muted/20">

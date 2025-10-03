@@ -56,10 +56,22 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess }: CreateBatch
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.exam_name || !formData.start_date) {
+    // Validation for Engineering/Medical requires target_class
+    const isEngineeringOrMedical = selectedDomain === 'Engineering Entrance' || selectedDomain === 'Medical Entrance';
+    
+    if (!formData.name || !formData.start_date) {
       toast({
         title: "Missing Fields",
         description: "Please fill all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isEngineeringOrMedical && !formData.target_class) {
+      toast({
+        title: "Missing Student Category",
+        description: "Please select a student category for Engineering/Medical batch",
         variant: "destructive",
       });
       return;

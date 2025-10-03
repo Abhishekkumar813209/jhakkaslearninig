@@ -2,7 +2,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { GraduationCap, Briefcase, Building2, Shield, Globe, Pencil } from "lucide-react";
+import { GraduationCap, Briefcase, Building2, Shield, Globe, Pencil, Wrench, Heart } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 
 interface ExamTypeStepProps {
@@ -20,14 +20,18 @@ interface ExamTypeStepProps {
   setRoadmapTitle: (value: string) => void;
   totalDays: number;
   setTotalDays: (value: number) => void;
+  roadmapType: 'single_year' | 'combined';
+  setRoadmapType: (value: 'single_year' | 'combined') => void;
 }
 
 const examTypes = [
   { value: 'School', label: 'School/Board Exams', icon: GraduationCap, color: 'bg-blue-500' },
+  { value: 'Engineering', label: 'IIT JEE (Main, Advanced)', icon: Wrench, color: 'bg-red-500' },
+  { value: 'Medical', label: 'NEET (UG, PG)', icon: Heart, color: 'bg-pink-500' },
   { value: 'SSC', label: 'SSC (CGL, CHSL, MTS, GD)', icon: Briefcase, color: 'bg-green-500' },
   { value: 'Banking', label: 'Banking (IBPS, SBI, RBI)', icon: Building2, color: 'bg-purple-500' },
   { value: 'UPSC', label: 'UPSC (Civil Services, IES)', icon: Globe, color: 'bg-orange-500' },
-  { value: 'Railway', label: 'Railway (RRB, Group D)', icon: Shield, color: 'bg-red-500' },
+  { value: 'Railway', label: 'Railway (RRB, Group D)', icon: Shield, color: 'bg-teal-500' },
   { value: 'Defence', label: 'Defence (NDA, CDS, AFCAT)', icon: Shield, color: 'bg-indigo-500' },
   { value: 'Custom', label: 'Custom Exam', icon: Pencil, color: 'bg-gray-500' },
 ];
@@ -47,12 +51,36 @@ export const ExamTypeStep = ({
   setRoadmapTitle,
   totalDays,
   setTotalDays,
+  roadmapType,
+  setRoadmapType,
 }: ExamTypeStepProps) => {
   const { batches } = useBatches();
+
+  // Helper to calculate remaining days till academic year end
+  const calculateRemainingDays = (currentClass: string): number => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth(); // 0-based (0 = Jan, 11 = Dec)
+    
+    let endDate: Date;
+    
+    if (currentMonth < 3) { // Jan, Feb, Mar - current academic year
+      endDate = new Date(currentYear, 2, 31); // March 31
+    } else { // Apr onwards - next academic year
+      endDate = new Date(currentYear + 1, 2, 31); // March 31 next year
+    }
+    
+    const diffTime = endDate.getTime() - currentDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays > 0 ? diffDays : 180; // Fallback to 180 days
+  };
 
   // Map exam types to batch exam_type values
   const examTypeToDomain: Record<string, string> = {
     'School': 'School Education',
+    'Engineering': 'Engineering Entrance',
+    'Medical': 'Medical Entrance',
     'SSC': 'SSC Exams',
     'Banking': 'Banking Exams',
     'UPSC': 'UPSC Exams',
@@ -69,6 +97,10 @@ export const ExamTypeStep = ({
       return batch.exam_type === 'School Education' &&
              batch.target_class === `class_${conditionalClass}` &&
              batch.exam_name === conditionalBoard;
+    } else if (examType === 'Engineering' || examType === 'Medical') {
+      // Filter by domain AND student category (class)
+      return batch.exam_type === mappedDomain &&
+             (conditionalClass ? batch.target_class === `class_${conditionalClass}` : true);
     } else if (mappedDomain) {
       return batch.exam_type === mappedDomain;
     }
@@ -138,7 +170,62 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType !== 'School' && (
+      {(examType === 'Engineering' || examType === 'Medical') && (
+        <div className="space-y-4">
+          <div>
+            <Label>Student Category *</Label>
+            <Select value={conditionalClass} onValueChange={setConditionalClass}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Select your current status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="11th">Class 11th (Foundation Year)</SelectItem>
+                <SelectItem value="12th">Class 12th (Final Year)</SelectItem>
+                <SelectItem value="Dropper">Dropper (12th Passed)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {conditionalClass === '11th' && (
+            <div>
+              <Label>Roadmap Duration *</Label>
+              <Select value={roadmapType} onValueChange={setRoadmapType}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Choose preparation timeline" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single_year">
+                    <div className="flex flex-col">
+                      <span className="font-medium">11th Only (Till March {new Date().getFullYear() + 1})</span>
+                      <span className="text-xs text-muted-foreground">Focus on current academic year syllabus</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="combined">
+                    <div className="flex flex-col">
+                      <span className="font-medium">Combined 11th + 12th (2 Year Plan)</span>
+                      <span className="text-xs text-muted-foreground">Complete syllabus with buffer time for revision</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {conditionalClass === '11th' && roadmapType && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                📅 <strong>Estimated Duration:</strong> 
+                {roadmapType === 'single_year' 
+                  ? ` ~${calculateRemainingDays('11th')} days (Till Class 11 ends)`
+                  : ` ~${calculateRemainingDays('11th') + 365} days (2 years)`
+                }
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical' && (
         <div>
           <Label>Exam Name *</Label>
           <Input

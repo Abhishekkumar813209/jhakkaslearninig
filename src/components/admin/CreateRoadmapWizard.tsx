@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -40,13 +40,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
   const totalSteps = 4;
 
   // Step 1: Exam Type
-  const [examType, setExamType] = useState<'School' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
+  const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
   const [examName, setExamName] = useState("");
   const [conditionalClass, setConditionalClass] = useState("");
   const [conditionalBoard, setConditionalBoard] = useState("");
   const [batchId, setBatchId] = useState("");
   const [roadmapTitle, setRoadmapTitle] = useState("");
   const [totalDays, setTotalDays] = useState(30);
+  const [roadmapType, setRoadmapType] = useState<'single_year' | 'combined'>('single_year');
 
   // Step 2: Subjects
   const [fetchedSubjects, setFetchedSubjects] = useState<Subject[]>([]);
@@ -62,6 +63,42 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
   const [studyDays, setStudyDays] = useState([1, 2, 3, 4, 5, 6]); // Mon-Sat by default
   const [parallelStudy, setParallelStudy] = useState(false);
   const [weeklyDistribution, setWeeklyDistribution] = useState<{ [subject: string]: number }>({});
+
+  // Auto-adjust totalDays based on roadmap type for Engineering/Medical
+  useEffect(() => {
+    if ((examType === 'Engineering' || examType === 'Medical') && conditionalClass) {
+      const calculateRemainingDays = (): number => {
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth();
+        
+        let endDate: Date;
+        if (currentMonth < 3) {
+          endDate = new Date(currentYear, 2, 31);
+        } else {
+          endDate = new Date(currentYear + 1, 2, 31);
+        }
+        
+        const diffTime = endDate.getTime() - currentDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 0 ? diffDays : 180;
+      };
+      
+      const remainingDays = calculateRemainingDays();
+      
+      if (conditionalClass === '11th') {
+        if (roadmapType === 'single_year') {
+          setTotalDays(remainingDays);
+        } else if (roadmapType === 'combined') {
+          setTotalDays(remainingDays + 365);
+        }
+      } else if (conditionalClass === '12th') {
+        setTotalDays(remainingDays);
+      } else if (conditionalClass === 'Dropper') {
+        setTotalDays(365);
+      }
+    }
+  }, [examType, conditionalClass, roadmapType]);
 
   const progress = (currentStep / totalSteps) * 100;
 
@@ -331,9 +368,16 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         body: {
           batch_id: batchId,
           exam_type: examType,
-          exam_name: examType === 'School' ? `${conditionalBoard} Class ${conditionalClass}` : examName,
-          conditional_class: examType === 'School' ? conditionalClass : undefined,
+          exam_name: examType === 'School' 
+            ? `${conditionalBoard} Class ${conditionalClass}` 
+            : examType === 'Engineering' 
+            ? 'IIT JEE' 
+            : examType === 'Medical'
+            ? 'NEET'
+            : examName,
+          conditional_class: conditionalClass,
           conditional_board: examType === 'School' ? conditionalBoard : undefined,
+          roadmap_type: (examType === 'Engineering' || examType === 'Medical') ? roadmapType : undefined,
           selected_subjects,
           total_days: totalDays,
           title: roadmapTitle,
@@ -381,6 +425,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
     setBatchId("");
     setRoadmapTitle("");
     setTotalDays(30);
+    setRoadmapType('single_year');
     setFetchedSubjects([]);
     setFetchedChapters({});
     setUploadedPdf(null);
@@ -397,7 +442,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         toast.error("Please select class and board");
         return;
       }
-      if (examType !== 'School' && !examName) {
+      if ((examType === 'Engineering' || examType === 'Medical') && !conditionalClass) {
+        toast.error("Please select student category");
+        return;
+      }
+      if ((examType === 'Engineering' || examType === 'Medical') && conditionalClass === '11th' && !roadmapType) {
+        toast.error("Please select roadmap duration");
+        return;
+      }
+      if (examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical' && !examName) {
         toast.error("Please enter exam name");
         return;
       }
@@ -445,24 +498,26 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {currentStep === 1 && (
-            <ExamTypeStep
-              examType={examType}
-              setExamType={setExamType}
-              examName={examName}
-              setExamName={setExamName}
-              conditionalClass={conditionalClass}
-              setConditionalClass={setConditionalClass}
-              conditionalBoard={conditionalBoard}
-              setConditionalBoard={setConditionalBoard}
-              batchId={batchId}
-              setBatchId={setBatchId}
-              roadmapTitle={roadmapTitle}
-              setRoadmapTitle={setRoadmapTitle}
-              totalDays={totalDays}
-              setTotalDays={setTotalDays}
-            />
-          )}
+            {currentStep === 1 && (
+              <ExamTypeStep
+                examType={examType}
+                setExamType={setExamType}
+                examName={examName}
+                setExamName={setExamName}
+                conditionalClass={conditionalClass}
+                setConditionalClass={setConditionalClass}
+                conditionalBoard={conditionalBoard}
+                setConditionalBoard={setConditionalBoard}
+                batchId={batchId}
+                setBatchId={setBatchId}
+                roadmapTitle={roadmapTitle}
+                setRoadmapTitle={setRoadmapTitle}
+                totalDays={totalDays}
+                setTotalDays={setTotalDays}
+                roadmapType={roadmapType}
+                setRoadmapType={setRoadmapType}
+              />
+            )}
 
           {currentStep === 2 && (
             <SubjectSelectionStep

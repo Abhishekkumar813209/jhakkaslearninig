@@ -34,14 +34,15 @@ serve(async (req) => {
       target_board,
       conditional_class,    // From wizard frontend
       conditional_board,    // From wizard frontend
-      exam_type,            // 'School', 'SSC', etc.
+      exam_type,            // 'School', 'Engineering', 'Medical', 'SSC', etc.
       exam_name,            // Specific exam name
+      roadmap_type,         // 'single_year' | 'combined' (for Engineering/Medical)
       selected_subjects,    // New structure from wizard
       existing_syllabus,
       auto_detect = true
     } = await req.json();
 
-    console.log('Received request:', { batch_id, total_days, subjects, target_class, target_board, conditional_class, conditional_board, exam_type, exam_name, auto_detect });
+    console.log('Received request:', { batch_id, total_days, subjects, target_class, target_board, conditional_class, conditional_board, exam_type, exam_name, roadmap_type, auto_detect });
 
     // Smart extraction from description if auto_detect is enabled
     // Use conditional fields if provided (from wizard), fallback to target fields
@@ -80,12 +81,25 @@ serve(async (req) => {
       });
     }
 
-    // Class is only required for School exams
-    if (exam_type === 'School' && !extractedClass) {
-      console.error('Validation failed: Missing class for School exam');
-      return new Response(JSON.stringify({ error: 'Class is required for School exams. Please specify or enable auto-detect.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Class is required for School, Engineering, and Medical exams
+    if (['School', 'Engineering', 'Medical'].includes(exam_type) && !extractedClass) {
+      console.error(`Validation failed: Missing class for ${exam_type} exam`);
+      return new Response(JSON.stringify({ 
+        error: `Student category is required for ${exam_type} exams` 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // Roadmap type is required for 11th class Engineering/Medical students
+    if (['Engineering', 'Medical'].includes(exam_type) && extractedClass === '11th' && !roadmap_type) {
+      console.error('Validation failed: Missing roadmap_type for 11th class');
+      return new Response(JSON.stringify({ 
+        error: 'Please select roadmap duration (11th only or 11th+12th combined)' 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
@@ -108,11 +122,30 @@ serve(async (req) => {
     // Create AI prompt for roadmap generation
     const systemPrompt = `You are an expert educational curriculum planner. Create a detailed ${total_days}-day learning roadmap.`;
     
+    // Construct context based on exam type and student category
+    let studentContext = '';
+    if (exam_type === 'School') {
+      studentContext = `- Class: ${extractedClass}\n- Board: ${extractedBoard || 'General'}`;
+    } else if (exam_type === 'Engineering' || exam_type === 'Medical') {
+      const examName = exam_type === 'Engineering' ? 'IIT JEE' : 'NEET';
+      
+      if (extractedClass === '11th') {
+        if (roadmap_type === 'single_year') {
+          studentContext = `- Exam: ${examName}\n- Student: Class 11th (Foundation Year)\n- Focus: Complete Class 11 syllabus for strong foundation\n- Timeline: Current academic year (till March)\n- Strategy: NCERT mastery + conceptual clarity + basic problem solving`;
+        } else if (roadmap_type === 'combined') {
+          studentContext = `- Exam: ${examName}\n- Student: Class 11th (2-Year Plan)\n- Focus: Complete 11th + 12th syllabus with revision buffer\n- Timeline: 2 years (11th + 12th combined)\n- Strategy: Year 1 - 11th syllabus + foundation. Year 2 - 12th syllabus + advanced topics + mock tests + revision`;
+        }
+      } else if (extractedClass === '12th') {
+        studentContext = `- Exam: ${examName}\n- Student: Class 12th (Final Year)\n- Focus: Complete 12th syllabus + 11th revision + exam strategy\n- Timeline: Current academic year (till exam in May)\n- Strategy: Fast-paced 12th completion + parallel 11th revision + problem solving + mock tests`;
+      } else if (extractedClass === 'Dropper') {
+        studentContext = `- Exam: ${examName}\n- Student: Dropper (12th Passed)\n- Focus: Full syllabus revision + advanced problem solving + test series\n- Timeline: Drop year preparation\n- Strategy: Intensive revision + previous year questions + mock tests + weak areas improvement`;
+      }
+    } else {
+      studentContext = `- Exam: ${exam_name || exam_type}`;
+    }
+
     const userPrompt = `Generate a ${total_days}-day learning roadmap for:
-${exam_type === 'School' 
-  ? `- Class: ${extractedClass}\n- Board: ${extractedBoard || 'General'}`
-  : `- Exam: ${exam_name || exam_type}`
-}
+${studentContext}
 - Subjects: ${extractedSubjects.join(', ')}
 ${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
 
@@ -141,12 +174,14 @@ Create a JSON response with this structure:
   ]
 }
 
-IMPORTANT:
-- Distribute ${total_days} days evenly across chapters
-- Each topic should have realistic estimated_hours (1-4 hours)
-- Ensure progressive difficulty
-- Include variety: theory, practice, tests
-- day_start and day_end must be within 1-${total_days}`;
+IMPORTANT GUIDELINES:
+1. Distribute ${total_days} days evenly across chapters
+2. ${roadmap_type === 'combined' ? 'Year 1: Focus on 11th syllabus. Year 2: Focus on 12th syllabus with revision' : 'Optimize for the given timeline'}
+3. Each topic should have realistic estimated_hours (1-4 hours)
+4. Ensure progressive difficulty
+5. ${extractedClass === 'Dropper' ? 'Emphasize mock tests and previous year questions' : 'Progress from basic to advanced'}
+6. Include variety: theory, practice, tests
+7. day_start and day_end must be within 1-${total_days}`;
 
     // Call Lovable AI Gateway (Gemini 2.5 Flash)
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -224,6 +259,7 @@ IMPORTANT:
           metadata: {
             exam_type,
             exam_name,
+            roadmap_type,
             target_class: extractedClass,
             target_board: extractedBoard,
             subjects: extractedSubjects,

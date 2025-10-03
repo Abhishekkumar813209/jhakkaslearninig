@@ -1,52 +1,170 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, Medal, Award, Crown, TrendingUp, Flame } from "lucide-react";
+import { Trophy, Medal, Award, Crown, TrendingUp, Flame, School, Map as MapIcon, Globe } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-// Mock leaderboard data
-const overallLeaderboard = [
-  { rank: 1, name: "Priya Patel", batch: "JEE Advanced", score: 94.5, streak: 28, tests: 35, change: 0 },
-  { rank: 2, name: "Rahul Sharma", batch: "JEE Main", score: 92.8, streak: 22, tests: 32, change: 1 },
-  { rank: 3, name: "Arjun Singh", batch: "NEET", score: 91.2, streak: 19, tests: 30, change: -1 },
-  { rank: 4, name: "Sneha Gupta", batch: "JEE Advanced", score: 89.7, streak: 25, tests: 28, change: 2 },
-  { rank: 5, name: "Vikash Kumar", batch: "JEE Main", score: 88.9, streak: 15, tests: 31, change: 0 }
-];
+interface LeaderboardEntry {
+  student_id: string;
+  student_name: string;
+  student_class: string;
+  school_name?: string;
+  zone_name?: string;
+  total_xp: number;
+  total_coins: number;
+  level: number;
+  current_streak_days: number;
+  rank: number;
+}
 
-const subjectToppers = {
-  Physics: [
-    { name: "Rahul Sharma", score: 96.5, batch: "JEE Main" },
-    { name: "Priya Patel", score: 95.2, batch: "JEE Advanced" },
-    { name: "Arjun Singh", score: 93.8, batch: "NEET" }
-  ],
-  Chemistry: [
-    { name: "Sneha Gupta", score: 97.1, batch: "JEE Advanced" },
-    { name: "Priya Patel", score: 94.8, batch: "JEE Advanced" },
-    { name: "Vikash Kumar", score: 92.3, batch: "JEE Main" }
-  ],
-  Mathematics: [
-    { name: "Priya Patel", score: 98.2, batch: "JEE Advanced" },
-    { name: "Rahul Sharma", score: 94.7, batch: "JEE Main" },
-    { name: "Amit Verma", score: 91.5, batch: "Foundation" }
-  ]
-};
-
-const streakLeaders = [
-  { name: "Priya Patel", streak: 28, batch: "JEE Advanced", total: 840 },
-  { name: "Sneha Gupta", streak: 25, batch: "JEE Advanced", total: 675 },
-  { name: "Rahul Sharma", streak: 22, batch: "JEE Main", total: 594 },
-  { name: "Arjun Singh", streak: 19, batch: "NEET", total: 513 },
-  { name: "Vikash Kumar", streak: 15, batch: "JEE Main", total: 390 }
-];
-
-const batchLeaders = [
-  { batch: "JEE Advanced", leader: "Priya Patel", avgScore: 89.5, totalStudents: 280 },
-  { batch: "JEE Main", leader: "Rahul Sharma", avgScore: 82.3, totalStudents: 450 },
-  { batch: "NEET", leader: "Arjun Singh", avgScore: 85.7, totalStudents: 320 },
-  { batch: "Foundation", leader: "Amit Verma", avgScore: 76.2, totalStudents: 197 }
-];
+interface XPLeaderboardEntry {
+  student_id: string;
+  total_xp: number;
+  total_coins: number;
+  level: number;
+  current_streak_days: number;
+  profiles: {
+    full_name: string;
+    student_class: string;
+  };
+}
 
 const LeaderboardManagement = () => {
+  const [leaderboardType, setLeaderboardType] = useState<'overall' | 'zone' | 'school'>('overall');
+  const [overallLeaderboard, setOverallLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [zoneLeaderboard, setZoneLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [schoolLeaderboard, setSchoolLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [xpLeaderboard, setXpLeaderboard] = useState<XPLeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchLeaderboards();
+  }, []);
+
+  const fetchLeaderboards = async () => {
+    setLoading(true);
+    try {
+      // Fetch Overall Leaderboard
+      const { data: overallData, error: overallError } = await supabase
+        .from('student_analytics')
+        .select('*')
+        .not('overall_rank', 'is', null)
+        .order('overall_rank', { ascending: true })
+        .limit(50);
+
+      if (overallError) throw overallError;
+
+      // Fetch profiles separately
+      const studentIds = overallData?.map(s => s.student_id) || [];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, student_class')
+        .in('id', studentIds);
+
+      const profileMap = new Map<string, any>();
+      profilesData?.forEach(p => profileMap.set(p.id, p));
+
+      const overall = overallData?.map((entry) => ({
+        student_id: entry.student_id,
+        student_name: profileMap.get(entry.student_id)?.full_name || 'Unknown',
+        student_class: profileMap.get(entry.student_id)?.student_class || '',
+        total_xp: entry.performance_index || 0,
+        total_coins: entry.tests_attempted || 0,
+        level: Math.floor((entry.average_score || 0) / 10),
+        current_streak_days: entry.streak_days || 0,
+        rank: entry.overall_rank || 0
+      })) || [];
+      setOverallLeaderboard(overall);
+
+      // Fetch Zone-wise Leaderboard
+      const { data: zoneData, error: zoneError } = await supabase
+        .from('student_analytics')
+        .select('*')
+        .not('zone_rank', 'is', null)
+        .order('zone_rank', { ascending: true })
+        .limit(50);
+
+      if (zoneError) throw zoneError;
+
+      const zoneStudentIds = zoneData?.map(s => s.student_id) || [];
+      const { data: zoneProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, student_class, zone_id, zones(name)')
+        .in('id', zoneStudentIds);
+
+      const zoneProfileMap = new Map<string, any>();
+      zoneProfiles?.forEach(p => zoneProfileMap.set(p.id, p));
+
+      const zone = zoneData?.map((entry) => {
+        const profile = zoneProfileMap.get(entry.student_id);
+        return {
+          student_id: entry.student_id,
+          student_name: profile?.full_name || 'Unknown',
+          student_class: profile?.student_class || '',
+          zone_name: (profile?.zones as any)?.name || 'N/A',
+          total_xp: entry.performance_index || 0,
+          total_coins: entry.tests_attempted || 0,
+          level: Math.floor((entry.average_score || 0) / 10),
+          current_streak_days: entry.streak_days || 0,
+          rank: entry.zone_rank || 0
+        };
+      }) || [];
+      setZoneLeaderboard(zone);
+
+      // Fetch School-wise Leaderboard
+      const { data: schoolData, error: schoolError } = await supabase
+        .from('student_analytics')
+        .select('*')
+        .not('school_rank', 'is', null)
+        .order('school_rank', { ascending: true })
+        .limit(50);
+
+      if (schoolError) throw schoolError;
+
+      const schoolStudentIds = schoolData?.map(s => s.student_id) || [];
+      const { data: schoolProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, student_class, school_id, schools(name)')
+        .in('id', schoolStudentIds);
+
+      const schoolProfileMap = new Map<string, any>();
+      schoolProfiles?.forEach(p => schoolProfileMap.set(p.id, p));
+
+      const school = schoolData?.map((entry) => {
+        const profile = schoolProfileMap.get(entry.student_id);
+        return {
+          student_id: entry.student_id,
+          student_name: profile?.full_name || 'Unknown',
+          student_class: profile?.student_class || '',
+          school_name: (profile?.schools as any)?.name || 'N/A',
+          total_xp: entry.performance_index || 0,
+          total_coins: entry.tests_attempted || 0,
+          level: Math.floor((entry.average_score || 0) / 10),
+          current_streak_days: entry.streak_days || 0,
+          rank: entry.school_rank || 0
+        };
+      }) || [];
+      setSchoolLeaderboard(school);
+
+      // Fetch XP Leaderboard
+      const { data: xpData, error: xpError } = await supabase.functions.invoke('xp-coin-reward-system', {
+        body: { action: 'leaderboard' }
+      });
+
+      if (xpError) throw xpError;
+      setXpLeaderboard(xpData?.leaderboard || []);
+
+    } catch (error: any) {
+      console.error('Error fetching leaderboards:', error);
+      toast.error('Failed to load leaderboards');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
@@ -60,139 +178,113 @@ const LeaderboardManagement = () => {
     }
   };
 
-  const getChangeIndicator = (change: number) => {
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (change < 0) return <TrendingUp className="h-4 w-4 text-red-600 rotate-180" />;
-    return <span className="text-xs text-muted-foreground">—</span>;
-  };
+  const currentLeaderboard = leaderboardType === 'overall' ? overallLeaderboard :
+    leaderboardType === 'zone' ? zoneLeaderboard : schoolLeaderboard;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Leaderboard Management</h2>
-          <p className="text-muted-foreground">Track top performers and student rankings</p>
+          <p className="text-muted-foreground">Track top performers across school, zone, and overall rankings</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select defaultValue="overall">
+          <Select value={leaderboardType} onValueChange={(val: any) => setLeaderboardType(val)}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select leaderboard type" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="overall">Overall Performance</SelectItem>
-              <SelectItem value="weekly">Weekly Rankings</SelectItem>
-              <SelectItem value="monthly">Monthly Rankings</SelectItem>
-              <SelectItem value="subject">Subject-wise</SelectItem>
+              <SelectItem value="zone">Zone-wise</SelectItem>
+              <SelectItem value="school">School-wise</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">Refresh Rankings</Button>
+          <Button variant="outline" onClick={fetchLeaderboards} disabled={loading}>
+            Refresh Rankings
+          </Button>
         </div>
       </div>
 
-      {/* Overall Leaderboard */}
       <Card className="card-gradient shadow-soft">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-yellow-500" />
-            Overall Leaderboard
+            {leaderboardType === 'overall' && <><Globe className="h-5 w-5 text-blue-500" />Overall Leaderboard</>}
+            {leaderboardType === 'zone' && <><MapIcon className="h-5 w-5 text-green-500" />Zone-wise Leaderboard</>}
+            {leaderboardType === 'school' && <><School className="h-5 w-5 text-purple-500" />School-wise Leaderboard</>}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {overallLeaderboard.map((student) => (
-              <div key={student.rank} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-background shadow-sm">
-                    {getRankIcon(student.rank)}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-foreground">{student.name}</div>
-                    <div className="text-sm text-muted-foreground">{student.batch}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-foreground">{student.score}%</div>
-                    <div className="text-xs text-muted-foreground">Score</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-foreground flex items-center gap-1">
-                      <Flame className="h-3 w-3 text-orange-500" />
-                      {student.streak}
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          ) : (
+            <div className="space-y-3">
+              {currentLeaderboard.map((student) => (
+                <div key={student.student_id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-background shadow-sm">
+                      {getRankIcon(student.rank)}
                     </div>
-                    <div className="text-xs text-muted-foreground">Streak</div>
+                    <div>
+                      <div className="font-semibold text-foreground">{student.student_name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {student.student_class}
+                        {leaderboardType === 'zone' && student.zone_name && ` • ${student.zone_name}`}
+                        {leaderboardType === 'school' && student.school_name && ` • ${student.school_name}`}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-foreground">{student.tests}</div>
-                    <div className="text-xs text-muted-foreground">Tests</div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {getChangeIndicator(student.change)}
-                    {student.change !== 0 && (
-                      <span className="text-xs text-muted-foreground">{Math.abs(student.change)}</span>
-                    )}
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-foreground">{student.total_xp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">Score</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-foreground flex items-center gap-1">
+                        <Trophy className="h-3 w-3 text-yellow-500" />
+                        {student.level}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Level</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-foreground">{student.total_coins}</div>
+                      <div className="text-xs text-muted-foreground">Tests</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+              {currentLeaderboard.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">No data available</div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Subject Toppers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {Object.entries(subjectToppers).map(([subject, toppers]) => (
-          <Card key={subject} className="card-gradient shadow-soft">
-            <CardHeader>
-              <CardTitle className="text-lg">{subject} Toppers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {toppers.map((topper, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getRankIcon(index + 1)}
-                      <div>
-                        <div className="text-sm font-medium">{topper.name}</div>
-                        <div className="text-xs text-muted-foreground">{topper.batch}</div>
-                      </div>
-                    </div>
-                    <div className="text-sm font-bold text-foreground">{topper.score}%</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Streak Leaders & Batch Leaders */}
+      {/* XP & Streak Leaders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Streak Leaders */}
         <Card className="card-gradient shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-orange-500" />
-              Streak Leaders
+              Top XP Earners
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {streakLeaders.map((student, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded">
+              {xpLeaderboard.slice(0, 5).map((student, index) => (
+                <div key={student.student_id} className="flex items-center justify-between p-3 bg-muted/30 rounded">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
                       <span className="text-sm font-bold text-orange-600">#{index + 1}</span>
                     </div>
                     <div>
-                      <div className="text-sm font-medium">{student.name}</div>
-                      <div className="text-xs text-muted-foreground">{student.batch}</div>
+                      <div className="text-sm font-medium">{student.profiles?.full_name}</div>
+                      <div className="text-xs text-muted-foreground">{student.profiles?.student_class}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-orange-600">{student.streak}</div>
-                    <div className="text-xs text-muted-foreground">{student.total} total days</div>
+                    <div className="text-lg font-bold text-orange-600">{student.total_xp}</div>
+                    <div className="text-xs text-muted-foreground">Level {student.level}</div>
                   </div>
                 </div>
               ))}
@@ -200,28 +292,38 @@ const LeaderboardManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Batch Leaders */}
         <Card className="card-gradient shadow-soft">
           <CardHeader>
-            <CardTitle>Batch Leaders</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              Current Streaks
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {batchLeaders.map((batch, index) => (
-                <div key={index} className="p-3 bg-muted/30 rounded">
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="outline">{batch.batch}</Badge>
-                    <div className="text-sm font-medium">{batch.avgScore}% avg</div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-foreground">{batch.leader}</div>
-                      <div className="text-xs text-muted-foreground">{batch.totalStudents} students</div>
+              {xpLeaderboard
+                .sort((a, b) => b.current_streak_days - a.current_streak_days)
+                .slice(0, 5)
+                .map((student, index) => (
+                  <div key={student.student_id} className="flex items-center justify-between p-3 bg-muted/30 rounded">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <span className="text-sm font-bold text-yellow-600">#{index + 1}</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{student.profiles?.full_name}</div>
+                        <div className="text-xs text-muted-foreground">{student.profiles?.student_class}</div>
+                      </div>
                     </div>
-                    <Crown className="h-4 w-4 text-yellow-500" />
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-yellow-600 flex items-center gap-1">
+                        <Flame className="h-4 w-4" />
+                        {student.current_streak_days}
+                      </div>
+                      <div className="text-xs text-muted-foreground">days</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           </CardContent>
         </Card>

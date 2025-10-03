@@ -33,6 +33,7 @@ import GuidedPathsManagement from "@/components/admin/GuidedPathsManagement";
 import ZoneManagementNew from "@/components/admin/ZoneManagementNew";
 import SchoolManagement from "@/components/admin/SchoolManagement";
 import { ZoneSchoolAnalytics } from "@/components/admin/ZoneSchoolAnalytics";
+import RoadmapManagement from "@/components/admin/RoadmapManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -74,6 +75,12 @@ const AdminDashboard = () => {
       label: "Guided Paths",
       icon: BookOpen,
       component: GuidedPathsManagement
+    },
+    {
+      value: "roadmaps",
+      label: "Roadmaps",
+      icon: Map,
+      component: RoadmapManagement
     },
     {
       value: "zones",

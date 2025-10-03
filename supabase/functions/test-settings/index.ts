@@ -60,7 +60,8 @@ serve(async (req) => {
               expires_at: test.expires_at,
               instructions: test.instructions,
               target_class: test.target_class,
-              target_board: test.target_board
+              target_board: test.target_board,
+              is_free: test.is_free
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -78,7 +79,8 @@ serve(async (req) => {
             expires_at: settings.expires_at,
             instructions: settings.instructions,
             target_class: settings.target_class,
-            target_board: settings.target_board
+            target_board: settings.target_board,
+            is_free: settings.is_free
           })
           .eq('id', testId)
           .select()

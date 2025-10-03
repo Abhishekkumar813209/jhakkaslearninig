@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, addDays, parseISO } from 'date-fns';
-import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Calendar, Download, GripVertical, Plus, Video, Trash2 } from 'lucide-react';
@@ -178,6 +178,69 @@ const SortableChapterCell = ({ chapter, isEditable, onUpdate, onDelete }: Sortab
   );
 };
 
+// Helpers for cell droppable IDs
+const CELL_PREFIX = 'cell|';
+const makeCellId = (date: string, subject: string) => `${CELL_PREFIX}${date}|${encodeURIComponent(subject)}`;
+const parseCellId = (id: string) => {
+  const [, date, subjectEnc] = id.split('|');
+  return { date, subject: decodeURIComponent(subjectEnc || '') };
+};
+
+interface CalendarCellProps {
+  date: string;
+  subject: string;
+  cellChapters: CalendarChapter[];
+  isEditable: boolean;
+  onAddChapter: (date: string, subject: string) => void;
+  onUpdate: (id: string, updates: Partial<CalendarChapter>) => void;
+  onDelete: (id: string) => void;
+}
+
+const CalendarCell = ({
+  date,
+  subject,
+  cellChapters,
+  isEditable,
+  onAddChapter,
+  onUpdate,
+  onDelete,
+}: CalendarCellProps) => {
+  const { setNodeRef, isOver } = useDroppable({ id: makeCellId(date, subject) });
+  return (
+    <td ref={setNodeRef} className={`border p-2 align-top ${isOver ? 'ring-2 ring-primary/40' : ''}`}>
+      <SortableContext items={cellChapters.map(c => c.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2">
+          {cellChapters.map(chapter => (
+            <SortableChapterCell
+              key={chapter.id}
+              chapter={chapter}
+              isEditable={isEditable}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+          ))}
+          {isEditable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAddChapter(date, subject)}
+              className="w-full h-10 border-dashed hover:bg-primary/5"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Chapter
+            </Button>
+          )}
+          {!isEditable && cellChapters.length === 0 && (
+            <div className="min-h-[60px] text-center text-muted-foreground text-sm flex items-center justify-center">
+              -
+            </div>
+          )}
+        </div>
+      </SortableContext>
+    </td>
+  );
+};
+
 export const RoadmapCalendarView = ({
   startDate,
   subjects,
@@ -216,20 +279,68 @@ export const RoadmapCalendarView = ({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over) return;
 
-    const activeChapter = chapters.find(c => c.id === active.id);
-    const overChapter = chapters.find(c => c.id === over.id);
+    const activeId = String(active.id);
+    const overId = String(over.id);
 
-    if (!activeChapter || !overChapter) return;
+    const activeChapter = chapters.find(c => c.id === activeId);
+    if (!activeChapter) return;
 
-    // Only change date, preserve subject
-    const updatedChapters = chapters.map(chapter => {
-      if (chapter.id === active.id) {
-        return { ...chapter, date: overChapter.date };
+    let targetDate = activeChapter.date;
+    let targetSubject = activeChapter.subject;
+    let insertBeforeId: string | null = null;
+
+    const overChapter = chapters.find(c => c.id === overId);
+
+    if (overChapter) {
+      // Drop over a chapter -> move into that chapter's cell and position before it
+      targetDate = overChapter.date;
+      targetSubject = overChapter.subject;
+      insertBeforeId = overChapter.id;
+    } else if (overId.startsWith(CELL_PREFIX)) {
+      const { date, subject } = parseCellId(overId);
+      targetDate = date;
+      targetSubject = subject;
+    } else {
+      return;
+    }
+
+    // If nothing changed and we're not reordering, bail out
+    if (targetDate === activeChapter.date && targetSubject === activeChapter.subject && insertBeforeId === null) {
+      return;
+    }
+
+    const withoutActive = chapters.filter(c => c.id !== activeId);
+    const moved: CalendarChapter = { ...activeChapter, date: targetDate, subject: targetSubject };
+
+    let updatedChapters: CalendarChapter[] = [];
+
+    if (insertBeforeId) {
+      for (const item of withoutActive) {
+        if (item.id === insertBeforeId) {
+          updatedChapters.push(moved);
+        }
+        updatedChapters.push(item);
       }
-      return chapter;
-    });
+    } else {
+      // Append to end of target cell
+      const lastIndexInCell = withoutActive.reduce((idx, item, i) => {
+        return item.date === targetDate && !item.isBufferTime && item.subject === targetSubject ? i : idx;
+      }, -1);
+      if (lastIndexInCell >= 0) {
+        updatedChapters = [...withoutActive];
+        updatedChapters.splice(lastIndexInCell + 1, 0, moved);
+      } else {
+        // No chapters in that cell; place after the last item of the target date, or at end
+        const lastIndexInDate = withoutActive.reduce((idx, item, i) => {
+          return item.date === targetDate ? i : idx;
+        }, -1);
+        updatedChapters = [...withoutActive];
+        const insertIndex = lastIndexInDate >= 0 ? lastIndexInDate + 1 : updatedChapters.length;
+        updatedChapters.splice(insertIndex, 0, moved);
+      }
+    }
 
     setChapters(updatedChapters);
     onChaptersChange?.(updatedChapters);
@@ -378,7 +489,7 @@ export const RoadmapCalendarView = ({
                 </tr>
               </thead>
               <tbody>
-                <SortableContext items={chapters.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                
                   {dates.map((date) => {
                     const dateData = groupedByDate[date];
                     const isBuffer = dateData['BUFFER'];
@@ -434,41 +545,20 @@ export const RoadmapCalendarView = ({
                         {subjects.map(subject => {
                           const subjectChapters = dateData[subject] || [];
                           return (
-                            <td key={`${date}-${subject}`} className="border p-2 align-top">
-                              <div className="space-y-2">
-                                {subjectChapters.map(chapter => (
-                                  <SortableChapterCell
-                                    key={chapter.id}
-                                    chapter={chapter}
-                                    isEditable={isEditable}
-                                    onUpdate={handleUpdateChapter}
-                                    onDelete={handleDeleteChapter}
-                                  />
-                                ))}
-                                {isEditable && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleAddChapter(date, subject)}
-                                    className="w-full h-10 border-dashed hover:bg-primary/5"
-                                  >
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    Add Chapter
-                                  </Button>
-                                )}
-                                {!isEditable && subjectChapters.length === 0 && (
-                                  <div className="min-h-[60px] text-center text-muted-foreground text-sm flex items-center justify-center">
-                                    -
-                                  </div>
-                                )}
-                              </div>
-                            </td>
+                            <CalendarCell
+                              date={date}
+                              subject={subject}
+                              cellChapters={subjectChapters}
+                              isEditable={isEditable}
+                              onAddChapter={handleAddChapter}
+                              onUpdate={handleUpdateChapter}
+                              onDelete={handleDeleteChapter}
+                            />
                           );
                         })}
                       </tr>
                     );
                   })}
-                </SortableContext>
               </tbody>
             </table>
           </DndContext>

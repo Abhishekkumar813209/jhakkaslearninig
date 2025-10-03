@@ -102,8 +102,24 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
 
   const progress = (currentStep / totalSteps) * 100;
 
+  // Derive exam name from exam type
+  const getDerivedExamName = (): string => {
+    if (examType === 'School') {
+      return `${conditionalBoard} Class ${conditionalClass}`;
+    } else if (examType === 'Engineering') {
+      return 'IIT JEE';
+    } else if (examType === 'Medical-UG') {
+      return 'NEET UG';
+    } else if (examType === 'Medical-PG') {
+      return 'NEET PG';
+    }
+    return examName;
+  };
+
   const handleFetchSubjects = async () => {
-    if (!examName && examType !== 'School') {
+    const derivedExamName = getDerivedExamName();
+    
+    if (!derivedExamName) {
       toast.error("Please enter exam name");
       return;
     }
@@ -117,7 +133,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
       const { data, error } = await supabase.functions.invoke('fetch-exam-subjects', {
         body: {
           exam_type: examType,
-          exam_name: examType === 'School' ? `${conditionalBoard} Class ${conditionalClass}` : examName,
+          exam_name: derivedExamName,
         }
       });
 
@@ -375,15 +391,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         body: {
           batch_id: batchId,
           exam_type: examType,
-          exam_name: examType === 'School' 
-            ? `${conditionalBoard} Class ${conditionalClass}` 
-            : examType === 'Engineering' 
-            ? 'IIT JEE' 
-            : examType === 'Medical-UG'
-            ? 'NEET UG'
-            : examType === 'Medical-PG'
-            ? 'NEET PG'
-            : examName,
+          exam_name: getDerivedExamName(),
           conditional_class: conditionalClass,
           conditional_board: examType === 'School' ? conditionalBoard : undefined,
           roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
@@ -470,7 +478,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         toast.error("Please select roadmap duration");
         return;
       }
-      if (examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && !examName) {
+      if (examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && !examName.trim()) {
         toast.error("Please enter exam name");
         return;
       }

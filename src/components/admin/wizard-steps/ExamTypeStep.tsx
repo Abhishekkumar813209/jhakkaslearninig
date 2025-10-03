@@ -233,6 +233,30 @@ export const ExamTypeStep = ({
         </div>
       )}
 
+      {examType === 'Engineering' && (
+        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+          <p className="text-sm font-medium">
+            📚 Exam: <strong>IIT JEE (Main & Advanced)</strong>
+          </p>
+        </div>
+      )}
+
+      {examType === 'Medical-UG' && (
+        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+          <p className="text-sm font-medium">
+            📚 Exam: <strong>NEET UG</strong>
+          </p>
+        </div>
+      )}
+
+      {examType === 'Medical-PG' && (
+        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+          <p className="text-sm font-medium">
+            📚 Exam: <strong>NEET PG</strong>
+          </p>
+        </div>
+      )}
+
       {examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && (
         <div>
           <Label>Exam Name *</Label>
@@ -272,7 +296,12 @@ export const ExamTypeStep = ({
         <div>
           <Label>Roadmap Title *</Label>
           <Input
-            placeholder="e.g., Complete SSC CGL Preparation Roadmap"
+            placeholder={
+              examType === 'Engineering' ? "e.g., IIT JEE Complete Preparation Plan" :
+              examType === 'Medical-UG' ? "e.g., NEET UG 2026 Roadmap" :
+              examType === 'Medical-PG' ? "e.g., NEET PG Complete Preparation" :
+              "e.g., Complete Preparation Roadmap"
+            }
             value={roadmapTitle}
             onChange={(e) => setRoadmapTitle(e.target.value)}
             className="mt-1.5"

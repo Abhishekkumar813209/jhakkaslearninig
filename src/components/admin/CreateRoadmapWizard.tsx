@@ -86,15 +86,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
       
       const remainingDays = calculateRemainingDays();
       
-      if (conditionalClass === '11th') {
+      if (conditionalClass === '11') {
         if (roadmapType === 'single_year') {
           setTotalDays(remainingDays);
         } else if (roadmapType === 'combined') {
           setTotalDays(remainingDays + 365);
         }
-      } else if (conditionalClass === '12th') {
+      } else if (conditionalClass === '12') {
         setTotalDays(remainingDays);
-      } else if (conditionalClass === 'Dropper') {
+      } else if (conditionalClass === 'dropper') {
         setTotalDays(365);
       }
     }
@@ -464,7 +464,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         toast.error("Please select student category");
         return;
       }
-      if ((examType === 'Engineering' || examType === 'Medical') && conditionalClass === '11th' && !roadmapType) {
+      if ((examType === 'Engineering' || examType === 'Medical') && conditionalClass === '11' && !roadmapType) {
         toast.error("Please select roadmap duration");
         return;
       }

@@ -134,9 +134,9 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
                 <SelectValue placeholder="Select student category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="11">Class 11th (Foundation Year)</SelectItem>
-                <SelectItem value="12">Class 12th (Final Year)</SelectItem>
-                <SelectItem value="dropper">Dropper (12th Passed)</SelectItem>
+                <SelectItem value="11">Class 11 (Foundation Year)</SelectItem>
+                <SelectItem value="12">Class 12 (Final Year)</SelectItem>
+                <SelectItem value="dropper">Dropper (Class 12 Passed)</SelectItem>
               </SelectContent>
             </Select>
           </div>

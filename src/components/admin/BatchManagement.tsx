@@ -294,7 +294,7 @@ const BatchManagement = () => {
                         <div className="font-medium">{batch.exam_name || "-"}</div>
                         {batch.target_class && (
                           <div className="text-xs text-muted-foreground">
-                            {batch.target_class.replace('class_', 'Class ')}
+                            Class {batch.target_class}
                           </div>
                         )}
                       </TableCell>

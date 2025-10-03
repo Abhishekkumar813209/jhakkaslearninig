@@ -95,12 +95,12 @@ export const ExamTypeStep = ({
     
     if (examType === 'School') {
       return batch.exam_type === 'School Education' &&
-             batch.target_class === `class_${conditionalClass}` &&
+             batch.target_class === conditionalClass &&
              batch.exam_name === conditionalBoard;
     } else if (examType === 'Engineering' || examType === 'Medical') {
       // Filter by domain AND student category (class)
       return batch.exam_type === mappedDomain &&
-             (conditionalClass ? batch.target_class === `class_${conditionalClass}` : true);
+             (conditionalClass ? batch.target_class === conditionalClass : true);
     } else if (mappedDomain) {
       return batch.exam_type === mappedDomain;
     }
@@ -179,14 +179,14 @@ export const ExamTypeStep = ({
                 <SelectValue placeholder="Select your current status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="11th">Class 11th (Foundation Year)</SelectItem>
-                <SelectItem value="12th">Class 12th (Final Year)</SelectItem>
-                <SelectItem value="Dropper">Dropper (12th Passed)</SelectItem>
+                <SelectItem value="11">Class 11 (Foundation Year)</SelectItem>
+                <SelectItem value="12">Class 12 (Final Year)</SelectItem>
+                <SelectItem value="dropper">Dropper (Class 12 Passed)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {conditionalClass === '11th' && (
+          {conditionalClass === '11' && (
             <div>
               <Label>Roadmap Duration *</Label>
               <Select value={roadmapType} onValueChange={setRoadmapType}>
@@ -196,13 +196,13 @@ export const ExamTypeStep = ({
                 <SelectContent>
                   <SelectItem value="single_year">
                     <div className="flex flex-col">
-                      <span className="font-medium">11th Only (Till March {new Date().getFullYear() + 1})</span>
+                      <span className="font-medium">Class 11 Only (Till March {new Date().getFullYear() + 1})</span>
                       <span className="text-xs text-muted-foreground">Focus on current academic year syllabus</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="combined">
                     <div className="flex flex-col">
-                      <span className="font-medium">Combined 11th + 12th (2 Year Plan)</span>
+                      <span className="font-medium">Combined Class 11 + 12 (2 Year Plan)</span>
                       <span className="text-xs text-muted-foreground">Complete syllabus with buffer time for revision</span>
                     </div>
                   </SelectItem>
@@ -211,13 +211,13 @@ export const ExamTypeStep = ({
             </div>
           )}
 
-          {conditionalClass === '11th' && roadmapType && (
+          {conditionalClass === '11' && roadmapType && (
             <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 📅 <strong>Estimated Duration:</strong> 
                 {roadmapType === 'single_year' 
-                  ? ` ~${calculateRemainingDays('11th')} days (Till Class 11 ends)`
-                  : ` ~${calculateRemainingDays('11th') + 365} days (2 years)`
+                  ? ` ~${calculateRemainingDays('11')} days (Till Class 11 ends)`
+                  : ` ~${calculateRemainingDays('11') + 365} days (2 years)`
                 }
               </p>
             </div>

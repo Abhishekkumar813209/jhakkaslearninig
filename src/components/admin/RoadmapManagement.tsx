@@ -11,7 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
 import { EditRoadmapDialog } from "./EditRoadmapDialog";
 import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
+import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
 import { useAuth } from "@/hooks/useAuth";
+import { format, parseISO } from 'date-fns';
 
 const RoadmapManagement = () => {
   const { loading: authLoading } = useAuth();
@@ -363,7 +365,7 @@ const RoadmapManagement = () => {
 
       {/* View Details Dialog */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
           <DialogHeader>
             <DialogTitle>{selectedRoadmap?.title}</DialogTitle>
           </DialogHeader>
@@ -372,9 +374,9 @@ const RoadmapManagement = () => {
               <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               <p className="text-muted-foreground">Loading roadmap details...</p>
             </div>
-          ) : roadmapDetails ? (
-            <div className="space-y-6 animate-fade-in">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+          ) : roadmapDetails && roadmapDetails.chapters && roadmapDetails.chapters.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Batch:</span>
                   <p className="font-medium">{roadmapDetails.batches?.name}</p>
@@ -397,45 +399,25 @@ const RoadmapManagement = () => {
                 )}
               </div>
 
-              {roadmapDetails.chapters && roadmapDetails.chapters.length > 0 ? (
-                <Accordion type="multiple" className="space-y-2">
-                  {roadmapDetails.chapters.map((chapter: any, idx: number) => (
-                    <AccordionItem key={chapter.id} value={chapter.id} className="animate-fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center justify-between w-full pr-4">
-                          <span className="font-semibold">
-                            {idx + 1}. {chapter.chapter_name} ({chapter.subject})
-                          </span>
-                          <Badge variant="secondary">
-                            Day {chapter.day_start}-{chapter.day_end}
-                          </Badge>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2 pt-2">
-                          {chapter.topics && chapter.topics.length > 0 ? (
-                            chapter.topics.map((topic: any, topicIdx: number) => (
-                              <div key={topic.id} className="flex items-center gap-2 text-sm pl-4">
-                                <span className="text-muted-foreground">{topicIdx + 1}.</span>
-                                <span>{topic.topic_name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  ({topic.estimated_hours}h)
-                                </span>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-muted-foreground pl-4">No topics</p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">No chapters in this roadmap</p>
-              )}
+              <RoadmapCalendarView
+                startDate={parseISO(roadmapDetails.start_date)}
+                totalDays={roadmapDetails.total_days}
+                subjects={[...new Set(roadmapDetails.chapters.map((c: any) => c.subject))] as string[]}
+                chapters={roadmapDetails.chapters.map((ch: any) => ({
+                  id: ch.id,
+                  date: format(parseISO(roadmapDetails.start_date).getTime() + (ch.day_start - 1) * 24 * 60 * 60 * 1000, 'yyyy-MM-dd'),
+                  subject: ch.subject,
+                  chapterName: ch.chapter_name,
+                  videoLink: (ch as any).video_link,
+                  isBufferTime: false,
+                  isLive: false
+                }))}
+                isEditable={false}
+              />
             </div>
-          ) : null}
+          ) : (
+            <p className="text-muted-foreground text-center py-8">No chapters in this roadmap</p>
+          )}
         </DialogContent>
       </Dialog>
 

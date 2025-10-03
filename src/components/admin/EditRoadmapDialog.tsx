@@ -1,15 +1,11 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Trash2, GripVertical, Loader2 } from "lucide-react";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { Loader2, Sparkles } from "lucide-react";
+import { RoadmapCalendarView, CalendarChapter } from './RoadmapCalendarView';
+import { format, parseISO } from 'date-fns';
 
 interface EditRoadmapDialogProps {
   open: boolean;
@@ -26,55 +22,16 @@ interface Chapter {
   day_end: number;
   order_num: number;
   estimated_days: number;
+  video_link?: string;
   topics?: any[];
 }
 
-const SortableChapter = ({ chapter, onDelete }: { chapter: Chapter; onDelete: (id: string) => void }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: chapter.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="animate-fade-in">
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3">
-          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold">{chapter.chapter_name}</p>
-            <p className="text-sm text-muted-foreground">
-              {chapter.subject} • Day {chapter.day_start}-{chapter.day_end}
-            </p>
-          </div>
-          <Badge variant="secondary">{chapter.estimated_days} days</Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(chapter.id)}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
 export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: EditRoadmapDialogProps) => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [roadmapData, setRoadmapData] = useState<any>(null);
+  const [calendarChapters, setCalendarChapters] = useState<CalendarChapter[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAdjusting, setIsAdjusting] = useState(false);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   useEffect(() => {
     if (roadmapId && open) {
@@ -87,6 +44,17 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
 
     setIsLoading(true);
     try {
+      // Fetch roadmap data
+      const { data: roadmap, error: roadmapError } = await supabase
+        .from('batch_roadmaps')
+        .select('*')
+        .eq('id', roadmapId)
+        .single();
+
+      if (roadmapError) throw roadmapError;
+      setRoadmapData(roadmap);
+
+      // Fetch chapters
       const { data, error } = await supabase
         .from('roadmap_chapters')
         .select('*')
@@ -95,6 +63,20 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
 
       if (error) throw error;
       setChapters(data || []);
+
+      // Convert to calendar format
+      if (roadmap && data) {
+        const calChapters: CalendarChapter[] = data.map(ch => ({
+          id: ch.id,
+          date: format(parseISO(roadmap.start_date).getTime() + (ch.day_start - 1) * 24 * 60 * 60 * 1000, 'yyyy-MM-dd'),
+          subject: ch.subject,
+          chapterName: ch.chapter_name,
+          videoLink: (ch as any).video_link,
+          isBufferTime: false,
+          isLive: false
+        }));
+        setCalendarChapters(calChapters);
+      }
     } catch (error: any) {
       console.error('Error fetching chapters:', error);
       toast.error('Failed to load chapters');
@@ -103,45 +85,8 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
     }
   };
 
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-
-    if (active.id !== over.id) {
-      setChapters((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
-
-  const handleDeleteChapter = async (chapterId: string) => {
-    try {
-      setIsLoading(true);
-
-      // Delete topics first
-      await supabase
-        .from('roadmap_topics')
-        .delete()
-        .eq('chapter_id', chapterId);
-
-      // Delete chapter
-      const { error } = await supabase
-        .from('roadmap_chapters')
-        .delete()
-        .eq('id', chapterId);
-
-      if (error) throw error;
-
-      setChapters(prev => prev.filter(c => c.id !== chapterId));
-      toast.success('Chapter deleted');
-    } catch (error: any) {
-      console.error('Error deleting chapter:', error);
-      toast.error('Failed to delete chapter');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCalendarChaptersChange = (updatedChapters: CalendarChapter[]) => {
+    setCalendarChapters(updatedChapters);
   };
 
   const handleAutoAdjust = async () => {
@@ -189,19 +134,30 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
   };
 
   const handleSave = async () => {
+    if (!roadmapData) return;
+
     setIsLoading(true);
     try {
-      // Update order numbers
-      const updates = chapters.map((chapter, index) => ({
-        id: chapter.id,
-        order_num: index + 1
-      }));
+      // Update chapters based on calendar view
+      for (const calChapter of calendarChapters) {
+        const chapter = chapters.find(c => c.id === calChapter.id);
+        if (!chapter) continue;
 
-      for (const update of updates) {
+        // Calculate day_start from date
+        const startDate = parseISO(roadmapData.start_date);
+        const chapterDate = parseISO(calChapter.date);
+        const daysDiff = Math.floor((chapterDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        
         await supabase
           .from('roadmap_chapters')
-          .update({ order_num: update.order_num })
-          .eq('id', update.id);
+          .update({
+            chapter_name: calChapter.chapterName,
+            subject: calChapter.subject,
+            day_start: daysDiff + 1,
+            day_end: daysDiff + chapter.estimated_days,
+            video_link: calChapter.videoLink || null
+          })
+          .eq('id', calChapter.id);
       }
 
       toast.success('Roadmap updated successfully!');
@@ -217,77 +173,60 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Edit Roadmap</span>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleAutoAdjust}
-                disabled={isAdjusting || chapters.length === 0}
-                variant="outline"
-                className="gap-2"
-              >
-                {isAdjusting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Adjusting...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    Auto-Adjust Schedule
-                  </>
-                )}
-              </Button>
-            </div>
+            <span>Edit Roadmap - Calendar View</span>
+            <Button
+              onClick={handleAutoAdjust}
+              disabled={isAdjusting || chapters.length === 0}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              {isAdjusting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Adjusting...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Auto-Adjust
+                </>
+              )}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
           <div className="text-center py-8">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            <p className="text-muted-foreground">Loading chapters...</p>
+            <p className="text-muted-foreground">Loading roadmap...</p>
           </div>
-        ) : chapters.length === 0 ? (
-          <Card className="bg-muted/30">
-            <CardContent className="p-8 text-center">
-              <p className="text-muted-foreground">No chapters in this roadmap</p>
-            </CardContent>
-          </Card>
+        ) : !roadmapData || chapters.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No chapters in this roadmap</p>
+          </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Drag chapters to reorder, delete unwanted chapters, then click "Auto-Adjust Schedule" to reschedule remaining chapters.
-            </p>
-
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={chapters.map(c => c.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {chapters.map((chapter) => (
-                    <SortableChapter
-                      key={chapter.id}
-                      chapter={chapter}
-                      onDelete={handleDeleteChapter}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
+            <RoadmapCalendarView
+              roadmapId={roadmapId}
+              startDate={parseISO(roadmapData.start_date)}
+              totalDays={roadmapData.total_days}
+              subjects={[...new Set(chapters.map(c => c.subject))]}
+              chapters={calendarChapters}
+              isEditable={true}
+              onChaptersChange={handleCalendarChaptersChange}
+              onSave={handleSave}
+            />
 
             <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isLoading}>
-                Save Changes
+              <Button onClick={handleSave} disabled={isLoading || isAdjusting}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </div>

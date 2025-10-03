@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { RoadmapCalendarView, CalendarChapter } from './RoadmapCalendarView';
+import { addDays } from 'date-fns';
 
 interface ManualRoadmapBuilderProps {
   open: boolean;
@@ -146,6 +148,8 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
   const [batches, setBatches] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
+  const [showCalendarView, setShowCalendarView] = useState(false);
+  const [calendarChapters, setCalendarChapters] = useState<CalendarChapter[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -394,6 +398,44 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
     setStartDate(undefined);
     setSubjects([]);
     setNewSubjectName("");
+    setShowCalendarView(false);
+    setCalendarChapters([]);
+  };
+
+  const convertToCalendarFormat = (): CalendarChapter[] => {
+    if (!startDate) return [];
+    
+    const chapters: CalendarChapter[] = [];
+    let currentDate = startDate;
+
+    subjects.forEach(subject => {
+      subject.chapters.forEach(chapter => {
+        chapters.push({
+          id: chapter.id,
+          date: format(currentDate, 'yyyy-MM-dd'),
+          subject: subject.name,
+          chapterName: chapter.name,
+          isBufferTime: false,
+          isLive: false
+        });
+        currentDate = addDays(currentDate, chapter.estimatedDays);
+      });
+    });
+
+    return chapters;
+  };
+
+  const handleToggleCalendarView = () => {
+    if (!showCalendarView) {
+      // Converting to calendar view
+      const chapters = convertToCalendarFormat();
+      setCalendarChapters(chapters);
+    }
+    setShowCalendarView(!showCalendarView);
+  };
+
+  const handleCalendarChaptersChange = (updatedChapters: CalendarChapter[]) => {
+    setCalendarChapters(updatedChapters);
   };
 
   return (
@@ -568,6 +610,34 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+
+          {/* Calendar View Toggle */}
+          {subjects.length > 0 && subjects.some(s => s.chapters.length > 0) && startDate && (
+            <div className="border-t pt-4">
+              <Button
+                variant="outline"
+                onClick={handleToggleCalendarView}
+                className="w-full gap-2"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {showCalendarView ? 'Show Subject View' : 'Preview Calendar View'}
+              </Button>
+            </div>
+          )}
+
+          {/* Calendar View */}
+          {showCalendarView && startDate && (
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <RoadmapCalendarView
+                startDate={startDate}
+                totalDays={calculateTotalDays()}
+                subjects={subjects.map(s => s.name)}
+                chapters={calendarChapters}
+                isEditable={true}
+                onChaptersChange={handleCalendarChaptersChange}
+              />
             </div>
           )}
 

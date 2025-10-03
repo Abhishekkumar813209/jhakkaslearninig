@@ -214,6 +214,7 @@ export type Database = {
           subject: string
           suggested_days: number | null
           topics: Json | null
+          topics_generated: boolean | null
           updated_at: string | null
         }
         Insert: {
@@ -228,6 +229,7 @@ export type Database = {
           subject: string
           suggested_days?: number | null
           topics?: Json | null
+          topics_generated?: boolean | null
           updated_at?: string | null
         }
         Update: {
@@ -242,6 +244,7 @@ export type Database = {
           subject?: string
           suggested_days?: number | null
           topics?: Json | null
+          topics_generated?: boolean | null
           updated_at?: string | null
         }
         Relationships: []

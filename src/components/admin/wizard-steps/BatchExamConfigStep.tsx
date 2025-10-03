@@ -119,16 +119,24 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
           <div>
             <Label htmlFor="target_class">Student Category *</Label>
             <Select
-              value={formData.target_class?.replace('class_', '') || ""}
-              onValueChange={(value) => onChange("target_class", `class_${value}`)}
+              value={formData.level === "Dropper" ? "dropper" : formData.target_class || ""}
+              onValueChange={(value) => {
+                if (value === "dropper") {
+                  onChange("target_class", "12");
+                  onChange("level", "Dropper");
+                } else {
+                  onChange("target_class", value);
+                  onChange("level", value === "11" ? "Foundation Year" : "Final Year");
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select student category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="11th">Class 11th (Foundation Year)</SelectItem>
-                <SelectItem value="12th">Class 12th (Final Year)</SelectItem>
-                <SelectItem value="Dropper">Dropper (12th Passed)</SelectItem>
+                <SelectItem value="11">Class 11th (Foundation Year)</SelectItem>
+                <SelectItem value="12">Class 12th (Final Year)</SelectItem>
+                <SelectItem value="dropper">Dropper (12th Passed)</SelectItem>
               </SelectContent>
             </Select>
           </div>

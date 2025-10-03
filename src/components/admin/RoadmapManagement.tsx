@@ -27,16 +27,15 @@ const RoadmapManagement = () => {
 
   const fetchRoadmaps = async () => {
     try {
-      const { data, error } = await supabase
-        .from('batch_roadmaps')
-        .select(`
-          *,
-          batches(name, level)
-        `)
-        .order('created_at', { ascending: false });
-
+      // Use RPC to bypass RLS correctly (admins see all, students see their batch)
+      const { data, error } = await supabase.rpc('get_accessible_roadmaps');
       if (error) throw error;
-      setRoadmaps(data || []);
+
+      const normalized = (data || []).map((r: any) => ({
+        ...r,
+        batches: { name: r.batch_name, level: r.batch_level },
+      }));
+      setRoadmaps(normalized);
     } catch (error: any) {
       console.error('Error fetching roadmaps:', error);
     }

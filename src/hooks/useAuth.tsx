@@ -101,26 +101,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     console.log('AuthProvider: Fetching user role for:', userId);
-    
     try {
-      // Fallback to direct query first to avoid edge function issues
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error('AuthProvider: Error fetching user role from DB:', error);
-        setUserRole('student'); // Default fallback
-        return;
+      // Prefer secure RPC (SECURITY DEFINER) to avoid RLS issues and 406 on empty
+      const { data: roleData, error: roleError } = await supabase.rpc('get_user_role', { user_id: userId });
+
+      if (roleError) {
+        console.error('AuthProvider: RPC get_user_role error:', roleError);
       }
-      
-      const role = data?.role || 'student';
-      console.log('AuthProvider: Got role from DB:', role);
+
+      const role = (roleData as string | null) ?? 'student';
+      console.log('AuthProvider: Role resolved (via RPC):', role);
       setUserRole(role);
     } catch (error) {
-      console.error('AuthProvider: Error in role fetch fallback:', error);
+      console.error('AuthProvider: Error resolving role:', error);
       setUserRole('student');
     }
   };

@@ -2732,6 +2732,29 @@ export type Database = {
           test_title: string
         }[]
       }
+      get_accessible_roadmaps: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          ai_generated_plan: Json
+          batch_id: string
+          batch_level: string
+          batch_name: string
+          created_at: string
+          created_by: string
+          description: string
+          end_date: string
+          exam_name: string
+          exam_type: string
+          id: string
+          pdf_source_id: string
+          selected_subjects: Json
+          start_date: string
+          status: Database["public"]["Enums"]["roadmap_status"]
+          title: string
+          total_days: number
+          updated_at: string
+        }[]
+      }
       get_subscription_status: {
         Args: { student_id_param: string }
         Returns: {

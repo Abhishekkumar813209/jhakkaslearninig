@@ -344,7 +344,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
       return;
     }
 
-    toast.loading("AI is generating your roadmap...");
+    // Show informative loading message
+    const loadingToastId = toast.loading(
+      "AI is generating your personalized roadmap...",
+      {
+        description: "This may take 60-90 seconds. Please wait...",
+        duration: 120000, // 2 minutes timeout
+      }
+    );
 
     try {
       // Prepare selected data
@@ -393,7 +400,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
       if (error) throw error;
 
       if (data?.error) {
-        toast.dismiss();
+        toast.dismiss(loadingToastId);
         if (data.error.includes('Rate limit')) {
           toast.error('Rate limit exceeded. Please try again later.');
         } else if (data.error.includes('Payment required')) {
@@ -404,15 +411,26 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess }: CreateRoa
         return;
       }
 
-      toast.dismiss();
-      toast.success("Roadmap generated successfully!");
+      toast.dismiss(loadingToastId);
+      toast.success("Roadmap generated successfully!", {
+        description: `Created ${totalDays}-day roadmap with 65-25-10 revision strategy`,
+      });
       handleReset();
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
-      toast.dismiss();
+      toast.dismiss(loadingToastId);
       console.error('Error generating roadmap:', error);
-      toast.error("Failed to generate roadmap");
+      
+      if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
+        toast.error("Generation timed out", {
+          description: "The roadmap is still being created. Please refresh in a minute.",
+        });
+      } else {
+        toast.error("Failed to generate roadmap", {
+          description: error.message || "Please try again with fewer subjects or chapters",
+        });
+      }
     }
   };
 

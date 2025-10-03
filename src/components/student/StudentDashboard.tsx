@@ -16,7 +16,6 @@ const StudentDashboard: React.FC = () => {
     loading 
   } = useSubscription();
 
-  const { canTakeTest, isFreeTrial } = checkTestAccess();
   const hasRoadmapAccess = checkRoadmapAccess();
 
   if (loading) {
@@ -70,10 +69,10 @@ const StudentDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {hasActiveSubscription ? "Unlimited" : canTakeTest ? "1 Free" : "0"}
+                {hasActiveSubscription ? "Unlimited" : !hasFreeTestUsed ? "1 Free" : "0"}
               </div>
               <p className="text-xs text-muted-foreground">
-                {hasActiveSubscription ? "Premium member" : isFreeTrial ? "Try for free" : "Subscribe needed"}
+                {hasActiveSubscription ? "Premium member" : !hasFreeTestUsed ? "Try for free" : "Subscribe needed"}
               </p>
             </CardContent>
           </Card>

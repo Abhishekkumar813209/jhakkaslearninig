@@ -140,6 +140,7 @@ interface Test {
   status: string;
   instructions?: string;
   is_published: boolean;
+  is_free?: boolean;
 }
 
 const TestBuilderPortal: React.FC = () => {

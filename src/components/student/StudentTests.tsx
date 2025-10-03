@@ -26,6 +26,7 @@ interface Test {
   passing_marks: number;
   is_published: boolean;
   question_count?: number;
+  is_free?: boolean;
 }
 
 const StudentTests: React.FC = () => {
@@ -129,12 +130,15 @@ const StudentTests: React.FC = () => {
     }
   };
 
-  const handleStartTest = async (testId: string, testIndex: number) => {
-    // Logic: Oldest test (last in array) is always free for everyone
-    // All other tests require premium subscription
-    const isOldestTest = testIndex === availableTests.length - 1;
+  const handleStartTest = async (test: Test) => {
+    // Check if test is marked as free by admin
+    if (test.is_free) {
+      navigate(`/test/${test.id}`);
+      return;
+    }
     
-    if (!isOldestTest && !hasActiveSubscription) {
+    // If not free, require subscription
+    if (!hasActiveSubscription) {
       // Show subscription card instead of just modal
       const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
       if (subscriptionCard) {
@@ -145,12 +149,7 @@ const StudentTests: React.FC = () => {
       return;
     }
     
-    // Mark free test as used if this is oldest test and user hasn't used it yet
-    if (isOldestTest && !hasFreeTestUsed) {
-      await markFreeTestUsed();
-    }
-    
-    navigate(`/test/${testId}`);
+    navigate(`/test/${test.id}`);
   };
 
   const getDifficultyBadge = (difficulty: string) => {
@@ -266,10 +265,10 @@ const StudentTests: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {availableTests.map((test, index) => {
-            // Show oldest test (last in array) as free, rest as premium if no subscription
-            const isOldestTest = index === availableTests.length - 1;
-            const isPremiumTest = !hasActiveSubscription && !isOldestTest;
-            const shouldShowLockOverlay = isPremiumTest && hasFreeTestUsed;
+            // Check if test is free (admin marked) or requires subscription
+            const isFreeTest = test.is_free === true;
+            const isPremiumTest = !hasActiveSubscription && !isFreeTest;
+            const shouldShowLockOverlay = isPremiumTest;
             
             return (
               <Card key={test.id} className={`hover:shadow-lg transition-shadow ${shouldShowLockOverlay ? 'relative' : ''}`}>
@@ -285,8 +284,8 @@ const StudentTests: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{test.title}</CardTitle>
-                      {isOldestTest && !hasActiveSubscription && (
-                        <Badge variant="secondary" className="text-xs">Free</Badge>
+                      {isFreeTest && (
+                        <Badge variant="secondary" className="text-xs bg-green-500 text-white">Free</Badge>
                       )}
                       {isPremiumTest && (
                         <Badge variant="outline" className="text-xs text-primary border-primary">Premium</Badge>
@@ -322,9 +321,9 @@ const StudentTests: React.FC = () => {
 
                    <Button 
                      className="w-full" 
-                     onClick={() => handleStartTest(test.id, index)}
+                     onClick={() => handleStartTest(test)}
                      disabled={!test.question_count || test.question_count === 0}
-                     variant={isPremiumTest && hasFreeTestUsed ? "outline" : "default"}
+                     variant={isPremiumTest ? "outline" : "default"}
                    >
                      <Play className="h-4 w-4 mr-2" />
                      {test.question_count === 0 

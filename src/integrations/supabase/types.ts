@@ -1403,6 +1403,7 @@ export type Database = {
           expires_at: string | null
           id: string
           instructions: string | null
+          is_free: boolean | null
           is_published: boolean | null
           max_attempts: number | null
           passing_marks: number
@@ -1427,6 +1428,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           instructions?: string | null
+          is_free?: boolean | null
           is_published?: boolean | null
           max_attempts?: number | null
           passing_marks: number
@@ -1451,6 +1453,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           instructions?: string | null
+          is_free?: boolean | null
           is_published?: boolean | null
           max_attempts?: number | null
           passing_marks?: number

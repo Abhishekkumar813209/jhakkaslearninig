@@ -150,15 +150,29 @@ export const useSubscription = () => {
     }
   };
 
-  const checkTestAccess = () => {
+  const checkTestAccess = async (testId?: string) => {
     const { hasActiveSubscription } = subscriptionStatus;
     
+    // If user has active subscription, they can access all tests
     if (hasActiveSubscription) {
-      return { canTakeTest: true, isFreeTrial: false };
+      return { canTakeTest: true, isFreeTrial: false, isFree: false };
     }
     
-    // Allow unlimited free tests for now (development mode)
-    return { canTakeTest: true, isFreeTrial: true };
+    // If testId provided, check if this specific test is marked as free
+    if (testId) {
+      const { data: test } = await supabase
+        .from('tests')
+        .select('is_free')
+        .eq('id', testId)
+        .single();
+      
+      if (test?.is_free) {
+        return { canTakeTest: true, isFreeTrial: false, isFree: true };
+      }
+    }
+    
+    // No subscription and test not free = no access
+    return { canTakeTest: false, isFreeTrial: false, isFree: false };
   };
 
   const checkRoadmapAccess = () => {

@@ -27,6 +27,7 @@ interface TestSettings {
   instructions: string;
   target_class: string;
   target_board: string;
+  is_free: boolean;
 }
 
 const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
@@ -44,7 +45,8 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
     expires_at: '',
     instructions: '',
     target_class: '',
-    target_board: ''
+    target_board: '',
+    is_free: false
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -298,6 +300,24 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
                 onChange={(e) => setSettings(prev => ({
                   ...prev,
                   instructions: e.target.value
+                }))}
+              />
+            </div>
+
+            {/* Free Test Toggle */}
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="is_free" className="text-base">Make this test free</Label>
+                <p className="text-sm text-muted-foreground">
+                  Free tests can be taken by all students regardless of subscription status
+                </p>
+              </div>
+              <Switch
+                id="is_free"
+                checked={settings.is_free}
+                onCheckedChange={(checked) => setSettings(prev => ({
+                  ...prev,
+                  is_free: checked
                 }))}
               />
             </div>

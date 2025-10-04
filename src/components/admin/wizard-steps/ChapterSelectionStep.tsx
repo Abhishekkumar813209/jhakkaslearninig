@@ -214,7 +214,14 @@ export const ChapterSelectionStep = ({
                                 checked={chapter.isSelected}
                                 onCheckedChange={() => onToggleChapter(subject.name, chapter.id)}
                               />
-                              <span className="flex-1 text-sm">{chapter.chapter_name}</span>
+                              <div className="flex-1 flex items-center gap-2">
+                                <span className="text-sm">{chapter.chapter_name}</span>
+                                {chapter.suggested_days && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {chapter.suggested_days} days
+                                  </Badge>
+                                )}
+                              </div>
                               {chapter.isCustom && (
                                 <Badge variant="secondary" className="text-xs">Custom</Badge>
                               )}

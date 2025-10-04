@@ -460,7 +460,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           .map((ch, chIdx) => ({
             id: `${idx + 1}-${chIdx + 1}`,
             name: ch.chapter_name,
-            estimatedDays: 0, // Reset to 0 - admin will set manually
+            estimatedDays: ch.suggested_days || 3, // Preserve AI-suggested days
             isEditing: false
           }))
       }));

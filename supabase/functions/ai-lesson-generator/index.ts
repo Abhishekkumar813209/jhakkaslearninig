@@ -1,0 +1,181 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { 
+      topic_id, 
+      topic_name, 
+      lesson_types, 
+      difficulty = 'medium',
+      book_page_reference,
+      subject,
+      chapter_name 
+    } = await req.json();
+
+    console.log('Generating AI content for:', { topic_name, lesson_types, difficulty });
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY not configured');
+    }
+
+    // Build comprehensive prompt
+    const systemPrompt = `You are an expert educational content creator. Generate comprehensive, engaging learning content that is pedagogically sound and student-friendly. 
+
+Guidelines:
+- Theory should be clear, concise, and age-appropriate
+- Use examples and analogies to explain concepts
+- Interactive SVGs should have clear step-by-step animations
+- Games should be engaging and reinforce learning
+- Exercises should progress from easy to challenging
+- Always include detailed explanations for correct answers`;
+
+    const userPrompt = `Generate complete lesson content for:
+
+**Topic**: ${topic_name}
+**Subject**: ${subject || 'General'}
+**Chapter**: ${chapter_name || 'N/A'}
+**Difficulty**: ${difficulty}
+**Reference**: ${book_page_reference || 'N/A'}
+**Content Types Requested**: ${lesson_types.join(', ')}
+
+Generate the following in JSON format:
+
+${lesson_types.includes('theory') ? `
+1. **Theory Section** (theory):
+   - html: Rich HTML content with headings, paragraphs, lists
+   - key_points: Array of 3-5 key takeaways
+   - examples: 2-3 real-world examples
+` : ''}
+
+${lesson_types.includes('interactive_svg') ? `
+2. **Interactive SVG Animation** (svg_animation):
+   - svg_type: Choose from "math_graph", "physics_motion", "chemistry_molecule", "algorithm_viz"
+   - svg_data: Complete SVG markup with appropriate elements
+   - steps: Array of animation steps with title, description, and highlight areas
+   - total_duration: Estimated time in seconds
+` : ''}
+
+${lesson_types.includes('game') ? `
+3. **Gamified Learning** (games):
+   Array of 2-3 different game types:
+   - match_pairs: Matching concepts with definitions
+   - drag_drop_sequence: Ordering steps/events
+   - interactive_blanks: Fill in the blanks
+   Each with complete game_data and correct_answer
+` : ''}
+
+${lesson_types.includes('quiz') ? `
+4. **Practice Exercises** (exercises):
+   Array of 5-8 questions:
+   - Mix of MCQ and true/false
+   - Progressive difficulty
+   - Include question_text, options, correct_answer, explanation
+   - Difficulty level for each question
+` : ''}
+
+Return ONLY valid JSON. No markdown formatting, no code blocks.`;
+
+    // Call Lovable AI
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI API Error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), 
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`AI API error: ${response.status}`);
+    }
+
+    const aiResponse = await response.json();
+    console.log('AI Response received');
+
+    let content = aiResponse.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No content generated');
+    }
+
+    // Clean up content - remove markdown code blocks if present
+    content = content.trim();
+    if (content.startsWith('```json')) {
+      content = content.replace(/^```json\n/, '').replace(/\n```$/, '');
+    } else if (content.startsWith('```')) {
+      content = content.replace(/^```\n/, '').replace(/\n```$/, '');
+    }
+
+    let generatedContent;
+    try {
+      generatedContent = JSON.parse(content);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Raw content:', content);
+      throw new Error('Failed to parse AI response as JSON');
+    }
+
+    // Validate and structure the response
+    const result = {
+      topic_id,
+      topic_name,
+      generated_at: new Date().toISOString(),
+      content: generatedContent,
+      metadata: {
+        difficulty,
+        subject,
+        chapter_name,
+        book_page_reference,
+        lesson_types,
+        ai_model: 'google/gemini-2.5-flash'
+      }
+    };
+
+    console.log('Content generation successful');
+
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error in ai-lesson-generator:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        details: error.toString()
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});

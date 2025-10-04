@@ -103,3 +103,6 @@ verify_jwt = true
 
 [functions.xp-coin-reward-system]
 verify_jwt = true
+
+[functions.ai-lesson-generator]
+verify_jwt = true

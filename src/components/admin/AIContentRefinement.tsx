@@ -73,11 +73,127 @@ export const AIContentRefinement = ({
 
   const handleFinalSave = async () => {
     try {
-      // For now, just trigger the save callback
-      // The actual database save logic should be implemented based on your schema
+      const { topic_id, topic_name, content: generatedContent, metadata } = editedContent;
+      let studyContentId: string | null = null;
+      let orderNum = 1;
+
+      // 1. Save theory content to study_content table if exists
+      if (generatedContent.theory?.html) {
+        const { data: studyData, error: studyError } = await supabase
+          .from('study_content')
+          .insert({
+            subject: metadata?.subject || 'General',
+            chapter_name: metadata?.chapter_name || 'N/A',
+            topic_name,
+            content_type: 'theory',
+            content: generatedContent.theory.html,
+            order_num: 1,
+          })
+          .select()
+          .single();
+
+        if (studyError) throw studyError;
+        studyContentId = studyData.id;
+
+        // Create mapping for theory content
+        const { error: theoryMappingError } = await supabase
+          .from('topic_content_mapping')
+          .insert({
+            topic_id,
+            content_type: 'theory',
+            study_content_id: studyContentId,
+            order_num: orderNum++,
+            is_required: true,
+            xp_value: 20,
+          });
+
+        if (theoryMappingError) throw theoryMappingError;
+      }
+
+      // 2. Save SVG animation as content mapping (stored as JSONB in games field or as separate content)
+      if (generatedContent.svg_animation) {
+        // For now, we'll skip SVG as it doesn't fit study_content structure
+        // It will be rendered from the AI response directly
+        console.log('SVG animation available but not saved to database yet');
+      }
+
+      // 3. Save games (match_pairs, drag_drop, etc.)
+      if (generatedContent.games && generatedContent.games.length > 0) {
+        for (const game of generatedContent.games) {
+          // Create a content mapping for each game
+          const { data: gameMappingData, error: gameMappingError } = await supabase
+            .from('topic_content_mapping')
+            .insert({
+              topic_id,
+              content_type: game.game_type || 'match_column',
+              order_num: orderNum++,
+              is_required: false,
+              xp_value: 15,
+            })
+            .select()
+            .single();
+
+          if (gameMappingError) throw gameMappingError;
+
+          // Create gamified exercise for the game
+          const { error: gameExerciseError } = await supabase
+            .from('gamified_exercises')
+            .insert({
+              topic_content_id: gameMappingData.id,
+              exercise_type: game.game_type || 'match_column',
+              exercise_data: game.game_data || game,
+              correct_answer: game.correct_answer,
+              difficulty: metadata?.difficulty || 'medium',
+              xp_reward: 15,
+              coin_reward: 3,
+            });
+
+          if (gameExerciseError) throw gameExerciseError;
+        }
+      }
+
+      // 4. Save quiz exercises
+      if (generatedContent.exercises && generatedContent.exercises.length > 0) {
+        // Create a content mapping for quiz section
+        const { data: quizMappingData, error: quizMappingError } = await supabase
+          .from('topic_content_mapping')
+          .insert({
+            topic_id,
+            content_type: 'mcq',
+            order_num: orderNum++,
+            is_required: true,
+            xp_value: 30,
+          })
+          .select()
+          .single();
+
+        if (quizMappingError) throw quizMappingError;
+
+        // Create individual exercises
+        const exercisesToInsert = generatedContent.exercises.map((exercise: any) => ({
+          topic_content_id: quizMappingData.id,
+          exercise_type: exercise.question_type === 'true_false' ? 'true_false' : 'mcq',
+          exercise_data: {
+            question_text: exercise.question_text,
+            options: exercise.options || [],
+          },
+          correct_answer: exercise.correct_answer,
+          explanation: exercise.explanation,
+          difficulty: exercise.difficulty || metadata?.difficulty || 'medium',
+          xp_reward: exercise.difficulty === 'hard' ? 15 : exercise.difficulty === 'easy' ? 5 : 10,
+          coin_reward: exercise.difficulty === 'hard' ? 3 : 2,
+        }));
+
+        const { error: exerciseError } = await supabase
+          .from('gamified_exercises')
+          .insert(exercisesToInsert);
+
+        if (exerciseError) throw exerciseError;
+      }
+
       toast({
-        title: "Content Approved!",
-        description: "AI-generated content has been approved.",
+        title: "Content Saved!",
+        description: `Successfully saved all content for "${topic_name}" to database`,
       });
 
       onSave(editedContent);

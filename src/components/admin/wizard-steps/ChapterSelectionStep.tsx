@@ -218,25 +218,14 @@ export const ChapterSelectionStep = ({
                               {chapter.isCustom && (
                                 <Badge variant="secondary" className="text-xs">Custom</Badge>
                               )}
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  max={30}
-                                  value={chapter.suggested_days}
-                                  onChange={(e) => onUpdateDays(subject.name, chapter.id, parseInt(e.target.value) || 1)}
-                                  className="w-16 h-8 text-xs"
-                                />
-                                <span className="text-xs text-muted-foreground">days</span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => onDeleteChapter(subject.name, chapter.id)}
-                                >
-                                  <Trash2 className="h-3 w-3 text-destructive" />
-                                </Button>
-                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onDeleteChapter(subject.name, chapter.id)}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
                             </CardContent>
                           </Card>
                         ))}
@@ -251,26 +240,11 @@ export const ChapterSelectionStep = ({
                           ...customChapterInputs,
                           [subject.name]: {
                             name: e.target.value,
-                            days: customChapterInputs[subject.name]?.days || 3
+                            days: 3
                           }
                         })}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddCustomChapter(subject.name)}
                         className="flex-1"
-                      />
-                      <Input
-                        type="number"
-                        min={1}
-                        max={30}
-                        placeholder="Days"
-                        value={customChapterInputs[subject.name]?.days || 3}
-                        onChange={(e) => setCustomChapterInputs({
-                          ...customChapterInputs,
-                          [subject.name]: {
-                            name: customChapterInputs[subject.name]?.name || "",
-                            days: parseInt(e.target.value) || 3
-                          }
-                        })}
-                        className="w-20"
                       />
                       <Button
                         onClick={() => handleAddCustomChapter(subject.name)}
@@ -296,14 +270,10 @@ export const ChapterSelectionStep = ({
 
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold">Total Selected Chapters: {totalSelected}</p>
-              <p className="text-sm text-muted-foreground">
-                Estimated Days: {Object.values(chapters).flat().filter(c => c.isSelected).reduce((sum, c) => sum + c.suggested_days, 0)}
-              </p>
-            </div>
-          </div>
+          <p className="font-semibold">Total Selected: {totalSelected} chapters across {subjects.length} subjects</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Timeline will be set manually in the calendar view
+          </p>
         </CardContent>
       </Card>
     </div>

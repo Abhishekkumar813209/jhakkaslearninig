@@ -46,7 +46,7 @@ interface CreateRoadmapWizardProps {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 4;
+  const totalSteps = 3;
 
   // Step 1: Exam Type
   const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
@@ -55,7 +55,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [conditionalBoard, setConditionalBoard] = useState("");
   const [batchId, setBatchId] = useState("");
   const [roadmapTitle, setRoadmapTitle] = useState("");
-  const [totalDays, setTotalDays] = useState(30);
   const [roadmapType, setRoadmapType] = useState<'single_year' | 'combined'>('single_year');
   const [roadmapMode, setRoadmapMode] = useState<'sequential' | 'parallel'>('parallel');
 
@@ -69,41 +68,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
 
 
-  // Auto-adjust totalDays based on roadmap type for Engineering/Medical
-  useEffect(() => {
-    if ((examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && conditionalClass) {
-      const calculateRemainingDays = (): number => {
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const currentMonth = currentDate.getMonth();
-        
-        let endDate: Date;
-        if (currentMonth < 3) {
-          endDate = new Date(currentYear, 2, 31);
-        } else {
-          endDate = new Date(currentYear + 1, 2, 31);
-        }
-        
-        const diffTime = endDate.getTime() - currentDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? diffDays : 180;
-      };
-      
-      const remainingDays = calculateRemainingDays();
-      
-      if (conditionalClass === '11') {
-        if (roadmapType === 'single_year') {
-          setTotalDays(remainingDays);
-        } else if (roadmapType === 'combined') {
-          setTotalDays(remainingDays + 365);
-        }
-      } else if (conditionalClass === '12') {
-        setTotalDays(remainingDays);
-      } else if (conditionalClass === 'dropper') {
-        setTotalDays(365);
-      }
-    }
-  }, [examType, conditionalClass, roadmapType]);
+  // Timeline will be set manually - no auto-calculation
 
   const progress = (currentStep / totalSteps) * 100;
 
@@ -434,7 +399,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           conditional_board: examType === 'School' ? conditionalBoard : undefined,
           roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
           selected_subjects,
-          total_days: totalDays,
           title: roadmapTitle,
           mode: roadmapMode
         }
@@ -456,7 +420,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
       toast.dismiss(loadingToastId);
       toast.success("Roadmap generated successfully!", {
-        description: `Created ${totalDays}-day roadmap with 65-25-10 revision strategy`,
+        description: "Chapters organized. Now set the timeline manually in calendar view.",
       });
       handleReset();
       onOpenChange(false);
@@ -502,7 +466,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       examType,
       examName: getDerivedExamName(),
       roadmapTitle,
-      totalDays,
       subjects
     };
 
@@ -519,7 +482,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setConditionalBoard("");
     setBatchId("");
     setRoadmapTitle("");
-    setTotalDays(30);
     setRoadmapType('single_year');
     setFetchedSubjects([]);
     setFetchedChapters({});
@@ -528,13 +490,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const handleNext = () => {
     if (currentStep === 0) {
-      if (!totalDays || totalDays < 7) {
-        toast.error("Please enter at least 7 days for the roadmap");
-        return;
-      }
-    }
-
-    if (currentStep === 1) {
       // Validate Step 1
       if (examType === 'School' && (!conditionalClass || !conditionalBoard)) {
         toast.error("Please select class and board");
@@ -558,7 +513,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }
     }
 
-    if (currentStep === 2) {
+    if (currentStep === 1) {
       const selectedSubjects = fetchedSubjects.filter(s => s.isSelected);
       if (selectedSubjects.length === 0) {
         toast.error("Please select at least one subject");
@@ -566,7 +521,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }
     }
 
-    if (currentStep === 3) {
+    if (currentStep === 2) {
       const selectedChaptersCount = Object.values(fetchedChapters)
         .flat()
         .filter(c => c.isSelected).length;
@@ -597,58 +552,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
         <div className="space-y-6 py-4">
           {currentStep === 0 && (
-            <div className="space-y-4">
-              <div className="p-4 border rounded-lg bg-muted/30">
-                <Label className="text-lg font-semibold">📅 Roadmap Duration</Label>
-                <p className="text-sm text-muted-foreground mt-2">
-                  How many days should this roadmap cover? This affects chapter distribution.
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="totalDays">Total Days</Label>
-                <input
-                  id="totalDays"
-                  type="number"
-                  min={7}
-                  max={730}
-                  value={totalDays}
-                  onChange={(e) => setTotalDays(parseInt(e.target.value) || 30)}
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="Enter total days (e.g., 30, 90, 180)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Minimum: 7 days | Maximum: 730 days (2 years)
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setTotalDays(30)}
-                  className={totalDays === 30 ? "border-primary" : ""}
-                >
-                  30 Days
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setTotalDays(90)}
-                  className={totalDays === 90 ? "border-primary" : ""}
-                >
-                  90 Days
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setTotalDays(180)}
-                  className={totalDays === 180 ? "border-primary" : ""}
-                >
-                  180 Days
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 1 && (
             <>
               <div className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/30">
                 <Label className="text-base font-semibold">Roadmap Mode</Label>
@@ -683,15 +586,13 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                 setBatchId={setBatchId}
                 roadmapTitle={roadmapTitle}
                 setRoadmapTitle={setRoadmapTitle}
-                totalDays={totalDays}
-                setTotalDays={setTotalDays}
                 roadmapType={roadmapType}
                 setRoadmapType={setRoadmapType}
               />
             </>
           )}
 
-          {currentStep === 2 && (
+          {currentStep === 1 && (
             <SubjectSelectionStep
               subjects={fetchedSubjects}
               isFetching={isFetchingSubjects}
@@ -702,7 +603,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             />
           )}
 
-          {currentStep === 3 && (
+          {currentStep === 2 && (
             <ChapterSelectionStep
               subjects={fetchedSubjects.filter(s => s.isSelected)}
               chapters={fetchedChapters}

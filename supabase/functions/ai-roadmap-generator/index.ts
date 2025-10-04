@@ -6,53 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to calculate independent parallel timeline
-const calculateParallelTimeline = (selectedSubjects: any[], totalDays: number) => {
-  const subjectTimelines: { [subject: string]: number } = {};
-  const allChapters: any[] = [];
-  
-  // Initialize each subject's timeline at Day 1
-  selectedSubjects.forEach(s => {
-    subjectTimelines[s.subject] = 1;
-  });
-  
-  // Find max chapters across subjects
-  const maxChapters = Math.max(...selectedSubjects.map(s => s.selected_chapters.length));
-  
-  // For each chapter round (NOT cycle)
-  for (let chapterIndex = 0; chapterIndex < maxChapters; chapterIndex++) {
-    selectedSubjects.forEach(subject => {
-      const chapter = subject.selected_chapters[chapterIndex];
-      if (chapter) {
-        const chapterDays = chapter.suggested_days || 7;
-        const startDay = subjectTimelines[subject.subject];
-        const endDay = startDay + chapterDays - 1;
-        
-        allChapters.push({
-          subject: subject.subject,
-          chapter_name: chapter.chapter_name,
-          suggested_days: chapterDays,
-          day_start: startDay,
-          day_end: endDay,
-          order_num: chapterIndex + 1
-        });
-        
-        // Move this subject's timeline forward
-        subjectTimelines[subject.subject] = endDay + 1;
-      }
-    });
-  }
-  
-  // Calculate total duration = longest subject timeline
-  const totalDuration = Math.max(...Object.values(subjectTimelines)) - 1;
-  
-  return {
-    chapters: allChapters,
-    total_duration: totalDuration,
-    mode: 'parallel',
-    subject_timelines: subjectTimelines
-  };
-};
+// No time calculation - admin will set timeline manually
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -76,7 +30,6 @@ serve(async (req) => {
 
     const {
       batch_id,
-      total_days = 15,
       subjects,
       target_class,
       target_board,
@@ -92,7 +45,7 @@ serve(async (req) => {
       title
     } = await req.json();
 
-    console.log('Received request:', { batch_id, total_days, exam_type, exam_name, mode });
+    console.log('Received request:', { batch_id, exam_type, exam_name, mode });
 
     // Smart extraction
     let extractedClass = conditional_class || target_class;
@@ -151,29 +104,11 @@ serve(async (req) => {
       });
     }
 
-    // Calculate parallel timeline structure
-    const timelineStructure = mode === 'parallel' && selected_subjects 
-      ? calculateParallelTimeline(selected_subjects, total_days)
-      : null;
-
-    // Create AI prompt
-    const systemPrompt = mode === 'parallel' 
-      ? `You are an expert educational planner for PARALLEL (simultaneous) study.
-
-CRITICAL RULES:
-- Each subject has its OWN independent timeline starting from Day 1
-- DO NOT use cycles/weeks - subjects are NOT grouped
-- Example for 3 subjects:
-  
-  Physics:   Ch1 (Days 1-3) → Ch2 (Days 4-7) → Ch3 (Days 8-11)
-  Chemistry: Ch1 (Days 1-4) → Ch2 (Days 5-8) → Ch3 (Days 9-13)
-  Biology:   Ch1 (Days 1-5) → Ch2 (Days 6-10) → Ch3 (Days 11-16)
-  
-  Total roadmap = MAX(11, 13, 16) = 16 days
-  
-- Each chapter's day_start = previous chapter's day_end + 1 (for same subject)
-- Subjects run simultaneously but independently`
-      : `You are an expert educational curriculum planner. Create a ${total_days}-day learning roadmap.`;
+    // Create AI prompt - NO time allocation, only chapter organization
+    const systemPrompt = `You are an expert educational curriculum organizer.
+Your task is to organize chapters and topics for the given subjects.
+DO NOT assign any days, dates, or timeline. Only return the chapter organization and topic breakdown.
+The admin will manually set the timeline later.`;
     
     let studentContext = '';
     if (exam_type === 'School') {
@@ -196,63 +131,18 @@ CRITICAL RULES:
       studentContext = `- Exam: ${exam_name || exam_type}`;
     }
 
-    const userPrompt = mode === 'parallel' && timelineStructure
-      ? `Generate a PARALLEL study roadmap where subjects run INDEPENDENTLY:
+    const userPrompt = `Organize chapters and topics for the following:
 
 ${studentContext}
 - Subjects: ${extractedSubjects.join(', ')}
-- Target Duration: ${total_days} days (soft limit)
 ${existing_syllabus ? `- Context: ${existing_syllabus}` : ''}
 
 ${selected_subjects ? `
-CHAPTER DISTRIBUTION:
+SELECTED CHAPTERS:
 ${selected_subjects.map((s: any) => 
-  `${s.subject}: ${s.selected_chapters.length} chapters`
+  `${s.subject}: ${s.selected_chapters.map((c: any) => c.chapter_name).join(', ')}`
 ).join('\n')}
 ` : ''}
-
-Create a JSON response with this structure:
-{
-  "title": "${title || 'Independent Parallel Roadmap'}",
-  "description": "Brief description",
-  "chapters": [
-    {
-      "chapter_name": "Motion in One Dimension",
-      "subject": "Physics",
-      "order_num": 1,
-      "estimated_days": 3,
-      "day_start": 1,
-      "day_end": 3,
-      "topics": [
-        {
-          "topic_name": "Topic name",
-          "order_num": 1,
-          "estimated_hours": 2.5,
-          "day_number": 1
-        }
-      ]
-    },
-    {
-      "chapter_name": "Atomic Structure",
-      "subject": "Chemistry",
-      "order_num": 1,
-      "estimated_days": 4,
-      "day_start": 1,
-      "day_end": 4,
-      "topics": [...]
-    }
-  ]
-}
-
-RULES:
-- Each subject's first chapter starts on Day 1
-- Next chapter for same subject: day_start = previous.day_end + 1
-- Subjects DON'T affect each other's timelines
-- Total roadmap duration = MAX(all subject final day_end values)`
-      : `Generate a ${total_days}-day learning roadmap for:
-${studentContext}
-- Subjects: ${extractedSubjects.join(', ')}
-${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
 
 Create a JSON response with this structure:
 {
@@ -260,23 +150,29 @@ Create a JSON response with this structure:
   "description": "Brief description",
   "chapters": [
     {
-      "chapter_name": "Chapter name",
-      "subject": "Subject name",
+      "chapter_name": "Motion in One Dimension",
+      "subject": "Physics",
       "order_num": 1,
-      "estimated_days": 3,
-      "day_start": 1,
-      "day_end": 3,
       "topics": [
         {
-          "topic_name": "Topic name",
-          "order_num": 1,
-          "estimated_hours": 2.5,
-          "day_number": 1
+          "topic_name": "Displacement and Velocity",
+          "order_num": 1
+        },
+        {
+          "topic_name": "Acceleration",
+          "order_num": 2
         }
       ]
     }
   ]
-}`;
+}
+
+IMPORTANT:
+- Use the selected chapters if provided
+- DO NOT include estimated_days, day_start, day_end, or estimated_hours
+- Only return chapter_name, subject, order_num, and topics array
+- Each topic should only have topic_name and order_num
+- Organize chapters logically by difficulty and prerequisites`;
 
     // Call Lovable AI Gateway
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -332,26 +228,19 @@ Create a JSON response with this structure:
       });
     }
 
-    // Calculate dates
-    const startDate = new Date();
-    const actualTotalDays = mode === 'parallel' && timelineStructure 
-      ? timelineStructure.total_duration 
-      : total_days;
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + actualTotalDays);
+    // No date calculation - admin will set manually
+    console.log('Generated roadmap with', roadmapData.chapters?.length || 0, 'chapters');
 
-    console.log('Generated roadmap duration:', actualTotalDays, 'days');
-
-    // Insert roadmap with metadata
+    // Insert roadmap with metadata (NO timeline data)
     const { data: roadmap, error: roadmapError } = await supabase
       .from('batch_roadmaps')
       .insert({
         batch_id,
         title: roadmapData.title,
         description: roadmapData.description,
-        total_days: actualTotalDays,
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
+        total_days: null, // Admin will set manually
+        start_date: null,
+        end_date: null,
         status: 'draft',
         mode: mode,
         selected_subjects: extractedSubjects,
@@ -366,8 +255,7 @@ Create a JSON response with this structure:
             target_class: extractedClass,
             target_board: extractedBoard,
             subjects: extractedSubjects,
-            mode,
-            timeline_structure: timelineStructure
+            mode
           }
         },
         created_by: user.id
@@ -385,7 +273,7 @@ Create a JSON response with this structure:
       });
     }
 
-    // Insert chapters and topics
+    // Insert chapters and topics (NO time allocation)
     for (const chapter of roadmapData.chapters) {
       const { data: insertedChapter, error: chapterError } = await supabase
         .from('roadmap_chapters')
@@ -394,10 +282,10 @@ Create a JSON response with this structure:
           chapter_name: chapter.chapter_name,
           subject: chapter.subject,
           order_num: chapter.order_num,
-          estimated_days: chapter.estimated_days,
-          day_start: chapter.day_start,
-          day_end: chapter.day_end,
-          xp_reward: chapter.estimated_days * 100
+          estimated_days: null, // Admin will set manually
+          day_start: null,
+          day_end: null,
+          xp_reward: 100
         })
         .select()
         .single();
@@ -408,7 +296,7 @@ Create a JSON response with this structure:
       }
 
       // Insert topics for this chapter
-      if (chapter.topics) {
+      if (chapter.topics && Array.isArray(chapter.topics)) {
         for (const topic of chapter.topics) {
           await supabase
             .from('roadmap_topics')
@@ -416,14 +304,16 @@ Create a JSON response with this structure:
               chapter_id: insertedChapter.id,
               topic_name: topic.topic_name,
               order_num: topic.order_num,
-              estimated_hours: topic.estimated_hours,
-              day_number: topic.day_number,
-              xp_reward: Math.round(topic.estimated_hours * 25),
-              coin_reward: Math.round(topic.estimated_hours * 5)
+              estimated_hours: null, // Admin will set manually
+              day_number: null,
+              xp_reward: 50,
+              coin_reward: 10
             });
         }
       }
     }
+
+    console.log('✅ Roadmap created successfully - Timeline to be set manually');
 
     return new Response(JSON.stringify({
       success: true,

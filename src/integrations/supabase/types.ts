@@ -75,7 +75,7 @@ export type Database = {
           start_date: string
           status: Database["public"]["Enums"]["roadmap_status"] | null
           title: string
-          total_days: number
+          total_days: number | null
           updated_at: string | null
         }
         Insert: {
@@ -94,7 +94,7 @@ export type Database = {
           start_date: string
           status?: Database["public"]["Enums"]["roadmap_status"] | null
           title: string
-          total_days?: number
+          total_days?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -113,7 +113,7 @@ export type Database = {
           start_date?: string
           status?: Database["public"]["Enums"]["roadmap_status"] | null
           title?: string
-          total_days?: number
+          total_days?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1487,9 +1487,9 @@ export type Database = {
           chapter_library_id: string | null
           chapter_name: string
           created_at: string | null
-          day_end: number
-          day_start: number
-          estimated_days: number
+          day_end: number | null
+          day_start: number | null
+          estimated_days: number | null
           id: string
           is_custom: boolean | null
           is_selected: boolean | null
@@ -1503,9 +1503,9 @@ export type Database = {
           chapter_library_id?: string | null
           chapter_name: string
           created_at?: string | null
-          day_end: number
-          day_start: number
-          estimated_days: number
+          day_end?: number | null
+          day_start?: number | null
+          estimated_days?: number | null
           id?: string
           is_custom?: boolean | null
           is_selected?: boolean | null
@@ -1519,9 +1519,9 @@ export type Database = {
           chapter_library_id?: string | null
           chapter_name?: string
           created_at?: string | null
-          day_end?: number
-          day_start?: number
-          estimated_days?: number
+          day_end?: number | null
+          day_start?: number | null
+          estimated_days?: number | null
           id?: string
           is_custom?: boolean | null
           is_selected?: boolean | null

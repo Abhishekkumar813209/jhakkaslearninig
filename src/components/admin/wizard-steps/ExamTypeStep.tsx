@@ -18,8 +18,6 @@ interface ExamTypeStepProps {
   setBatchId: (value: string) => void;
   roadmapTitle: string;
   setRoadmapTitle: (value: string) => void;
-  totalDays: number;
-  setTotalDays: (value: number) => void;
   roadmapType: 'single_year' | 'combined';
   setRoadmapType: (value: 'single_year' | 'combined') => void;
 }
@@ -50,8 +48,6 @@ export const ExamTypeStep = ({
   setBatchId,
   roadmapTitle,
   setRoadmapTitle,
-  totalDays,
-  setTotalDays,
   roadmapType,
   setRoadmapType,
 }: ExamTypeStepProps) => {
@@ -306,21 +302,6 @@ export const ExamTypeStep = ({
             onChange={(e) => setRoadmapTitle(e.target.value)}
             className="mt-1.5"
           />
-        </div>
-
-        <div>
-          <Label>Total Days (Estimated Duration)</Label>
-          <Input
-            type="number"
-            min={7}
-            max={365}
-            value={totalDays}
-            onChange={(e) => setTotalDays(parseInt(e.target.value) || 30)}
-            className="mt-1.5"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            AI will distribute chapters across {totalDays} days
-          </p>
         </div>
       </div>
     </div>

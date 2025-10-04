@@ -104,15 +104,42 @@ serve(async (req) => {
     }
 
     // Create AI prompt with time budget
-    const systemPrompt = `You are an expert educational roadmap planner. Your task is to organize chapters and topics for subjects.
-  
-CRITICAL REQUIREMENTS:
-1. Return ONLY a valid JSON object, no additional text
-2. Intelligently distribute the time budget across chapters
-3. Assign MORE days to complex/heavy chapters (e.g., Modern Physics, Organic Chemistry, Calculus)
-4. Assign FEWER days to lighter chapters
-5. The sum of estimated_days for each subject MUST equal the time_budget for that subject
-6. Focus on logical organization and smart time distribution
+    const systemPrompt = `You are an expert educational roadmap planner specialized in mathematical time budget distribution.
+
+CRITICAL RULES - MUST FOLLOW:
+1. Return ONLY valid JSON, no markdown or extra text
+2. **The sum of estimated_days per subject MUST EXACTLY equal the time_budget**
+3. Distribute days based on chapter complexity:
+   - Complex chapters (Puzzles, Calculus, Organic Chemistry, Modern Physics): 10-15 days
+   - Moderate chapters (Algebra, Mechanics, Inorganic Chemistry): 6-9 days
+   - Simple chapters (Basic concepts, Definitions, Short topics): 4-6 days
+4. Reserve 3-5% of total budget for revision within complex chapters
+
+**MATHEMATICAL EXAMPLE:**
+Subject: Reasoning
+Time Budget: 100 days
+Total Chapters: 13
+Average per chapter: 100 ÷ 13 = ~7.7 days
+
+CORRECT Distribution Strategy:
+- Puzzles (complex): 12 days
+- Seating Arrangement (complex): 11 days
+- Logical Reasoning: 10 days
+- Blood Relations: 9 days
+- Coding-Decoding: 8 days
+- Syllogism: 8 days
+- Series: 7 days
+- Analogy: 7 days
+- Data Sufficiency: 6 days
+- Verbal Reasoning: 6 days
+- Direction Sense: 6 days
+- Non-Verbal: 5 days
+- Revision & Practice: 5 days
+**TOTAL = 100 days ✓**
+
+WRONG Example (DO NOT DO THIS):
+- All chapters: 3-5 days = Only 45 days used ❌
+- Wastes 55 days of budget ❌
 
 Return format:
 {
@@ -157,29 +184,44 @@ Return format:
     const userPrompt = `Create a learning roadmap for:
 
 ${studentContext}
-- Subjects: ${extractedSubjects.join(', ')}
+Subjects: ${extractedSubjects.join(', ')}
 
-Time Budget per Subject (in days):
-${time_budget ? JSON.stringify(time_budget, null, 2) : 'Not specified - use reasonable defaults'}
+**TIME BUDGET (MUST BE FULLY UTILIZED):**
+${time_budget ? Object.entries(time_budget).map(([subject, days]) => {
+  const chapterCount = selected_subjects?.find((s: any) => s.subject === subject)?.selected_chapters?.length || 10;
+  const avgDays = Math.round((days as number) / chapterCount);
+  return `- ${subject}: ${days} days total (${chapterCount} chapters, ~${avgDays} days/chapter average)`;
+}).join('\n') : 'Not specified'}
 
-${existing_syllabus ? `- Context: ${existing_syllabus}` : ''}
+${existing_syllabus ? `Context: ${existing_syllabus}` : ''}
 
 ${selected_subjects ? `
-SELECTED CHAPTERS:
-${selected_subjects.map((s: any) => 
-  `${s.subject}: ${s.selected_chapters.map((c: any) => c.chapter_name).join(', ')}`
-).join('\n')}
+CHAPTERS TO INCLUDE:
+${selected_subjects.map((s: any) => {
+  const budget = time_budget?.[s.subject] || 0;
+  return `${s.subject} (${budget} days budget): ${s.selected_chapters.map((c: any) => c.chapter_name).join(', ')}`;
+}).join('\n')}
 ` : ''}
 
-Return a JSON object with chapters array. Each chapter must have:
+**CRITICAL INSTRUCTIONS:**
+1. Calculate: total_budget ÷ number_of_chapters = average_days
+2. Distribute days around this average (complex chapters +3 to +5, simple -2 to -3)
+3. Complex/difficult chapters get MORE than average
+4. Simple/easy chapters get LESS than average
+5. **VERIFY BEFORE RETURNING: Sum of all chapter days = time_budget EXACTLY**
+6. Add small revision/buffer in last chapter (3-5% of total)
+
+Mathematical Example:
+- Budget: 100 days, Chapters: 13 → Average = 7.7 days
+- Assign days: [12, 11, 10, 9, 8, 8, 7, 7, 6, 6, 6, 5, 5] = 100 ✓
+- NOT: [3, 4, 5, 3, 4, 5...] = Only 50 days ❌
+
+Return JSON with chapters array containing:
 - chapter_name
 - subject
 - order_num
-- estimated_days (intelligently distributed from time budget)
-- topics array (with topic_name, order_num, estimated_hours)
-
-CRITICAL: The sum of estimated_days for each subject MUST equal its time_budget.
-Distribute days intelligently - more complex chapters get more days.`;
+- estimated_days (MUST sum to budget)
+- topics array (topic_name, order_num, estimated_hours)`;
 
     // Call Lovable AI Gateway
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -236,6 +278,33 @@ Distribute days intelligently - more complex chapters get more days.`;
     }
 
     console.log('Generated roadmap with', roadmapData.chapters?.length || 0, 'chapters');
+
+    // Validate time budget distribution
+    const subjectDaysMap = new Map();
+    roadmapData.chapters.forEach((chapter: any) => {
+      const current = subjectDaysMap.get(chapter.subject) || 0;
+      subjectDaysMap.set(chapter.subject, current + (chapter.estimated_days || 0));
+    });
+
+    console.log('📊 Time Budget Validation:');
+    let hasError = false;
+    if (time_budget) {
+      for (const [subject, budgetDays] of Object.entries(time_budget)) {
+        const assignedDays = subjectDaysMap.get(subject) || 0;
+        const diff = assignedDays - (budgetDays as number);
+        const status = Math.abs(diff) <= 5 ? '✅' : '❌';
+        
+        console.log(`${status} ${subject}: Budget=${budgetDays}d, Assigned=${assignedDays}d, Diff=${diff}d`);
+        
+        if (Math.abs(diff) > 10) {
+          hasError = true;
+        }
+      }
+    }
+
+    if (hasError) {
+      console.warn('⚠️ WARNING: AI did not properly distribute time budget! Days may not match.');
+    }
 
     // Insert roadmap with metadata
     const { data: roadmap, error: roadmapError } = await supabase

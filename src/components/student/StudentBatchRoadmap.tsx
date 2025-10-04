@@ -11,6 +11,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { TopicStudyView } from "./TopicStudyView";
+import { ChapterTopicListView } from "./ChapterTopicListView";
 
 interface RoadmapData {
   id: string;
@@ -40,10 +41,10 @@ interface RoadmapData {
 
 interface SortableChapterProps {
   chapter: any;
-  onTopicClick: (topicId: string, chapterName: string, topicName: string) => void;
+  onChapterClick: (chapterId: string, chapterName: string, topics: any[]) => void;
 }
 
-const SortableChapter = ({ chapter, onTopicClick }: SortableChapterProps) => {
+const SortableChapter = ({ chapter, onChapterClick }: SortableChapterProps) => {
   const {
     attributes,
     listeners,
@@ -59,13 +60,19 @@ const SortableChapter = ({ chapter, onTopicClick }: SortableChapterProps) => {
 
   return (
     <div ref={setNodeRef} style={style} className="border rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between">
+      <div 
+        className="flex items-center justify-between cursor-pointer hover:bg-muted/50 -m-3 p-3 rounded-lg transition-colors"
+        onClick={() => onChapterClick(chapter.id, chapter.chapter_name, chapter.topics)}
+      >
         <div className="flex items-center gap-2">
-          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing" onClick={(e) => e.stopPropagation()}>
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-medium text-sm">{chapter.chapter_name}</span>
+          <Badge variant="secondary" className="text-xs">
+            {chapter.topics.length} topics
+          </Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="h-3 w-3" />
@@ -74,32 +81,17 @@ const SortableChapter = ({ chapter, onTopicClick }: SortableChapterProps) => {
       </div>
       
       <Progress value={chapter.progress} className="h-1" />
-      
-      <div className="flex flex-wrap gap-1.5">
-        {chapter.topics.map((topic: any) => (
-          <Button
-            key={topic.id}
-            variant={topic.status === "completed" ? "default" : "outline"}
-            size="sm"
-            className="text-xs"
-            onClick={() => onTopicClick(topic.id, chapter.chapter_name, topic.topic_name)}
-          >
-            {topic.topic_name}
-            {topic.status === "completed" && " ✓"}
-          </Button>
-        ))}
-      </div>
     </div>
   );
 };
 
 interface SortableSubjectCardProps {
   subject: RoadmapData['subjects'][0];
-  onTopicClick: (topicId: string, chapterName: string, topicName: string) => void;
+  onChapterClick: (chapterId: string, chapterName: string, topics: any[]) => void;
   onChapterReorder: (subjectName: string, reorderedChapterIds: string[]) => void;
 }
 
-const SortableSubjectCard = ({ subject, onTopicClick, onChapterReorder }: SortableSubjectCardProps) => {
+const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: SortableSubjectCardProps) => {
   const [localChapters, setLocalChapters] = useState(subject.chapters);
 
   useEffect(() => {
@@ -168,7 +160,7 @@ const SortableSubjectCard = ({ subject, onTopicClick, onChapterReorder }: Sortab
           <Progress value={avgProgress} className="h-2" />
           
           <div className="bg-muted/50 border rounded-lg p-2 text-xs text-muted-foreground">
-            💡 Drag chapters to reorder them within this subject
+            💡 Click on a chapter to see all topics • Drag to reorder
           </div>
 
           <DndContext 
@@ -183,7 +175,7 @@ const SortableSubjectCard = ({ subject, onTopicClick, onChapterReorder }: Sortab
                   <SortableChapter 
                     key={chapter.id} 
                     chapter={chapter}
-                    onTopicClick={onTopicClick}
+                    onChapterClick={onChapterClick}
                   />
                 ))}
               </div>
@@ -198,6 +190,7 @@ const SortableSubjectCard = ({ subject, onTopicClick, onChapterReorder }: Sortab
 export const StudentBatchRoadmap = () => {
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string; topics: any[] } | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<{ id: string; chapterName: string; name: string } | null>(null);
   const { toast } = useToast();
 
@@ -329,6 +322,20 @@ export const StudentBatchRoadmap = () => {
     );
   }
 
+  if (selectedChapter) {
+    return (
+      <ChapterTopicListView
+        chapterId={selectedChapter.id}
+        chapterName={selectedChapter.name}
+        topics={selectedChapter.topics}
+        onTopicClick={(topicId, topicName) => {
+          setSelectedTopic({ id: topicId, chapterName: selectedChapter.name, name: topicName });
+        }}
+        onBack={() => setSelectedChapter(null)}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -392,7 +399,9 @@ export const StudentBatchRoadmap = () => {
               <SortableSubjectCard 
                 key={subject.name} 
                 subject={subject}
-                onTopicClick={(topicId, chapterName, topicName) => setSelectedTopic({ id: topicId, chapterName, name: topicName })}
+                onChapterClick={(chapterId, chapterName, topics) => {
+                  setSelectedChapter({ id: chapterId, name: chapterName, topics });
+                }}
                 onChapterReorder={handleChapterReorder}
               />
             ))}

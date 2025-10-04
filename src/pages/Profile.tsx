@@ -188,24 +188,73 @@ const Profile = () => {
                           <SelectTrigger>
                             <SelectValue placeholder="Select exam category" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="school">School Preparation</SelectItem>
-                            <SelectItem value="competitive">Competitive Exams</SelectItem>
-                            <SelectItem value="government">Government Exams</SelectItem>
-                            <SelectItem value="ugpg">UG & PG Entrance</SelectItem>
-                            <SelectItem value="finance">Finance</SelectItem>
-                            <SelectItem value="others">Others</SelectItem>
+                          <SelectContent className="max-h-[300px]">
+                            {/* School Preparation */}
+                            <SelectItem value="school">📚 School (Foundation to 12th)</SelectItem>
+                            
+                            {/* Competitive Exams */}
+                            <SelectItem value="iit_jee_main">🎯 IIT JEE Main</SelectItem>
+                            <SelectItem value="iit_jee_advanced">🏆 IIT JEE Advanced</SelectItem>
+                            <SelectItem value="neet_ug">🩺 NEET UG</SelectItem>
+                            <SelectItem value="neet_pg">🏥 NEET PG</SelectItem>
+                            <SelectItem value="bitsat">💻 BITSAT</SelectItem>
+                            <SelectItem value="viteee">⚡ VITEEE</SelectItem>
+                            
+                            {/* Government Exams */}
+                            <SelectItem value="upsc_cse">🏛️ UPSC CSE</SelectItem>
+                            <SelectItem value="ssc_cgl">📝 SSC CGL</SelectItem>
+                            <SelectItem value="ssc_chsl">📋 SSC CHSL</SelectItem>
+                            <SelectItem value="ibps_po">🏦 IBPS PO</SelectItem>
+                            <SelectItem value="ibps_clerk">💼 IBPS Clerk</SelectItem>
+                            <SelectItem value="sbi_po">🏛️ SBI PO</SelectItem>
+                            <SelectItem value="railway_ntpc">🚂 Railway NTPC</SelectItem>
+                            
+                            {/* UG & PG Entrance */}
+                            <SelectItem value="cat">📊 CAT (MBA)</SelectItem>
+                            <SelectItem value="xat">🎓 XAT</SelectItem>
+                            <SelectItem value="clat">⚖️ CLAT (Law)</SelectItem>
+                            <SelectItem value="gate">🔬 GATE</SelectItem>
+                            <SelectItem value="cmat">📈 CMAT</SelectItem>
+                            
+                            {/* Finance */}
+                            <SelectItem value="ca_foundation">💰 CA Foundation</SelectItem>
+                            <SelectItem value="ca_intermediate">📚 CA Intermediate</SelectItem>
+                            <SelectItem value="ca_final">🎯 CA Final</SelectItem>
+                            <SelectItem value="cs">📜 CS (Company Secretary)</SelectItem>
+                            <SelectItem value="cma">💼 CMA</SelectItem>
+                            
+                            {/* Others */}
+                            <SelectItem value="others">📖 Others</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
                         <div className="p-3 bg-muted rounded-md">
                           {examDomain ? (
-                            examDomain === 'school' ? 'School Preparation' :
-                            examDomain === 'competitive' ? 'Competitive Exams' :
-                            examDomain === 'government' ? 'Government Exams' :
-                            examDomain === 'ugpg' ? 'UG & PG Entrance' :
-                            examDomain === 'finance' ? 'Finance' :
-                            examDomain === 'others' ? 'Others' :
+                            examDomain === 'school' ? '📚 School (Foundation to 12th)' :
+                            examDomain === 'iit_jee_main' ? '🎯 IIT JEE Main' :
+                            examDomain === 'iit_jee_advanced' ? '🏆 IIT JEE Advanced' :
+                            examDomain === 'neet_ug' ? '🩺 NEET UG' :
+                            examDomain === 'neet_pg' ? '🏥 NEET PG' :
+                            examDomain === 'bitsat' ? '💻 BITSAT' :
+                            examDomain === 'viteee' ? '⚡ VITEEE' :
+                            examDomain === 'upsc_cse' ? '🏛️ UPSC CSE' :
+                            examDomain === 'ssc_cgl' ? '📝 SSC CGL' :
+                            examDomain === 'ssc_chsl' ? '📋 SSC CHSL' :
+                            examDomain === 'ibps_po' ? '🏦 IBPS PO' :
+                            examDomain === 'ibps_clerk' ? '💼 IBPS Clerk' :
+                            examDomain === 'sbi_po' ? '🏛️ SBI PO' :
+                            examDomain === 'railway_ntpc' ? '🚂 Railway NTPC' :
+                            examDomain === 'cat' ? '📊 CAT (MBA)' :
+                            examDomain === 'xat' ? '🎓 XAT' :
+                            examDomain === 'clat' ? '⚖️ CLAT (Law)' :
+                            examDomain === 'gate' ? '🔬 GATE' :
+                            examDomain === 'cmat' ? '📈 CMAT' :
+                            examDomain === 'ca_foundation' ? '💰 CA Foundation' :
+                            examDomain === 'ca_intermediate' ? '📚 CA Intermediate' :
+                            examDomain === 'ca_final' ? '🎯 CA Final' :
+                            examDomain === 'cs' ? '📜 CS (Company Secretary)' :
+                            examDomain === 'cma' ? '💼 CMA' :
+                            examDomain === 'others' ? '📖 Others' :
                             examDomain.charAt(0).toUpperCase() + examDomain.slice(1)
                           ) : 'Not set'}
                         </div>

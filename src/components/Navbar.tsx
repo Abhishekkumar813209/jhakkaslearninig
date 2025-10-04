@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home } from "lucide-react";
+import { XPDisplay } from "@/components/student/XPDisplay";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { authAPI } from "@/services/api";
@@ -79,7 +80,7 @@ const Navbar = () => {
                 </Link>
                 <Link to="/courses">
                   <Button variant="nav" size="sm">
-                    Courses
+                    Study
                   </Button>
                 </Link>
                 <Link to="/tests">
@@ -143,6 +144,7 @@ const Navbar = () => {
             ) : (
               // Authenticated Actions
               <>
+                {isStudent && <XPDisplay compact />}
                 <Link to="/profile">
                   <Button variant="ghost" size="icon">
                     <User className="h-5 w-5" />

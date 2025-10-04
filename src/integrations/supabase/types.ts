@@ -1852,6 +1852,7 @@ export type Database = {
           progress: number | null
           status: string | null
           student_id: string
+          subject_order: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -1861,6 +1862,7 @@ export type Database = {
           progress?: number | null
           status?: string | null
           student_id: string
+          subject_order?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -1870,6 +1872,7 @@ export type Database = {
           progress?: number | null
           status?: string | null
           student_id?: string
+          subject_order?: Json | null
           updated_at?: string | null
         }
         Relationships: [

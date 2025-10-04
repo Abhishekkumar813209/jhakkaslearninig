@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, addDays, parseISO } from 'date-fns';
 import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -19,6 +19,7 @@ export interface CalendarChapter {
   videoLink?: string;
   isBufferTime?: boolean;
   isLive?: boolean;
+  estimatedDays?: number;
 }
 
 interface RoadmapCalendarViewProps {
@@ -44,14 +45,14 @@ const SUBJECT_COLORS: Record<string, string> = {
   default: 'bg-gray-50 border-gray-200'
 };
 
-interface SortableChapterCellProps {
+interface SortableChapterPillProps {
   chapter: CalendarChapter;
   isEditable: boolean;
   onUpdate: (id: string, updates: Partial<CalendarChapter>) => void;
   onDelete: (id: string) => void;
 }
 
-const SortableChapterCell = ({ chapter, isEditable, onUpdate, onDelete }: SortableChapterCellProps) => {
+const SortableChapterPill = ({ chapter, isEditable, onUpdate, onDelete }: SortableChapterPillProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(chapter.chapterName);
   const [videoLink, setVideoLink] = useState(chapter.videoLink || '');
@@ -83,45 +84,55 @@ const SortableChapterCell = ({ chapter, isEditable, onUpdate, onDelete }: Sortab
     toast.success('Video link updated');
   };
 
+  const handleDaysChange = (delta: number) => {
+    const currentDays = chapter.estimatedDays || 1;
+    const newDays = Math.max(1, currentDays + delta);
+    onUpdate(chapter.id, { estimatedDays: newDays });
+  };
+
   const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`min-h-[80px] p-2 border rounded-md ${colorClass} relative group`}
+      className={`inline-flex flex-col gap-1 p-2 border rounded-lg ${colorClass} relative group mr-2 mb-2 min-w-[200px]`}
     >
       {isEditable && (
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+        <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background rounded-full shadow-sm p-1">
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-5 w-5"
             onClick={() => onDelete(chapter.id)}
           >
             <Trash2 className="h-3 w-3" />
           </Button>
-          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1">
+            <GripVertical className="h-3 w-3 text-muted-foreground" />
           </div>
         </div>
       )}
 
+      {/* Subject tag */}
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        {chapter.subject}
+      </div>
+
+      {/* Chapter name */}
       {isEditing ? (
-        <div className="space-y-2">
-          <Input
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={handleSave}
-            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-            autoFocus
-            className="text-sm"
-          />
-        </div>
+        <Input
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          autoFocus
+          className="text-sm h-7"
+        />
       ) : (
         <div
           onClick={() => isEditable && setIsEditing(true)}
-          className={`font-medium text-sm mb-1 ${isEditable ? 'cursor-pointer hover:bg-white/50 rounded px-1' : ''}`}
+          className={`font-medium text-sm ${isEditable ? 'cursor-pointer hover:bg-white/50 rounded px-1' : ''}`}
         >
           {chapter.chapterName}
           {chapter.isLive && (
@@ -130,13 +141,14 @@ const SortableChapterCell = ({ chapter, isEditable, onUpdate, onDelete }: Sortab
         </div>
       )}
 
+      {/* Video link */}
       {showVideoInput ? (
         <div className="space-y-1">
           <Input
             placeholder="Enter video link"
             value={videoLink}
             onChange={(e) => setVideoLink(e.target.value)}
-            className="text-xs"
+            className="text-xs h-7"
           />
           <div className="flex gap-1">
             <Button size="sm" onClick={handleVideoSave} className="h-6 text-xs">
@@ -161,88 +173,134 @@ const SortableChapterCell = ({ chapter, isEditable, onUpdate, onDelete }: Sortab
           }}
         >
           <Video className="h-3 w-3" />
-          For Video Link Click Here
+          Video Link
         </a>
       ) : isEditable ? (
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setShowVideoInput(true)}
-          className="h-6 text-xs text-blue-600"
+          className="h-6 text-xs text-blue-600 justify-start px-1"
         >
           <Video className="h-3 w-3 mr-1" />
-          Add Video Link
+          Add Video
         </Button>
       ) : null}
+
+      {/* Duration control */}
+      {isEditable && (
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground">Days:</span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-5 w-5"
+            onClick={() => handleDaysChange(-1)}
+            disabled={(chapter.estimatedDays || 1) <= 1}
+          >
+            -
+          </Button>
+          <span className="font-medium min-w-[20px] text-center">{chapter.estimatedDays || 1}</span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-5 w-5"
+            onClick={() => handleDaysChange(1)}
+          >
+            +
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
 
-// Helpers for cell droppable IDs
-const CELL_PREFIX = 'cell|';
-const makeCellId = (date: string, subject: string) => `${CELL_PREFIX}${date}|${encodeURIComponent(subject)}`;
-const parseCellId = (id: string) => {
-  const [, date, subjectEnc] = id.split('|');
-  return { date, subject: decodeURIComponent(subjectEnc || '') };
+// Helpers for row droppable IDs
+const ROW_PREFIX = 'row|';
+const makeRowId = (date: string) => `${ROW_PREFIX}${date}`;
+const parseRowId = (id: string) => {
+  const date = id.replace(ROW_PREFIX, '');
+  return { date };
 };
 
-interface CalendarCellProps {
+interface DateRowProps {
   date: string;
-  subject: string;
-  cellChapters: CalendarChapter[];
+  rowChapters: CalendarChapter[];
   isEditable: boolean;
+  allSubjects: string[];
   onAddChapter: (date: string, subject: string) => void;
   onUpdate: (id: string, updates: Partial<CalendarChapter>) => void;
   onDelete: (id: string) => void;
 }
 
-const CalendarCell = ({
+const DateRow = ({
   date,
-  subject,
-  cellChapters,
+  rowChapters,
   isEditable,
+  allSubjects,
   onAddChapter,
   onUpdate,
   onDelete,
-}: CalendarCellProps) => {
-  const { setNodeRef, isOver } = useDroppable({ id: makeCellId(date, subject) });
+}: DateRowProps) => {
+  const { setNodeRef, isOver } = useDroppable({ id: makeRowId(date) });
+  const [selectedSubject, setSelectedSubject] = useState(allSubjects[0] || 'Physics');
+
+  const handleAddChapter = () => {
+    onAddChapter(date, selectedSubject);
+  };
+
   return (
-    <td ref={setNodeRef} className={`border p-2 align-top ${isOver ? 'ring-2 ring-primary/40' : ''}`}>
-      <SortableContext items={cellChapters.map(c => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2">
-          {cellChapters.map(chapter => (
-            <SortableChapterCell
-              key={chapter.id}
-              chapter={chapter}
-              isEditable={isEditable}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))}
-          {isEditable && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onAddChapter(date, subject)}
-              className="w-full h-10 border-dashed hover:bg-primary/5"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Chapter
-            </Button>
-          )}
-          {!isEditable && cellChapters.length === 0 && (
-            <div className="min-h-[60px] text-center text-muted-foreground text-sm flex items-center justify-center">
-              -
-            </div>
-          )}
-        </div>
-      </SortableContext>
-    </td>
+    <tr ref={setNodeRef} className={`border-b hover:bg-muted/20 ${isOver ? 'ring-2 ring-primary/40' : ''}`}>
+      <td className="border p-3 font-medium text-sm sticky left-0 bg-background z-10 min-w-[120px]">
+        {format(parseISO(date), 'MMM dd, yyyy')}
+      </td>
+      <td className="border p-3 align-top">
+        <SortableContext items={rowChapters.map(c => c.id)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-wrap items-start min-h-[60px]">
+            {rowChapters.map(chapter => (
+              <SortableChapterPill
+                key={chapter.id}
+                chapter={chapter}
+                isEditable={isEditable}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            ))}
+            {isEditable && (
+              <div className="inline-flex items-center gap-2 mt-1">
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="text-xs border rounded px-2 py-1 bg-background"
+                >
+                  {allSubjects.map(subject => (
+                    <option key={subject} value={subject}>{subject}</option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddChapter}
+                  className="h-8 border-dashed hover:bg-primary/5"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Chapter
+                </Button>
+              </div>
+            )}
+            {!isEditable && rowChapters.length === 0 && (
+              <div className="text-muted-foreground text-sm">No chapters planned</div>
+            )}
+          </div>
+        </SortableContext>
+      </td>
+    </tr>
   );
 };
 
 export const RoadmapCalendarView = ({
   startDate,
+  totalDays,
   subjects,
   chapters: initialChapters,
   isEditable = false,
@@ -250,6 +308,11 @@ export const RoadmapCalendarView = ({
   onChaptersChange
 }: RoadmapCalendarViewProps) => {
   const [chapters, setChapters] = useState<CalendarChapter[]>(initialChapters);
+  
+  // Sync with initialChapters when they change
+  useEffect(() => {
+    setChapters(initialChapters);
+  }, [initialChapters]);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -259,23 +322,22 @@ export const RoadmapCalendarView = ({
     })
   );
 
-  // Group chapters by date
-  const groupedByDate = chapters.reduce((acc, chapter) => {
-    if (!acc[chapter.date]) {
-      acc[chapter.date] = {};
+  // Generate all dates from startDate to totalDays
+  const generateDateRange = (start: Date, days: number): string[] => {
+    const dates: string[] = [];
+    for (let i = 0; i < days; i++) {
+      dates.push(format(addDays(start, i), 'yyyy-MM-dd'));
     }
-    if (chapter.isBufferTime) {
-      acc[chapter.date]['BUFFER'] = [chapter];
-    } else {
-      if (!acc[chapter.date][chapter.subject]) {
-        acc[chapter.date][chapter.subject] = [];
-      }
-      acc[chapter.date][chapter.subject].push(chapter);
-    }
-    return acc;
-  }, {} as Record<string, Record<string, CalendarChapter[]>>);
+    return dates;
+  };
 
-  const dates = Object.keys(groupedByDate).sort();
+  const allDates = generateDateRange(startDate, totalDays);
+
+  // Group chapters by date (all subjects mixed in one row)
+  const groupedByDate = allDates.reduce((acc, date) => {
+    acc[date] = chapters.filter(ch => ch.date === date && !ch.isBufferTime);
+    return acc;
+  }, {} as Record<string, CalendarChapter[]>);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -288,35 +350,33 @@ export const RoadmapCalendarView = ({
     if (!activeChapter) return;
 
     let targetDate = activeChapter.date;
-    let targetSubject = activeChapter.subject;
     let insertBeforeId: string | null = null;
 
     const overChapter = chapters.find(c => c.id === overId);
 
     if (overChapter) {
-      // Drop over a chapter -> move into that chapter's cell and position before it
+      // Drop over a chapter -> move to that chapter's date and insert before it
       targetDate = overChapter.date;
-      targetSubject = overChapter.subject;
       insertBeforeId = overChapter.id;
-    } else if (overId.startsWith(CELL_PREFIX)) {
-      const { date, subject } = parseCellId(overId);
+    } else if (overId.startsWith(ROW_PREFIX)) {
+      const { date } = parseRowId(overId);
       targetDate = date;
-      targetSubject = subject;
     } else {
       return;
     }
 
-    // If nothing changed and we're not reordering, bail out
-    if (targetDate === activeChapter.date && targetSubject === activeChapter.subject && insertBeforeId === null) {
+    // If nothing changed, bail out
+    if (targetDate === activeChapter.date && insertBeforeId === null) {
       return;
     }
 
     const withoutActive = chapters.filter(c => c.id !== activeId);
-    const moved: CalendarChapter = { ...activeChapter, date: targetDate, subject: targetSubject };
+    const moved: CalendarChapter = { ...activeChapter, date: targetDate };
 
     let updatedChapters: CalendarChapter[] = [];
 
     if (insertBeforeId) {
+      // Insert before the target chapter
       for (const item of withoutActive) {
         if (item.id === insertBeforeId) {
           updatedChapters.push(moved);
@@ -324,26 +384,19 @@ export const RoadmapCalendarView = ({
         updatedChapters.push(item);
       }
     } else {
-      // Append to end of target cell
-      const lastIndexInCell = withoutActive.reduce((idx, item, i) => {
-        return item.date === targetDate && !item.isBufferTime && item.subject === targetSubject ? i : idx;
+      // Append to end of target row
+      const lastIndexInRow = withoutActive.reduce((idx, item, i) => {
+        return item.date === targetDate && !item.isBufferTime ? i : idx;
       }, -1);
-      if (lastIndexInCell >= 0) {
-        updatedChapters = [...withoutActive];
-        updatedChapters.splice(lastIndexInCell + 1, 0, moved);
-      } else {
-        // No chapters in that cell; place after the last item of the target date, or at end
-        const lastIndexInDate = withoutActive.reduce((idx, item, i) => {
-          return item.date === targetDate ? i : idx;
-        }, -1);
-        updatedChapters = [...withoutActive];
-        const insertIndex = lastIndexInDate >= 0 ? lastIndexInDate + 1 : updatedChapters.length;
-        updatedChapters.splice(insertIndex, 0, moved);
-      }
+      
+      updatedChapters = [...withoutActive];
+      const insertIndex = lastIndexInRow >= 0 ? lastIndexInRow + 1 : updatedChapters.length;
+      updatedChapters.splice(insertIndex, 0, moved);
     }
 
     setChapters(updatedChapters);
     onChaptersChange?.(updatedChapters);
+    toast.success('Chapter moved!', { duration: 1000 });
   };
 
   const handleUpdateChapter = (id: string, updates: Partial<CalendarChapter>) => {
@@ -367,7 +420,8 @@ export const RoadmapCalendarView = ({
       date,
       subject,
       chapterName: 'New Chapter',
-      isBufferTime: false
+      isBufferTime: false,
+      estimatedDays: 1
     };
 
     const updatedChapters = [...chapters, newChapter].sort((a, b) => 
@@ -481,84 +535,27 @@ export const RoadmapCalendarView = ({
                   <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 min-w-[120px]">
                     Date
                   </th>
-                  {subjects.map(subject => (
-                    <th key={subject} className="border p-3 text-center font-semibold min-w-[200px]">
-                      {subject}
-                    </th>
-                  ))}
+                  <th className="border p-3 text-left font-semibold">
+                    Plan (All Subjects)
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                
-                  {dates.map((date) => {
-                    const dateData = groupedByDate[date];
-                    const isBuffer = dateData['BUFFER'];
-
-                    if (isBuffer) {
-                      const bufferChapter = isBuffer[0];
-                      return (
-                        <tr key={date} className="bg-pink-50">
-                          <td className="border p-3 font-medium sticky left-0 bg-pink-50 z-10">
-                            {format(parseISO(date), 'dd MMM yyyy')}
-                          </td>
-                          <td colSpan={subjects.length} className="border p-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-lg font-semibold text-pink-700">
-                                {bufferChapter.chapterName}
-                              </span>
-                              {isEditable && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteChapter(bufferChapter.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return (
-                      <tr key={date} className="hover:bg-muted/30">
-                        <td className="border p-3 font-medium sticky left-0 bg-background z-10">
-                          <div className="flex flex-col">
-                            <span>{format(parseISO(date), 'dd MMM')}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(parseISO(date), 'yyyy')}
-                            </span>
-                          </div>
-                          {isEditable && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAddBufferTime(date)}
-                              className="mt-2 h-7 text-xs"
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Buffer
-                            </Button>
-                          )}
-                        </td>
-                        {subjects.map(subject => {
-                          const subjectChapters = dateData[subject] || [];
-                          return (
-                            <CalendarCell
-                              date={date}
-                              subject={subject}
-                              cellChapters={subjectChapters}
-                              isEditable={isEditable}
-                              onAddChapter={handleAddChapter}
-                              onUpdate={handleUpdateChapter}
-                              onDelete={handleDeleteChapter}
-                            />
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                {allDates.map((date) => {
+                  const rowChapters = groupedByDate[date];
+                  return (
+                    <DateRow
+                      key={`row-${date}`}
+                      date={date}
+                      rowChapters={rowChapters}
+                      isEditable={isEditable}
+                      allSubjects={subjects}
+                      onAddChapter={handleAddChapter}
+                      onUpdate={handleUpdateChapter}
+                      onDelete={handleDeleteChapter}
+                    />
+                  );
+                })}
               </tbody>
             </table>
           </DndContext>

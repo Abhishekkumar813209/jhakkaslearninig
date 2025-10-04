@@ -73,7 +73,8 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
           chapterName: ch.chapter_name,
           videoLink: (ch as any).video_link,
           isBufferTime: false,
-          isLive: false
+          isLive: false,
+          estimatedDays: ch.estimated_days || 1
         }));
         setCalendarChapters(calChapters);
       }
@@ -87,6 +88,33 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
 
   const handleCalendarChaptersChange = (updatedChapters: CalendarChapter[]) => {
     setCalendarChapters(updatedChapters);
+    
+    // Also sync with chapters state
+    const updatedChaptersArray = updatedChapters.map(calCh => {
+      const existingChapter = chapters.find(c => c.id === calCh.id);
+      if (!existingChapter) {
+        // New chapter
+        return {
+          id: calCh.id,
+          chapter_name: calCh.chapterName,
+          subject: calCh.subject,
+          estimated_days: calCh.estimatedDays || 1,
+          day_start: 0,
+          day_end: 0,
+          order_num: 0,
+          video_link: calCh.videoLink || null
+        };
+      }
+      return {
+        ...existingChapter,
+        chapter_name: calCh.chapterName,
+        subject: calCh.subject,
+        estimated_days: calCh.estimatedDays || existingChapter.estimated_days,
+        video_link: calCh.videoLink || null
+      };
+    });
+    
+    setChapters(updatedChaptersArray as any);
   };
 
   const handleAutoAdjust = async () => {
@@ -148,13 +176,16 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
         const chapterDate = parseISO(calChapter.date);
         const daysDiff = Math.floor((chapterDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         
+        const estimatedDays = calChapter.estimatedDays || chapter.estimated_days || 1;
+        
         await supabase
           .from('roadmap_chapters')
           .update({
             chapter_name: calChapter.chapterName,
             subject: calChapter.subject,
             day_start: daysDiff + 1,
-            day_end: daysDiff + chapter.estimated_days,
+            day_end: daysDiff + estimatedDays,
+            estimated_days: estimatedDays,
             video_link: calChapter.videoLink || null
           })
           .eq('id', calChapter.id);

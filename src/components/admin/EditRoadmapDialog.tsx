@@ -32,6 +32,7 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
   const [calendarChapters, setCalendarChapters] = useState<CalendarChapter[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [roadmapMode, setRoadmapMode] = useState<'sequential' | 'parallel'>('parallel');
 
   useEffect(() => {
     if (roadmapId && open) {
@@ -53,6 +54,7 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
 
       if (roadmapError) throw roadmapError;
       setRoadmapData(roadmap);
+      setRoadmapMode((roadmap.mode as 'sequential' | 'parallel') || 'parallel');
 
       // Fetch chapters
       const { data, error } = await supabase
@@ -241,23 +243,24 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
           </div>
         ) : (
           <div className="space-y-4">
-            <RoadmapCalendarView
-              roadmapId={roadmapId}
-              startDate={parseISO(roadmapData.start_date)}
-              totalDays={roadmapData.total_days}
-              subjects={(() => {
-                const defaultColumns = ['Physics', 'Chemistry', 'Biology'];
-                const selected = Array.isArray(roadmapData.selected_subjects) 
-                  ? roadmapData.selected_subjects 
-                  : (roadmapData.selected_subjects?.subjects || []);
-                const allSubjects = Array.from(new Set([...defaultColumns, ...selected, ...chapters.map(c => c.subject)]));
-                return allSubjects;
-              })()}
-              chapters={calendarChapters}
-              isEditable={true}
-              onChaptersChange={handleCalendarChaptersChange}
-              onSave={handleSave}
-            />
+          <RoadmapCalendarView
+            mode={roadmapMode}
+            roadmapId={roadmapId}
+            startDate={parseISO(roadmapData.start_date)}
+            totalDays={roadmapData.total_days}
+            subjects={(() => {
+              const defaultColumns = ['Physics', 'Chemistry', 'Biology'];
+              const selected = Array.isArray(roadmapData.selected_subjects) 
+                ? roadmapData.selected_subjects 
+                : (roadmapData.selected_subjects?.subjects || []);
+              const allSubjects = Array.from(new Set([...defaultColumns, ...selected, ...chapters.map(c => c.subject)]));
+              return allSubjects;
+            })()}
+            chapters={calendarChapters}
+            isEditable={true}
+            onChaptersChange={handleCalendarChaptersChange}
+            onSave={handleSave}
+          />
 
             <div className="flex justify-between pt-4 border-t">
               <Button variant="outline" onClick={() => onOpenChange(false)}>

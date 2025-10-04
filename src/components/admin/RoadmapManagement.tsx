@@ -400,6 +400,7 @@ const RoadmapManagement = () => {
               </div>
 
               <RoadmapCalendarView
+                mode={(roadmapDetails.mode as 'sequential' | 'parallel') || 'parallel'}
                 startDate={parseISO(roadmapDetails.start_date)}
                 totalDays={roadmapDetails.total_days}
                 subjects={[...new Set(roadmapDetails.chapters.map((c: any) => c.subject))] as string[]}

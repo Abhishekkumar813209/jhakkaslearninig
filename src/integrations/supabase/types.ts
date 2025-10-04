@@ -69,6 +69,7 @@ export type Database = {
           exam_name: string | null
           exam_type: string | null
           id: string
+          mode: string | null
           pdf_source_id: string | null
           selected_subjects: Json | null
           start_date: string
@@ -87,6 +88,7 @@ export type Database = {
           exam_name?: string | null
           exam_type?: string | null
           id?: string
+          mode?: string | null
           pdf_source_id?: string | null
           selected_subjects?: Json | null
           start_date: string
@@ -105,6 +107,7 @@ export type Database = {
           exam_name?: string | null
           exam_type?: string | null
           id?: string
+          mode?: string | null
           pdf_source_id?: string | null
           selected_subjects?: Json | null
           start_date?: string

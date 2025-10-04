@@ -5,6 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
 import { SubjectSelectionStep } from "./wizard-steps/SubjectSelectionStep";
 import { ChapterSelectionStep } from "./wizard-steps/ChapterSelectionStep";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +57,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [roadmapTitle, setRoadmapTitle] = useState("");
   const [totalDays, setTotalDays] = useState(30);
   const [roadmapType, setRoadmapType] = useState<'single_year' | 'combined'>('single_year');
+  const [roadmapMode, setRoadmapMode] = useState<'sequential' | 'parallel'>('parallel');
 
   // Step 2: Subjects
   const [fetchedSubjects, setFetchedSubjects] = useState<Subject[]>([]);
@@ -408,7 +411,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
           selected_subjects,
           total_days: totalDays,
-          title: roadmapTitle
+          title: roadmapTitle,
+          mode: roadmapMode
         }
       });
 
@@ -562,6 +566,27 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
         <div className="space-y-6 py-4">
             {currentStep === 1 && (
+              <>
+              <div className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/30">
+                <Label className="text-base font-semibold">Roadmap Mode</Label>
+                <RadioGroup value={roadmapMode} onValueChange={(v) => setRoadmapMode(v as 'sequential' | 'parallel')}>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="sequential" id="sequential" />
+                    <Label htmlFor="sequential" className="cursor-pointer flex-1">
+                      <div className="font-medium">📚 Sequential Mode</div>
+                      <div className="text-sm text-muted-foreground">One subject at a time - Deep focus approach</div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="parallel" id="parallel" />
+                    <Label htmlFor="parallel" className="cursor-pointer flex-1">
+                      <div className="font-medium">⚡ Parallel Mode</div>
+                      <div className="text-sm text-muted-foreground">All subjects together - eSaral style revision</div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               <ExamTypeStep
                 examType={examType}
                 setExamType={setExamType}
@@ -580,6 +605,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                 roadmapType={roadmapType}
                 setRoadmapType={setRoadmapType}
               />
+              </>
             )}
 
           {currentStep === 2 && (

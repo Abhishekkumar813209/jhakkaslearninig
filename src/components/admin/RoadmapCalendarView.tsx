@@ -23,6 +23,7 @@ export interface CalendarChapter {
 }
 
 interface RoadmapCalendarViewProps {
+  mode: 'sequential' | 'parallel';
   roadmapId?: string;
   batchId?: string;
   startDate: Date;
@@ -281,6 +282,7 @@ const CalendarCell = ({
 };
 
 export const RoadmapCalendarView = ({
+  mode,
   startDate,
   totalDays,
   subjects,
@@ -402,7 +404,39 @@ export const RoadmapCalendarView = ({
   };
 
   const handleUpdateChapter = (id: string, updates: Partial<CalendarChapter>) => {
-    const updatedChapters = chapters.map(c => c.id === id ? { ...c, ...updates } : c);
+    const updatedChapters = [...chapters];
+    const chapterIndex = updatedChapters.findIndex(c => c.id === id);
+    if (chapterIndex === -1) return;
+
+    const chapter = updatedChapters[chapterIndex];
+    const oldDays = chapter.estimatedDays || 1;
+    
+    // Apply the updates
+    updatedChapters[chapterIndex] = { ...chapter, ...updates };
+    
+    // If estimatedDays changed, shift subsequent chapters
+    if (updates.estimatedDays !== undefined && updates.estimatedDays !== oldDays) {
+      const newDays = updates.estimatedDays;
+      const daysDiff = newDays - oldDays;
+      
+      if (mode === 'sequential') {
+        // Sequential: shift all chapters after this one
+        for (let i = chapterIndex + 1; i < updatedChapters.length; i++) {
+          const currentDate = parseISO(updatedChapters[i].date);
+          updatedChapters[i].date = format(addDays(currentDate, daysDiff), 'yyyy-MM-dd');
+        }
+      } else {
+        // Parallel: only shift same-subject chapters after this one
+        const subject = chapter.subject;
+        for (let i = chapterIndex + 1; i < updatedChapters.length; i++) {
+          if (updatedChapters[i].subject === subject) {
+            const currentDate = parseISO(updatedChapters[i].date);
+            updatedChapters[i].date = format(addDays(currentDate, daysDiff), 'yyyy-MM-dd');
+          }
+        }
+      }
+    }
+
     setChapters(updatedChapters);
     onChaptersChange?.(updatedChapters);
   };
@@ -507,9 +541,14 @@ export const RoadmapCalendarView = ({
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Roadmap Schedule</h3>
+        <div>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Roadmap Schedule</h3>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Mode: <span className="font-medium">{mode === 'sequential' ? '📚 Sequential (One at a time)' : '⚡ Parallel (All subjects together)'}</span>
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportPDF} variant="outline" size="sm">

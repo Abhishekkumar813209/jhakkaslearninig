@@ -631,6 +631,7 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
           {showCalendarView && startDate && (
             <div className="border rounded-lg p-4 bg-muted/30">
               <RoadmapCalendarView
+                mode="parallel"
                 startDate={startDate}
                 totalDays={calculateTotalDays()}
                 subjects={subjects.map(s => s.name)}

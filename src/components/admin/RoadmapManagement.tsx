@@ -49,13 +49,25 @@ const RoadmapManagement = () => {
         throw error;
       }
 
-      const normalized = (data || []).map((r: any) => ({
-        ...r,
-        batches: { name: r.batch_name, level: r.batch_level },
-      }));
+      // Fetch chapters for each roadmap
+      const roadmapsWithChapters = await Promise.all(
+        (data || []).map(async (r: any) => {
+          const { data: chapters } = await supabase
+            .from('roadmap_chapters')
+            .select('id, chapter_name, subject, estimated_days, order_num')
+            .eq('roadmap_id', r.id)
+            .order('order_num', { ascending: true });
+
+          return {
+            ...r,
+            batches: { name: r.batch_name, level: r.batch_level },
+            chapters: chapters || []
+          };
+        })
+      );
       
-      console.log('✅ RoadmapManagement: Setting roadmaps:', normalized.length, 'items');
-      setRoadmaps(normalized);
+      console.log('✅ RoadmapManagement: Setting roadmaps:', roadmapsWithChapters.length, 'items');
+      setRoadmaps(roadmapsWithChapters);
     } catch (error: any) {
       console.error('❌ RoadmapManagement: Error fetching roadmaps:', error);
       toast.error('Failed to load roadmaps. Check console for details.');
@@ -285,6 +297,30 @@ const RoadmapManagement = () => {
                   </div>
                 )}
               </div>
+
+              {roadmap.chapters && roadmap.chapters.length > 0 && (
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Chapters:</p>
+                  <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-thin">
+                    {roadmap.chapters.slice(0, 5).map((ch: any) => (
+                      <div key={ch.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate flex-1" title={ch.chapter_name}>
+                          {ch.chapter_name}
+                        </span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {ch.estimated_days}d
+                        </Badge>
+                      </div>
+                    ))}
+                    {roadmap.chapters.length > 5 && (
+                      <p className="text-xs text-muted-foreground italic pt-1">
+                        +{roadmap.chapters.length - 5} more chapters...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2 mt-4">
                 <Button
                   variant="outline"

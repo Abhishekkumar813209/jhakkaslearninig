@@ -61,12 +61,23 @@ const Profile = () => {
 
     setLoading(true);
     try {
-      const response = await authAPI.updateProfile({
+      const updatePayload: any = {
         full_name: name,
         avatar_url: avatarUrl,
-        student_class: studentClass,
-        education_board: educationBoard
-      });
+        exam_domain: examDomain
+      };
+
+      // Only include school fields if category is 'school'
+      if (examDomain === 'school') {
+        updatePayload.student_class = studentClass;
+        updatePayload.education_board = educationBoard;
+      } else {
+        // Clear school fields for non-school categories
+        updatePayload.student_class = null;
+        updatePayload.education_board = null;
+      }
+
+      const response = await authAPI.updateProfile(updatePayload);
       
       const profile = (response as any).profile || response;
       setProfileData(profile);
@@ -162,9 +173,43 @@ const Profile = () => {
                   <>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Exam Category</label>
-                      <div className="p-3 bg-muted rounded-md">
-                        {examDomain ? examDomain.charAt(0).toUpperCase() + examDomain.slice(1) : 'Not set'}
-                      </div>
+                      {isEditing ? (
+                        <Select 
+                          value={examDomain} 
+                          onValueChange={(value) => {
+                            setExamDomain(value);
+                            // Clear school fields if changing to non-school category
+                            if (value !== 'school') {
+                              setStudentClass('');
+                              setEducationBoard('');
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select exam category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="school">School Preparation</SelectItem>
+                            <SelectItem value="competitive">Competitive Exams</SelectItem>
+                            <SelectItem value="government">Government Exams</SelectItem>
+                            <SelectItem value="ugpg">UG & PG Entrance</SelectItem>
+                            <SelectItem value="finance">Finance</SelectItem>
+                            <SelectItem value="others">Others</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-3 bg-muted rounded-md">
+                          {examDomain ? (
+                            examDomain === 'school' ? 'School Preparation' :
+                            examDomain === 'competitive' ? 'Competitive Exams' :
+                            examDomain === 'government' ? 'Government Exams' :
+                            examDomain === 'ugpg' ? 'UG & PG Entrance' :
+                            examDomain === 'finance' ? 'Finance' :
+                            examDomain === 'others' ? 'Others' :
+                            examDomain.charAt(0).toUpperCase() + examDomain.slice(1)
+                          ) : 'Not set'}
+                        </div>
+                      )}
                     </div>
 
                     {/* Show Class and Board ONLY for school category */}

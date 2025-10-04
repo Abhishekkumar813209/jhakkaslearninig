@@ -54,6 +54,9 @@ serve(async (req: Request) => {
             batch_id,
             student_class,
             education_board,
+            exam_domain,
+            target_exam,
+            preparation_level,
             created_at,
             updated_at
           `)
@@ -98,12 +101,13 @@ serve(async (req: Request) => {
       case 'PUT':
         // Update user profile
         const updateData = await req.json()
-        const allowedFields = ['full_name', 'avatar_url', 'student_class', 'education_board']
+        const allowedFields = ['full_name', 'avatar_url', 'student_class', 'education_board', 'exam_domain', 'target_exam', 'preparation_level']
         
         const profileUpdates = Object.keys(updateData)
           .filter(key => allowedFields.includes(key))
           .reduce((obj, key) => {
-            obj[key] = updateData[key]
+            // Allow null values to clear fields
+            obj[key] = updateData[key] !== undefined ? updateData[key] : null
             return obj
           }, {} as any)
 

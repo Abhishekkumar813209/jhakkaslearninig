@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import StudentDashboardPage from "./pages/StudentDashboard";
+import StudentDashboard from "./components/student/StudentDashboard";
 import Tests from "./pages/Tests";
 import Leaderboard from "./pages/Leaderboard";
 import Analytics from "./pages/Analytics";
@@ -60,6 +61,11 @@ const App = () => (
             <Route path="/student" element={
               <ProtectedRoute>
                 <Student />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/dashboard" element={
+              <ProtectedRoute>
+                <StudentDashboard />
               </ProtectedRoute>
             } />
             <Route path="/student/guided-paths" element={

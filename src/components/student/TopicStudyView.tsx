@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, Sparkles, Trophy } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Trophy, Gamepad2, Brain } from "lucide-react";
 import { GamifiedExercise } from "./GamifiedExercise";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TopicContent {
   id: string;
   content_text?: string;
   content_html?: string;
   content_type: string;
+  svg_animation?: string;
+  games?: Array<{
+    title: string;
+    description: string;
+    game_type: string;
+    game_data: any;
+  }>;
   exercises: Array<{
     id: string;
     exercise_type: string;
@@ -250,38 +258,146 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              {topicName}
-            </CardTitle>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            {topicName}
+          </CardTitle>
+          <CardDescription>Explore different learning modes</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <ScrollArea className="h-[400px] pr-4">
-            <div 
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: content?.content_html || content?.content_text || "" }}
-            />
-          </ScrollArea>
+        <CardContent>
+          <Tabs defaultValue="theory" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsTrigger value="theory" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">Theory</span>
+              </TabsTrigger>
+              <TabsTrigger value="svg" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">Animations</span>
+              </TabsTrigger>
+              <TabsTrigger value="games" className="gap-2">
+                <Gamepad2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Games</span>
+              </TabsTrigger>
+              <TabsTrigger value="quiz" className="gap-2">
+                <Brain className="h-4 w-4" />
+                <span className="hidden sm:inline">Quiz</span>
+              </TabsTrigger>
+            </TabsList>
 
-          {content && content.exercises.length > 0 && (
-            <div className="border-t pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold">Practice Exercises</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Test your understanding with {content.exercises.length} exercises
+            {/* Theory Tab */}
+            <TabsContent value="theory" className="space-y-4">
+              <ScrollArea className="h-[500px] rounded-md border p-4">
+                <div 
+                  className="prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: content?.content_html || content?.content_text || "" }}
+                />
+              </ScrollArea>
+            </TabsContent>
+
+            {/* SVG Animations Tab */}
+            <TabsContent value="svg" className="space-y-4">
+              {content?.svg_animation ? (
+                <div className="rounded-md border p-8 bg-gradient-to-br from-primary/5 to-secondary/5">
+                  <div dangerouslySetInnerHTML={{ __html: content.svg_animation }} />
+                </div>
+              ) : (
+                <div className="text-center p-12 rounded-md border border-dashed">
+                  <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    No SVG animations available for this topic yet.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Coming soon with AI-generated visualizations!
                   </p>
                 </div>
-                <Trophy className="h-8 w-8 text-yellow-500" />
-              </div>
-              
-              <Button onClick={handleStartExercises} className="w-full">
-                Start Exercises
-              </Button>
-            </div>
-          )}
+              )}
+            </TabsContent>
+
+            {/* Interactive Games Tab */}
+            <TabsContent value="games" className="space-y-4">
+              {content?.games && content.games.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {content.games.map((game, idx) => (
+                    <Card key={idx} className="hover:border-primary/50 transition-colors cursor-pointer group">
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
+                          <Gamepad2 className="h-5 w-5" />
+                          {game.title}
+                        </CardTitle>
+                        <CardDescription>{game.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Button className="w-full">
+                          <Trophy className="h-4 w-4 mr-2" />
+                          Play Game
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-12 rounded-md border border-dashed">
+                  <Gamepad2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    No interactive games available for this topic yet.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Coming soon with gamified learning experiences!
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Quiz Tab */}
+            <TabsContent value="quiz" className="space-y-4">
+              {content && content.exercises.length > 0 ? (
+                <div className="space-y-4">
+                  <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Practice Quiz</CardTitle>
+                          <CardDescription>
+                            Test your knowledge with {content.exercises.length} interactive questions
+                          </CardDescription>
+                        </div>
+                        <Trophy className="h-10 w-10 text-yellow-500" />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="text-center p-3 rounded-lg bg-card">
+                          <p className="text-2xl font-bold text-primary">{content.exercises.length}</p>
+                          <p className="text-xs text-muted-foreground">Questions</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-card">
+                          <p className="text-2xl font-bold text-primary">
+                            {content.exercises.reduce((acc, ex) => acc + (ex.xp_reward || 0), 0)} XP
+                          </p>
+                          <p className="text-xs text-muted-foreground">Total Rewards</p>
+                        </div>
+                      </div>
+                      <Button onClick={handleStartExercises} size="lg" className="w-full">
+                        <Brain className="h-4 w-4 mr-2" />
+                        Start Quiz
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="text-center p-12 rounded-md border border-dashed">
+                  <Brain className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    No quiz questions available for this topic yet.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    AI will generate practice questions soon!
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

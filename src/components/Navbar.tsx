@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home } from "lucide-react";
+import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass } from "lucide-react";
 import { XPDisplay } from "@/components/student/XPDisplay";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,14 +73,19 @@ const Navbar = () => {
             ) : isStudent ? (
               // Student Navigation
               <>
-                <Link to="/student">
+                <Link to="/student/dashboard">
                   <Button variant="nav" size="sm">
-                    Roadmap
+                    Dashboard
                   </Button>
                 </Link>
-                <Link to="/courses">
+                <Link to="/student">
                   <Button variant="nav" size="sm">
-                    Study
+                    My Roadmap
+                  </Button>
+                </Link>
+                <Link to="/student/guided-paths">
+                  <Button variant="nav" size="sm">
+                    Guided Paths
                   </Button>
                 </Link>
                 <Link to="/tests">
@@ -91,11 +96,6 @@ const Navbar = () => {
                 <Link to="/leaderboard">
                   <Button variant="nav" size="sm">
                     Leaderboard
-                  </Button>
-                </Link>
-                <Link to="/analytics">
-                  <Button variant="nav" size="sm">
-                    Analytics
                   </Button>
                 </Link>
               </>
@@ -213,16 +213,22 @@ const Navbar = () => {
               ) : isStudent ? (
                 // Student Mobile Navigation
                 <>
+                  <Link to="/student/dashboard" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Button>
+                  </Link>
                   <Link to="/student" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Map className="h-4 w-4 mr-2" />
-                      Roadmap
+                      My Roadmap
                     </Button>
                   </Link>
-                  <Link to="/courses" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/student/guided-paths" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      Courses
+                      <Compass className="h-4 w-4 mr-2" />
+                      Guided Paths
                     </Button>
                   </Link>
                   <Link to="/tests" onClick={() => setIsMenuOpen(false)}>
@@ -235,12 +241,6 @@ const Navbar = () => {
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Trophy className="h-4 w-4 mr-2" />
                       Leaderboard
-                    </Button>
-                  </Link>
-                  <Link to="/analytics" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="nav" size="sm" className="w-full justify-start">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Analytics
                     </Button>
                   </Link>
                   <Link to="/profile" onClick={() => setIsMenuOpen(false)}>

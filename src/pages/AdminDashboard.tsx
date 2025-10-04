@@ -36,6 +36,7 @@ import SchoolManagement from "@/components/admin/SchoolManagement";
 import { ZoneSchoolAnalytics } from "@/components/admin/ZoneSchoolAnalytics";
 import RoadmapManagement from "@/components/admin/RoadmapManagement";
 import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
+import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -89,6 +90,12 @@ const AdminDashboard = () => {
       label: "Add Topics",
       icon: BookText,
       component: ManualTopicEditor
+    },
+    {
+      value: "lessons",
+      label: "Lesson Builder",
+      icon: BookOpen,
+      component: LessonContentBuilder
     },
     {
       value: "zones",

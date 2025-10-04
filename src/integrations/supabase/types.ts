@@ -1697,6 +1697,51 @@ export type Database = {
           },
         ]
       }
+      student_achievements: {
+        Row: {
+          achievement_description: string | null
+          achievement_name: string
+          achievement_type: string
+          badge_icon: string | null
+          earned_at: string | null
+          id: string
+          student_id: string | null
+        }
+        Insert: {
+          achievement_description?: string | null
+          achievement_name: string
+          achievement_type: string
+          badge_icon?: string | null
+          earned_at?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Update: {
+          achievement_description?: string | null
+          achievement_name?: string
+          achievement_type?: string
+          badge_icon?: string | null
+          earned_at?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_achievements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_achievements_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_analytics: {
         Row: {
           average_score: number | null
@@ -1893,6 +1938,272 @@ export type Database = {
             columns: ["guided_path_id"]
             isOneToOne: false
             referencedRelation: "guided_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_hearts: {
+        Row: {
+          created_at: string | null
+          current_hearts: number | null
+          hearts_refill_rate: number | null
+          id: string
+          last_heart_lost_at: string | null
+          last_heart_refill_at: string | null
+          max_hearts: number | null
+          student_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_hearts?: number | null
+          hearts_refill_rate?: number | null
+          id?: string
+          last_heart_lost_at?: string | null
+          last_heart_refill_at?: string | null
+          max_hearts?: number | null
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_hearts?: number | null
+          hearts_refill_rate?: number | null
+          id?: string
+          last_heart_lost_at?: string | null
+          last_heart_refill_at?: string | null
+          max_hearts?: number | null
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_hearts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_hearts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_leagues: {
+        Row: {
+          created_at: string | null
+          demoted: boolean | null
+          id: string
+          league_tier: string | null
+          league_week_end: string | null
+          league_week_start: string | null
+          promoted: boolean | null
+          rank_in_league: number | null
+          student_id: string | null
+          updated_at: string | null
+          weekly_xp: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          demoted?: boolean | null
+          id?: string
+          league_tier?: string | null
+          league_week_end?: string | null
+          league_week_start?: string | null
+          promoted?: boolean | null
+          rank_in_league?: number | null
+          student_id?: string | null
+          updated_at?: string | null
+          weekly_xp?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          demoted?: boolean | null
+          id?: string
+          league_tier?: string | null
+          league_week_end?: string | null
+          league_week_start?: string | null
+          promoted?: boolean | null
+          rank_in_league?: number | null
+          student_id?: string | null
+          updated_at?: string | null
+          weekly_xp?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_leagues_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_leagues_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_lesson_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_step: number | null
+          game_completed: boolean | null
+          game_score: number | null
+          id: string
+          last_activity_at: string | null
+          lesson_content_id: string | null
+          playground_attempts: number | null
+          playground_completed: boolean | null
+          started_at: string | null
+          status: string | null
+          steps_completed: number | null
+          student_id: string | null
+          svg_interactions_count: number | null
+          time_spent_seconds: number | null
+          topic_id: string | null
+          total_steps: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          game_completed?: boolean | null
+          game_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          lesson_content_id?: string | null
+          playground_attempts?: number | null
+          playground_completed?: boolean | null
+          started_at?: string | null
+          status?: string | null
+          steps_completed?: number | null
+          student_id?: string | null
+          svg_interactions_count?: number | null
+          time_spent_seconds?: number | null
+          topic_id?: string | null
+          total_steps?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_step?: number | null
+          game_completed?: boolean | null
+          game_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          lesson_content_id?: string | null
+          playground_attempts?: number | null
+          playground_completed?: boolean | null
+          started_at?: string | null
+          status?: string | null
+          steps_completed?: number | null
+          student_id?: string | null
+          svg_interactions_count?: number | null
+          time_spent_seconds?: number | null
+          topic_id?: string | null
+          total_steps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_lesson_progress_lesson_content_id_fkey"
+            columns: ["lesson_content_id"]
+            isOneToOne: false
+            referencedRelation: "topic_learning_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_lesson_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_lesson_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_lesson_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_quests: {
+        Row: {
+          coin_reward: number | null
+          completed_at: string | null
+          created_at: string | null
+          current_progress: number | null
+          expires_at: string | null
+          id: string
+          quest_description: string | null
+          quest_name: string
+          quest_type: string
+          status: string | null
+          student_id: string | null
+          target_type: string | null
+          target_value: number | null
+          xp_reward: number | null
+        }
+        Insert: {
+          coin_reward?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_progress?: number | null
+          expires_at?: string | null
+          id?: string
+          quest_description?: string | null
+          quest_name: string
+          quest_type: string
+          status?: string | null
+          student_id?: string | null
+          target_type?: string | null
+          target_value?: number | null
+          xp_reward?: number | null
+        }
+        Update: {
+          coin_reward?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_progress?: number | null
+          expires_at?: string | null
+          id?: string
+          quest_description?: string | null
+          quest_name?: string
+          quest_type?: string
+          status?: string | null
+          student_id?: string | null
+          target_type?: string | null
+          target_value?: number | null
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_quests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_quests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2604,6 +2915,120 @@ export type Database = {
           },
         ]
       }
+      topic_learning_content: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          coin_reward: number | null
+          content_order: number
+          created_at: string | null
+          created_by: string | null
+          estimated_time_minutes: number | null
+          explanation_steps: Json[] | null
+          game_data: Json | null
+          game_type: string | null
+          generated_by: string | null
+          human_reviewed: boolean | null
+          id: string
+          interaction_config: Json | null
+          lesson_type: string
+          playground_config: Json | null
+          svg_data: Json | null
+          svg_type: string | null
+          theory_html: string | null
+          theory_text: string | null
+          topic_id: string | null
+          updated_at: string | null
+          xp_reward: number | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          coin_reward?: number | null
+          content_order: number
+          created_at?: string | null
+          created_by?: string | null
+          estimated_time_minutes?: number | null
+          explanation_steps?: Json[] | null
+          game_data?: Json | null
+          game_type?: string | null
+          generated_by?: string | null
+          human_reviewed?: boolean | null
+          id?: string
+          interaction_config?: Json | null
+          lesson_type: string
+          playground_config?: Json | null
+          svg_data?: Json | null
+          svg_type?: string | null
+          theory_html?: string | null
+          theory_text?: string | null
+          topic_id?: string | null
+          updated_at?: string | null
+          xp_reward?: number | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          coin_reward?: number | null
+          content_order?: number
+          created_at?: string | null
+          created_by?: string | null
+          estimated_time_minutes?: number | null
+          explanation_steps?: Json[] | null
+          game_data?: Json | null
+          game_type?: string | null
+          generated_by?: string | null
+          human_reviewed?: boolean | null
+          id?: string
+          interaction_config?: Json | null
+          lesson_type?: string
+          playground_config?: Json | null
+          svg_data?: Json | null
+          svg_type?: string | null
+          theory_html?: string | null
+          theory_text?: string | null
+          topic_id?: string | null
+          updated_at?: string | null
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_learning_content_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_learning_content_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_learning_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_learning_content_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_learning_content_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -2919,6 +3344,10 @@ export type Database = {
       has_used_free_test: {
         Args: { student_id_param: string }
         Returns: boolean
+      }
+      refill_hearts: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       reorder_lectures: {
         Args: { course_id_param: string; lecture_ids: string[] }

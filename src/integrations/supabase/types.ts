@@ -570,6 +570,54 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_types: {
+        Row: {
+          available_exams: Json | null
+          category: string
+          code: string
+          color_class: string | null
+          created_at: string | null
+          display_name: string
+          display_order: number | null
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          requires_board: boolean | null
+          requires_class: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          available_exams?: Json | null
+          category: string
+          code: string
+          color_class?: string | null
+          created_at?: string | null
+          display_name: string
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          requires_board?: boolean | null
+          requires_class?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          available_exams?: Json | null
+          category?: string
+          code?: string
+          color_class?: string | null
+          created_at?: string | null
+          display_name?: string
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          requires_board?: boolean | null
+          requires_class?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       fee_records: {
         Row: {
           amount: number

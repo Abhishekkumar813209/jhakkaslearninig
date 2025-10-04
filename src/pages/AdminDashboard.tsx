@@ -11,9 +11,9 @@ import {
   BookOpen, 
   FileText, 
   TrendingUp, 
-  Bell, 
   Trophy,
   Settings,
+  Target,
   DollarSign,
   Map,
   Building
@@ -26,7 +26,7 @@ import BatchManagement from "@/components/admin/BatchManagement";
 import TestManagement from "@/components/admin/TestManagement";
 import AnalyticsReports from "@/components/admin/AnalyticsReports";
 import LeaderboardManagement from "@/components/admin/LeaderboardManagement";
-import NotificationCenter from "@/components/admin/NotificationCenter";
+import { ExamTypesManagement } from "@/components/admin/ExamTypesManagement";
 import AdminSettings from "@/components/admin/AdminSettings";
 import FeesManagement from "@/components/admin/FeesManagement";
 import GuidedPathsManagement from "@/components/admin/GuidedPathsManagement";
@@ -125,10 +125,10 @@ const AdminDashboard = () => {
       component: LeaderboardManagement
     },
     {
-      value: "notifications",
-      label: "Notifications",
-      icon: Bell,
-      component: NotificationCenter
+      value: "exam-types",
+      label: "Exam Types",
+      icon: Target,
+      component: ExamTypesManagement
     },
     {
       value: "settings",

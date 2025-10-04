@@ -13,6 +13,8 @@ import { User, Mail, Calendar, Edit2, Save, X, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { StudentAnalytics } from '@/components/student/StudentAnalytics';
 import { StudentRankings } from '@/components/student/StudentRankings';
+import { useExamTypes } from '@/hooks/useExamTypes';
+import { supabase } from '@/integrations/supabase/client';
 
 const Profile = () => {
   const { user, isAdmin, isStudent } = useAuth();
@@ -30,6 +32,7 @@ const Profile = () => {
   const [zones, setZones] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [filteredSchools, setFilteredSchools] = useState<any[]>([]);
+  const { examTypes } = useExamTypes();
 
   useEffect(() => {
     if (user) {
@@ -260,9 +263,13 @@ const Profile = () => {
                           value={examDomain} 
                           onValueChange={(value) => {
                             setExamDomain(value);
-                            // Clear school fields if changing to non-school category
-                            if (value !== 'school') {
+                            // Find the selected exam type to check if it requires class/board
+                            const selectedType = examTypes.find(t => t.code === value);
+                            // Clear school fields if not required
+                            if (!selectedType?.requires_class) {
                               setStudentClass('');
+                            }
+                            if (!selectedType?.requires_board) {
                               setEducationBoard('');
                             }
                           }}
@@ -271,74 +278,19 @@ const Profile = () => {
                             <SelectValue placeholder="Select exam category" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[300px]">
-                            {/* School Preparation */}
-                            <SelectItem value="school">📚 School (Foundation to 12th)</SelectItem>
-                            
-                            {/* Competitive Exams */}
-                            <SelectItem value="iit_jee_main">🎯 IIT JEE Main</SelectItem>
-                            <SelectItem value="iit_jee_advanced">🏆 IIT JEE Advanced</SelectItem>
-                            <SelectItem value="neet_ug">🩺 NEET UG</SelectItem>
-                            <SelectItem value="neet_pg">🏥 NEET PG</SelectItem>
-                            <SelectItem value="bitsat">💻 BITSAT</SelectItem>
-                            <SelectItem value="viteee">⚡ VITEEE</SelectItem>
-                            
-                            {/* Government Exams */}
-                            <SelectItem value="upsc_cse">🏛️ UPSC CSE</SelectItem>
-                            <SelectItem value="ssc_cgl">📝 SSC CGL</SelectItem>
-                            <SelectItem value="ssc_chsl">📋 SSC CHSL</SelectItem>
-                            <SelectItem value="ibps_po">🏦 IBPS PO</SelectItem>
-                            <SelectItem value="ibps_clerk">💼 IBPS Clerk</SelectItem>
-                            <SelectItem value="sbi_po">🏛️ SBI PO</SelectItem>
-                            <SelectItem value="railway_ntpc">🚂 Railway NTPC</SelectItem>
-                            
-                            {/* UG & PG Entrance */}
-                            <SelectItem value="cat">📊 CAT (MBA)</SelectItem>
-                            <SelectItem value="xat">🎓 XAT</SelectItem>
-                            <SelectItem value="clat">⚖️ CLAT (Law)</SelectItem>
-                            <SelectItem value="gate">🔬 GATE</SelectItem>
-                            <SelectItem value="cmat">📈 CMAT</SelectItem>
-                            
-                            {/* Finance */}
-                            <SelectItem value="ca_foundation">💰 CA Foundation</SelectItem>
-                            <SelectItem value="ca_intermediate">📚 CA Intermediate</SelectItem>
-                            <SelectItem value="ca_final">🎯 CA Final</SelectItem>
-                            <SelectItem value="cs">📜 CS (Company Secretary)</SelectItem>
-                            <SelectItem value="cma">💼 CMA</SelectItem>
-                            
-                            {/* Others */}
-                            <SelectItem value="others">📖 Others</SelectItem>
+                            {examTypes.map(examType => (
+                              <SelectItem key={examType.id} value={examType.code}>
+                                {examType.display_name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       ) : (
                         <div className="p-3 bg-muted rounded-md">
-                          {examDomain ? (
-                            examDomain === 'school' ? '📚 School (Foundation to 12th)' :
-                            examDomain === 'iit_jee_main' ? '🎯 IIT JEE Main' :
-                            examDomain === 'iit_jee_advanced' ? '🏆 IIT JEE Advanced' :
-                            examDomain === 'neet_ug' ? '🩺 NEET UG' :
-                            examDomain === 'neet_pg' ? '🏥 NEET PG' :
-                            examDomain === 'bitsat' ? '💻 BITSAT' :
-                            examDomain === 'viteee' ? '⚡ VITEEE' :
-                            examDomain === 'upsc_cse' ? '🏛️ UPSC CSE' :
-                            examDomain === 'ssc_cgl' ? '📝 SSC CGL' :
-                            examDomain === 'ssc_chsl' ? '📋 SSC CHSL' :
-                            examDomain === 'ibps_po' ? '🏦 IBPS PO' :
-                            examDomain === 'ibps_clerk' ? '💼 IBPS Clerk' :
-                            examDomain === 'sbi_po' ? '🏛️ SBI PO' :
-                            examDomain === 'railway_ntpc' ? '🚂 Railway NTPC' :
-                            examDomain === 'cat' ? '📊 CAT (MBA)' :
-                            examDomain === 'xat' ? '🎓 XAT' :
-                            examDomain === 'clat' ? '⚖️ CLAT (Law)' :
-                            examDomain === 'gate' ? '🔬 GATE' :
-                            examDomain === 'cmat' ? '📈 CMAT' :
-                            examDomain === 'ca_foundation' ? '💰 CA Foundation' :
-                            examDomain === 'ca_intermediate' ? '📚 CA Intermediate' :
-                            examDomain === 'ca_final' ? '🎯 CA Final' :
-                            examDomain === 'cs' ? '📜 CS (Company Secretary)' :
-                            examDomain === 'cma' ? '💼 CMA' :
-                            examDomain === 'others' ? '📖 Others' :
-                            examDomain.charAt(0).toUpperCase() + examDomain.slice(1)
-                          ) : 'Not set'}
+                          {examDomain ? 
+                            examTypes.find(t => t.code === examDomain)?.display_name || examDomain
+                            : 'Not set'
+                          }
                         </div>
                       )}
                     </div>
@@ -391,8 +343,8 @@ const Profile = () => {
                       )}
                     </div>
 
-                    {/* Show Class and Board ONLY for school category */}
-                    {examDomain === 'school' && (
+                    {/* Show Class and Board ONLY if required by exam type */}
+                    {examTypes.find(t => t.code === examDomain)?.requires_class && (
                       <>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Class *</label>

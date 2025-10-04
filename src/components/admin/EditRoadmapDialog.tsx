@@ -245,7 +245,14 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
               roadmapId={roadmapId}
               startDate={parseISO(roadmapData.start_date)}
               totalDays={roadmapData.total_days}
-              subjects={[...new Set(chapters.map(c => c.subject))]}
+              subjects={(() => {
+                const defaultColumns = ['Physics', 'Chemistry', 'Biology'];
+                const selected = Array.isArray(roadmapData.selected_subjects) 
+                  ? roadmapData.selected_subjects 
+                  : (roadmapData.selected_subjects?.subjects || []);
+                const allSubjects = Array.from(new Set([...defaultColumns, ...selected, ...chapters.map(c => c.subject)]));
+                return allSubjects;
+              })()}
               chapters={calendarChapters}
               isEditable={true}
               onChaptersChange={handleCalendarChaptersChange}

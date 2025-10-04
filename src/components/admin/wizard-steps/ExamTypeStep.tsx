@@ -2,8 +2,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { GraduationCap, Briefcase, Building2, Shield, Globe, Pencil, Wrench, Heart } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
+import { useExamTypes } from "@/hooks/useExamTypes";
 
 interface ExamTypeStepProps {
   examType: string;
@@ -22,19 +23,6 @@ interface ExamTypeStepProps {
   setRoadmapType: (value: 'single_year' | 'combined') => void;
 }
 
-const examTypes = [
-  { value: 'School', label: 'School/Board Exams', icon: GraduationCap, color: 'bg-blue-500' },
-  { value: 'Engineering', label: 'IIT JEE (Main, Advanced)', icon: Wrench, color: 'bg-red-500' },
-  { value: 'Medical-UG', label: 'NEET UG', icon: Heart, color: 'bg-pink-500' },
-  { value: 'Medical-PG', label: 'NEET PG', icon: Heart, color: 'bg-rose-500' },
-  { value: 'SSC', label: 'SSC (CGL, CHSL, MTS, GD)', icon: Briefcase, color: 'bg-green-500' },
-  { value: 'Banking', label: 'Banking (IBPS, SBI, RBI)', icon: Building2, color: 'bg-purple-500' },
-  { value: 'UPSC', label: 'UPSC (Civil Services, IES)', icon: Globe, color: 'bg-orange-500' },
-  { value: 'Railway', label: 'Railway (RRB, Group D)', icon: Shield, color: 'bg-teal-500' },
-  { value: 'Defence', label: 'Defence (NDA, CDS, AFCAT)', icon: Shield, color: 'bg-indigo-500' },
-  { value: 'Custom', label: 'Custom Exam', icon: Pencil, color: 'bg-gray-500' },
-];
-
 export const ExamTypeStep = ({
   examType,
   setExamType,
@@ -52,6 +40,21 @@ export const ExamTypeStep = ({
   setRoadmapType,
 }: ExamTypeStepProps) => {
   const { batches } = useBatches();
+  const { examTypes } = useExamTypes();
+
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Zap: LucideIcons.Zap,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
+    Wrench: LucideIcons.Wrench,
+    Heart: LucideIcons.Heart,
+  };
 
   // Helper to calculate remaining days till academic year end
   const calculateRemainingDays = (currentClass: string): number => {
@@ -73,40 +76,24 @@ export const ExamTypeStep = ({
     return diffDays > 0 ? diffDays : 180; // Fallback to 180 days
   };
 
-  // Map exam types to batch exam_type values
-  const examTypeToDomain: Record<string, string> = {
-    'School': 'School Education',
-    'Engineering': 'Engineering Entrance',
-    'Medical-UG': 'Medical Entrance',
-    'Medical-PG': 'Medical Entrance',
-    'SSC': 'SSC Exams',
-    'Banking': 'Banking Exams',
-    'UPSC': 'UPSC Exams',
-    'Railway': 'Railway Exams',
-    'Defence': 'Defence Exams',
-    'Custom': 'Custom Exam',
-  };
-
   // Filter batches based on selected exam type
   const filteredBatches = batches.filter((batch: any) => {
-    const mappedDomain = examTypeToDomain[examType];
-    
-    if (examType === 'School') {
-      return batch.exam_type === 'School Education' &&
+    if (examType === 'school') {
+      return batch.exam_type === 'school' &&
              batch.target_class === conditionalClass &&
              batch.exam_name === conditionalBoard;
-    } else if (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') {
+    } else if (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') {
       // Filter by domain AND student category (class or dropper)
       if (conditionalClass === 'dropper') {
-        return batch.exam_type === mappedDomain && batch.level === 'Dropper';
+        return batch.exam_type === examType && batch.level === 'Dropper';
       } else if (conditionalClass) {
-        return batch.exam_type === mappedDomain && 
+        return batch.exam_type === examType && 
                batch.target_class === conditionalClass && 
                batch.level !== 'Dropper';
       }
-      return batch.exam_type === mappedDomain;
-    } else if (mappedDomain) {
-      return batch.exam_type === mappedDomain;
+      return batch.exam_type === examType;
+    } else if (examType) {
+      return batch.exam_type === examType;
     }
     return true;
   });
@@ -117,20 +104,20 @@ export const ExamTypeStep = ({
         <h3 className="text-lg font-semibold mb-4">Select Exam Type</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {examTypes.map((type) => {
-            const Icon = type.icon;
+            const IconComponent = type.icon_name ? iconMap[type.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
             return (
               <Card
-                key={type.value}
+                key={type.id}
                 className={`cursor-pointer transition-all hover:shadow-md ${
-                  examType === type.value ? 'ring-2 ring-primary' : ''
+                  examType === type.code ? 'ring-2 ring-primary' : ''
                 }`}
-                onClick={() => setExamType(type.value)}
+                onClick={() => setExamType(type.code)}
               >
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${type.color} bg-opacity-10`}>
-                    <Icon className={`h-5 w-5 ${type.color.replace('bg-', 'text-')}`} />
+                  <div className={`p-2 rounded-lg ${type.color_class || 'bg-gray-500'}`}>
+                    <IconComponent className={`h-5 w-5 text-white`} />
                   </div>
-                  <span className="font-medium text-sm">{type.label}</span>
+                  <span className="font-medium text-sm">{type.display_name}</span>
                 </CardContent>
               </Card>
             );
@@ -139,7 +126,7 @@ export const ExamTypeStep = ({
       </div>
 
       {/* Conditional Fields */}
-      {examType === 'School' && (
+      {examType === 'school' && (
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Target Class *</Label>
@@ -174,7 +161,7 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {(examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && (
+      {(examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') && (
         <div className="space-y-4">
           <div>
             <Label>Student Category *</Label>
@@ -229,7 +216,7 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType === 'Engineering' && (
+      {examType === 'engineering' && (
         <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
           <p className="text-sm font-medium">
             📚 Exam: <strong>IIT JEE (Main & Advanced)</strong>
@@ -237,7 +224,7 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType === 'Medical-UG' && (
+      {examType === 'medical-ug' && (
         <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
           <p className="text-sm font-medium">
             📚 Exam: <strong>NEET UG</strong>
@@ -245,7 +232,7 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType === 'Medical-PG' && (
+      {examType === 'medical-pg' && (
         <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
           <p className="text-sm font-medium">
             📚 Exam: <strong>NEET PG</strong>
@@ -253,11 +240,11 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && (
+      {examType && !['school', 'engineering', 'medical-ug', 'medical-pg'].includes(examType) && (
         <div>
           <Label>Exam Name *</Label>
           <Input
-            placeholder={`e.g., ${examType === 'SSC' ? 'SSC CGL 2025' : examType === 'Banking' ? 'IBPS PO 2025' : 'Enter exam name'}`}
+            placeholder={`e.g., ${examType === 'ssc' ? 'SSC CGL 2025' : examType === 'banking' ? 'IBPS PO 2025' : 'Enter exam name'}`}
             value={examName}
             onChange={(e) => setExamName(e.target.value)}
             className="mt-1.5"
@@ -293,9 +280,9 @@ export const ExamTypeStep = ({
           <Label>Roadmap Title *</Label>
           <Input
             placeholder={
-              examType === 'Engineering' ? "e.g., IIT JEE Complete Preparation Plan" :
-              examType === 'Medical-UG' ? "e.g., NEET UG 2026 Roadmap" :
-              examType === 'Medical-PG' ? "e.g., NEET PG Complete Preparation" :
+              examType === 'engineering' ? "e.g., IIT JEE Complete Preparation Plan" :
+              examType === 'medical-ug' ? "e.g., NEET UG 2026 Roadmap" :
+              examType === 'medical-pg' ? "e.g., NEET PG Complete Preparation" :
               "e.g., Complete Preparation Roadmap"
             }
             value={roadmapTitle}

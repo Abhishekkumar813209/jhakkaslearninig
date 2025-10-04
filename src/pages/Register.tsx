@@ -9,6 +9,9 @@ import { Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authAPI } from '@/services/api';
+import { useExamTypes } from '@/hooks/useExamTypes';
+import { Card as ExamCard, CardContent as ExamCardContent } from '@/components/ui/card';
+import * as LucideIcons from 'lucide-react';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +19,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [examDomain, setExamDomain] = useState('');
   const [studentClass, setStudentClass] = useState('');
   const [educationBoard, setEducationBoard] = useState('');
   const [otp, setOtp] = useState('');
@@ -25,6 +29,22 @@ const Register = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { examTypes } = useExamTypes();
+
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
+  };
+
+  const selectedExamType = examTypes.find(t => t.code === examDomain);
+  const requiresClass = selectedExamType?.requires_class || false;
+  const requiresBoard = selectedExamType?.requires_board || false;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +58,29 @@ const Register = () => {
       return;
     }
 
-    if (!studentClass || !educationBoard) {
+    if (!examDomain) {
       toast({
         variant: 'destructive',
         title: 'Required Fields Missing',
-        description: 'Please select your class and education board.',
+        description: 'Please select an exam type.',
+      });
+      return;
+    }
+
+    if (requiresClass && !studentClass) {
+      toast({
+        variant: 'destructive',
+        title: 'Required Fields Missing',
+        description: 'Please select your class.',
+      });
+      return;
+    }
+
+    if (requiresBoard && !educationBoard) {
+      toast({
+        variant: 'destructive',
+        title: 'Required Fields Missing',
+        description: 'Please select your education board.',
       });
       return;
     }
@@ -57,8 +95,9 @@ const Register = () => {
           password, 
           full_name: name,
           role: 'student',
-          student_class: studentClass,
-          education_board: educationBoard
+          exam_domain: examDomain,
+          student_class: requiresClass ? studentClass : null,
+          education_board: requiresBoard ? educationBoard : null
         }
       });
 
@@ -80,8 +119,9 @@ const Register = () => {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: name,
-            student_class: studentClass,
-            education_board: educationBoard,
+            exam_domain: examDomain,
+            student_class: requiresClass ? studentClass : null,
+            education_board: requiresBoard ? educationBoard : null,
           },
         },
       });
@@ -265,7 +305,39 @@ const Register = () => {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Exam Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Exam Category *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {examTypes.map((type) => {
+                      const IconComponent = type.icon_name ? iconMap[type.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+                      return (
+                        <ExamCard
+                          key={type.id}
+                          className={`cursor-pointer transition-all ${
+                            examDomain === type.code ? 'ring-2 ring-primary' : ''
+                          }`}
+                          onClick={() => {
+                            setExamDomain(type.code);
+                            // Reset class and board when changing exam type
+                            setStudentClass('');
+                            setEducationBoard('');
+                          }}
+                        >
+                          <ExamCardContent className="p-3 flex items-center gap-2">
+                            <div className={`p-1.5 rounded ${type.color_class || 'bg-gray-500'}`}>
+                              <IconComponent className="h-4 w-4 text-white" />
+                            </div>
+                            <span className="text-xs font-medium">{type.display_name}</span>
+                          </ExamCardContent>
+                        </ExamCard>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Conditional Class and Board Selection */}
+                {requiresClass && (
                   <div className="space-y-2">
                     <Select value={studentClass} onValueChange={setStudentClass} required>
                       <SelectTrigger>
@@ -287,7 +359,9 @@ const Register = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                )}
                   
+                {requiresBoard && (
                   <div className="space-y-2">
                     <Select value={educationBoard} onValueChange={setEducationBoard} required>
                       <SelectTrigger>
@@ -320,7 +394,7 @@ const Register = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                )}
                 
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creating Account...' : 'Create Account'}

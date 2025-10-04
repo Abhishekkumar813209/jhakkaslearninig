@@ -8,6 +8,8 @@ import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter } from "lucide-
 import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 import { CreateBatchWizard } from "./CreateBatchWizard";
+import { useExamTypes } from "@/hooks/useExamTypes";
+import * as LucideIcons from "lucide-react";
 
 const BatchManagement = () => {
   const { batches, loading, deleteBatch, fetchBatches, totalStudents, avgPerformance } = useBatches();
@@ -15,16 +17,19 @@ const BatchManagement = () => {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [examFilter, setExamFilter] = useState<string>("all");
   const { toast } = useToast();
+  const { examTypes } = useExamTypes();
 
-  const examDomains = [
-    { value: "School Education", label: "School Education", icon: "🎓", color: "from-blue-500 to-blue-600" },
-    { value: "SSC Exams", label: "SSC Exams", icon: "📝", color: "from-green-500 to-green-600" },
-    { value: "Banking Exams", label: "Banking Exams", icon: "🏦", color: "from-purple-500 to-purple-600" },
-    { value: "UPSC Exams", label: "UPSC Exams", icon: "🏛️", color: "from-orange-500 to-orange-600" },
-    { value: "Engineering Entrance", label: "Engineering", icon: "⚙️", color: "from-red-500 to-red-600" },
-    { value: "Medical Entrance", label: "Medical", icon: "⚕️", color: "from-pink-500 to-pink-600" },
-    { value: "Custom Exam", label: "Custom", icon: "📚", color: "from-gray-500 to-gray-600" },
-  ];
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Zap: LucideIcons.Zap,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
+  };
 
   const getDomainBatchCount = (domain: string) => {
     return batches.filter((b: any) => b.exam_type === domain).length;
@@ -68,19 +73,12 @@ const BatchManagement = () => {
     return <Badge>Active</Badge>;
   };
 
-  const getDomainBadge = (examType: string) => {
-    const colors: any = {
-      "School Education": "bg-blue-500",
-      "SSC Exams": "bg-green-500",
-      "Banking Exams": "bg-purple-500",
-      "UPSC Exams": "bg-orange-500",
-      "Engineering Entrance": "bg-red-500",
-      "Medical Entrance": "bg-pink-500",
-      "Custom Exam": "bg-gray-500",
-    };
+  const getDomainBadge = (examTypeCode: string) => {
+    const examType = examTypes.find(t => t.code === examTypeCode);
+    const colorClass = examType?.color_class || "bg-gray-500";
     return (
-      <Badge className={`${colors[examType] || "bg-gray-500"} text-white`}>
-        {examType || "General"}
+      <Badge className={`${colorClass} text-white`}>
+        {examType?.display_name || examTypeCode || "General"}
       </Badge>
     );
   };
@@ -123,25 +121,28 @@ const BatchManagement = () => {
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">Select Exam Domain</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {examDomains.map((domain, index) => (
-              <Card 
-                key={domain.value}
-                className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
-                style={{ animationDelay: `${index * 0.1}s` }}
-                onClick={() => setSelectedDomain(domain.value)}
-              >
-                <CardContent className="p-6">
-                  <div className={`w-full h-24 bg-gradient-to-br ${domain.color} rounded-lg mb-4 flex items-center justify-center text-4xl`}>
-                    {domain.icon}
-                  </div>
-                  <h4 className="font-semibold text-lg mb-2">{domain.label}</h4>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{getDomainBatchCount(domain.value)} batches</span>
-                    <Badge variant="secondary">{getDomainBatchCount(domain.value)}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {examTypes.map((examType, index) => {
+              const IconComponent = examType.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+              return (
+                <Card 
+                  key={examType.id}
+                  className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  onClick={() => setSelectedDomain(examType.code)}
+                >
+                  <CardContent className="p-6">
+                    <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
+                      <IconComponent className="h-12 w-12 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-lg mb-2">{examType.display_name}</h4>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{getDomainBatchCount(examType.code)} batches</span>
+                      <Badge variant="secondary">{getDomainBatchCount(examType.code)}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -150,12 +151,18 @@ const BatchManagement = () => {
           <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="text-3xl">
-                  {examDomains.find(d => d.value === selectedDomain)?.icon}
-                </div>
+                {(() => {
+                  const examType = examTypes.find(t => t.code === selectedDomain);
+                  const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+                  return (
+                    <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
+                      <IconComponent className="h-6 w-6 text-white" />
+                    </div>
+                  );
+                })()}
                 <div>
                   <p className="text-sm text-muted-foreground">Selected Domain</p>
-                  <p className="text-xl font-bold">{selectedDomain}</p>
+                  <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedDomain)?.display_name}</p>
                 </div>
               </div>
               <Badge className="text-lg px-4 py-2">{filteredBatches.length} batches</Badge>

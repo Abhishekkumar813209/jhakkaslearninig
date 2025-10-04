@@ -135,6 +135,30 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
     setIsFetchingSubjects(true);
     try {
+      // NEW: First try to get from exam_templates
+      const { data: template } = await supabase
+        .from('exam_templates')
+        .select('standard_subjects')
+        .eq('exam_name', derivedExamName)
+        .eq('exam_type', examType)
+        .eq('is_active', true)
+        .single();
+      
+      if (template?.standard_subjects) {
+        // Use template subjects
+        const subjects: Subject[] = (template.standard_subjects as string[]).map((s: string) => ({
+          id: crypto.randomUUID(),
+          name: s,
+          isSelected: true,
+          isCustom: false
+        }));
+        setFetchedSubjects(subjects);
+        toast.success(`Loaded ${subjects.length} subjects for ${derivedExamName}`);
+        setIsFetchingSubjects(false);
+        return;
+      }
+      
+      // Fallback: Call edge function if no template
       const { data, error } = await supabase.functions.invoke('fetch-exam-subjects', {
         body: {
           exam_type: examType,

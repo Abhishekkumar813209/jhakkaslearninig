@@ -6,6 +6,57 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to calculate parallel timeline
+const calculateParallelTimeline = (selectedSubjects: any[], totalDays: number) => {
+  // Find max number of chapters across subjects
+  const maxChapters = Math.max(...selectedSubjects.map(s => s.selected_chapters.length));
+  
+  const cycles: any[] = [];
+  let currentDay = 1;
+  
+  for (let cycleIndex = 0; cycleIndex < maxChapters; cycleIndex++) {
+    const cycleChapters: any[] = [];
+    let maxCycleDuration = 7; // Default 7 days per cycle (1 week)
+    
+    // For each subject, pick the chapter at this cycle index
+    selectedSubjects.forEach(subject => {
+      const chapter = subject.selected_chapters[cycleIndex];
+      if (chapter) {
+        const chapterDays = chapter.suggested_days || 7;
+        cycleChapters.push({
+          subject: subject.subject,
+          chapter_name: chapter.chapter_name,
+          suggested_days: chapterDays,
+        });
+        // Track the longest chapter in this cycle
+        maxCycleDuration = Math.max(maxCycleDuration, chapterDays);
+      }
+    });
+    
+    // All chapters in this cycle run from currentDay to currentDay + maxCycleDuration
+    cycleChapters.forEach(ch => {
+      ch.day_start = currentDay;
+      ch.day_end = currentDay + maxCycleDuration - 1;
+    });
+    
+    cycles.push({
+      cycle_number: cycleIndex + 1,
+      start_day: currentDay,
+      end_day: currentDay + maxCycleDuration - 1,
+      duration: maxCycleDuration,
+      chapters: cycleChapters
+    });
+    
+    currentDay += maxCycleDuration;
+  }
+  
+  return {
+    cycles,
+    total_duration: currentDay - 1,
+    mode: 'parallel'
+  };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -32,28 +83,28 @@ serve(async (req) => {
       subjects,
       target_class,
       target_board,
-      conditional_class,    // From wizard frontend
-      conditional_board,    // From wizard frontend
-      exam_type,            // 'School', 'Engineering', 'Medical', 'SSC', etc.
-      exam_name,            // Specific exam name
-      roadmap_type,         // 'single_year' | 'combined' (for Engineering/Medical)
-      selected_subjects,    // New structure from wizard
+      conditional_class,
+      conditional_board,
+      exam_type,
+      exam_name,
+      roadmap_type,
+      selected_subjects,
       existing_syllabus,
-      auto_detect = true
+      auto_detect = true,
+      mode = 'parallel',
+      title
     } = await req.json();
 
-    console.log('Received request:', { batch_id, total_days, subjects, target_class, target_board, conditional_class, conditional_board, exam_type, exam_name, roadmap_type, auto_detect });
+    console.log('Received request:', { batch_id, total_days, exam_type, exam_name, mode });
 
-    // Smart extraction from description if auto_detect is enabled
-    // Use conditional fields if provided (from wizard), fallback to target fields
+    // Smart extraction
     let extractedClass = conditional_class || target_class;
     let extractedBoard = conditional_board || target_board;
-    let extractedSubjects = subjects || selected_subjects?.map(s => s.subject);
+    let extractedSubjects = subjects || selected_subjects?.map((s: any) => s.subject);
 
     if (auto_detect && existing_syllabus && (!target_class || !subjects || subjects.length === 0)) {
       console.log('Auto-detecting class and subjects from description...');
       
-      // Extract class (look for "Class 10", "Class X", "10th", etc.)
       if (!extractedClass) {
         const classMatch = existing_syllabus.match(/(?:class|grade)\s*(\d+|[IVX]+)/i);
         if (classMatch) {
@@ -62,7 +113,6 @@ serve(async (req) => {
         }
       }
 
-      // Extract subjects (common subject names)
       if (!extractedSubjects || extractedSubjects.length === 0) {
         const commonSubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Hindi', 'Science', 'Social Science', 'Computer Science'];
         extractedSubjects = commonSubjects.filter(subject => 
@@ -72,18 +122,15 @@ serve(async (req) => {
       }
     }
 
-    // Final validation
+    // Validation
     if (!batch_id) {
-      console.error('Validation failed: Missing batch_id');
       return new Response(JSON.stringify({ error: 'Batch ID is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Class is required for School, Engineering, and Medical exams
-    if (['School', 'Engineering', 'Medical'].includes(exam_type) && !extractedClass) {
-      console.error(`Validation failed: Missing class for ${exam_type} exam`);
+    if (['School', 'Engineering', 'Medical-UG', 'Medical-PG'].includes(exam_type) && !extractedClass) {
       return new Response(JSON.stringify({ 
         error: `Student category is required for ${exam_type} exams` 
       }), { 
@@ -92,19 +139,7 @@ serve(async (req) => {
       });
     }
 
-    // Roadmap type is required for 11th class Engineering/Medical students
-    if (['Engineering', 'Medical'].includes(exam_type) && extractedClass === '11th' && !roadmap_type) {
-      console.error('Validation failed: Missing roadmap_type for 11th class');
-      return new Response(JSON.stringify({ 
-        error: 'Please select roadmap duration (11th only or 11th+12th combined)' 
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
-
     if (!extractedSubjects || extractedSubjects.length === 0) {
-      console.error('Validation failed: Missing subjects');
       return new Response(JSON.stringify({ error: 'At least one subject is required. Please specify or enable auto-detect.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -119,39 +154,97 @@ serve(async (req) => {
       });
     }
 
-    // Create AI prompt for roadmap generation
-    const systemPrompt = `You are an expert educational curriculum planner. Create a detailed ${total_days}-day learning roadmap.`;
+    // Calculate parallel timeline structure
+    const timelineStructure = mode === 'parallel' && selected_subjects 
+      ? calculateParallelTimeline(selected_subjects, total_days)
+      : null;
+
+    // Create AI prompt
+    const systemPrompt = mode === 'parallel' 
+      ? `You are an expert educational curriculum planner. Create a PARALLEL study roadmap (school timetable style).
+
+CRITICAL: All subjects run SIMULTANEOUSLY in cycles (weeks).
+
+Rules:
+- Each cycle = 1 week (or based on longest chapter in that cycle)
+- ALL subjects have chapters running in the SAME week
+- Example:
+  Week 1 (Day 1-7): Physics Ch1 + Chemistry Ch1 + Biology Ch1 (all run together)
+  Week 2 (Day 8-14): Physics Ch2 + Chemistry Ch2 + Biology Ch2 (all run together)
+- If one subject has fewer chapters, leave it blank in later cycles
+- Duration of each cycle = MAX(chapter durations in that cycle)
+- Total roadmap days = sum of all cycle durations (NOT sum of all chapters)`
+      : `You are an expert educational curriculum planner. Create a ${total_days}-day learning roadmap.`;
     
-    // Construct context based on exam type and student category
     let studentContext = '';
     if (exam_type === 'School') {
       studentContext = `- Class: ${extractedClass}\n- Board: ${extractedBoard || 'General'}`;
-    } else if (exam_type === 'Engineering' || exam_type === 'Medical') {
-      const examName = exam_type === 'Engineering' ? 'IIT JEE' : 'NEET';
+    } else if (exam_type === 'Engineering' || exam_type === 'Medical-UG' || exam_type === 'Medical-PG') {
+      const examName = exam_type === 'Engineering' ? 'IIT JEE' : exam_type === 'Medical-UG' ? 'NEET UG' : 'NEET PG';
       
-      if (extractedClass === '11th') {
+      if (extractedClass === '11') {
         if (roadmap_type === 'single_year') {
-          studentContext = `- Exam: ${examName}\n- Student: Class 11th (Foundation Year)\n- Focus: Complete Class 11 syllabus for strong foundation\n- Timeline: Current academic year (till March)\n- Strategy: NCERT mastery + conceptual clarity + basic problem solving`;
+          studentContext = `- Exam: ${examName}\n- Student: Class 11th (Foundation Year)\n- Focus: Complete Class 11 syllabus for strong foundation`;
         } else if (roadmap_type === 'combined') {
-          studentContext = `- Exam: ${examName}\n- Student: Class 11th (2-Year Plan)\n- Focus: Complete 11th + 12th syllabus with revision buffer\n- Timeline: 2 years (11th + 12th combined)\n- Strategy: Year 1 - 11th syllabus + foundation. Year 2 - 12th syllabus + advanced topics + mock tests + revision`;
+          studentContext = `- Exam: ${examName}\n- Student: Class 11th (2-Year Plan)\n- Focus: Complete 11th + 12th syllabus with revision buffer`;
         }
-      } else if (extractedClass === '12th') {
-        studentContext = `- Exam: ${examName}\n- Student: Class 12th (Final Year)\n- Focus: Complete 12th syllabus + 11th revision + exam strategy\n- Timeline: Current academic year (till exam in May)\n- Strategy: Fast-paced 12th completion + parallel 11th revision + problem solving + mock tests`;
-      } else if (extractedClass === 'Dropper') {
-        studentContext = `- Exam: ${examName}\n- Student: Dropper (12th Passed)\n- Focus: Full syllabus revision + advanced problem solving + test series\n- Timeline: Drop year preparation\n- Strategy: Intensive revision + previous year questions + mock tests + weak areas improvement`;
+      } else if (extractedClass === '12') {
+        studentContext = `- Exam: ${examName}\n- Student: Class 12th (Final Year)\n- Focus: Complete 12th syllabus + 11th revision + exam strategy`;
+      } else if (extractedClass === 'dropper') {
+        studentContext = `- Exam: ${examName}\n- Student: Dropper (12th Passed)\n- Focus: Full syllabus revision + advanced problem solving + test series`;
       }
     } else {
       studentContext = `- Exam: ${exam_name || exam_type}`;
     }
 
-    const userPrompt = `Generate a ${total_days}-day learning roadmap for:
+    const userPrompt = mode === 'parallel' && timelineStructure
+      ? `Generate a PARALLEL study roadmap for:
+${studentContext}
+- Subjects: ${extractedSubjects.join(', ')}
+${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
+
+TIMELINE STRUCTURE (use this):
+${JSON.stringify(timelineStructure, null, 2)}
+
+Create a JSON response with this structure:
+{
+  "title": "${title || 'Parallel Learning Roadmap'}",
+  "description": "Brief description",
+  "chapters": [
+    {
+      "chapter_name": "Chapter name",
+      "subject": "Subject name",
+      "order_num": 1,
+      "estimated_days": 7,
+      "day_start": 1,
+      "day_end": 7,
+      "topics": [
+        {
+          "topic_name": "Topic name",
+          "order_num": 1,
+          "estimated_hours": 2.5,
+          "day_number": 1
+        }
+      ]
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS for PARALLEL MODE:
+- ALL subjects must run in the SAME week
+- Week 1: Physics Ch1 + Chemistry Ch1 + Biology Ch1 (days 1-7)
+- Week 2: Physics Ch2 + Chemistry Ch2 + Biology Ch2 (days 8-14)
+- Use the cycle structure provided above
+- Each cycle's duration = MAX(chapter durations in that cycle)
+- Total duration = ${timelineStructure.total_duration} days (NOT ${total_days})`
+      : `Generate a ${total_days}-day learning roadmap for:
 ${studentContext}
 - Subjects: ${extractedSubjects.join(', ')}
 ${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
 
 Create a JSON response with this structure:
 {
-  "title": "Roadmap title",
+  "title": "${title || 'Learning Roadmap'}",
   "description": "Brief description",
   "chapters": [
     {
@@ -166,50 +259,14 @@ Create a JSON response with this structure:
           "topic_name": "Topic name",
           "order_num": 1,
           "estimated_hours": 2.5,
-          "day_number": 1,
-          "learning_objectives": ["objective1", "objective2"]
+          "day_number": 1
         }
       ]
     }
   ]
-}
+}`;
 
-CRITICAL REQUIREMENTS:
-
-1. **65-25-10 Revision Strategy:**
-   - 65% New content learning
-   - 25% Distributed revision (NOT a single day, spread throughout)
-   - 10% Testing and practice
-
-2. **Daily Structure:**
-   Each day should mix:
-   - New topic learning (2-3 hours)
-   - Quick revision of previous concepts (0.5-1 hour)
-   - Practice problems (0.5 hour)
-
-3. **Weekly Revision (Every 7th day):**
-   Create chapter: "Weekly Revision: Week [N]" with topics:
-   - Full week recap (1.5 hours)
-   - Practice test (1 hour)
-
-4. **Monthly Revision (Every 30 days):**
-   Create chapter: "Monthly Revision: Month [N]" with topics:
-   - Complete month review (2 hours)
-   - Full test (2 hours)
-
-5. **Student-Specific Adjustments:**
-${extractedClass === 'Dropper' ? '   - Droppers: 40% New + 40% Revision + 20% Tests (heavy revision focus)' : ''}
-${extractedClass === '12th' ? '   - Class 12: 50% New + 30% Revision + 20% Tests (parallel 11th revision)' : ''}
-${extractedClass === '11th' && roadmap_type === 'single_year' ? '   - Class 11: 70% New + 20% Revision + 10% Tests (foundation focus)' : ''}
-${extractedClass === '11th' && roadmap_type === 'combined' ? '   - Class 11 (2-year): Year 1: 70-20-10, Year 2: 50-35-15' : ''}
-
-GUIDELINES:
-- Distribute ${total_days} days with proper revision integration
-- Every topic: realistic estimated_hours (0.5-4 hours)
-- day_start and day_end must be within 1-${total_days}
-- Include revision topics regularly throughout the schedule`;
-
-    // Call Lovable AI Gateway (Gemini 2.5 Flash)
+    // Call Lovable AI Gateway
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -252,7 +309,6 @@ GUIDELINES:
     // Parse AI response
     let roadmapData;
     try {
-      // Remove markdown code blocks if present
       const jsonMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       const jsonString = jsonMatch ? jsonMatch[1] : generatedContent;
       roadmapData = JSON.parse(jsonString);
@@ -266,8 +322,11 @@ GUIDELINES:
 
     // Calculate dates
     const startDate = new Date();
+    const actualTotalDays = mode === 'parallel' && timelineStructure 
+      ? timelineStructure.total_duration 
+      : total_days;
     const endDate = new Date();
-    endDate.setDate(startDate.getDate() + total_days);
+    endDate.setDate(startDate.getDate() + actualTotalDays);
 
     // Insert roadmap with metadata
     const { data: roadmap, error: roadmapError } = await supabase
@@ -276,10 +335,14 @@ GUIDELINES:
         batch_id,
         title: roadmapData.title,
         description: roadmapData.description,
-        total_days,
+        total_days: actualTotalDays,
         start_date: startDate.toISOString().split('T')[0],
         end_date: endDate.toISOString().split('T')[0],
         status: 'draft',
+        mode: mode,
+        selected_subjects: extractedSubjects,
+        exam_type,
+        exam_name,
         ai_generated_plan: {
           ...roadmapData,
           metadata: {
@@ -289,7 +352,8 @@ GUIDELINES:
             target_class: extractedClass,
             target_board: extractedBoard,
             subjects: extractedSubjects,
-            auto_detected: auto_detect && (extractedClass !== target_class || JSON.stringify(extractedSubjects) !== JSON.stringify(subjects))
+            mode,
+            timeline_structure: timelineStructure
           }
         },
         created_by: user.id

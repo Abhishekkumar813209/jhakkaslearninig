@@ -249,11 +249,11 @@ export const EditRoadmapDialog = ({ open, onOpenChange, roadmapId, onSuccess }: 
             startDate={parseISO(roadmapData.start_date)}
             totalDays={roadmapData.total_days}
             subjects={(() => {
-              const defaultColumns = ['Physics', 'Chemistry', 'Biology'];
+              // NEW: Get subjects dynamically from roadmap data and chapters
               const selected = Array.isArray(roadmapData.selected_subjects) 
                 ? roadmapData.selected_subjects 
                 : (roadmapData.selected_subjects?.subjects || []);
-              const allSubjects = Array.from(new Set([...defaultColumns, ...selected, ...chapters.map(c => c.subject)]));
+              const allSubjects = Array.from(new Set([...selected, ...chapters.map(c => c.subject)]));
               return allSubjects;
             })()}
             chapters={calendarChapters}

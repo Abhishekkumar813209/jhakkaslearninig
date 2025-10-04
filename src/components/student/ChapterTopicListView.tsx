@@ -3,8 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked } from "lucide-react";
+import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked, Gamepad2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DuolingoLessonPath } from "./DuolingoLessonPath";
+import { DuolingoStyleLearning } from "./DuolingoStyleLearning";
 
 interface Topic {
   id: string;
@@ -34,6 +36,8 @@ export const ChapterTopicListView = ({
   onBack 
 }: ChapterTopicListViewProps) => {
   const [sortedTopics, setSortedTopics] = useState<Topic[]>([]);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
 
   useEffect(() => {
     // Sort topics by day_number
@@ -78,6 +82,44 @@ export const ChapterTopicListView = ({
   const totalProgress = sortedTopics.length > 0 
     ? (completedCount / sortedTopics.length) * 100 
     : 0;
+
+  // Show learning interface if lesson selected
+  if (selectedLesson && selectedTopicId) {
+    return (
+      <DuolingoStyleLearning
+        lesson={selectedLesson}
+        topicId={selectedTopicId}
+        onComplete={() => {
+          setSelectedLesson(null);
+          setSelectedTopicId(null);
+        }}
+        onExit={() => {
+          setSelectedLesson(null);
+          setSelectedTopicId(null);
+        }}
+      />
+    );
+  }
+
+  // Show lesson path if topic selected
+  if (selectedTopicId) {
+    return (
+      <div className="space-y-6">
+        <Button 
+          variant="ghost" 
+          onClick={() => setSelectedTopicId(null)}
+          className="hover:bg-primary/10"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Topics
+        </Button>
+        <DuolingoLessonPath
+          topicId={selectedTopicId}
+          onLessonClick={(lesson) => setSelectedLesson(lesson)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -135,7 +177,7 @@ export const ChapterTopicListView = ({
                 getStatusColor(status),
                 isClickable && "card-interactive"
               )}
-              onClick={() => isClickable && onTopicClick(topic.id, topic.topic_name)}
+              onClick={() => isClickable && setSelectedTopicId(topic.id)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
@@ -170,6 +212,12 @@ export const ChapterTopicListView = ({
                       {/* Rewards */}
                       {(topic.xp_reward || topic.coin_reward) && (
                         <div className="flex gap-2 flex-shrink-0">
+                          {isClickable && (
+                            <Badge variant="default" className="bg-gradient-to-r from-blue-500 to-purple-500">
+                              <Gamepad2 className="h-3 w-3 mr-1" />
+                              Play
+                            </Badge>
+                          )}
                           {topic.xp_reward && (
                             <Badge variant="outline" className="bg-primary/5">
                               +{topic.xp_reward} XP

@@ -25,6 +25,11 @@ const Profile = () => {
   const [studentClass, setStudentClass] = useState('');
   const [educationBoard, setEducationBoard] = useState('');
   const [examDomain, setExamDomain] = useState('');
+  const [zoneId, setZoneId] = useState('');
+  const [schoolId, setSchoolId] = useState('');
+  const [zones, setZones] = useState<any[]>([]);
+  const [schools, setSchools] = useState<any[]>([]);
+  const [filteredSchools, setFilteredSchools] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -34,10 +39,59 @@ const Profile = () => {
 
   // Auto-enable edit mode if profile is incomplete
   useEffect(() => {
-    if (profileData && (!profileData.exam_domain || (profileData.exam_domain === 'school' && (!profileData.student_class || !profileData.education_board)))) {
-      setIsEditing(true);
+    if (profileData) {
+      const isIncomplete = !profileData.exam_domain || 
+        !profileData.zone_id || 
+        !profileData.school_id ||
+        (profileData.exam_domain === 'school' && (!profileData.student_class || !profileData.education_board));
+      if (isIncomplete) {
+        setIsEditing(true);
+      }
     }
   }, [profileData]);
+
+  // Load zones and schools
+  useEffect(() => {
+    loadZonesAndSchools();
+  }, []);
+
+  // Filter schools by zone
+  useEffect(() => {
+    if (zoneId && schools.length > 0) {
+      const filtered = schools.filter(school => school.zone_id === zoneId);
+      setFilteredSchools(filtered);
+    } else {
+      setFilteredSchools(schools);
+    }
+  }, [zoneId, schools]);
+
+  const loadZonesAndSchools = async () => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      // Load zones
+      const { data: zonesData, error: zonesError } = await supabase
+        .from('zones')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      
+      if (zonesError) throw zonesError;
+      setZones(zonesData || []);
+      
+      // Load schools
+      const { data: schoolsData, error: schoolsError } = await supabase
+        .from('schools')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      
+      if (schoolsError) throw schoolsError;
+      setSchools(schoolsData || []);
+    } catch (error) {
+      console.error('Failed to load zones and schools:', error);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -49,6 +103,8 @@ const Profile = () => {
       setStudentClass(profile.student_class || '');
       setEducationBoard(profile.education_board || '');
       setExamDomain(profile.exam_domain || '');
+      setZoneId(profile.zone_id || '');
+      setSchoolId(profile.school_id || '');
     } catch (error) {
       console.error('Failed to load profile:', error);
       // Fallback to user metadata
@@ -72,7 +128,9 @@ const Profile = () => {
       const updatePayload: any = {
         full_name: name,
         avatar_url: avatarUrl,
-        exam_domain: examDomain
+        exam_domain: examDomain,
+        zone_id: zoneId,
+        school_id: schoolId
       };
 
       // Only include school fields if category is 'school'
@@ -127,12 +185,17 @@ const Profile = () => {
           </div>
 
           {/* Incomplete profile banner */}
-          {isStudent && (!examDomain || (examDomain === 'school' && (!studentClass || !educationBoard))) && (
+          {isStudent && (
+            !examDomain || 
+            !zoneId || 
+            !schoolId || 
+            (examDomain === 'school' && (!studentClass || !educationBoard))
+          ) && (
             <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
               <AlertCircle className="h-4 w-4 text-orange-600" />
               <AlertTitle className="text-orange-600">Complete Your Profile</AlertTitle>
               <AlertDescription className="text-orange-700 dark:text-orange-400">
-                Please fill in your exam category and other required details to access all features.
+                Please fill in all required details (exam category, zone, and school/library) to access all features.
               </AlertDescription>
             </Alert>
           )}
@@ -280,11 +343,59 @@ const Profile = () => {
                       )}
                     </div>
 
+                    {/* Zone - Required for ALL students */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Zone *</label>
+                      {isEditing ? (
+                        <Select value={zoneId} onValueChange={setZoneId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Zone" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {zones.map(zone => (
+                              <SelectItem key={zone.id} value={zone.id}>
+                                {zone.name} ({zone.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-3 bg-muted rounded-md">
+                          {zones.find(z => z.id === zoneId)?.name || 'Not set'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* School/Library - Required for ALL students */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        {examDomain === 'school' ? 'School *' : 'School/Library *'}
+                      </label>
+                      {isEditing ? (
+                        <Select value={schoolId} onValueChange={setSchoolId} disabled={!zoneId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={zoneId ? "Select School/Library" : "Select Zone first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredSchools.map(school => (
+                              <SelectItem key={school.id} value={school.id}>
+                                {school.name} ({school.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-3 bg-muted rounded-md">
+                          {schools.find(s => s.id === schoolId)?.name || 'Not set'}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Show Class and Board ONLY for school category */}
                     {examDomain === 'school' && (
                       <>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Class</label>
+                          <label className="text-sm font-medium">Class *</label>
                           {isEditing ? (
                             <Select value={studentClass} onValueChange={setStudentClass}>
                               <SelectTrigger>

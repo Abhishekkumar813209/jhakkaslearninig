@@ -53,8 +53,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Check if profile completion is required for students
   if (requireAuth && user && requireProfileComplete && !skipProfileCheck) {
     // Only check profile completion for students (non-admin users)
-    if (!isAdmin && (!profile?.student_class || !profile?.education_board)) {
-      return <Navigate to="/profile" replace />;
+    if (!isAdmin) {
+      // School students need class, board, zone, school
+      if (profile?.exam_domain === 'school' && (!profile?.exam_domain || !profile?.student_class || !profile?.education_board || !profile?.zone_id || !profile?.school_id)) {
+        return <Navigate to="/profile" replace />;
+      }
+      // Other exam students need exam_domain, zone, school
+      if (profile?.exam_domain !== 'school' && (!profile?.exam_domain || !profile?.zone_id || !profile?.school_id)) {
+        return <Navigate to="/profile" replace />;
+      }
     }
   }
 

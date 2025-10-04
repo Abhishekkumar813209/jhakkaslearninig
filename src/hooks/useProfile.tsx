@@ -9,6 +9,9 @@ interface Profile {
   student_class?: string;
   education_board?: string;
   avatar_url?: string;
+  exam_domain?: string;
+  zone_id?: string;
+  school_id?: string;
 }
 
 export const useProfile = () => {
@@ -55,9 +58,17 @@ export const useProfile = () => {
       }
 
       // If user is a student and doesn't have complete profile info, redirect to profile page
-      if (roleData?.role === 'student' && (!profile?.student_class || !profile?.education_board || !profile?.zone_id || !profile?.school_id)) {
-        navigate('/profile');
-        return;
+      if (roleData?.role === 'student') {
+        // School students need all fields
+        if (profile?.exam_domain === 'school' && (!profile?.exam_domain || !profile?.student_class || !profile?.education_board || !profile?.zone_id || !profile?.school_id)) {
+          navigate('/profile');
+          return;
+        }
+        // Other exam students need exam_domain, zone_id, school_id
+        if (profile?.exam_domain !== 'school' && (!profile?.exam_domain || !profile?.zone_id || !profile?.school_id)) {
+          navigate('/profile');
+          return;
+        }
       }
 
       setProfile(profile);

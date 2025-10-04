@@ -24,6 +24,8 @@ interface Student {
   zone_id?: string | null;
   school_id?: string | null;
   exam_domain?: string | null;
+  student_class?: string | null;
+  preparation_level?: string | null;
   user_roles?: { role: string } | null;
   batches?: { id: string; name: string; level: string } | null;
   zones?: { name: string } | null;
@@ -38,6 +40,7 @@ const StudentManagement = () => {
   const [selectedBatch, setSelectedBatch] = useState("all");
   const [selectedZone, setSelectedZone] = useState("all");
   const [selectedSchool, setSelectedSchool] = useState("all");
+  const [selectedClass, setSelectedClass] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { batches, fetchBatches } = useBatches();
   const { zones } = useZones();
@@ -101,9 +104,24 @@ const StudentManagement = () => {
     return () => clearTimeout(t);
   }, [searchTerm]);
 
+  const getClassOptionsForExam = (examDomain: string): { value: string; label: string }[] => {
+    if (examDomain === 'school') {
+      return Array.from({ length: 12 }, (_, i) => ({
+        value: String(i + 1),
+        label: `Class ${i + 1}`
+      }));
+    } else if (examDomain === 'jee' || examDomain === 'neet') {
+      return [
+        { value: '11th', label: '11th' },
+        { value: '12th', label: '12th' },
+        { value: 'dropper', label: 'Dropper' }
+      ];
+    }
+    return [];
+  };
+
   const getExamTypeBatchCount = (code: string) => {
     return students.filter((s) => {
-      // Treat null/undefined exam_domain as 'school' for backward compatibility
       const studentExamDomain = s.exam_domain || 'school';
       return studentExamDomain === code;
     }).length;
@@ -116,11 +134,24 @@ const StudentManagement = () => {
     // Filter by exam type
     if (selectedExamType) {
       list = list.filter((s) => {
-        // Treat null/undefined exam_domain as 'school' for backward compatibility
         const studentExamDomain = s.exam_domain || 'school';
         return studentExamDomain === selectedExamType;
       });
       console.log('🔧 [StudentManagement] After exam type filter:', list.length);
+    }
+    
+    // Filter by class/level
+    if (selectedClass !== "all") {
+      list = list.filter((s) => {
+        const examDomain = s.exam_domain || 'school';
+        if (examDomain === 'school') {
+          return s.student_class === selectedClass;
+        } else if (examDomain === 'jee' || examDomain === 'neet') {
+          return s.preparation_level === selectedClass;
+        }
+        return true;
+      });
+      console.log('🔧 [StudentManagement] After class filter:', list.length);
     }
     
     // Filter by batch
@@ -155,7 +186,7 @@ const StudentManagement = () => {
     
     console.log('✅ [StudentManagement] Final filtered count:', list.length);
     return list;
-  }, [students, selectedExamType, selectedBatch, selectedZone, selectedSchool]);
+  }, [students, selectedExamType, selectedBatch, selectedZone, selectedSchool, selectedClass]);
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -213,6 +244,27 @@ const StudentManagement = () => {
       fetchStudents(searchTerm.trim() || undefined);
     } catch (err) {
       toast({ title: "Error", description: "Failed to assign school", variant: "destructive" });
+    }
+  };
+
+  const handleAssignClass = async (studentId: string, classValue: string, examDomain: string) => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const updateData = examDomain === 'school' 
+        ? { student_class: classValue as any }
+        : { preparation_level: classValue };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', studentId);
+
+      if (error) throw error;
+
+      toast({ title: "Success", description: "Class/Level assigned successfully" });
+      fetchStudents(searchTerm.trim() || undefined);
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to assign class/level", variant: "destructive" });
     }
   };
 
@@ -386,6 +438,23 @@ const StudentManagement = () => {
                 ))}
               </SelectContent>
             </Select>
+            
+            {selectedExamType && (
+              <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <SelectTrigger className="w-48">
+                  <LucideIcons.GraduationCap className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes</SelectItem>
+                  {getClassOptionsForExam(selectedExamType).map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -401,6 +470,7 @@ const StudentManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
+                  <TableHead>Class/Level</TableHead>
                   <TableHead>Zone</TableHead>
                   <TableHead>School</TableHead>
                   <TableHead>Batch</TableHead>
@@ -410,14 +480,14 @@ const StudentManagement = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       No students found
                     </TableCell>
                   </TableRow>
@@ -429,6 +499,27 @@ const StudentManagement = () => {
                           <div className="font-medium text-foreground">{student.full_name || 'Unnamed'}</div>
                           <div className="text-sm text-muted-foreground">{student.email}</div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select 
+                          value={
+                            (student.exam_domain || 'school') === 'school' 
+                              ? student.student_class || '' 
+                              : student.preparation_level || ''
+                          }
+                          onValueChange={(value) => handleAssignClass(student.id, value, student.exam_domain || 'school')}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Set class" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getClassOptionsForExam(student.exam_domain || 'school').map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Select 

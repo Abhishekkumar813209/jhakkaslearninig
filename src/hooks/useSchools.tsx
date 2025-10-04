@@ -13,6 +13,8 @@ export interface School {
   updated_at: string;
   student_count?: number;
   zone_name?: string;
+  exam_type: string;
+  allowed_classes?: string[];
 }
 
 export const useSchools = () => {
@@ -50,7 +52,10 @@ export const useSchools = () => {
         processedSchools.push({
           ...school,
           student_count: studentCount || 0,
-          zone_name: zoneData?.name || 'No Zone'
+          zone_name: zoneData?.name || 'No Zone',
+          allowed_classes: Array.isArray(school.allowed_classes)
+            ? school.allowed_classes as string[]
+            : []
         });
       }
 
@@ -73,7 +78,9 @@ export const useSchools = () => {
         code: schoolData.code!,
         zone_id: schoolData.zone_id!,
         address: schoolData.address,
-        is_active: schoolData.is_active ?? true
+        is_active: schoolData.is_active ?? true,
+        exam_type: schoolData.exam_type || 'school',
+        allowed_classes: schoolData.allowed_classes || []
       };
 
       const { data, error } = await supabase
@@ -192,6 +199,16 @@ export const useSchools = () => {
     return schools.filter(school => school.zone_id === zoneId);
   };
 
+  const getSchoolsByExamType = (examType: string) => {
+    return schools.filter(school => school.exam_type === examType);
+  };
+
+  const getSchoolsByClass = (studentClass: string) => {
+    return schools.filter(school => 
+      school.allowed_classes?.includes(studentClass)
+    );
+  };
+
   useEffect(() => {
     fetchSchools();
 
@@ -221,5 +238,7 @@ export const useSchools = () => {
     deleteSchool,
     assignStudentToSchool,
     getSchoolsByZone,
+    getSchoolsByExamType,
+    getSchoolsByClass,
   };
 };

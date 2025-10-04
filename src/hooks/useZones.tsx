@@ -12,6 +12,8 @@ export interface Zone {
   updated_at: string;
   student_count?: number;
   school_count?: number;
+  exam_type: string;
+  allowed_classes?: string[];
 }
 
 export const useZones = () => {
@@ -48,7 +50,10 @@ export const useZones = () => {
         processedZones.push({
           ...zone,
           school_count: schoolCount || 0,
-          student_count: studentCount || 0
+          student_count: studentCount || 0,
+          allowed_classes: Array.isArray(zone.allowed_classes) 
+            ? zone.allowed_classes as string[]
+            : []
         });
       }
 
@@ -73,7 +78,9 @@ export const useZones = () => {
         name: zoneData.name!,
         code: nextCode,
         description: zoneData.description,
-        is_active: zoneData.is_active ?? true
+        is_active: zoneData.is_active ?? true,
+        exam_type: zoneData.exam_type || 'school',
+        allowed_classes: zoneData.allowed_classes || []
       };
 
       const { data, error } = await supabase
@@ -188,6 +195,10 @@ export const useZones = () => {
     }
   };
 
+  const getZonesByExamType = (examType: string) => {
+    return zones.filter(zone => zone.exam_type === examType);
+  };
+
   useEffect(() => {
     fetchZones();
 
@@ -216,5 +227,6 @@ export const useZones = () => {
     updateZone,
     deleteZone,
     assignStudentToZone,
+    getZonesByExamType,
   };
 };

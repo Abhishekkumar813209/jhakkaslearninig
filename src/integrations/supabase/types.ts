@@ -1646,8 +1646,10 @@ export type Database = {
       schools: {
         Row: {
           address: string | null
+          allowed_classes: Json | null
           code: string
           created_at: string
+          exam_type: string | null
           id: string
           is_active: boolean
           name: string
@@ -1656,8 +1658,10 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          allowed_classes?: Json | null
           code: string
           created_at?: string
+          exam_type?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -1666,8 +1670,10 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          allowed_classes?: Json | null
           code?: string
           created_at?: string
+          exam_type?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -1675,6 +1681,13 @@ export type Database = {
           zone_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_schools_exam_type"
+            columns: ["exam_type"]
+            isOneToOne: false
+            referencedRelation: "exam_types"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "fk_schools_zone"
             columns: ["zone_id"]
@@ -2668,33 +2681,47 @@ export type Database = {
       }
       zones: {
         Row: {
+          allowed_classes: Json | null
           code: string
           created_at: string
           description: string | null
+          exam_type: string | null
           id: string
           is_active: boolean
           name: string
           updated_at: string
         }
         Insert: {
+          allowed_classes?: Json | null
           code: string
           created_at?: string
           description?: string | null
+          exam_type?: string | null
           id?: string
           is_active?: boolean
           name: string
           updated_at?: string
         }
         Update: {
+          allowed_classes?: Json | null
           code?: string
           created_at?: string
           description?: string | null
+          exam_type?: string | null
           id?: string
           is_active?: boolean
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_zones_exam_type"
+            columns: ["exam_type"]
+            isOneToOne: false
+            referencedRelation: "exam_types"
+            referencedColumns: ["code"]
+          },
+        ]
       }
     }
     Views: {

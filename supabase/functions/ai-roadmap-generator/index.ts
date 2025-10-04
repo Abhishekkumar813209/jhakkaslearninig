@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// No time calculation - admin will set timeline manually
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -42,10 +40,11 @@ serve(async (req) => {
       existing_syllabus,
       auto_detect = true,
       mode = 'parallel',
-      title
+      title,
+      time_budget
     } = await req.json();
 
-    console.log('Received request:', { batch_id, exam_type, exam_name, mode });
+    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget });
 
     // Smart extraction
     let extractedClass = conditional_class || target_class;
@@ -104,11 +103,35 @@ serve(async (req) => {
       });
     }
 
-    // Create AI prompt - NO time allocation, only chapter organization
-    const systemPrompt = `You are an expert educational curriculum organizer.
-Your task is to organize chapters and topics for the given subjects.
-DO NOT assign any days, dates, or timeline. Only return the chapter organization and topic breakdown.
-The admin will manually set the timeline later.`;
+    // Create AI prompt with time budget
+    const systemPrompt = `You are an expert educational roadmap planner. Your task is to organize chapters and topics for subjects.
+  
+CRITICAL REQUIREMENTS:
+1. Return ONLY a valid JSON object, no additional text
+2. Intelligently distribute the time budget across chapters
+3. Assign MORE days to complex/heavy chapters (e.g., Modern Physics, Organic Chemistry, Calculus)
+4. Assign FEWER days to lighter chapters
+5. The sum of estimated_days for each subject MUST equal the time_budget for that subject
+6. Focus on logical organization and smart time distribution
+
+Return format:
+{
+  "chapters": [
+    {
+      "chapter_name": "string",
+      "subject": "string",
+      "order_num": number,
+      "estimated_days": number,
+      "topics": [
+        {
+          "topic_name": "string",
+          "order_num": number,
+          "estimated_hours": number
+        }
+      ]
+    }
+  ]
+}`;
     
     let studentContext = '';
     if (exam_type === 'School') {
@@ -131,10 +154,14 @@ The admin will manually set the timeline later.`;
       studentContext = `- Exam: ${exam_name || exam_type}`;
     }
 
-    const userPrompt = `Organize chapters and topics for the following:
+    const userPrompt = `Create a learning roadmap for:
 
 ${studentContext}
 - Subjects: ${extractedSubjects.join(', ')}
+
+Time Budget per Subject (in days):
+${time_budget ? JSON.stringify(time_budget, null, 2) : 'Not specified - use reasonable defaults'}
+
 ${existing_syllabus ? `- Context: ${existing_syllabus}` : ''}
 
 ${selected_subjects ? `
@@ -144,35 +171,15 @@ ${selected_subjects.map((s: any) =>
 ).join('\n')}
 ` : ''}
 
-Create a JSON response with this structure:
-{
-  "title": "${title || 'Learning Roadmap'}",
-  "description": "Brief description",
-  "chapters": [
-    {
-      "chapter_name": "Motion in One Dimension",
-      "subject": "Physics",
-      "order_num": 1,
-      "topics": [
-        {
-          "topic_name": "Displacement and Velocity",
-          "order_num": 1
-        },
-        {
-          "topic_name": "Acceleration",
-          "order_num": 2
-        }
-      ]
-    }
-  ]
-}
+Return a JSON object with chapters array. Each chapter must have:
+- chapter_name
+- subject
+- order_num
+- estimated_days (intelligently distributed from time budget)
+- topics array (with topic_name, order_num, estimated_hours)
 
-IMPORTANT:
-- Use the selected chapters if provided
-- DO NOT include estimated_days, day_start, day_end, or estimated_hours
-- Only return chapter_name, subject, order_num, and topics array
-- Each topic should only have topic_name and order_num
-- Organize chapters logically by difficulty and prerequisites`;
+CRITICAL: The sum of estimated_days for each subject MUST equal its time_budget.
+Distribute days intelligently - more complex chapters get more days.`;
 
     // Call Lovable AI Gateway
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -228,17 +235,16 @@ IMPORTANT:
       });
     }
 
-    // No date calculation - admin will set manually
     console.log('Generated roadmap with', roadmapData.chapters?.length || 0, 'chapters');
 
-    // Insert roadmap with metadata (NO timeline data)
+    // Insert roadmap with metadata
     const { data: roadmap, error: roadmapError } = await supabase
       .from('batch_roadmaps')
       .insert({
         batch_id,
-        title: roadmapData.title,
-        description: roadmapData.description,
-        total_days: null, // Admin will set manually
+        title: roadmapData.title || title || 'AI Generated Roadmap',
+        description: roadmapData.description || 'AI generated learning path',
+        total_days: null, // Will be calculated from parallel mode
         start_date: null,
         end_date: null,
         status: 'draft',
@@ -255,7 +261,8 @@ IMPORTANT:
             target_class: extractedClass,
             target_board: extractedBoard,
             subjects: extractedSubjects,
-            mode
+            mode,
+            time_budget
           }
         },
         created_by: user.id
@@ -273,7 +280,7 @@ IMPORTANT:
       });
     }
 
-    // Insert chapters and topics (NO time allocation)
+    // Insert chapters with AI-assigned days
     for (const chapter of roadmapData.chapters) {
       const { data: insertedChapter, error: chapterError } = await supabase
         .from('roadmap_chapters')
@@ -282,7 +289,7 @@ IMPORTANT:
           chapter_name: chapter.chapter_name,
           subject: chapter.subject,
           order_num: chapter.order_num,
-          estimated_days: null, // Admin will set manually
+          estimated_days: chapter.estimated_days || 3,
           day_start: null,
           day_end: null,
           xp_reward: 100
@@ -304,7 +311,7 @@ IMPORTANT:
               chapter_id: insertedChapter.id,
               topic_name: topic.topic_name,
               order_num: topic.order_num,
-              estimated_hours: null, // Admin will set manually
+              estimated_hours: topic.estimated_hours || 2,
               day_number: null,
               xp_reward: 50,
               coin_reward: 10
@@ -313,7 +320,7 @@ IMPORTANT:
       }
     }
 
-    console.log('✅ Roadmap created successfully - Timeline to be set manually');
+    console.log('✅ Roadmap created successfully with AI-assigned time budget');
 
     return new Response(JSON.stringify({
       success: true,

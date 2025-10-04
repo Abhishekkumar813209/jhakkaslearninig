@@ -46,7 +46,7 @@ interface CreateRoadmapWizardProps {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 3;
+  const totalSteps = 4;
 
   // Step 1: Exam Type
   const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
@@ -66,6 +66,9 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [fetchedChapters, setFetchedChapters] = useState<ChaptersBySubject>({});
   const [isFetchingChapters, setIsFetchingChapters] = useState(false);
   const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
+  
+  // Step 3: Time Budget
+  const [timeBudget, setTimeBudget] = useState<Record<string, number>>({});
 
 
   // Timeline will be set manually - no auto-calculation
@@ -400,7 +403,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
           selected_subjects,
           title: roadmapTitle,
-          mode: roadmapMode
+          mode: roadmapMode,
+          time_budget: timeBudget
         }
       });
 
@@ -486,6 +490,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setFetchedSubjects([]);
     setFetchedChapters({});
     setUploadedPdf(null);
+    setTimeBudget({});
   };
 
   const handleNext = () => {
@@ -522,6 +527,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     }
 
     if (currentStep === 2) {
+      const selectedSubjectNames = fetchedSubjects.filter(s => s.isSelected).map(s => s.name);
+      const hasMissingBudget = selectedSubjectNames.some(name => !timeBudget[name] || timeBudget[name] <= 0);
+      if (hasMissingBudget) {
+        toast.error("Please set time budget for all selected subjects");
+        return;
+      }
+    }
+
+    if (currentStep === 3) {
       const selectedChaptersCount = Object.values(fetchedChapters)
         .flat()
         .filter(c => c.isSelected).length;
@@ -604,6 +618,44 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           )}
 
           {currentStep === 2 && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Set Time Budget per Subject</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Assign how many days you want to allocate for each subject. AI will intelligently distribute these days across chapters.
+                </p>
+              </div>
+
+              {fetchedSubjects.filter(s => s.isSelected).map(subject => (
+                <div key={subject.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <Label className="flex-1 font-medium">{subject.name}</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Days"
+                      value={timeBudget[subject.name] || ''}
+                      onChange={(e) => setTimeBudget({
+                        ...timeBudget,
+                        [subject.name]: parseInt(e.target.value) || 0
+                      })}
+                      className="w-24 px-3 py-2 border rounded-md"
+                    />
+                    <span className="text-sm text-muted-foreground">days</span>
+                  </div>
+                </div>
+              ))}
+
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm font-medium">
+                  Total Roadmap Duration: {Object.values(timeBudget).reduce((sum, days) => sum + days, 0)} days
+                  <span className="text-muted-foreground ml-2">(in parallel mode, actual duration = longest subject)</span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 3 && (
             <ChapterSelectionStep
               subjects={fetchedSubjects.filter(s => s.isSelected)}
               chapters={fetchedChapters}

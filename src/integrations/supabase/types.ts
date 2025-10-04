@@ -1705,6 +1705,58 @@ export type Database = {
         }
         Relationships: []
       }
+      student_chapter_order: {
+        Row: {
+          chapter_order: Json
+          created_at: string | null
+          id: string
+          roadmap_id: string
+          student_id: string
+          subject: string
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_order: Json
+          created_at?: string | null
+          id?: string
+          roadmap_id: string
+          student_id: string
+          subject: string
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_order?: Json
+          created_at?: string | null
+          id?: string
+          roadmap_id?: string
+          student_id?: string
+          subject?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_chapter_order_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_chapter_order_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_chapter_order_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_chapter_progress: {
         Row: {
           chapter_id: string

@@ -9,6 +9,7 @@ import { GripVertical, Calendar, BookOpen, Target, RotateCcw } from "lucide-reac
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { TopicStudyView } from "./TopicStudyView";
 
 interface RoadmapData {
@@ -37,28 +38,82 @@ interface RoadmapData {
   subject_order?: string[];
 }
 
-interface SortableSubjectCardProps {
-  subject: {
-    name: string;
-    chapters: Array<{
-      id: string;
-      chapter_name: string;
-      day_start: number;
-      day_end: number;
-      progress: number;
-      topics: Array<{
-        id: string;
-        topic_name: string;
-        status: string;
-        progress_percentage: number;
-      }>;
-    }>;
-  };
-  onTopicClick: (topicId: string, topicName: string) => void;
+interface SortableChapterProps {
+  chapter: any;
+  onTopicClick: (topicId: string, chapterName: string, topicName: string) => void;
 }
 
-const SortableSubjectCard = ({ subject, onTopicClick }: SortableSubjectCardProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: subject.name });
+const SortableChapter = ({ chapter, onTopicClick }: SortableChapterProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: chapter.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="border rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <BookOpen className="h-4 w-4 text-primary" />
+          <span className="font-medium text-sm">{chapter.chapter_name}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Calendar className="h-3 w-3" />
+          <span>Day {chapter.day_start}-{chapter.day_end}</span>
+        </div>
+      </div>
+      
+      <Progress value={chapter.progress} className="h-1" />
+      
+      <div className="flex flex-wrap gap-1.5">
+        {chapter.topics.map((topic: any) => (
+          <Button
+            key={topic.id}
+            variant={topic.status === "completed" ? "default" : "outline"}
+            size="sm"
+            className="text-xs"
+            onClick={() => onTopicClick(topic.id, chapter.chapter_name, topic.topic_name)}
+          >
+            {topic.topic_name}
+            {topic.status === "completed" && " ✓"}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface SortableSubjectCardProps {
+  subject: RoadmapData['subjects'][0];
+  onTopicClick: (topicId: string, chapterName: string, topicName: string) => void;
+  onChapterReorder: (subjectName: string, reorderedChapterIds: string[]) => void;
+}
+
+const SortableSubjectCard = ({ subject, onTopicClick, onChapterReorder }: SortableSubjectCardProps) => {
+  const [localChapters, setLocalChapters] = useState(subject.chapters);
+
+  useEffect(() => {
+    setLocalChapters(subject.chapters);
+  }, [subject.chapters]);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: subject.name });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -66,9 +121,28 @@ const SortableSubjectCard = ({ subject, onTopicClick }: SortableSubjectCardProps
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const totalChapters = subject.chapters.length;
+  const chapterSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleChapterDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = localChapters.findIndex(ch => ch.id === active.id);
+    const newIndex = localChapters.findIndex(ch => ch.id === over.id);
+
+    const reordered = arrayMove(localChapters, oldIndex, newIndex);
+    setLocalChapters(reordered);
+    onChapterReorder(subject.name, reordered.map(ch => ch.id));
+  };
+
+  const totalChapters = localChapters.length;
   const avgProgress = totalChapters > 0 
-    ? subject.chapters.reduce((sum, ch) => sum + ch.progress, 0) / totalChapters 
+    ? localChapters.reduce((sum, ch) => sum + ch.progress, 0) / totalChapters 
     : 0;
 
   return (
@@ -93,39 +167,28 @@ const SortableSubjectCard = ({ subject, onTopicClick }: SortableSubjectCardProps
         <CardContent className="space-y-3">
           <Progress value={avgProgress} className="h-2" />
           
-          <div className="space-y-2">
-            {subject.chapters.map((chapter) => (
-              <div key={chapter.id} className="border rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">{chapter.chapter_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>Day {chapter.day_start}-{chapter.day_end}</span>
-                  </div>
-                </div>
-                
-                <Progress value={chapter.progress} className="h-1" />
-                
-                <div className="flex flex-wrap gap-1.5">
-                  {chapter.topics.map((topic) => (
-                    <Button
-                      key={topic.id}
-                      variant={topic.status === "completed" ? "default" : "outline"}
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => onTopicClick(topic.id, topic.topic_name)}
-                    >
-                      {topic.topic_name}
-                      {topic.status === "completed" && " ✓"}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="bg-muted/50 border rounded-lg p-2 text-xs text-muted-foreground">
+            💡 Drag chapters to reorder them within this subject
           </div>
+
+          <DndContext 
+            sensors={chapterSensors} 
+            collisionDetection={closestCenter} 
+            onDragEnd={handleChapterDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+          >
+            <SortableContext items={localChapters.map(ch => ch.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {localChapters.map((chapter) => (
+                  <SortableChapter 
+                    key={chapter.id} 
+                    chapter={chapter}
+                    onTopicClick={onTopicClick}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </CardContent>
       </Card>
     </div>
@@ -135,7 +198,7 @@ const SortableSubjectCard = ({ subject, onTopicClick }: SortableSubjectCardProps
 export const StudentBatchRoadmap = () => {
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTopic, setSelectedTopic] = useState<{ id: string; name: string } | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<{ id: string; chapterName: string; name: string } | null>(null);
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -203,6 +266,33 @@ export const StudentBatchRoadmap = () => {
         });
         fetchRoadmap();
       }
+    }
+  };
+
+  const handleChapterReorder = async (subjectName: string, reorderedChapterIds: string[]) => {
+    try {
+      const { error } = await supabase.functions.invoke("student-roadmap-api", {
+        body: { 
+          action: "update_chapter_order", 
+          subject_name: subjectName,
+          chapter_order: reorderedChapterIds
+        }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Chapter Order Updated",
+        description: `Chapters reordered for ${subjectName}`
+      });
+    } catch (error) {
+      console.error("Error updating chapter order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save chapter order",
+        variant: "destructive"
+      });
+      fetchRoadmap();
     }
   };
 
@@ -289,9 +379,10 @@ export const StudentBatchRoadmap = () => {
         </div>
       </div>
 
-      <div className="bg-muted/50 border rounded-lg p-3 text-sm">
-        <p className="font-medium mb-1">💡 Tip: Drag to prioritize subjects</p>
-        <p className="text-muted-foreground">Reorder subjects based on what you want to study first</p>
+      <div className="bg-muted/50 border rounded-lg p-3 text-sm space-y-1">
+        <p className="font-medium">💡 Tips:</p>
+        <p className="text-muted-foreground">• Drag subjects to prioritize what you want to study first</p>
+        <p className="text-muted-foreground">• Drag chapters within each subject to reorder them</p>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -301,7 +392,8 @@ export const StudentBatchRoadmap = () => {
               <SortableSubjectCard 
                 key={subject.name} 
                 subject={subject}
-                onTopicClick={(topicId, topicName) => setSelectedTopic({ id: topicId, name: topicName })}
+                onTopicClick={(topicId, chapterName, topicName) => setSelectedTopic({ id: topicId, chapterName, name: topicName })}
+                onChapterReorder={handleChapterReorder}
               />
             ))}
           </div>

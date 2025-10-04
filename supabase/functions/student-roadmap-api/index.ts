@@ -31,7 +31,7 @@ serve(async (req) => {
     }
 
     const body = req.method === "POST" ? await req.json() : {};
-    const { action, subject_order, topic_id, progress_percentage, status } = body;
+    const { action, subject_order, topic_id, progress_percentage, status, subject_name, chapter_order } = body;
 
     // GET: Fetch student's roadmap with progress
     if (action === "get" || req.method === "GET") {
@@ -115,13 +115,67 @@ serve(async (req) => {
           const subject = subjects.find(s => s.name === subjectName);
           if (subject) orderedSubjects.push(subject);
         });
-        // Add any subjects not in custom order at the end
         subjects.forEach(s => {
           if (!studentRoadmap.subject_order.includes(s.name)) {
             orderedSubjects.push(s);
           }
         });
         subjects = orderedSubjects;
+      }
+
+      // Apply custom chapter order if exists
+      const { data: customChapterOrders } = await supabaseClient
+        .from('student_chapter_order')
+        .select('*')
+        .eq('student_id', user.id)
+        .eq('roadmap_id', studentRoadmap.batch_roadmap_id);
+
+      if (customChapterOrders && customChapterOrders.length > 0) {
+        subjects = subjects.map(subject => {
+          const customOrder = customChapterOrders.find(co => co.subject === subject.name);
+          if (customOrder && customOrder.chapter_order) {
+            const orderedChapters = [];
+            customOrder.chapter_order.forEach((chapterId: string) => {
+              const chapter = subject.chapters.find((c: any) => c.id === chapterId);
+              if (chapter) orderedChapters.push(chapter);
+            });
+            subject.chapters.forEach((c: any) => {
+              if (!customOrder.chapter_order.includes(c.id)) {
+                orderedChapters.push(c);
+              }
+            });
+            return { ...subject, chapters: orderedChapters };
+          }
+          return subject;
+        });
+      }
+
+      // Apply custom chapter order if exists
+      const { data: customChapterOrders } = await supabaseClient
+        .from('student_chapter_order')
+        .select('*')
+        .eq('student_id', user.id)
+        .eq('roadmap_id', studentRoadmap.batch_roadmap_id);
+
+      if (customChapterOrders && customChapterOrders.length > 0) {
+        subjects = subjects.map(subject => {
+          const customOrder = customChapterOrders.find(co => co.subject === subject.name);
+          if (customOrder && customOrder.chapter_order) {
+            const orderedChapters = [];
+            customOrder.chapter_order.forEach(chapterId => {
+              const chapter = subject.chapters.find(c => c.id === chapterId);
+              if (chapter) orderedChapters.push(chapter);
+            });
+            // Add any chapters not in custom order at the end
+            subject.chapters.forEach(c => {
+              if (!customOrder.chapter_order.includes(c.id)) {
+                orderedChapters.push(c);
+              }
+            });
+            return { ...subject, chapters: orderedChapters };
+          }
+          return subject;
+        });
       }
 
       const roadmapData = {
@@ -153,6 +207,78 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, message: "Subject order updated" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // UPDATE CHAPTER ORDER
+    if (action === "update_chapter_order") {
+      if (!subject_name || !chapter_order || !Array.isArray(chapter_order)) {
+        throw new Error("subject_name and chapter_order array required");
+      }
+
+      // Get roadmap_id
+      const { data: studentRoadmap } = await supabaseClient
+        .from("student_roadmaps")
+        .select("batch_roadmap_id")
+        .eq("student_id", user.id)
+        .eq("is_active", true)
+        .single();
+
+      if (!studentRoadmap) {
+        throw new Error("No active roadmap found");
+      }
+
+      // Upsert chapter order
+      const { error } = await supabaseClient
+        .from("student_chapter_order")
+        .upsert({
+          student_id: user.id,
+          roadmap_id: studentRoadmap.batch_roadmap_id,
+          subject: subject_name,
+          chapter_order
+        }, {
+          onConflict: "student_id,roadmap_id,subject"
+        });
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Chapter order updated" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // UPDATE CHAPTER ORDER
+    if (action === "update_chapter_order") {
+      if (!subject_name || !chapter_order || !Array.isArray(chapter_order)) {
+        throw new Error("subject_name and chapter_order array required");
+      }
+
+      const { data: studentRoadmap } = await supabaseClient
+        .from("student_roadmaps")
+        .select("batch_roadmap_id")
+        .eq("student_id", user.id)
+        .eq("is_active", true)
+        .single();
+
+      if (!studentRoadmap) throw new Error("No active roadmap found");
+
+      const { error } = await supabaseClient
+        .from("student_chapter_order")
+        .upsert({
+          student_id: user.id,
+          roadmap_id: studentRoadmap.batch_roadmap_id,
+          subject: subject_name,
+          chapter_order
+        }, {
+          onConflict: "student_id,roadmap_id,subject"
+        });
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Chapter order updated" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

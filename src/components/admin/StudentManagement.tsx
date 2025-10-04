@@ -102,7 +102,11 @@ const StudentManagement = () => {
   }, [searchTerm]);
 
   const getExamTypeBatchCount = (code: string) => {
-    return students.filter((s) => s.exam_domain === code).length;
+    return students.filter((s) => {
+      // Treat null/undefined exam_domain as 'school' for backward compatibility
+      const studentExamDomain = s.exam_domain || 'school';
+      return studentExamDomain === code;
+    }).length;
   };
 
   const filteredStudents = useMemo(() => {
@@ -111,7 +115,11 @@ const StudentManagement = () => {
     
     // Filter by exam type
     if (selectedExamType) {
-      list = list.filter((s) => s.exam_domain === selectedExamType);
+      list = list.filter((s) => {
+        // Treat null/undefined exam_domain as 'school' for backward compatibility
+        const studentExamDomain = s.exam_domain || 'school';
+        return studentExamDomain === selectedExamType;
+      });
       console.log('🔧 [StudentManagement] After exam type filter:', list.length);
     }
     

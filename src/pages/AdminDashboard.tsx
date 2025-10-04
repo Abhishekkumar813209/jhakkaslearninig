@@ -16,7 +16,8 @@ import {
   Target,
   DollarSign,
   Map,
-  Building
+  Building,
+  BookText
 } from "lucide-react";
 
 // Import dashboard components
@@ -34,6 +35,7 @@ import ZoneManagementNew from "@/components/admin/ZoneManagementNew";
 import SchoolManagement from "@/components/admin/SchoolManagement";
 import { ZoneSchoolAnalytics } from "@/components/admin/ZoneSchoolAnalytics";
 import RoadmapManagement from "@/components/admin/RoadmapManagement";
+import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -81,6 +83,12 @@ const AdminDashboard = () => {
       label: "Roadmaps",
       icon: Map,
       component: RoadmapManagement
+    },
+    {
+      value: "manual-topics",
+      label: "Add Topics",
+      icon: BookText,
+      component: ManualTopicEditor
     },
     {
       value: "zones",
@@ -149,7 +157,7 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-12 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-12 lg:grid-cols-13 mb-6 bg-card border border-border overflow-x-auto">
             {tabItems.map((tab) => {
               const Icon = tab.icon;
               return (

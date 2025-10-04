@@ -196,11 +196,15 @@ ${time_budget ? Object.entries(time_budget).map(([subject, days]) => {
 ${existing_syllabus ? `Context: ${existing_syllabus}` : ''}
 
 ${selected_subjects ? `
-CHAPTERS TO INCLUDE:
+CHAPTERS TO INCLUDE (with client-computed suggested days as hints):
 ${selected_subjects.map((s: any) => {
   const budget = time_budget?.[s.subject] || 0;
-  return `${s.subject} (${budget} days budget): ${s.selected_chapters.map((c: any) => c.chapter_name).join(', ')}`;
-}).join('\n')}
+  return `${s.subject} (${budget} days budget):\n${s.selected_chapters.map((c: any) => 
+    `  - ${c.chapter_name} (suggested: ${c.suggested_days || 'auto'} days)`
+  ).join('\n')}`;
+}).join('\n\n')}
+
+**Use these suggested_days as baseline hints, but ensure final distribution sums to exact budget.**
 ` : ''}
 
 **CRITICAL INSTRUCTIONS:**
@@ -302,8 +306,37 @@ Return JSON with chapters array containing:
       }
     }
 
-    if (hasError) {
-      console.warn('⚠️ WARNING: AI did not properly distribute time budget! Days may not match.');
+    // Rebalance if needed
+    if (hasError && time_budget) {
+      console.log('🔧 Rebalancing time budget distribution...');
+      
+      for (const [subject, budgetDays] of Object.entries(time_budget)) {
+        const subjectChapters = roadmapData.chapters.filter((ch: any) => ch.subject === subject);
+        if (subjectChapters.length === 0) continue;
+
+        const currentTotal = subjectChapters.reduce((sum: number, ch: any) => sum + (ch.estimated_days || 0), 0);
+        const diff = (budgetDays as number) - currentTotal;
+
+        if (Math.abs(diff) > 2) {
+          // Distribute difference proportionally
+          const totalWeight = subjectChapters.reduce((sum: number, ch: any) => sum + (ch.estimated_days || 3), 0);
+          
+          subjectChapters.forEach((ch: any) => {
+            const proportion = (ch.estimated_days || 3) / totalWeight;
+            ch.estimated_days = Math.max(3, Math.round((ch.estimated_days || 3) + (diff * proportion)));
+          });
+
+          // Final normalization
+          const newTotal = subjectChapters.reduce((sum: number, ch: any) => sum + ch.estimated_days, 0);
+          const finalDiff = (budgetDays as number) - newTotal;
+          
+          if (finalDiff !== 0) {
+            subjectChapters[0].estimated_days += finalDiff;
+          }
+
+          console.log(`✅ Rebalanced ${subject}: ${currentTotal}d → ${budgetDays}d`);
+        }
+      }
     }
 
     // Insert roadmap with metadata

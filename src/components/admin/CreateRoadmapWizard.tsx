@@ -28,9 +28,10 @@ export interface Subject {
 export interface Chapter {
   id: string;
   chapter_name: string;
-  suggested_days: number;
+  suggested_days?: number;
   isSelected: boolean;
-  isCustom: boolean;
+  isCustom?: boolean;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface ChaptersBySubject {
@@ -493,6 +494,82 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setTimeBudget({});
   };
 
+  // Compute budget-aware suggested days when chapters or time budget changes
+  useEffect(() => {
+    if (Object.keys(fetchedChapters).length === 0 || Object.keys(timeBudget).length === 0) return;
+
+    const updatedChapters: ChaptersBySubject = {};
+    
+    Object.entries(fetchedChapters).forEach(([subjectName, chapterList]) => {
+      const budget = timeBudget[subjectName];
+      if (!budget || chapterList.length === 0) {
+        updatedChapters[subjectName] = chapterList;
+        return;
+      }
+
+      const selectedChapters = chapterList.filter(c => c.isSelected);
+      if (selectedChapters.length === 0) {
+        updatedChapters[subjectName] = chapterList;
+        return;
+      }
+
+      // Calculate difficulty weights
+      const difficultyWeights: Record<string, number> = {
+        hard: 1.3,
+        medium: 1.0,
+        easy: 0.7
+      };
+
+      const totalWeight = selectedChapters.reduce((sum, ch) => {
+        const weight = difficultyWeights[ch.difficulty || 'medium'];
+        return sum + weight;
+      }, 0);
+
+      // Distribute days proportionally
+      const computedChapters = chapterList.map(chapter => {
+        if (!chapter.isSelected) return chapter;
+        
+        const weight = difficultyWeights[chapter.difficulty || 'medium'];
+        const proportionalDays = Math.round((weight / totalWeight) * budget);
+        
+        return {
+          ...chapter,
+          suggested_days: Math.max(3, proportionalDays) // Minimum 3 days
+        };
+      });
+
+      // Normalize to exact budget
+      const totalAssigned = computedChapters
+        .filter(c => c.isSelected)
+        .reduce((sum, c) => sum + (c.suggested_days || 0), 0);
+      
+      const diff = budget - totalAssigned;
+      
+      if (diff !== 0 && selectedChapters.length > 0) {
+        const adjustmentPerChapter = Math.floor(diff / selectedChapters.length);
+        const remainder = diff % selectedChapters.length;
+        
+        let adjustedCount = 0;
+        updatedChapters[subjectName] = computedChapters.map(ch => {
+          if (!ch.isSelected) return ch;
+          
+          const baseAdjustment = adjustmentPerChapter;
+          const extraAdjustment = adjustedCount < Math.abs(remainder) ? Math.sign(diff) : 0;
+          adjustedCount++;
+          
+          return {
+            ...ch,
+            suggested_days: Math.max(3, (ch.suggested_days || 0) + baseAdjustment + extraAdjustment)
+          };
+        });
+      } else {
+        updatedChapters[subjectName] = computedChapters;
+      }
+    });
+
+    setFetchedChapters(updatedChapters);
+  }, [timeBudget, JSON.stringify(Object.keys(fetchedChapters)), JSON.stringify(Object.values(fetchedChapters).map(chs => chs.map(c => `${c.id}-${c.isSelected}`).join(',')))]);
+
   const handleNext = () => {
     if (currentStep === 0) {
       // Validate Step 1
@@ -664,6 +741,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
               subjects={fetchedSubjects.filter(s => s.isSelected)}
               chapters={fetchedChapters}
               isFetching={isFetchingChapters}
+              timeBudget={timeBudget}
               onFetchChapters={handleFetchChaptersForSubject}
               onToggleChapter={handleToggleChapter}
               onAddChapter={handleAddCustomChapter}

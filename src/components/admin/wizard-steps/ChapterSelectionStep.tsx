@@ -14,6 +14,7 @@ interface ChapterSelectionStepProps {
   subjects: Subject[];
   chapters: ChaptersBySubject;
   isFetching: boolean;
+  timeBudget: { [subject: string]: number };
   onFetchChapters: (subjectName: string, fetchMode?: 'initial' | 'remaining') => void;
   onToggleChapter: (subjectName: string, chapterId: string) => void;
   onAddChapter: (subjectName: string, chapterName: string, suggestedDays: number) => void;
@@ -27,6 +28,7 @@ export const ChapterSelectionStep = ({
   subjects,
   chapters,
   isFetching,
+  timeBudget,
   onFetchChapters,
   onToggleChapter,
   onAddChapter,
@@ -122,11 +124,23 @@ export const ChapterSelectionStep = ({
             const subjectChapters = chapters[subject.name] || [];
             const selectedCount = subjectChapters.filter(c => c.isSelected).length;
 
+            const budget = timeBudget[subject.name] || 0;
+            const totalDaysAllocated = subjectChapters
+              .filter(c => c.isSelected)
+              .reduce((sum, c) => sum + (c.suggested_days || 0), 0);
+
             return (
               <AccordionItem key={subject.id} value={subject.name}>
                 <AccordionTrigger className="hover:no-underline">
                   <div className="flex items-center justify-between w-full pr-4">
-                    <span className="font-semibold">{subject.name}</span>
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">{subject.name}</span>
+                      {budget > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          Budget: {budget} days → {selectedCount} chapters ({totalDaysAllocated} days allocated)
+                        </span>
+                      )}
+                    </div>
                     <Badge variant="secondary">
                       {selectedCount}/{subjectChapters.length} selected
                     </Badge>

@@ -329,45 +329,89 @@ export function LessonContentBuilder() {
                         )}
 
                         {newLesson.lesson_type === 'interactive_svg' && (
-                          <div>
-                            <Label>SVG Type</Label>
-                            <Select
-                              value={newLesson.svg_type}
-                              onValueChange={(v) => setNewLesson({ ...newLesson, svg_type: v as SvgType })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select SVG type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="math_graph">Math Graph</SelectItem>
-                                <SelectItem value="physics_motion">Physics Motion</SelectItem>
-                                <SelectItem value="chemistry_molecule">Chemistry Molecule</SelectItem>
-                                <SelectItem value="algorithm_viz">Algorithm Visualization</SelectItem>
-                                <SelectItem value="concept_diagram">Concept Diagram</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div className="space-y-4">
+                            <div>
+                              <Label>SVG Type</Label>
+                              <Select
+                                value={newLesson.svg_type}
+                                onValueChange={(v) => setNewLesson({ ...newLesson, svg_type: v as SvgType })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select SVG type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="math_graph">Math Graph</SelectItem>
+                                  <SelectItem value="physics_motion">Physics Motion</SelectItem>
+                                  <SelectItem value="chemistry_molecule">Chemistry Molecule</SelectItem>
+                                  <SelectItem value="algorithm_viz">Algorithm Visualization</SelectItem>
+                                  <SelectItem value="concept_diagram">Concept Diagram</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>SVG Data (JSON)</Label>
+                              <Textarea
+                                placeholder='{"equation": "y = 2x + 3", "x_range": [-10, 10], ...}'
+                                value={typeof newLesson.svg_data === 'object' ? JSON.stringify(newLesson.svg_data, null, 2) : newLesson.svg_data || ''}
+                                onChange={(e) => {
+                                  try {
+                                    const parsed = JSON.parse(e.target.value);
+                                    setNewLesson({ ...newLesson, svg_data: parsed });
+                                  } catch {
+                                    setNewLesson({ ...newLesson, svg_data: e.target.value });
+                                  }
+                                }}
+                                rows={10}
+                                className="font-mono text-xs"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Enter valid JSON data for the selected SVG type
+                              </p>
+                            </div>
                           </div>
                         )}
 
                         {newLesson.lesson_type === 'game' && (
-                          <div>
-                            <Label>Game Type</Label>
-                            <Select
-                              value={newLesson.game_type}
-                              onValueChange={(v) => setNewLesson({ ...newLesson, game_type: v as GameType })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select game type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="match_pairs">Match Pairs</SelectItem>
-                                <SelectItem value="drag_drop">Drag & Drop</SelectItem>
-                                <SelectItem value="typing_race">Typing Race</SelectItem>
-                                <SelectItem value="word_puzzle">Word Puzzle</SelectItem>
-                                <SelectItem value="fill_blanks">Fill in Blanks</SelectItem>
-                                <SelectItem value="sequence_order">Sequence Order</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div className="space-y-4">
+                            <div>
+                              <Label>Game Type</Label>
+                              <Select
+                                value={newLesson.game_type}
+                                onValueChange={(v) => setNewLesson({ ...newLesson, game_type: v as GameType })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select game type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="match_pairs">Match Pairs</SelectItem>
+                                  <SelectItem value="drag_drop">Drag & Drop</SelectItem>
+                                  <SelectItem value="typing_race">Typing Race</SelectItem>
+                                  <SelectItem value="word_puzzle">Word Puzzle</SelectItem>
+                                  <SelectItem value="fill_blanks">Fill in Blanks</SelectItem>
+                                  <SelectItem value="physics_simulator">Physics Simulator</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Game Data (JSON)</Label>
+                              <Textarea
+                                placeholder='{"pairs": [{"id": "1", "left": "F = ma", "right": "Newton\'s Law"}], ...}'
+                                value={typeof newLesson.game_data === 'object' ? JSON.stringify(newLesson.game_data, null, 2) : newLesson.game_data || ''}
+                                onChange={(e) => {
+                                  try {
+                                    const parsed = JSON.parse(e.target.value);
+                                    setNewLesson({ ...newLesson, game_data: parsed });
+                                  } catch {
+                                    setNewLesson({ ...newLesson, game_data: e.target.value });
+                                  }
+                                }}
+                                rows={10}
+                                className="font-mono text-xs"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Enter valid JSON data for the selected game type
+                              </p>
+                            </div>
                           </div>
                         )}
                       </TabsContent>

@@ -14,6 +14,10 @@ import { TypingRaceGame } from "./games/TypingRaceGame";
 import { InteractiveBlanks } from "./games/InteractiveBlanks";
 import { ConceptPuzzle } from "./games/ConceptPuzzle";
 import { PhysicsSimulator } from "./games/PhysicsSimulator";
+import { MathGraphAnimation } from "./svg-animations/MathGraphAnimation";
+import { PhysicsMotionAnimation } from "./svg-animations/PhysicsMotionAnimation";
+import { ChemistryMoleculeAnimation } from "./svg-animations/ChemistryMoleculeAnimation";
+import { AlgorithmVisualization } from "./svg-animations/AlgorithmVisualization";
 
 interface Lesson {
   id: string;
@@ -283,6 +287,55 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     );
   };
 
+  const getSvgComponent = (svgType: string | undefined) => {
+    switch (svgType) {
+      case 'math_graph':
+        return MathGraphAnimation;
+      case 'physics_motion':
+        return PhysicsMotionAnimation;
+      case 'chemistry_molecule':
+        return ChemistryMoleculeAnimation;
+      case 'algorithm_viz':
+        return AlgorithmVisualization;
+      default:
+        return null;
+    }
+  };
+
+  const renderSvgContent = () => {
+    const SvgComponent = getSvgComponent(lesson.svg_type);
+    
+    if (!SvgComponent || !lesson.svg_data) {
+      return (
+        <Card className="p-8 bg-accent/30">
+          <p className="text-center text-muted-foreground">
+            SVG configuration missing or invalid SVG type: {lesson.svg_type}
+          </p>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <SvgComponent
+          svgData={lesson.svg_data}
+          onComplete={() => {
+            handleCorrectAnswer();
+            setTimeout(completeLesson, 1000);
+          }}
+        />
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={handleSkip} disabled={hearts <= 0}>
+            <SkipForward className="h-4 w-4 mr-2" /> Skip (-1 ❤️)
+          </Button>
+          <Button size="lg" onClick={handleCorrectAnswer} className="gap-2">
+            I Understand <ArrowRight className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (lesson.lesson_type) {
       case 'theory':
@@ -300,23 +353,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         );
 
       case 'interactive_svg':
-        return (
-          <div className="space-y-6">
-            <Card className="p-8 bg-gradient-to-br from-primary/5 to-primary/10">
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <p className="text-center">Interactive SVG Viewer<br/>({lesson.svg_type})</p>
-              </div>
-            </Card>
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleSkip} disabled={hearts <= 0}>
-                <SkipForward className="h-4 w-4 mr-2" /> Skip (-1 ❤️)
-              </Button>
-              <Button size="lg" onClick={handleCorrectAnswer} className="gap-2">
-                I Understand <ArrowRight className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        );
+        return renderSvgContent();
 
       case 'game':
         return renderGameContent();

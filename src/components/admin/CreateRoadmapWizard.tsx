@@ -648,8 +648,12 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm font-medium">
-                  Total Roadmap Duration: {Object.values(timeBudget).reduce((sum, days) => sum + days, 0)} days
-                  <span className="text-muted-foreground ml-2">(in parallel mode, actual duration = longest subject)</span>
+                  Total Roadmap Duration: {roadmapMode === 'parallel' 
+                    ? Math.max(...Object.values(timeBudget), 0)
+                    : Object.values(timeBudget).reduce((sum, days) => sum + days, 0)} days
+                  <span className="text-muted-foreground ml-2">
+                    ({roadmapMode === 'parallel' ? 'longest subject duration' : 'cumulative duration'})
+                  </span>
                 </p>
               </div>
             </div>

@@ -54,9 +54,9 @@ export const useProfile = () => {
         console.error('Error fetching user role:', roleError);
       }
 
-      // If user is a student and doesn't have complete profile info, redirect to complete profile
+      // If user is a student and doesn't have complete profile info, redirect to profile page
       if (roleData?.role === 'student' && (!profile?.student_class || !profile?.education_board || !profile?.zone_id || !profile?.school_id)) {
-        navigate('/complete-profile');
+        navigate('/profile');
         return;
       }
 

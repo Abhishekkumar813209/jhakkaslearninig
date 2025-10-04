@@ -44,7 +44,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Skip profile completion check for specific routes
   const skipProfileCheck = [
-    '/complete-profile',
     '/login',
     '/register',
     '/profile',
@@ -55,7 +54,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (requireAuth && user && requireProfileComplete && !skipProfileCheck) {
     // Only check profile completion for students (non-admin users)
     if (!isAdmin && (!profile?.student_class || !profile?.education_board)) {
-      return <Navigate to="/complete-profile" replace />;
+      return <Navigate to="/profile" replace />;
     }
   }
 

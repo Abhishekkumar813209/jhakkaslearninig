@@ -27,7 +27,6 @@ import TakeTest from "@/components/student/TakeTest";
 import TestResults from "./pages/TestResults";
 import Student from "./pages/Student";
 import StudentGuidedPaths from "./pages/StudentGuidedPaths";
-import CompleteProfile from "./pages/CompleteProfile";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import UIGuide from "./pages/UIGuide";
 
@@ -46,13 +45,6 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            
-            {/* Profile completion route - requires auth but not complete profile */}
-            <Route path="/complete-profile" element={
-              <ProtectedRoute requireAuth={true} requireProfileComplete={false}>
-                <CompleteProfile />
-              </ProtectedRoute>
-            } />
             
             {/* Student routes - require complete profile */}
             <Route path="/courses" element={

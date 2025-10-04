@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Calendar, Edit2, Save, X } from 'lucide-react';
+import { User, Mail, Calendar, Edit2, Save, X, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { StudentAnalytics } from '@/components/student/StudentAnalytics';
 import { StudentRankings } from '@/components/student/StudentRankings';
 
@@ -30,6 +31,13 @@ const Profile = () => {
       loadProfile();
     }
   }, [user]);
+
+  // Auto-enable edit mode if profile is incomplete
+  useEffect(() => {
+    if (profileData && (!profileData.exam_domain || (profileData.exam_domain === 'school' && (!profileData.student_class || !profileData.education_board)))) {
+      setIsEditing(true);
+    }
+  }, [profileData]);
 
   const loadProfile = async () => {
     try {
@@ -117,6 +125,17 @@ const Profile = () => {
             <h1 className="text-3xl font-bold mb-2">My Profile</h1>
             <p className="text-muted-foreground">Manage your account settings</p>
           </div>
+
+          {/* Incomplete profile banner */}
+          {isStudent && (!examDomain || (examDomain === 'school' && (!studentClass || !educationBoard))) && (
+            <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <AlertTitle className="text-orange-600">Complete Your Profile</AlertTitle>
+              <AlertDescription className="text-orange-700 dark:text-orange-400">
+                Please fill in your exam category and other required details to access all features.
+              </AlertDescription>
+            </Alert>
+          )}
 
           <Card className="shadow-soft">
             <CardHeader className="text-center">

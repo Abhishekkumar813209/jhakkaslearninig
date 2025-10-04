@@ -192,9 +192,11 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
   };
 
   const calculateTotalDays = () => {
-    return subjects.reduce((total, subject) => {
-      return total + subject.chapters.reduce((sum, ch) => sum + ch.estimatedDays, 0);
-    }, 0);
+    // Calculate maximum duration among subjects (parallel scheduling)
+    const subjectDurations = subjects.map(subject => 
+      subject.chapters.reduce((sum, ch) => sum + ch.estimatedDays, 0)
+    );
+    return subjectDurations.length > 0 ? Math.max(...subjectDurations) : 0;
   };
 
   const addSubject = () => {
@@ -352,14 +354,15 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
 
       if (roadmapError) throw roadmapError;
 
-      // Create chapters
-      let currentDay = 1;
+      // Create chapters with parallel scheduling (each subject starts from day 1)
       let orderNum = 1;
 
       for (const subject of subjects) {
+        let subjectCurrentDay = 1; // Each subject starts from day 1
+
         for (const chapter of subject.chapters) {
-          const dayStart = currentDay;
-          const dayEnd = currentDay + chapter.estimatedDays - 1;
+          const dayStart = subjectCurrentDay;
+          const dayEnd = subjectCurrentDay + chapter.estimatedDays - 1;
 
           const { error: chapterError } = await supabase
             .from('roadmap_chapters')
@@ -376,7 +379,7 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
 
           if (chapterError) throw chapterError;
 
-          currentDay = dayEnd + 1;
+          subjectCurrentDay = dayEnd + 1; // Only increments within same subject
           orderNum++;
         }
       }
@@ -408,19 +411,22 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
     if (!startDate) return [];
     
     const chapters: CalendarChapter[] = [];
-    let currentDate = startDate;
 
+    // Parallel scheduling: each subject starts from the same start date
     subjects.forEach(subject => {
+      let subjectCurrentDate = startDate; // Each subject starts from same date
+      
       subject.chapters.forEach(chapter => {
         chapters.push({
           id: chapter.id,
-          date: format(currentDate, 'yyyy-MM-dd'),
+          date: format(subjectCurrentDate, 'yyyy-MM-dd'),
           subject: subject.name,
           chapterName: chapter.name,
+          estimatedDays: chapter.estimatedDays,
           isBufferTime: false,
           isLive: false
         });
-        currentDate = addDays(currentDate, chapter.estimatedDays);
+        subjectCurrentDate = addDays(subjectCurrentDate, chapter.estimatedDays);
       });
     });
 

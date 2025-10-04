@@ -115,7 +115,9 @@ const SortableChapter = ({
           </div>
           <div className="flex-1">
             <div className="text-sm font-medium">{chapterIndex + 1}. {chapter.name}</div>
-            <div className="text-xs text-muted-foreground">{chapter.estimatedDays} days</div>
+            <div className="text-xs text-muted-foreground">
+              {chapter.estimatedDays > 0 ? `${chapter.estimatedDays} days` : 'Set days'}
+            </div>
           </div>
           <div className="flex gap-1">
             <Button
@@ -232,7 +234,7 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
     const newChapter: ChapterRow = {
       id: crypto.randomUUID(),
       name: "New Chapter",
-      estimatedDays: 3,
+      estimatedDays: 0, // Default to 0 - must be set manually
       isEditing: true,
     };
 
@@ -514,7 +516,9 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
             <div className="space-y-2">
               <Label>Total Duration</Label>
               <div className="flex h-10 items-center px-3 py-2 rounded-md border border-input bg-muted">
-                <span className="font-semibold text-lg">{calculateTotalDays()} days</span>
+                <span className="font-semibold text-lg">
+                  {calculateTotalDays() > 0 ? `${calculateTotalDays()} days` : '—'}
+                </span>
               </div>
             </div>
           </div>
@@ -614,7 +618,7 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
           )}
 
           {/* Calendar View Toggle */}
-          {subjects.length > 0 && subjects.some(s => s.chapters.length > 0) && startDate && (
+          {subjects.length > 0 && subjects.some(s => s.chapters.length > 0) && startDate && calculateTotalDays() > 0 && (
             <div className="border-t pt-4">
               <Button
                 variant="outline"
@@ -650,11 +654,14 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
             <Button
               variant="outline"
               onClick={() => handleSave('draft')}
-              disabled={isSaving}
+              disabled={isSaving || calculateTotalDays() === 0}
             >
               Save as Draft
             </Button>
-            <Button onClick={() => handleSave('active')} disabled={isSaving}>
+            <Button 
+              onClick={() => handleSave('active')} 
+              disabled={isSaving || calculateTotalDays() === 0}
+            >
               {isSaving ? 'Saving...' : 'Create & Activate'}
             </Button>
           </div>

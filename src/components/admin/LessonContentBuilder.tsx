@@ -395,7 +395,7 @@ export function LessonContentBuilder() {
                             <div>
                               <Label>Game Data (JSON)</Label>
                               <Textarea
-                                placeholder='{"pairs": [{"id": "1", "left": "F = ma", "right": "Newton\'s Law"}], ...}'
+                                placeholder='{"pairs": [{"id": "1", "left": "F = ma", "right": "Newtons Law"}], ...}'
                                 value={typeof newLesson.game_data === 'object' ? JSON.stringify(newLesson.game_data, null, 2) : newLesson.game_data || ''}
                                 onChange={(e) => {
                                   try {

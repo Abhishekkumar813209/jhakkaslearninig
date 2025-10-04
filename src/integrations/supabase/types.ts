@@ -454,6 +454,45 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_quests: {
+        Row: {
+          coin_reward: number
+          created_at: string | null
+          description: string
+          icon: string
+          id: string
+          is_active: boolean | null
+          quest_type: string
+          target_value: number
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          coin_reward: number
+          created_at?: string | null
+          description: string
+          icon: string
+          id?: string
+          is_active?: boolean | null
+          quest_type: string
+          target_value: number
+          title: string
+          xp_reward: number
+        }
+        Update: {
+          coin_reward?: number
+          created_at?: string | null
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean | null
+          quest_type?: string
+          target_value?: number
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
       enrollments: {
         Row: {
           completed_at: string | null
@@ -1044,6 +1083,39 @@ export type Database = {
           query_count?: number
           user_id?: string
           window_start?: string
+        }
+        Relationships: []
+      }
+      leagues: {
+        Row: {
+          color: string
+          created_at: string | null
+          icon: string
+          id: string
+          max_xp: number | null
+          min_xp: number
+          name: string
+          tier: number
+        }
+        Insert: {
+          color: string
+          created_at?: string | null
+          icon: string
+          id?: string
+          max_xp?: number | null
+          min_xp: number
+          name: string
+          tier: number
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          icon?: string
+          id?: string
+          max_xp?: number | null
+          min_xp?: number
+          name?: string
+          tier?: number
         }
         Relationships: []
       }
@@ -2138,6 +2210,50 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_quest_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_value: number | null
+          date: string
+          id: string
+          is_completed: boolean | null
+          quest_id: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_value?: number | null
+          date?: string
+          id?: string
+          is_completed?: boolean | null
+          quest_id: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_value?: number | null
+          date?: string
+          id?: string
+          is_completed?: boolean | null
+          quest_id?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_quest_progress_quest_id_fkey"
+            columns: ["quest_id"]
+            isOneToOne: false
+            referencedRelation: "daily_quests"
             referencedColumns: ["id"]
           },
         ]

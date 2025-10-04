@@ -8,6 +8,12 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Heart, Star, Flame, ArrowRight, SkipForward, Award, Trophy, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { MatchPairsGame } from "./games/MatchPairsGame";
+import { DragDropSequence } from "./games/DragDropSequence";
+import { TypingRaceGame } from "./games/TypingRaceGame";
+import { InteractiveBlanks } from "./games/InteractiveBlanks";
+import { ConceptPuzzle } from "./games/ConceptPuzzle";
+import { PhysicsSimulator } from "./games/PhysicsSimulator";
 
 interface Lesson {
   id: string;
@@ -235,6 +241,48 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     }, 3000);
   };
 
+  const getGameComponent = (gameType: string | undefined) => {
+    switch (gameType) {
+      case 'match_pairs':
+        return MatchPairsGame;
+      case 'drag_drop':
+        return DragDropSequence;
+      case 'typing_race':
+        return TypingRaceGame;
+      case 'fill_blanks':
+        return InteractiveBlanks;
+      case 'word_puzzle':
+        return ConceptPuzzle;
+      case 'physics_simulator':
+        return PhysicsSimulator;
+      default:
+        return null;
+    }
+  };
+
+  const renderGameContent = () => {
+    const GameComponent = getGameComponent(lesson.game_type);
+    
+    if (!GameComponent || !lesson.game_data) {
+      return (
+        <Card className="p-8 bg-accent/30">
+          <p className="text-center text-muted-foreground">
+            Game configuration missing or invalid game type: {lesson.game_type}
+          </p>
+        </Card>
+      );
+    }
+
+    return (
+      <GameComponent
+        gameData={lesson.game_data}
+        onCorrect={handleCorrectAnswer}
+        onWrong={handleWrongAnswer}
+        onComplete={completeLesson}
+      />
+    );
+  };
+
   const renderContent = () => {
     switch (lesson.lesson_type) {
       case 'theory':
@@ -271,23 +319,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         );
 
       case 'game':
-        return (
-          <div className="space-y-6">
-            <Card className="p-8 bg-gradient-to-br from-blue-500/5 to-purple-500/10">
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <p className="text-center">Game Zone<br/>({lesson.game_type})</p>
-              </div>
-            </Card>
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleWrongAnswer}>
-                Wrong Answer (Test)
-              </Button>
-              <Button size="lg" onClick={handleCorrectAnswer} className="gap-2">
-                Submit Answer
-              </Button>
-            </div>
-          </div>
-        );
+        return renderGameContent();
 
       case 'quiz':
         return (

@@ -45,8 +45,8 @@ interface CreateRoadmapWizardProps {
 }
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual }: CreateRoadmapWizardProps) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 3;
+  const [currentStep, setCurrentStep] = useState(0);
+  const totalSteps = 4;
 
   // Step 1: Exam Type
   const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
@@ -512,7 +512,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   };
 
   const handleReset = () => {
-    setCurrentStep(1);
+    setCurrentStep(0);
     setExamType('School');
     setExamName("");
     setConditionalClass("");
@@ -527,6 +527,13 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   };
 
   const handleNext = () => {
+    if (currentStep === 0) {
+      if (!totalDays || totalDays < 7) {
+        toast.error("Please enter at least 7 days for the roadmap");
+        return;
+      }
+    }
+
     if (currentStep === 1) {
       // Validate Step 1
       if (examType === 'School' && (!conditionalClass || !conditionalBoard)) {
@@ -574,7 +581,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   };
 
   const handleBack = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setCurrentStep(prev => Math.max(prev - 1, 0));
   };
 
   return (
@@ -589,8 +596,60 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-            {currentStep === 1 && (
-              <>
+          {currentStep === 0 && (
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <Label className="text-lg font-semibold">📅 Roadmap Duration</Label>
+                <p className="text-sm text-muted-foreground mt-2">
+                  How many days should this roadmap cover? This affects chapter distribution.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="totalDays">Total Days</Label>
+                <input
+                  id="totalDays"
+                  type="number"
+                  min={7}
+                  max={730}
+                  value={totalDays}
+                  onChange={(e) => setTotalDays(parseInt(e.target.value) || 30)}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="Enter total days (e.g., 30, 90, 180)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Minimum: 7 days | Maximum: 730 days (2 years)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setTotalDays(30)}
+                  className={totalDays === 30 ? "border-primary" : ""}
+                >
+                  30 Days
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setTotalDays(90)}
+                  className={totalDays === 90 ? "border-primary" : ""}
+                >
+                  90 Days
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setTotalDays(180)}
+                  className={totalDays === 180 ? "border-primary" : ""}
+                >
+                  180 Days
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 1 && (
+            <>
               <div className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/30">
                 <Label className="text-base font-semibold">Roadmap Mode</Label>
                 <RadioGroup value={roadmapMode} onValueChange={(v) => setRoadmapMode(v as 'sequential' | 'parallel')}>
@@ -604,8 +663,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                   <div className="flex items-center space-x-2 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
                     <RadioGroupItem value="parallel" id="parallel" />
                     <Label htmlFor="parallel" className="cursor-pointer flex-1">
-                      <div className="font-medium">⚡ Parallel Mode</div>
-                      <div className="text-sm text-muted-foreground">All subjects together - eSaral style revision</div>
+                      <div className="font-medium">⚡ Parallel Mode (Independent)</div>
+                      <div className="text-sm text-muted-foreground">All subjects run independently from Day 1</div>
                     </Label>
                   </div>
                 </RadioGroup>
@@ -629,8 +688,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                 roadmapType={roadmapType}
                 setRoadmapType={setRoadmapType}
               />
-              </>
-            )}
+            </>
+          )}
 
           {currentStep === 2 && (
             <SubjectSelectionStep
@@ -664,7 +723,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           <Button
             variant="outline"
             onClick={handleBack}
-            disabled={currentStep === 1}
+            disabled={currentStep === 0}
           >
             <ChevronLeft className="h-4 w-4 mr-2" />
             Back

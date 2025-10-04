@@ -6,54 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to calculate parallel timeline
+// Helper function to calculate independent parallel timeline
 const calculateParallelTimeline = (selectedSubjects: any[], totalDays: number) => {
-  // Find max number of chapters across subjects
+  const subjectTimelines: { [subject: string]: number } = {};
+  const allChapters: any[] = [];
+  
+  // Initialize each subject's timeline at Day 1
+  selectedSubjects.forEach(s => {
+    subjectTimelines[s.subject] = 1;
+  });
+  
+  // Find max chapters across subjects
   const maxChapters = Math.max(...selectedSubjects.map(s => s.selected_chapters.length));
   
-  const cycles: any[] = [];
-  let currentDay = 1;
-  
-  for (let cycleIndex = 0; cycleIndex < maxChapters; cycleIndex++) {
-    const cycleChapters: any[] = [];
-    let maxCycleDuration = 7; // Default 7 days per cycle (1 week)
-    
-    // For each subject, pick the chapter at this cycle index
+  // For each chapter round (NOT cycle)
+  for (let chapterIndex = 0; chapterIndex < maxChapters; chapterIndex++) {
     selectedSubjects.forEach(subject => {
-      const chapter = subject.selected_chapters[cycleIndex];
+      const chapter = subject.selected_chapters[chapterIndex];
       if (chapter) {
         const chapterDays = chapter.suggested_days || 7;
-        cycleChapters.push({
+        const startDay = subjectTimelines[subject.subject];
+        const endDay = startDay + chapterDays - 1;
+        
+        allChapters.push({
           subject: subject.subject,
           chapter_name: chapter.chapter_name,
           suggested_days: chapterDays,
+          day_start: startDay,
+          day_end: endDay,
+          order_num: chapterIndex + 1
         });
-        // Track the longest chapter in this cycle
-        maxCycleDuration = Math.max(maxCycleDuration, chapterDays);
+        
+        // Move this subject's timeline forward
+        subjectTimelines[subject.subject] = endDay + 1;
       }
     });
-    
-    // All chapters in this cycle run from currentDay to currentDay + maxCycleDuration
-    cycleChapters.forEach(ch => {
-      ch.day_start = currentDay;
-      ch.day_end = currentDay + maxCycleDuration - 1;
-    });
-    
-    cycles.push({
-      cycle_number: cycleIndex + 1,
-      start_day: currentDay,
-      end_day: currentDay + maxCycleDuration - 1,
-      duration: maxCycleDuration,
-      chapters: cycleChapters
-    });
-    
-    currentDay += maxCycleDuration;
   }
   
+  // Calculate total duration = longest subject timeline
+  const totalDuration = Math.max(...Object.values(subjectTimelines)) - 1;
+  
   return {
-    cycles,
-    total_duration: currentDay - 1,
-    mode: 'parallel'
+    chapters: allChapters,
+    total_duration: totalDuration,
+    mode: 'parallel',
+    subject_timelines: subjectTimelines
   };
 };
 
@@ -161,19 +158,21 @@ serve(async (req) => {
 
     // Create AI prompt
     const systemPrompt = mode === 'parallel' 
-      ? `You are an expert educational curriculum planner. Create a PARALLEL study roadmap (school timetable style).
+      ? `You are an expert educational planner for PARALLEL (simultaneous) study.
 
-CRITICAL: All subjects run SIMULTANEOUSLY in cycles (weeks).
-
-Rules:
-- Each cycle = 1 week (or based on longest chapter in that cycle)
-- ALL subjects have chapters running in the SAME week
-- Example:
-  Week 1 (Day 1-7): Physics Ch1 + Chemistry Ch1 + Biology Ch1 (all run together)
-  Week 2 (Day 8-14): Physics Ch2 + Chemistry Ch2 + Biology Ch2 (all run together)
-- If one subject has fewer chapters, leave it blank in later cycles
-- Duration of each cycle = MAX(chapter durations in that cycle)
-- Total roadmap days = sum of all cycle durations (NOT sum of all chapters)`
+CRITICAL RULES:
+- Each subject has its OWN independent timeline starting from Day 1
+- DO NOT use cycles/weeks - subjects are NOT grouped
+- Example for 3 subjects:
+  
+  Physics:   Ch1 (Days 1-3) → Ch2 (Days 4-7) → Ch3 (Days 8-11)
+  Chemistry: Ch1 (Days 1-4) → Ch2 (Days 5-8) → Ch3 (Days 9-13)
+  Biology:   Ch1 (Days 1-5) → Ch2 (Days 6-10) → Ch3 (Days 11-16)
+  
+  Total roadmap = MAX(11, 13, 16) = 16 days
+  
+- Each chapter's day_start = previous chapter's day_end + 1 (for same subject)
+- Subjects run simultaneously but independently`
       : `You are an expert educational curriculum planner. Create a ${total_days}-day learning roadmap.`;
     
     let studentContext = '';
@@ -198,26 +197,32 @@ Rules:
     }
 
     const userPrompt = mode === 'parallel' && timelineStructure
-      ? `Generate a PARALLEL study roadmap for:
+      ? `Generate a PARALLEL study roadmap where subjects run INDEPENDENTLY:
+
 ${studentContext}
 - Subjects: ${extractedSubjects.join(', ')}
-${existing_syllabus ? `- Context/Goals: ${existing_syllabus}` : ''}
+- Target Duration: ${total_days} days (soft limit)
+${existing_syllabus ? `- Context: ${existing_syllabus}` : ''}
 
-TIMELINE STRUCTURE (use this):
-${JSON.stringify(timelineStructure, null, 2)}
+${selected_subjects ? `
+CHAPTER DISTRIBUTION:
+${selected_subjects.map((s: any) => 
+  `${s.subject}: ${s.selected_chapters.length} chapters`
+).join('\n')}
+` : ''}
 
 Create a JSON response with this structure:
 {
-  "title": "${title || 'Parallel Learning Roadmap'}",
+  "title": "${title || 'Independent Parallel Roadmap'}",
   "description": "Brief description",
   "chapters": [
     {
-      "chapter_name": "Chapter name",
-      "subject": "Subject name",
+      "chapter_name": "Motion in One Dimension",
+      "subject": "Physics",
       "order_num": 1,
-      "estimated_days": 7,
+      "estimated_days": 3,
       "day_start": 1,
-      "day_end": 7,
+      "day_end": 3,
       "topics": [
         {
           "topic_name": "Topic name",
@@ -226,17 +231,24 @@ Create a JSON response with this structure:
           "day_number": 1
         }
       ]
+    },
+    {
+      "chapter_name": "Atomic Structure",
+      "subject": "Chemistry",
+      "order_num": 1,
+      "estimated_days": 4,
+      "day_start": 1,
+      "day_end": 4,
+      "topics": [...]
     }
   ]
 }
 
-CRITICAL REQUIREMENTS for PARALLEL MODE:
-- ALL subjects must run in the SAME week
-- Week 1: Physics Ch1 + Chemistry Ch1 + Biology Ch1 (days 1-7)
-- Week 2: Physics Ch2 + Chemistry Ch2 + Biology Ch2 (days 8-14)
-- Use the cycle structure provided above
-- Each cycle's duration = MAX(chapter durations in that cycle)
-- Total duration = ${timelineStructure.total_duration} days (NOT ${total_days})`
+RULES:
+- Each subject's first chapter starts on Day 1
+- Next chapter for same subject: day_start = previous.day_end + 1
+- Subjects DON'T affect each other's timelines
+- Total roadmap duration = MAX(all subject final day_end values)`
       : `Generate a ${total_days}-day learning roadmap for:
 ${studentContext}
 - Subjects: ${extractedSubjects.join(', ')}
@@ -327,6 +339,8 @@ Create a JSON response with this structure:
       : total_days;
     const endDate = new Date();
     endDate.setDate(startDate.getDate() + actualTotalDays);
+
+    console.log('Generated roadmap duration:', actualTotalDays, 'days');
 
     // Insert roadmap with metadata
     const { data: roadmap, error: roadmapError } = await supabase

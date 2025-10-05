@@ -2389,6 +2389,7 @@ export type Database = {
           batch_roadmap_id: string
           created_at: string | null
           id: string
+          is_active: boolean | null
           progress: number | null
           status: string | null
           student_id: string
@@ -2399,6 +2400,7 @@ export type Database = {
           batch_roadmap_id: string
           created_at?: string | null
           id?: string
+          is_active?: boolean | null
           progress?: number | null
           status?: string | null
           student_id: string
@@ -2409,6 +2411,7 @@ export type Database = {
           batch_roadmap_id?: string
           created_at?: string | null
           id?: string
+          is_active?: boolean | null
           progress?: number | null
           status?: string | null
           student_id?: string

@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Users, GraduationCap, Building2, TrendingUp, Award } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useExamTypes } from '@/hooks/useExamTypes';
+import * as LucideIcons from 'lucide-react';
 
 interface ZoneStats {
   zone_id: string;
@@ -30,23 +33,51 @@ export const ZoneSchoolAnalytics = () => {
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalZones, setTotalZones] = useState(0);
   const [totalSchools, setTotalSchools] = useState(0);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  
+  const { examTypes } = useExamTypes();
+
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Zap: LucideIcons.Zap,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
+  };
+
+  const getDomainZoneCount = (domain: string) => {
+    return zoneStats.filter(z => {
+      // This will be populated after data is loaded
+      return true; // Placeholder for now
+    }).length;
+  };
 
   useEffect(() => {
-    fetchAnalytics();
-  }, []);
+    if (selectedDomain) {
+      fetchAnalytics();
+    }
+  }, [selectedDomain]);
 
   const fetchAnalytics = async () => {
+    if (!selectedDomain) return;
+    
     try {
-      // Fetch zone-wise statistics with performance
+      // Fetch zone-wise statistics with performance filtered by exam type
       const { data: zones, error: zoneError } = await supabase
         .from('zones')
         .select(`
           id,
           name,
           code,
-          is_active
+          is_active,
+          exam_type
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('exam_type', selectedDomain);
 
       if (zoneError) throw zoneError;
 
@@ -89,16 +120,18 @@ export const ZoneSchoolAnalytics = () => {
       setZoneStats(zoneStatsData);
       setTotalZones(zones?.length || 0);
 
-      // Fetch school-wise statistics
+      // Fetch school-wise statistics filtered by exam type
       const { data: schools, error: schoolError } = await supabase
         .from('schools')
         .select(`
           id,
           name,
           is_active,
+          exam_type,
           zones!fk_schools_zone(name)
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('exam_type', selectedDomain);
 
       if (schoolError) throw schoolError;
 
@@ -131,7 +164,7 @@ export const ZoneSchoolAnalytics = () => {
     }
   };
 
-  if (loading) {
+  if (loading && selectedDomain) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -141,8 +174,77 @@ export const ZoneSchoolAnalytics = () => {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-3xl font-bold">Zone & School Analytics</h2>
+          <p className="text-muted-foreground mt-1">
+            {selectedDomain 
+              ? `Viewing analytics for ${examTypes.find(t => t.code === selectedDomain)?.display_name}` 
+              : "Select an exam domain to view analytics"}
+          </p>
+        </div>
+        {selectedDomain && (
+          <Button onClick={() => setSelectedDomain(null)} variant="outline">
+            Change Domain
+          </Button>
+        )}
+      </div>
+
+      {/* Domain Selection Cards */}
+      {!selectedDomain ? (
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold">Select Exam Domain</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {examTypes.map((examType, index) => {
+              const IconComponent = examType.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+              return (
+                <Card 
+                  key={examType.id}
+                  className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  onClick={() => setSelectedDomain(examType.code)}
+                >
+                  <CardContent className="p-6">
+                    <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
+                      <IconComponent className="h-12 w-12 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-lg mb-2">{examType.display_name}</h4>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>View Analytics</span>
+                      <Badge variant="secondary">Analytics</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Selected Domain Badge */}
+          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const examType = examTypes.find(t => t.code === selectedDomain);
+                  const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+                  return (
+                    <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
+                      <IconComponent className="h-6 w-6 text-white" />
+                    </div>
+                  );
+                })()}
+                <div>
+                  <p className="text-sm text-muted-foreground">Selected Domain</p>
+                  <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedDomain)?.display_name}</p>
+                </div>
+              </div>
+              <Badge className="text-lg px-4 py-2">{zoneStats.length} zones</Badge>
+            </CardContent>
+          </Card>
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -188,10 +290,10 @@ export const ZoneSchoolAnalytics = () => {
             <p className="text-xs text-muted-foreground">Overall average score</p>
           </CardContent>
         </Card>
-      </div>
+          </div>
 
-      {/* Zone Performance Chart */}
-      <Card>
+          {/* Zone Performance Chart */}
+          <Card>
         <CardHeader>
           <CardTitle>Zone-wise Performance</CardTitle>
         </CardHeader>
@@ -209,9 +311,9 @@ export const ZoneSchoolAnalytics = () => {
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
-      </Card>
+          </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
         {/* Zone Distribution Pie Chart */}
         <Card>
           <CardHeader>
@@ -269,10 +371,10 @@ export const ZoneSchoolAnalytics = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+          </div>
 
-      {/* Zone Details Table */}
-      <Card>
+          {/* Zone Details Table */}
+          <Card>
         <CardHeader>
           <CardTitle>Zone Details</CardTitle>
         </CardHeader>
@@ -312,7 +414,9 @@ export const ZoneSchoolAnalytics = () => {
             </table>
           </div>
         </CardContent>
-      </Card>
+          </Card>
+        </>
+      )}
     </div>
   );
 };

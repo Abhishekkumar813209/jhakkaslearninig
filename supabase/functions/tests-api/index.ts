@@ -23,11 +23,11 @@ async function getAllTests(supabase: any, req: Request) {
       courses (title, subject)
     `)
   
-  // If user is logged in, filter tests by their class and board if they are a student
+  // If user is logged in, filter tests by their domain, class and board if they are a student
   if (user) {
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('student_class, education_board')
+      .select('student_class, education_board, exam_domain')
       .eq('id', user.id)
       .maybeSingle()
     
@@ -37,11 +37,27 @@ async function getAllTests(supabase: any, req: Request) {
       .eq('user_id', user.id)
       .maybeSingle()
     
-    // Only filter for students with class and board set
-    if (roleData?.role === 'student' && profileData?.student_class && profileData?.education_board) {
-      query = query
-        .eq('target_class', profileData.student_class)
-        .eq('target_board', profileData.education_board)
+    console.log('Filtering tests for student:', { 
+      userId: user.id, 
+      role: roleData?.role, 
+      domain: profileData?.exam_domain,
+      class: profileData?.student_class, 
+      board: profileData?.education_board 
+    })
+    
+    // Filter for students based on their exam domain
+    if (roleData?.role === 'student') {
+      // SSC students - only show tests with exam_domain = 'ssc'
+      if (profileData?.exam_domain === 'ssc') {
+        query = query.eq('exam_domain', 'ssc')
+      }
+      // School students - only show tests matching their class and board
+      else if (profileData?.student_class && profileData?.education_board) {
+        query = query
+          .eq('exam_domain', 'school')
+          .eq('target_class', profileData.student_class)
+          .eq('target_board', profileData.education_board)
+      }
     }
   }
   

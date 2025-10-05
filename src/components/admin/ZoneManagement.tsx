@@ -10,12 +10,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Edit, Users, Building, Trash2, UserCheck, ArrowRight } from 'lucide-react';
+import { useExamTypes } from '@/hooks/useExamTypes';
 
 interface Zone {
   id: string;
   name: string;
   code: string;
   description: string | null;
+  exam_type: string;
   is_active: boolean;
   student_count?: number;
   school_count?: number;
@@ -50,6 +52,9 @@ export const ZoneManagement = () => {
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [selectedZoneForSchool, setSelectedZoneForSchool] = useState<string | null>(null);
+  const [examFilter, setExamFilter] = useState<string>('all');
+  
+  const { examTypes } = useExamTypes();
 
   useEffect(() => {
     fetchZonesAndSchools();
@@ -216,13 +221,14 @@ export const ZoneManagement = () => {
   const handleSaveZone = async (formData: FormData) => {
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
+    const exam_type = formData.get('exam_type') as string;
 
     try {
       if (editingZone) {
         // Update existing zone
         const { error } = await supabase
           .from('zones')
-          .update({ name, description })
+          .update({ name, description, exam_type })
           .eq('id', editingZone.id);
 
         if (error) throw error;
@@ -233,7 +239,7 @@ export const ZoneManagement = () => {
         
         const { error } = await supabase
           .from('zones')
-          .insert({ name, code: nextCode, description });
+          .insert({ name, code: nextCode, description, exam_type });
 
         if (error) throw error;
         toast.success('Zone created successfully');
@@ -318,6 +324,19 @@ export const ZoneManagement = () => {
           <p className="text-muted-foreground">Manage student zones and schools</p>
         </div>
         <div className="flex gap-2">
+          <Select value={examFilter} onValueChange={setExamFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by exam" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Exams</SelectItem>
+              {examTypes.map((type) => (
+                <SelectItem key={type.id} value={type.code}>
+                  {type.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Dialog open={isStudentDialogOpen} onOpenChange={setIsStudentDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary">
@@ -392,6 +411,21 @@ export const ZoneManagement = () => {
                     placeholder="Enter zone name"
                     required
                   />
+                </div>
+                <div>
+                  <Label htmlFor="exam_type">Exam Type</Label>
+                  <Select name="exam_type" defaultValue={editingZone?.exam_type || ''} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select exam type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {examTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.code}>
+                          {type.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="description">Description</Label>
@@ -485,7 +519,7 @@ export const ZoneManagement = () => {
 
       {/* Zones Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {zones.map((zone) => (
+        {zones.filter(z => examFilter === 'all' || z.exam_type === examFilter).map((zone) => (
           <Card key={zone.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">

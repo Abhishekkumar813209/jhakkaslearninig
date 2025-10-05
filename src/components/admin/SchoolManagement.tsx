@@ -13,6 +13,7 @@ import { useZones } from "@/hooks/useZones";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usersAPI } from "@/services/api";
+import { useExamTypes } from "@/hooks/useExamTypes";
 
 interface Student {
   id: string;
@@ -28,17 +29,20 @@ const SchoolManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSchool, setSelectedSchool] = useState("all");
   const [selectedZone, setSelectedZone] = useState("all");
+  const [examFilter, setExamFilter] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [formData, setFormData] = useState({ 
     name: "", 
     code: "", 
     zone_id: "", 
-    address: "" 
+    address: "",
+    exam_type: ""
   });
   
   const { schools, loading, fetchSchools, createSchool, updateSchool, deleteSchool, assignStudentToSchool } = useSchools();
   const { zones } = useZones();
+  const { examTypes } = useExamTypes();
   const { toast } = useToast();
 
   const fetchStudents = async (search?: string) => {
@@ -69,12 +73,16 @@ const SchoolManagement = () => {
   const filteredSchools = useMemo(() => {
     let filtered = schools;
     
+    if (examFilter !== "all") {
+      filtered = filtered.filter(school => school.exam_type === examFilter);
+    }
+    
     if (selectedZone !== "all") {
       filtered = filtered.filter(school => school.zone_id === selectedZone);
     }
     
     return filtered;
-  }, [schools, selectedZone]);
+  }, [schools, selectedZone, examFilter]);
 
   const filteredStudents = useMemo(() => {
     let filtered = students;
@@ -119,7 +127,7 @@ const SchoolManagement = () => {
       }
       setShowAddDialog(false);
       setEditingSchool(null);
-      setFormData({ name: "", code: "", zone_id: "", address: "" });
+      setFormData({ name: "", code: "", zone_id: "", address: "", exam_type: "" });
     } catch (error) {
       // Error is already handled in the hook
     }
@@ -131,7 +139,8 @@ const SchoolManagement = () => {
       name: school.name,
       code: school.code,
       zone_id: school.zone_id,
-      address: school.address || ""
+      address: school.address || "",
+      exam_type: (school as any).exam_type || ""
     });
     setShowAddDialog(true);
   };
@@ -179,7 +188,7 @@ const SchoolManagement = () => {
                 className="flex items-center gap-2"
                 onClick={() => {
                   setEditingSchool(null);
-                  setFormData({ name: "", code: "", zone_id: "", address: "" });
+                  setFormData({ name: "", code: "", zone_id: "", address: "", exam_type: "" });
                 }}
               >
                 <Plus className="h-4 w-4" />
@@ -212,16 +221,36 @@ const SchoolManagement = () => {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="exam_type">Exam Type</Label>
+                  <Select 
+                    value={formData.exam_type} 
+                    onValueChange={(value) => setFormData({ ...formData, exam_type: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select exam type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {examTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.code}>
+                          {type.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label htmlFor="zone">Zone</Label>
                   <Select 
                     value={formData.zone_id} 
                     onValueChange={(value) => setFormData({ ...formData, zone_id: value })}
+                    required
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a zone" />
                     </SelectTrigger>
                     <SelectContent>
-                      {zones.map((zone) => (
+                      {zones.filter(z => !formData.exam_type || z.exam_type === formData.exam_type).map((zone) => (
                         <SelectItem key={zone.id} value={zone.id}>
                           {zone.name} ({zone.code})
                         </SelectItem>
@@ -304,6 +333,20 @@ const SchoolManagement = () => {
             <Button variant="outline" onClick={clearSearch} disabled={!searchTerm} className="md:w-24">
               Clear
             </Button>
+            <Select value={examFilter} onValueChange={setExamFilter}>
+              <SelectTrigger className="w-56">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by exam" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Exams</SelectItem>
+                {examTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.code}>
+                    {type.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={selectedZone} onValueChange={setSelectedZone}>
               <SelectTrigger className="w-56">
                 <Filter className="h-4 w-4 mr-2" />
@@ -311,7 +354,7 @@ const SchoolManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Zones</SelectItem>
-                {zones.map((zone) => (
+                {zones.filter(z => examFilter === 'all' || z.exam_type === examFilter).map((zone) => (
                   <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
                 ))}
               </SelectContent>

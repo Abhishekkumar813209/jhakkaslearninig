@@ -58,16 +58,29 @@ export const useProfile = () => {
       }
 
       // If user is a student and doesn't have complete profile info, redirect to profile page
-      if (roleData?.role === 'student') {
-        // School students need all fields
-        if (profile?.exam_domain === 'school' && (!profile?.exam_domain || !profile?.student_class || !profile?.education_board || !profile?.zone_id || !profile?.school_id)) {
+      if (roleData?.role === 'student' && profile) {
+        // If no exam_domain selected at all
+        if (!profile.exam_domain) {
           navigate('/profile');
           return;
         }
-        // Other exam students need exam_domain, zone_id, school_id
-        if (profile?.exam_domain !== 'school' && (!profile?.exam_domain || !profile?.zone_id || !profile?.school_id)) {
-          navigate('/profile');
-          return;
+        
+        // School students need: exam_domain, student_class, education_board, zone_id, school_id
+        if (profile.exam_domain === 'school') {
+          const isIncomplete = !profile.student_class || !profile.education_board || !profile.zone_id || !profile.school_id;
+          if (isIncomplete) {
+            navigate('/profile');
+            return;
+          }
+        }
+        
+        // Non-school exam students need: exam_domain, zone_id, school_id
+        if (profile.exam_domain !== 'school') {
+          const isIncomplete = !profile.zone_id || !profile.school_id;
+          if (isIncomplete) {
+            navigate('/profile');
+            return;
+          }
         }
       }
 

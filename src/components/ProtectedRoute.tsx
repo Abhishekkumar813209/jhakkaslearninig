@@ -51,15 +51,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   ].includes(location.pathname);
 
   // Check if profile completion is required for students
-  if (requireAuth && user && requireProfileComplete && !skipProfileCheck) {
-    // Only check profile completion for students (non-admin users)
-    if (!isAdmin) {
-      // School students need class, board, zone, school
-      if (profile?.exam_domain === 'school' && (!profile?.exam_domain || !profile?.student_class || !profile?.education_board || !profile?.zone_id || !profile?.school_id)) {
+  if (requireAuth && user && requireProfileComplete && !skipProfileCheck && !isAdmin && profile) {
+    // If no exam_domain selected at all
+    if (!profile.exam_domain) {
+      return <Navigate to="/profile" replace />;
+    }
+    
+    // School students need: exam_domain, student_class, education_board, zone_id, school_id
+    if (profile.exam_domain === 'school') {
+      const isIncomplete = !profile.student_class || !profile.education_board || !profile.zone_id || !profile.school_id;
+      if (isIncomplete) {
         return <Navigate to="/profile" replace />;
       }
-      // Other exam students need exam_domain, zone, school
-      if (profile?.exam_domain !== 'school' && (!profile?.exam_domain || !profile?.zone_id || !profile?.school_id)) {
+    }
+    
+    // Non-school exam students need: exam_domain, zone_id, school_id
+    if (profile.exam_domain !== 'school') {
+      const isIncomplete = !profile.zone_id || !profile.school_id;
+      if (isIncomplete) {
         return <Navigate to="/profile" replace />;
       }
     }

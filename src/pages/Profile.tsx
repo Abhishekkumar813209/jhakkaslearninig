@@ -62,9 +62,6 @@ const Profile = () => {
   useEffect(() => {
     if (examDomain) {
       loadZonesAndSchools();
-      // Reset zone and school selections when exam changes
-      setZoneId('');
-      setSchoolId('');
     }
   }, [examDomain]);
 
@@ -98,7 +95,8 @@ const Profile = () => {
         .order('name');
       
       if (zonesError) throw zonesError;
-      setZones(zonesData || []);
+      const loadedZones = zonesData || [];
+      setZones(loadedZones);
       
       // Load schools filtered by exam_type
       const { data: schoolsData, error: schoolsError } = await supabase
@@ -109,7 +107,16 @@ const Profile = () => {
         .order('name');
       
       if (schoolsError) throw schoolsError;
-      setSchools(schoolsData || []);
+      const loadedSchools = schoolsData || [];
+      setSchools(loadedSchools);
+      
+      // Validate existing selections against loaded data
+      if (zoneId && !loadedZones.find(z => z.id === zoneId)) {
+        setZoneId('');
+      }
+      if (schoolId && !loadedSchools.find(s => s.id === schoolId)) {
+        setSchoolId('');
+      }
     } catch (error) {
       console.error('Failed to load zones and schools:', error);
     }
@@ -145,6 +152,55 @@ const Profile = () => {
       return;
     }
 
+    // Validate required fields based on exam domain
+    if (isStudent) {
+      if (!examDomain) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please select an exam category',
+        });
+        return;
+      }
+      
+      if (!zoneId) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please select a zone',
+        });
+        return;
+      }
+      
+      if (!schoolId) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please select a school/library',
+        });
+        return;
+      }
+      
+      const selectedExamType = examTypes.find(t => t.code === examDomain);
+      if (selectedExamType?.requires_class && !studentClass) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please select your class',
+        });
+        return;
+      }
+      
+      if (selectedExamType?.requires_board && !educationBoard) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please select your education board',
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const updatePayload: any = {
@@ -155,20 +211,26 @@ const Profile = () => {
         school_id: schoolId
       };
 
-      // Only include school fields if category is 'school'
-      if (examDomain === 'school') {
+      const selectedExamType = examTypes.find(t => t.code === examDomain);
+      
+      // Only include school fields if required by exam type
+      if (selectedExamType?.requires_class) {
         updatePayload.student_class = studentClass;
+      } else {
+        updatePayload.student_class = null;
+      }
+      
+      if (selectedExamType?.requires_board) {
         updatePayload.education_board = educationBoard;
       } else {
-        // Clear school fields for non-school categories
-        updatePayload.student_class = null;
         updatePayload.education_board = null;
       }
 
-      const response = await authAPI.updateProfile(updatePayload);
+      await authAPI.updateProfile(updatePayload);
       
-      const profile = (response as any).profile || response;
-      setProfileData(profile);
+      // Reload profile from DB to sync state
+      await loadProfile();
+      
       setIsEditing(false);
       toast({
         title: 'Success',
@@ -207,12 +269,15 @@ const Profile = () => {
           </div>
 
           {/* Incomplete profile banner */}
-          {isStudent && (
-            !examDomain || 
-            !zoneId || 
-            !schoolId || 
-            (examDomain === 'school' && (!studentClass || !educationBoard))
-          ) && (
+          {isStudent && profileData && (() => {
+            const selectedExamType = examTypes.find(t => t.code === profileData.exam_domain);
+            const isIncomplete = !profileData.exam_domain || 
+              !profileData.zone_id || 
+              !profileData.school_id ||
+              (selectedExamType?.requires_class && !profileData.student_class) ||
+              (selectedExamType?.requires_board && !profileData.education_board);
+            return isIncomplete;
+          })() && (
             <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
               <AlertCircle className="h-4 w-4 text-orange-600" />
               <AlertTitle className="text-orange-600">Complete Your Profile</AlertTitle>

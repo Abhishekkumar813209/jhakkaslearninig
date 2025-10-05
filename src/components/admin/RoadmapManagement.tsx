@@ -236,7 +236,7 @@ const RoadmapManagement = () => {
   };
 
   const filteredRoadmaps = selectedDomain 
-    ? roadmaps.filter(r => r.exam_type === selectedDomain)
+    ? roadmaps.filter(r => r.exam_type === selectedDomain || !r.exam_type)
     : roadmaps;
 
   const activeRoadmaps = filteredRoadmaps.filter(r => r.status === 'active').length;

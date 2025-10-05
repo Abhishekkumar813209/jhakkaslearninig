@@ -2894,6 +2894,7 @@ export type Database = {
           description: string | null
           difficulty: Database["public"]["Enums"]["test_difficulty"]
           duration_minutes: number
+          exam_domain: string | null
           expires_at: string | null
           id: string
           instructions: string | null
@@ -2919,6 +2920,7 @@ export type Database = {
           description?: string | null
           difficulty: Database["public"]["Enums"]["test_difficulty"]
           duration_minutes: number
+          exam_domain?: string | null
           expires_at?: string | null
           id?: string
           instructions?: string | null
@@ -2944,6 +2946,7 @@ export type Database = {
           description?: string | null
           difficulty?: Database["public"]["Enums"]["test_difficulty"]
           duration_minutes?: number
+          exam_domain?: string | null
           expires_at?: string | null
           id?: string
           instructions?: string | null

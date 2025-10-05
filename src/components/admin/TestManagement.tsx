@@ -22,6 +22,7 @@ interface Test {
   class: string;
   target_class?: string;
   target_board?: string;
+  exam_domain?: string;
   difficulty: string;
   duration_minutes: number;
   total_marks: number;
@@ -39,6 +40,7 @@ interface NewTestData {
   class: string;
   target_class: string;
   target_board: string;
+  exam_domain: string;
   difficulty: string;
   duration_minutes: number;
   passing_marks: number;
@@ -59,6 +61,7 @@ const TestManagement: React.FC = () => {
     class: '',
     target_class: '',
     target_board: '',
+    exam_domain: 'school',
     difficulty: 'medium',
     duration_minutes: 60,
     passing_marks: 50,
@@ -144,6 +147,7 @@ const TestManagement: React.FC = () => {
           class: newTest.class,
           target_class: newTest.target_class as any,
           target_board: newTest.target_board as any,
+          exam_domain: newTest.exam_domain,
           difficulty: newTest.difficulty as 'easy' | 'medium' | 'hard',
           duration_minutes: newTest.duration_minutes,
           passing_marks: newTest.passing_marks,
@@ -165,6 +169,7 @@ const TestManagement: React.FC = () => {
         class: '',
         target_class: '',
         target_board: '',
+        exam_domain: 'school',
         difficulty: 'medium',
         duration_minutes: 60,
         passing_marks: 50,
@@ -455,6 +460,22 @@ const TestManagement: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="exam_domain">Exam Domain</Label>
+                    <Select value={newTest.exam_domain} onValueChange={(value) => setNewTest(prev => ({ ...prev, exam_domain: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="school">School</SelectItem>
+                        <SelectItem value="ssc">SSC</SelectItem>
+                        <SelectItem value="upsc">UPSC</SelectItem>
+                        <SelectItem value="gate">GATE</SelectItem>
+                        <SelectItem value="cat">CAT</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="passing_marks">Passing Marks (%)</Label>

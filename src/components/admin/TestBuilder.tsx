@@ -61,6 +61,7 @@ interface Test {
   status: string;
   instructions?: string;
   is_published: boolean;
+  exam_domain?: string;
 }
 
 const TestBuilder: React.FC = () => {

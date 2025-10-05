@@ -53,10 +53,20 @@ const Profile = () => {
     }
   }, [profileData]);
 
-  // Load zones and schools
+  // Load zones and schools on mount
   useEffect(() => {
     loadZonesAndSchools();
   }, []);
+
+  // Reload zones and schools when exam domain changes
+  useEffect(() => {
+    if (examDomain) {
+      loadZonesAndSchools();
+      // Reset zone and school selections when exam changes
+      setZoneId('');
+      setSchoolId('');
+    }
+  }, [examDomain]);
 
   // Filter schools by zone
   useEffect(() => {
@@ -72,21 +82,30 @@ const Profile = () => {
     try {
       const { supabase } = await import('@/integrations/supabase/client');
       
-      // Load zones
+      // Clear if no exam domain
+      if (!examDomain) {
+        setZones([]);
+        setSchools([]);
+        return;
+      }
+      
+      // Load zones filtered by exam_type
       const { data: zonesData, error: zonesError } = await supabase
         .from('zones')
         .select('*')
         .eq('is_active', true)
+        .eq('exam_type', examDomain)
         .order('name');
       
       if (zonesError) throw zonesError;
       setZones(zonesData || []);
       
-      // Load schools
+      // Load schools filtered by exam_type
       const { data: schoolsData, error: schoolsError } = await supabase
         .from('schools')
         .select('*')
         .eq('is_active', true)
+        .eq('exam_type', examDomain)
         .order('name');
       
       if (schoolsError) throw schoolsError;

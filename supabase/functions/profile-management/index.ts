@@ -55,6 +55,8 @@ serve(async (req: Request) => {
             student_class,
             education_board,
             exam_domain,
+            zone_id,
+            school_id,
             target_exam,
             preparation_level,
             created_at,
@@ -101,7 +103,7 @@ serve(async (req: Request) => {
       case 'PUT':
         // Update user profile
         const updateData = await req.json()
-        const allowedFields = ['full_name', 'avatar_url', 'student_class', 'education_board', 'exam_domain', 'target_exam', 'preparation_level']
+        const allowedFields = ['full_name', 'avatar_url', 'student_class', 'education_board', 'exam_domain', 'target_exam', 'preparation_level', 'zone_id', 'school_id']
         
         const profileUpdates = Object.keys(updateData)
           .filter(key => allowedFields.includes(key))
@@ -133,6 +135,9 @@ serve(async (req: Request) => {
             batch_id,
             student_class,
             education_board,
+            exam_domain,
+            zone_id,
+            school_id,
             created_at,
             updated_at
           `)

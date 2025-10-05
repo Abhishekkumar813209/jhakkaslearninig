@@ -108,6 +108,9 @@ export const authAPI = {
           batch_id,
           student_class,
           education_board,
+          exam_domain,
+          zone_id,
+          school_id,
           created_at,
           updated_at
         `)

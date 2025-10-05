@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Map, Plus, Edit, Trash2, Play, Eye } from "lucide-react";
+import { Map, Plus, Edit, Trash2, Play, Eye, GraduationCap, BookOpen, Building2, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
@@ -14,9 +14,12 @@ import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
 import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
 import { useAuth } from "@/hooks/useAuth";
 import { format, parseISO } from 'date-fns';
+import { useExamTypes } from "@/hooks/useExamTypes";
 
 const RoadmapManagement = () => {
   const { loading: authLoading } = useAuth();
+  const { examTypes, loading: examTypesLoading } = useExamTypes();
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isManualBuilding, setIsManualBuilding] = useState(false);
@@ -221,21 +224,117 @@ const RoadmapManagement = () => {
     );
   }
 
+  const iconMap: Record<string, any> = {
+    'school': BookOpen,
+    'engineering': GraduationCap,
+    'medical': Building2,
+    'government': Briefcase,
+  };
+
+  const getDomainRoadmapCount = (examType: string) => {
+    return roadmaps.filter(r => r.exam_type === examType).length;
+  };
+
+  const filteredRoadmaps = selectedDomain 
+    ? roadmaps.filter(r => r.exam_type === selectedDomain)
+    : roadmaps;
+
+  const activeRoadmaps = filteredRoadmaps.filter(r => r.status === 'active').length;
+  const totalChapters = filteredRoadmaps.reduce((sum, r) => sum + (r.chapters?.length || 0), 0);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Map className="h-6 w-6" />
-            Roadmap Management
-          </h2>
-          <p className="text-muted-foreground">Create and manage learning roadmaps for batches</p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsCreating(true)}>
-          <Plus className="h-4 w-4" />
-          Create AI Roadmap
-        </Button>
+      <div>
+        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Map className="h-6 w-6" />
+          Roadmap Management
+        </h2>
+        <p className="text-muted-foreground">Create and manage learning roadmaps for batches</p>
       </div>
+
+      {!selectedDomain ? (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Select Exam Domain</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {examTypes.map((examType, idx) => {
+              const Icon = iconMap[examType.category.toLowerCase()] || GraduationCap;
+              const count = getDomainRoadmapCount(examType.code);
+              
+              return (
+                <Card
+                  key={examType.id}
+                  className="cursor-pointer hover:shadow-lg transition-all hover-scale animate-fade-in"
+                  style={{ animationDelay: `${idx * 0.1}s` }}
+                  onClick={() => setSelectedDomain(examType.code)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`p-3 rounded-lg ${examType.color_class || 'bg-primary/10'}`}>
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{examType.display_name}</h3>
+                        <p className="text-sm text-muted-foreground capitalize">{examType.category}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <span className="text-sm text-muted-foreground">Roadmaps</span>
+                      <Badge variant="secondary" className="font-semibold">{count}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Badge variant="default" className="text-base px-4 py-2">
+                Selected: {examTypes.find(e => e.code === selectedDomain)?.display_name} 
+                {examTypes.find(e => e.code === selectedDomain)?.category && 
+                  ` (${examTypes.find(e => e.code === selectedDomain)?.category})`
+                }
+              </Badge>
+              <Button variant="outline" size="sm" onClick={() => setSelectedDomain(null)}>
+                Change Domain
+              </Button>
+            </div>
+            <Button className="gap-2" onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4" />
+              Create AI Roadmap
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Domain Roadmaps</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{filteredRoadmaps.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Active Roadmaps</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-success">{activeRoadmaps}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Chapters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-primary">{totalChapters}</div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       <CreateRoadmapWizard
         open={isCreating}
@@ -257,8 +356,9 @@ const RoadmapManagement = () => {
         prefillData={manualBuilderPrefillData}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {roadmaps.map((roadmap, idx) => (
+      {selectedDomain && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredRoadmaps.map((roadmap, idx) => (
           <Card 
             key={roadmap.id} 
             className="hover:shadow-lg transition-all hover-scale cursor-pointer animate-fade-in"
@@ -374,10 +474,11 @@ const RoadmapManagement = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {roadmaps.length === 0 && (
+      {selectedDomain && filteredRoadmaps.length === 0 && (
         <Card className="text-center p-12 animate-scale-in">
           <Map className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No roadmaps created yet</h3>

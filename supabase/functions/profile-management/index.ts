@@ -106,12 +106,13 @@ serve(async (req: Request) => {
         const allowedFields = ['full_name', 'avatar_url', 'student_class', 'education_board', 'exam_domain', 'target_exam', 'preparation_level', 'zone_id', 'school_id']
         
         const profileUpdates = Object.keys(updateData)
-          .filter(key => allowedFields.includes(key))
+          .filter(key => allowedFields.includes(key) && key in updateData)
           .reduce((obj, key) => {
-            // Allow null values to clear fields
-            obj[key] = updateData[key] !== undefined ? updateData[key] : null
+            obj[key] = updateData[key]
             return obj
           }, {} as any)
+        
+        console.log('Profile update request:', { userId, fields: Object.keys(profileUpdates), updates: profileUpdates })
 
         if (Object.keys(profileUpdates).length === 0) {
           return new Response(

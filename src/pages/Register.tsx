@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authAPI } from '@/services/api';
 import { useExamTypes } from '@/hooks/useExamTypes';
+import { useBoards } from '@/hooks/useBoards';
 import { Card as ExamCard, CardContent as ExamCardContent } from '@/components/ui/card';
 import * as LucideIcons from 'lucide-react';
 
@@ -30,6 +31,7 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
+  const { boards: availableBoards, requiresBoard } = useBoards(examDomain);
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -44,7 +46,6 @@ const Register = () => {
 
   const selectedExamType = examTypes.find(t => t.code === examDomain);
   const requiresClass = selectedExamType?.requires_class || false;
-  const requiresBoard = selectedExamType?.requires_board || false;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -368,29 +369,11 @@ const Register = () => {
                         <SelectValue placeholder="Education Board" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CBSE">CBSE</SelectItem>
-                        <SelectItem value="ICSE">ICSE</SelectItem>
-                        <SelectItem value="UP_BOARD">UP Board</SelectItem>
-                        <SelectItem value="BIHAR_BOARD">Bihar Board</SelectItem>
-                        <SelectItem value="RAJASTHAN_BOARD">Rajasthan Board</SelectItem>
-                        <SelectItem value="MAHARASHTRA_BOARD">Maharashtra Board</SelectItem>
-                        <SelectItem value="GUJARAT_BOARD">Gujarat Board</SelectItem>
-                        <SelectItem value="WEST_BENGAL_BOARD">West Bengal Board</SelectItem>
-                        <SelectItem value="KARNATAKA_BOARD">Karnataka Board</SelectItem>
-                        <SelectItem value="TAMIL_NADU_BOARD">Tamil Nadu Board</SelectItem>
-                        <SelectItem value="KERALA_BOARD">Kerala Board</SelectItem>
-                        <SelectItem value="ANDHRA_PRADESH_BOARD">Andhra Pradesh Board</SelectItem>
-                        <SelectItem value="TELANGANA_BOARD">Telangana Board</SelectItem>
-                        <SelectItem value="MADHYA_PRADESH_BOARD">Madhya Pradesh Board</SelectItem>
-                        <SelectItem value="HARYANA_BOARD">Haryana Board</SelectItem>
-                        <SelectItem value="PUNJAB_BOARD">Punjab Board</SelectItem>
-                        <SelectItem value="ASSAM_BOARD">Assam Board</SelectItem>
-                        <SelectItem value="ODISHA_BOARD">Odisha Board</SelectItem>
-                        <SelectItem value="JHARKHAND_BOARD">Jharkhand Board</SelectItem>
-                        <SelectItem value="CHHATTISGARH_BOARD">Chhattisgarh Board</SelectItem>
-                        <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
-                        <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
-                        <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
+                        {availableBoards.map(board => (
+                          <SelectItem key={board} value={board}>
+                            {board}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

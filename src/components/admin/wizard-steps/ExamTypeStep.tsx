@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import * as LucideIcons from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useExamTypes } from "@/hooks/useExamTypes";
+import { useBoards } from "@/hooks/useBoards";
 
 interface ExamTypeStepProps {
   examType: string;
@@ -41,6 +42,7 @@ export const ExamTypeStep = ({
 }: ExamTypeStepProps) => {
   const { batches } = useBatches();
   const { examTypes } = useExamTypes();
+  const { boards: availableBoards } = useBoards(examType);
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -151,10 +153,11 @@ export const ExamTypeStep = ({
                 <SelectValue placeholder="Select board" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CBSE">CBSE</SelectItem>
-                <SelectItem value="ICSE">ICSE</SelectItem>
-                <SelectItem value="State Board">State Board</SelectItem>
-                <SelectItem value="IB">IB</SelectItem>
+                {availableBoards.map(board => (
+                  <SelectItem key={board} value={board}>
+                    {board}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

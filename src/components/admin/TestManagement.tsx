@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Download, Clock, Users, FileText, Wand2, BookOpen, Calendar, GraduationCap, Building2, Briefcase } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useExamTypes } from '@/hooks/useExamTypes';
+import { useBoards } from '@/hooks/useBoards';
 
 interface Test {
   id: string;
@@ -67,6 +68,7 @@ const TestManagement: React.FC = () => {
     passing_marks: 50,
     status: 'draft'
   });
+  const { boards: availableBoards, requiresBoard } = useBoards(newTest.exam_domain);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -427,39 +429,23 @@ const TestManagement: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="target_board">Target Board</Label>
-                      <Select value={newTest.target_board} onValueChange={(value) => setNewTest(prev => ({ ...prev, target_board: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select board" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CBSE">CBSE</SelectItem>
-                          <SelectItem value="ICSE">ICSE</SelectItem>
-                          <SelectItem value="UP_BOARD">UP Board</SelectItem>
-                          <SelectItem value="BIHAR_BOARD">Bihar Board</SelectItem>
-                          <SelectItem value="RAJASTHAN_BOARD">Rajasthan Board</SelectItem>
-                          <SelectItem value="MAHARASHTRA_BOARD">Maharashtra Board</SelectItem>
-                          <SelectItem value="GUJARAT_BOARD">Gujarat Board</SelectItem>
-                          <SelectItem value="WEST_BENGAL_BOARD">West Bengal Board</SelectItem>
-                          <SelectItem value="KARNATAKA_BOARD">Karnataka Board</SelectItem>
-                          <SelectItem value="TAMIL_NADU_BOARD">Tamil Nadu Board</SelectItem>
-                          <SelectItem value="KERALA_BOARD">Kerala Board</SelectItem>
-                          <SelectItem value="ANDHRA_PRADESH_BOARD">Andhra Pradesh Board</SelectItem>
-                          <SelectItem value="TELANGANA_BOARD">Telangana Board</SelectItem>
-                          <SelectItem value="MADHYA_PRADESH_BOARD">Madhya Pradesh Board</SelectItem>
-                          <SelectItem value="HARYANA_BOARD">Haryana Board</SelectItem>
-                          <SelectItem value="PUNJAB_BOARD">Punjab Board</SelectItem>
-                          <SelectItem value="ASSAM_BOARD">Assam Board</SelectItem>
-                          <SelectItem value="ODISHA_BOARD">Odisha Board</SelectItem>
-                          <SelectItem value="JHARKHAND_BOARD">Jharkhand Board</SelectItem>
-                          <SelectItem value="CHHATTISGARH_BOARD">Chhattisgarh Board</SelectItem>
-                          <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
-                          <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
-                          <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {requiresBoard && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="target_board">Target Board</Label>
+                        <Select value={newTest.target_board} onValueChange={(value) => setNewTest(prev => ({ ...prev, target_board: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select board" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableBoards.map(board => (
+                              <SelectItem key={board} value={board}>
+                                {board}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="exam_domain">Exam Domain</Label>

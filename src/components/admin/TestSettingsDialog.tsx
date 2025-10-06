@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { CalendarIcon, InfoIcon } from 'lucide-react';
+import { useBoards } from '@/hooks/useBoards';
 
 interface TestSettingsDialogProps {
   open: boolean;
@@ -51,6 +52,7 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { boards: availableBoards, requiresBoard } = useBoards('school');
 
   useEffect(() => {
     if (open && testId) {
@@ -165,39 +167,23 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
                   </Select>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="target_board">Target Board</Label>
-                  <Select value={settings.target_board} onValueChange={(value) => setSettings(prev => ({ ...prev, target_board: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Board" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CBSE">CBSE</SelectItem>
-                      <SelectItem value="ICSE">ICSE</SelectItem>
-                      <SelectItem value="UP_BOARD">UP Board</SelectItem>
-                      <SelectItem value="BIHAR_BOARD">Bihar Board</SelectItem>
-                      <SelectItem value="RAJASTHAN_BOARD">Rajasthan Board</SelectItem>
-                      <SelectItem value="MAHARASHTRA_BOARD">Maharashtra Board</SelectItem>
-                      <SelectItem value="GUJARAT_BOARD">Gujarat Board</SelectItem>
-                      <SelectItem value="WEST_BENGAL_BOARD">West Bengal Board</SelectItem>
-                      <SelectItem value="KARNATAKA_BOARD">Karnataka Board</SelectItem>
-                      <SelectItem value="TAMIL_NADU_BOARD">Tamil Nadu Board</SelectItem>
-                      <SelectItem value="KERALA_BOARD">Kerala Board</SelectItem>
-                      <SelectItem value="ANDHRA_PRADESH_BOARD">Andhra Pradesh Board</SelectItem>
-                      <SelectItem value="TELANGANA_BOARD">Telangana Board</SelectItem>
-                      <SelectItem value="MADHYA_PRADESH_BOARD">Madhya Pradesh Board</SelectItem>
-                      <SelectItem value="HARYANA_BOARD">Haryana Board</SelectItem>
-                      <SelectItem value="PUNJAB_BOARD">Punjab Board</SelectItem>
-                      <SelectItem value="ASSAM_BOARD">Assam Board</SelectItem>
-                      <SelectItem value="ODISHA_BOARD">Odisha Board</SelectItem>
-                      <SelectItem value="JHARKHAND_BOARD">Jharkhand Board</SelectItem>
-                      <SelectItem value="CHHATTISGARH_BOARD">Chhattisgarh Board</SelectItem>
-                      <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
-                      <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
-                      <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {requiresBoard && (
+                  <div className="space-y-2">
+                    <Label htmlFor="target_board">Target Board</Label>
+                    <Select value={settings.target_board} onValueChange={(value) => setSettings(prev => ({ ...prev, target_board: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Board" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableBoards.map(board => (
+                          <SelectItem key={board} value={board}>
+                            {board}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
             {/* Allow Retakes */}

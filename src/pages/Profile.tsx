@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { StudentAnalytics } from '@/components/student/StudentAnalytics';
 import { StudentRankings } from '@/components/student/StudentRankings';
 import { useExamTypes } from '@/hooks/useExamTypes';
+import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
 
 const Profile = () => {
@@ -32,8 +33,8 @@ const Profile = () => {
   const [zones, setZones] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [filteredSchools, setFilteredSchools] = useState<any[]>([]);
-  const [availableBoards, setAvailableBoards] = useState<string[]>([]);
   const { examTypes } = useExamTypes();
+  const { boards: availableBoards, requiresBoard } = useBoards(examDomain);
 
   useEffect(() => {
     if (user) {
@@ -75,21 +76,6 @@ const Profile = () => {
       setFilteredSchools(schools);
     }
   }, [zoneId, schools]);
-
-  // Load available boards when exam domain changes
-  useEffect(() => {
-    if (examDomain && examTypes.length > 0) {
-      const selectedExamType = examTypes.find(t => t.code === examDomain);
-      if (selectedExamType?.requires_board && selectedExamType.available_exams) {
-        // Extract board names from available_exams array
-        setAvailableBoards(selectedExamType.available_exams as string[]);
-      } else {
-        setAvailableBoards([]);
-      }
-    } else {
-      setAvailableBoards([]);
-    }
-  }, [examDomain, examTypes]);
 
   const loadZonesAndSchools = async () => {
     try {
@@ -475,27 +461,29 @@ const Profile = () => {
                           )}
                         </div>
 
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Education Board *</label>
-                          {isEditing ? (
-                            <Select value={educationBoard} onValueChange={setEducationBoard}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Board" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableBoards.map(board => (
-                                  <SelectItem key={board} value={board}>
-                                    {board}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div className="p-3 bg-muted rounded-md">
-                              {educationBoard || 'Not set'}
-                            </div>
-                          )}
-                        </div>
+                        {requiresBoard && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Education Board *</label>
+                            {isEditing ? (
+                              <Select value={educationBoard} onValueChange={setEducationBoard}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select Board" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableBoards.map(board => (
+                                    <SelectItem key={board} value={board}>
+                                      {board}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="p-3 bg-muted rounded-md">
+                                {educationBoard || 'Not set'}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     )}
                   </>

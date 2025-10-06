@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useExamTypes, ExamType } from '@/hooks/useExamTypes';
-import { Plus, Edit, Trash2, GripVertical, Wrench, Heart, GraduationCap, Briefcase, Building2, Scale, Train, Shield, Star } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, Wrench, Heart, GraduationCap, Briefcase, Building2, Scale, Train, Shield, Star, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const iconMap: Record<string, any> = {
@@ -26,6 +27,7 @@ export const ExamTypesManagement = () => {
   const { examTypes, loading, createExamType, updateExamType, deleteExamType } = useExamTypes();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<ExamType | null>(null);
+  const [examInputValue, setExamInputValue] = useState('');
   const [formData, setFormData] = useState({
     code: '',
     display_name: '',
@@ -78,6 +80,7 @@ export const ExamTypesManagement = () => {
 
   const resetForm = () => {
     setEditingType(null);
+    setExamInputValue('');
     setFormData({
       code: '',
       display_name: '',
@@ -91,9 +94,48 @@ export const ExamTypesManagement = () => {
     });
   };
 
-  const handleAvailableExamsChange = (value: string) => {
-    const exams = value.split(',').map(e => e.trim()).filter(e => e);
-    setFormData({ ...formData, available_exams: exams });
+  const handleAddExam = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const examName = examInputValue.trim();
+      
+      if (examName && !formData.available_exams.includes(examName)) {
+        setFormData({ 
+          ...formData, 
+          available_exams: [...formData.available_exams, examName] 
+        });
+        setExamInputValue('');
+      } else if (formData.available_exams.includes(examName)) {
+        toast.error('Exam already added');
+      }
+    }
+  };
+
+  const handleRemoveExam = (index: number) => {
+    setFormData({
+      ...formData,
+      available_exams: formData.available_exams.filter((_, i) => i !== index),
+    });
+  };
+
+  const handlePasteExams = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text');
+    if (pastedText.includes(',')) {
+      e.preventDefault();
+      const exams = pastedText
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e && !formData.available_exams.includes(e));
+      
+      if (exams.length > 0) {
+        setFormData({
+          ...formData,
+          available_exams: [...formData.available_exams, ...exams],
+        });
+        setExamInputValue('');
+        toast.success(`Added ${exams.length} exam(s)`);
+      }
+    }
   };
 
   if (loading) {
@@ -180,14 +222,42 @@ export const ExamTypesManagement = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="available_exams">Available Exams (comma-separated)</Label>
+              <div className="space-y-3">
+                <Label htmlFor="available_exams">Available Exams</Label>
                 <Input
                   id="available_exams"
-                  value={formData.available_exams.join(', ')}
-                  onChange={(e) => handleAvailableExamsChange(e.target.value)}
-                  placeholder="e.g., JEE Main, JEE Advanced, BITSAT"
+                  value={examInputValue}
+                  onChange={(e) => setExamInputValue(e.target.value)}
+                  onKeyDown={handleAddExam}
+                  onPaste={handlePasteExams}
+                  placeholder="Type exam name and press Enter or Comma..."
+                  className="w-full"
                 />
+                
+                {formData.available_exams.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+                    {formData.available_exams.map((exam, index) => (
+                      <Badge 
+                        key={index} 
+                        variant="secondary"
+                        className="group hover:bg-destructive/10 transition-colors animate-scale-in"
+                      >
+                        {exam}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveExam(index)}
+                          className="ml-2 hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic p-3 bg-muted/30 rounded-lg border border-dashed">
+                    No exams added yet. Type and press Enter to add.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center space-x-4">

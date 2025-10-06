@@ -130,29 +130,51 @@ const StudentManagement = () => {
     }).length;
   };
 
-  // Calculate student counts for boards and classes
+  // Calculate student counts for boards and classes with dynamic bucketing
   const studentCounts = useMemo(() => {
     const schoolStudents = students.filter(s => 
       (s.exam_domain || 'school') === 'school'
     );
     
+    // Get available boards from exam_types
+    const schoolExam = examTypes.find(et => et.code === "school" || et.display_name === "School Education");
+    const availableBoards = Array.isArray(schoolExam?.available_exams) ? schoolExam.available_exams : [];
+    
+    // Bucketing function: maps student board to the correct bucket
+    const getBucket = (studentBoard?: string | null): string => {
+      const boardName = (studentBoard || "").trim();
+      
+      // If board exactly matches available boards, use it
+      if (availableBoards.includes(boardName)) {
+        return boardName;
+      }
+      
+      // If "State Board" exists in available boards, aggregate unlisted boards there
+      if (availableBoards.includes("State Board")) {
+        return "State Board";
+      }
+      
+      // Fallback
+      return boardName || "Unknown";
+    };
+    
     const byBoard: Record<string, number> = {};
     const byClass: Record<string, Record<string, number>> = {};
     
     schoolStudents.forEach(student => {
-      const board = student.education_board || 'Unknown';
+      const bucket = getBucket(student.education_board);
       const cls = student.student_class || 'Unknown';
       
-      // Count by board
-      byBoard[board] = (byBoard[board] || 0) + 1;
+      // Count by board bucket
+      byBoard[bucket] = (byBoard[bucket] || 0) + 1;
       
-      // Count by board + class
-      if (!byClass[board]) byClass[board] = {};
-      byClass[board][cls] = (byClass[board][cls] || 0) + 1;
+      // Count by board bucket + class
+      if (!byClass[bucket]) byClass[bucket] = {};
+      byClass[bucket][cls] = (byClass[bucket][cls] || 0) + 1;
     });
     
-    return { byBoard, byClass };
-  }, [students]);
+    return { byBoard, byClass, availableBoards };
+  }, [students, examTypes]);
 
   const filteredStudents = useMemo(() => {
     let list = students;
@@ -167,10 +189,21 @@ const StudentManagement = () => {
       console.log('🔧 [StudentManagement] After exam type filter:', list.length);
     }
     
-    // Filter by board for school domain
+    // Filter by board for school domain with bucketing logic
     if (selectedExamType === 'school' && selectedBoard) {
+      const availableBoards = studentCounts.availableBoards || [];
+      
       list = list.filter((s) => {
-        return s.education_board === selectedBoard;
+        const boardName = (s.education_board || "").trim();
+        
+        // If "State Board" is selected and it's in available boards
+        if (selectedBoard === "State Board" && availableBoards.includes("State Board")) {
+          // Show students with "State Board" OR students whose board is not in availableBoards
+          return boardName === "State Board" || !availableBoards.includes(boardName);
+        }
+        
+        // Otherwise, exact match
+        return boardName === selectedBoard;
       });
       console.log('🔧 [StudentManagement] After board filter:', list.length);
     }

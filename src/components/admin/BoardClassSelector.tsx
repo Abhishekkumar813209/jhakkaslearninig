@@ -10,6 +10,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { useMemo } from "react";
+import { useExamTypes } from "@/hooks/useExamTypes";
 
 interface BoardClassSelectorProps {
   examType: string;
@@ -25,11 +27,13 @@ interface BoardClassSelectorProps {
   };
 }
 
-const BOARDS = [
-  { code: "CBSE", name: "CBSE", color: "bg-gradient-to-br from-blue-500 to-blue-600" },
-  { code: "ICSE", name: "ICSE", color: "bg-gradient-to-br from-purple-500 to-purple-600" },
-  { code: "State Board", name: "State Board", color: "bg-gradient-to-br from-green-500 to-green-600" },
-  { code: "IGCSE", name: "IGCSE", color: "bg-gradient-to-br from-orange-500 to-orange-600" },
+const colorPalette = [
+  "bg-gradient-to-br from-blue-500 to-blue-600",
+  "bg-gradient-to-br from-purple-500 to-purple-600",
+  "bg-gradient-to-br from-green-500 to-green-600",
+  "bg-gradient-to-br from-orange-500 to-orange-600",
+  "bg-gradient-to-br from-pink-500 to-rose-600",
+  "bg-gradient-to-br from-teal-500 to-emerald-600",
 ];
 
 const CLASSES = Array.from({ length: 12 }, (_, i) => ({
@@ -47,6 +51,18 @@ export const BoardClassSelector = ({
   onResetToBoard,
   studentCounts = {},
 }: BoardClassSelectorProps) => {
+  const { examTypes } = useExamTypes();
+  
+  const schoolExam = useMemo(
+    () => examTypes.find(et => et.code === "school" || et.display_name === "School Education"),
+    [examTypes]
+  );
+  
+  const boards = useMemo(() => {
+    const availableBoards = schoolExam?.available_exams ?? [];
+    return Array.isArray(availableBoards) ? availableBoards : [];
+  }, [schoolExam]);
+  
   // Only show for school education
   if (examType !== 'school') {
     return null;
@@ -103,27 +119,35 @@ export const BoardClassSelector = ({
       {!selectedBoard && (
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">Select Board</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {BOARDS.map((board, index) => (
-              <Card
-                key={board.code}
-                className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
-                style={{ animationDelay: `${index * 0.1}s` }}
-                onClick={() => onBoardSelect(board.code)}
-              >
-                <CardContent className="p-6">
-                  <div className={`w-full h-24 ${board.color} rounded-lg mb-4 flex items-center justify-center`}>
-                    <BookOpen className="h-12 w-12 text-white" />
-                  </div>
-                  <h4 className="font-semibold text-lg mb-2">{board.name}</h4>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{studentCounts.byBoard?.[board.code] || 0} items</span>
-                    <Badge variant="secondary">{studentCounts.byBoard?.[board.code] || 0}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {boards.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">
+                No boards configured yet. Add boards in Exam Types Management → School Education.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {boards.map((boardName, index) => (
+                <Card
+                  key={boardName}
+                  className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  onClick={() => onBoardSelect(boardName)}
+                >
+                  <CardContent className="p-6">
+                    <div className={`w-full h-24 ${colorPalette[index % colorPalette.length]} rounded-lg mb-4 flex items-center justify-center`}>
+                      <BookOpen className="h-12 w-12 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-lg mb-2">{boardName}</h4>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{studentCounts.byBoard?.[boardName] || 0} students</span>
+                      <Badge variant="secondary">{studentCounts.byBoard?.[boardName] || 0}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -130,6 +130,30 @@ const StudentManagement = () => {
     }).length;
   };
 
+  // Calculate student counts for boards and classes
+  const studentCounts = useMemo(() => {
+    const schoolStudents = students.filter(s => 
+      (s.exam_domain || 'school') === 'school'
+    );
+    
+    const byBoard: Record<string, number> = {};
+    const byClass: Record<string, Record<string, number>> = {};
+    
+    schoolStudents.forEach(student => {
+      const board = student.education_board || 'Unknown';
+      const cls = student.student_class || 'Unknown';
+      
+      // Count by board
+      byBoard[board] = (byBoard[board] || 0) + 1;
+      
+      // Count by board + class
+      if (!byClass[board]) byClass[board] = {};
+      byClass[board][cls] = (byClass[board][cls] || 0) + 1;
+    });
+    
+    return { byBoard, byClass };
+  }, [students]);
+
   const filteredStudents = useMemo(() => {
     let list = students;
     console.log('🔧 [StudentManagement] Starting filter. Total students:', list.length);
@@ -367,10 +391,7 @@ const StudentManagement = () => {
               onClassSelect={setClass}
               onReset={resetFromBoard}
               onResetToBoard={resetToBoard}
-              studentCounts={{
-                byBoard: {},
-                byClass: {},
-              }}
+              studentCounts={studentCounts}
             />
           )}
 

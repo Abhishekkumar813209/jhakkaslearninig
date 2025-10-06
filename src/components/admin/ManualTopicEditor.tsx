@@ -41,7 +41,8 @@ interface Chapter {
 
 interface ExamDomain {
   id: string;
-  domain_name: string;
+  code: string;
+  display_name: string;
   category: string;
 }
 
@@ -87,15 +88,15 @@ export const ManualTopicEditor = () => {
 
   const fetchDomains = async () => {
     const { data, error } = await supabase
-      .from("exam_domains")
-      .select("id, domain_name, category")
+      .from("exam_types")
+      .select("id, code, display_name, category")
       .eq("is_active", true)
-      .order("domain_name");
+      .order("display_order");
 
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to load exam domains",
+        description: "Failed to load exam types",
         variant: "destructive"
       });
       return;
@@ -104,12 +105,12 @@ export const ManualTopicEditor = () => {
     setDomains(data || []);
   };
 
-  const fetchBatches = async (domainName: string) => {
+  const fetchBatches = async (domainCode: string) => {
     const { data, error } = await supabase
       .from("batches")
       .select("id, name, exam_type")
       .eq("is_active", true)
-      .eq("exam_type", domainName)
+      .eq("exam_type", domainCode)
       .order("name");
 
     if (error) {
@@ -357,8 +358,13 @@ export const ManualTopicEditor = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {domains.map((domain) => (
-                    <SelectItem key={domain.id} value={domain.domain_name}>
-                      {domain.domain_name}
+                    <SelectItem key={domain.id} value={domain.code}>
+                      <div className="flex items-center gap-2">
+                        {domain.display_name}
+                        <Badge variant="secondary" className="text-xs">
+                          {domain.category}
+                        </Badge>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

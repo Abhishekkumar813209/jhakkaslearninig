@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useExamTypes } from "@/hooks/useExamTypes";
 
 interface BatchExamConfigStepProps {
   domain: string;
@@ -12,33 +12,26 @@ interface BatchExamConfigStepProps {
 }
 
 export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamConfigStepProps) {
-  const [exams, setExams] = useState<any[]>([]);
+  const { examTypes } = useExamTypes();
+  const [exams, setExams] = useState<string[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchDomainData = async () => {
-      const { data } = await supabase
-        .from("exam_domains")
-        .select("available_exams")
-        .eq("domain_name", domain)
-        .single();
-
-      if (data?.available_exams) {
-        const examsArray = Array.isArray(data.available_exams) ? data.available_exams : [];
-        setExams(examsArray);
-        
-        // Extract classes for school domain
-        if (domain === "School Education" && examsArray.length > 0) {
-          const firstExam = examsArray[0] as any;
-          if (firstExam?.classes && Array.isArray(firstExam.classes)) {
-            setClasses(firstExam.classes);
-          }
-        }
+    // Find the exam type matching the selected domain
+    const examType = examTypes.find(et => et.display_name === domain);
+    
+    if (examType?.available_exams) {
+      const examsArray = Array.isArray(examType.available_exams) 
+        ? examType.available_exams 
+        : [];
+      setExams(examsArray);
+      
+      // For school domain, set classes
+      if (domain === "School Education") {
+        setClasses(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
       }
-    };
-
-    fetchDomainData();
-  }, [domain]);
+    }
+  }, [domain, examTypes]);
 
   const isSchoolDomain = domain === "School Education";
 
@@ -88,8 +81,8 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
             </SelectTrigger>
             <SelectContent>
               {exams.map((exam) => (
-                <SelectItem key={exam.name} value={exam.name}>
-                  {exam.name}
+                <SelectItem key={exam} value={exam}>
+                  {exam}
                 </SelectItem>
               ))}
             </SelectContent>

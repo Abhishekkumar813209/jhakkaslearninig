@@ -142,34 +142,49 @@ const StudentManagement = () => {
     
     // Normalize function for case-insensitive comparison
     const normalize = (str: string): string => 
-      str.trim().toLowerCase().replace(/[-_]/g, ' ');
+      str.trim().toLowerCase().replace(/[-_\s]/g, '');
     
-    // Bucketing function: maps student board to the correct bucket (case-insensitive)
+    // Synonyms map for common board name variations
+    const synonyms: Record<string, string> = {
+      'wbbse': 'West-Bengal Board',
+      'westbengalboard': 'West-Bengal Board',
+      'westbengal': 'West-Bengal Board',
+      'cisce': 'ICSE',
+      'cbse': 'CBSE',
+      'icse': 'ICSE',
+      'upboard': 'UP Board',
+      'biharboard': 'Bihar Board',
+      'mpboard': 'Mp Board',
+    };
+    
+    // Create normalized map from available boards
+    const normalizedMap: Record<string, string> = {};
+    availableBoards.forEach(board => {
+      normalizedMap[normalize(board)] = board;
+    });
+    
+    // Bucketing function: maps student board to the correct bucket
     const getBucket = (studentBoard?: string | null): string => {
       const boardName = (studentBoard || "").trim();
       if (!boardName) return "Unknown";
       
-      const normalizedStudentBoard = normalize(boardName);
+      const normalized = normalize(boardName);
       
-      // Find matching board from availableBoards (case-insensitive)
-      const matchedBoard = availableBoards.find(
-        availBoard => normalize(availBoard) === normalizedStudentBoard
-      );
-      
-      if (matchedBoard) {
-        return matchedBoard; // Return the original case from exam_types
+      // Check synonyms first
+      if (synonyms[normalized]) {
+        const synonymBoard = synonyms[normalized];
+        if (availableBoards.includes(synonymBoard)) {
+          return synonymBoard;
+        }
       }
       
-      // If "State Board" exists in available boards, aggregate unlisted boards there
-      const stateBoardEntry = availableBoards.find(
-        board => normalize(board) === 'state board'
-      );
-      if (stateBoardEntry) {
-        return stateBoardEntry;
+      // Then check normalized map
+      if (normalizedMap[normalized]) {
+        return normalizedMap[normalized];
       }
       
-      // Fallback
-      return boardName;
+      // Fallback to Unknown for unmatched boards
+      return "Unknown";
     };
     
     const byBoard: Record<string, number> = {};
@@ -203,37 +218,55 @@ const StudentManagement = () => {
       console.log('🔧 [StudentManagement] After exam type filter:', list.length);
     }
     
-    // Filter by board for school domain with bucketing logic (case-insensitive)
+    // Filter by board for school domain with bucketing logic
     if (selectedExamType === 'school' && selectedBoard) {
       const availableBoards = studentCounts.availableBoards || [];
       const normalize = (str: string): string => 
-        str.trim().toLowerCase().replace(/[-_]/g, ' ');
+        str.trim().toLowerCase().replace(/[-_\s]/g, '');
       
-      list = list.filter((s) => {
-        const boardName = (s.education_board || "").trim();
-        if (!boardName) return false;
+      // Synonyms map (same as in studentCounts)
+      const synonyms: Record<string, string> = {
+        'wbbse': 'West-Bengal Board',
+        'westbengalboard': 'West-Bengal Board',
+        'westbengal': 'West-Bengal Board',
+        'cisce': 'ICSE',
+        'cbse': 'CBSE',
+        'icse': 'ICSE',
+        'upboard': 'UP Board',
+        'biharboard': 'Bihar Board',
+        'mpboard': 'Mp Board',
+      };
+      
+      // Create normalized map from available boards
+      const normalizedMap: Record<string, string> = {};
+      availableBoards.forEach(board => {
+        normalizedMap[normalize(board)] = board;
+      });
+      
+      // Helper to get bucket for student
+      const getStudentBucket = (studentBoard?: string | null): string => {
+        const boardName = (studentBoard || "").trim();
+        if (!boardName) return "Unknown";
         
-        const normalizedStudentBoard = normalize(boardName);
-        const normalizedSelectedBoard = normalize(selectedBoard);
+        const normalized = normalize(boardName);
         
-        // If "State Board" is selected
-        if (normalizedSelectedBoard === 'state board') {
-          const stateBoardExists = availableBoards.some(
-            board => normalize(board) === 'state board'
-          );
-          
-          if (stateBoardExists) {
-            // Show students with "State Board" OR students whose board is not in availableBoards
-            const isStateBoard = normalizedStudentBoard === 'state board';
-            const isInAvailableBoards = availableBoards.some(
-              board => normalize(board) === normalizedStudentBoard
-            );
-            return isStateBoard || !isInAvailableBoards;
+        if (synonyms[normalized]) {
+          const synonymBoard = synonyms[normalized];
+          if (availableBoards.includes(synonymBoard)) {
+            return synonymBoard;
           }
         }
         
-        // Otherwise, case-insensitive match
-        return normalizedStudentBoard === normalizedSelectedBoard;
+        if (normalizedMap[normalized]) {
+          return normalizedMap[normalized];
+        }
+        
+        return "Unknown";
+      };
+      
+      list = list.filter((s) => {
+        const studentBucket = getStudentBucket(s.education_board);
+        return studentBucket === selectedBoard;
       });
       console.log('🔧 [StudentManagement] After board filter:', list.length);
     }

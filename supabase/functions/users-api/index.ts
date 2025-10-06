@@ -138,6 +138,7 @@ serve(async (req: Request) => {
               school_id,
               exam_domain,
               student_class,
+              education_board,
               preparation_level,
               created_at,
               batches!profiles_batch_id_fkey (id, name, level),

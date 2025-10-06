@@ -13,6 +13,8 @@ import { usersAPI } from "@/services/api";
 import { useZones } from "@/hooks/useZones";
 import { useSchools } from "@/hooks/useSchools";
 import { useExamTypes } from "@/hooks/useExamTypes";
+import { BoardClassSelector } from "./BoardClassSelector";
+import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import * as LucideIcons from "lucide-react";
 
 interface Student {
@@ -25,6 +27,7 @@ interface Student {
   school_id?: string | null;
   exam_domain?: string | null;
   student_class?: string | null;
+  education_board?: string | null;
   preparation_level?: string | null;
   user_roles?: { role: string } | null;
   batches?: { id: string; name: string; level: string } | null;
@@ -40,13 +43,13 @@ const StudentManagement = () => {
   const [selectedBatch, setSelectedBatch] = useState("all");
   const [selectedZone, setSelectedZone] = useState("all");
   const [selectedSchool, setSelectedSchool] = useState("all");
-  const [selectedClass, setSelectedClass] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { batches, fetchBatches } = useBatches();
   const { zones } = useZones();
   const { schools, getSchoolsByZone } = useSchools();
   const { examTypes } = useExamTypes();
   const { toast } = useToast();
+  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard } = useBoardClassHierarchy();
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -140,16 +143,18 @@ const StudentManagement = () => {
       console.log('🔧 [StudentManagement] After exam type filter:', list.length);
     }
     
-    // Filter by class/level
-    if (selectedClass !== "all") {
+    // Filter by board for school domain
+    if (selectedExamType === 'school' && selectedBoard) {
       list = list.filter((s) => {
-        const examDomain = s.exam_domain || 'school';
-        if (examDomain === 'school') {
-          return s.student_class === selectedClass;
-        } else if (examDomain === 'jee' || examDomain === 'neet') {
-          return s.preparation_level === selectedClass;
-        }
-        return true;
+        return s.education_board === selectedBoard;
+      });
+      console.log('🔧 [StudentManagement] After board filter:', list.length);
+    }
+    
+    // Filter by class/level
+    if (selectedExamType === 'school' && selectedClass) {
+      list = list.filter((s) => {
+        return s.student_class === selectedClass;
       });
       console.log('🔧 [StudentManagement] After class filter:', list.length);
     }
@@ -352,29 +357,48 @@ const StudentManagement = () => {
         </div>
       ) : (
         <>
-          {/* Selected Exam Type Badge */}
-          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const examType = examTypes.find(t => t.code === selectedExamType);
-                  const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
-                  return (
-                    <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
-                      <IconComponent className="h-6 w-6 text-white" />
-                    </div>
-                  );
-                })()}
-                <div>
-                  <p className="text-sm text-muted-foreground">Selected Exam Type</p>
-                  <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedExamType)?.display_name}</p>
-                </div>
-              </div>
-              <Badge className="text-lg px-4 py-2">{filteredStudents.length} students</Badge>
-            </CardContent>
-          </Card>
+          {/* Board/Class Selector for School Domain */}
+          {selectedExamType === 'school' && (
+            <BoardClassSelector
+              examType={selectedExamType}
+              selectedBoard={selectedBoard}
+              selectedClass={selectedClass}
+              onBoardSelect={setBoard}
+              onClassSelect={setClass}
+              onReset={resetFromBoard}
+              studentCounts={{
+                byBoard: {},
+                byClass: {},
+              }}
+            />
+          )}
 
-          {/* Filters */}
+          {/* Selected Exam Type Badge */}
+          {(selectedExamType !== 'school' || (selectedBoard && selectedClass)) && (
+            <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const examType = examTypes.find(t => t.code === selectedExamType);
+                    const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+                    return (
+                      <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
+                        <IconComponent className="h-6 w-6 text-white" />
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Selected Exam Type</p>
+                    <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedExamType)?.display_name}</p>
+                  </div>
+                </div>
+                <Badge className="text-lg px-4 py-2">{filteredStudents.length} students</Badge>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Filters - Only show if not in selection mode OR selected */}
+          {(selectedExamType !== 'school' || (selectedBoard && selectedClass)) && (
           <Card className="card-gradient shadow-soft">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
@@ -438,28 +462,13 @@ const StudentManagement = () => {
                 ))}
               </SelectContent>
             </Select>
-            
-            {selectedExamType && (
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="w-48">
-                  <LucideIcons.GraduationCap className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by class" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Classes</SelectItem>
-                  {getClassOptionsForExam(selectedExamType).map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
         </CardContent>
       </Card>
+          )}
 
       {/* Students Table */}
+      {(selectedExamType !== 'school' || (selectedBoard && selectedClass)) && (
       <Card className="card-gradient shadow-soft">
         <CardHeader>
           <CardTitle>Students ({filteredStudents.length})</CardTitle>
@@ -581,6 +590,7 @@ const StudentManagement = () => {
           </div>
         </CardContent>
       </Card>
+      )}
         </>
       )}
     </div>

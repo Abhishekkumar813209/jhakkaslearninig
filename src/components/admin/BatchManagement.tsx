@@ -9,6 +9,8 @@ import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 import { CreateBatchWizard } from "./CreateBatchWizard";
 import { useExamTypes } from "@/hooks/useExamTypes";
+import { BoardClassSelector } from "./BoardClassSelector";
+import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import * as LucideIcons from "lucide-react";
 
 const BatchManagement = () => {
@@ -18,6 +20,7 @@ const BatchManagement = () => {
   const [examFilter, setExamFilter] = useState<string>("all");
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
+  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard } = useBoardClassHierarchy();
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -87,9 +90,41 @@ const BatchManagement = () => {
     ? [] 
     : batches.filter((b: any) => {
         if (b.exam_type !== selectedDomain) return false;
+        
+        // Filter by board for school domain
+        if (selectedDomain === 'school' && selectedBoard && b.target_board !== selectedBoard) {
+          return false;
+        }
+        
+        // Filter by class for school domain
+        if (selectedDomain === 'school' && selectedClass && b.target_class !== selectedClass) {
+          return false;
+        }
+        
         if (examFilter === "all") return true;
         return b.exam_name === examFilter;
       });
+
+  // Calculate student counts for board/class hierarchy
+  const getStudentCounts = () => {
+    const domainBatches = batches.filter((b: any) => b.exam_type === selectedDomain);
+    const byBoard: Record<string, number> = {};
+    const byClass: Record<string, Record<string, number>> = {};
+
+    domainBatches.forEach((batch: any) => {
+      const board = batch.target_board || 'CBSE';
+      const cls = batch.target_class;
+      
+      byBoard[board] = (byBoard[board] || 0) + (batch.student_count || 0);
+      
+      if (!byClass[board]) byClass[board] = {};
+      if (cls) {
+        byClass[board][cls] = (byClass[board][cls] || 0) + (batch.student_count || 0);
+      }
+    });
+
+    return { byBoard, byClass };
+  };
 
   return (
     <div className="space-y-6">
@@ -128,7 +163,10 @@ const BatchManagement = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => setSelectedDomain(examType.code)}
+                  onClick={() => {
+                    setSelectedDomain(examType.code);
+                    resetFromBoard();
+                  }}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
@@ -147,27 +185,42 @@ const BatchManagement = () => {
         </div>
       ) : (
         <>
-          {/* Selected Domain Badge */}
-          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const examType = examTypes.find(t => t.code === selectedDomain);
-                  const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
-                  return (
-                    <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
-                      <IconComponent className="h-6 w-6 text-white" />
-                    </div>
-                  );
-                })()}
-                <div>
-                  <p className="text-sm text-muted-foreground">Selected Domain</p>
-                  <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedDomain)?.display_name}</p>
+          {/* Board/Class Selector for School Domain */}
+          {selectedDomain === 'school' && (
+            <BoardClassSelector
+              examType={selectedDomain}
+              selectedBoard={selectedBoard}
+              selectedClass={selectedClass}
+              onBoardSelect={setBoard}
+              onClassSelect={setClass}
+              onReset={resetFromBoard}
+              studentCounts={getStudentCounts()}
+            />
+          )}
+
+          {/* Selected Domain Badge - Only show if board/class not in selection */}
+          {(selectedDomain !== 'school' || (selectedBoard && selectedClass)) && (
+            <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const examType = examTypes.find(t => t.code === selectedDomain);
+                    const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+                    return (
+                      <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
+                        <IconComponent className="h-6 w-6 text-white" />
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Selected Domain</p>
+                    <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedDomain)?.display_name}</p>
+                  </div>
                 </div>
-              </div>
-              <Badge className="text-lg px-4 py-2">{filteredBatches.length} batches</Badge>
-            </CardContent>
-          </Card>
+                <Badge className="text-lg px-4 py-2">{filteredBatches.length} batches</Badge>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Batch Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -221,7 +274,8 @@ const BatchManagement = () => {
             </Card>
           </div>
 
-          {/* Batches Table */}
+          {/* Batches Table - Only show if not in board/class selection mode OR selected */}
+          {(selectedDomain !== 'school' || (selectedBoard && selectedClass)) && (
           <Card className="animate-fade-in">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -362,6 +416,7 @@ const BatchManagement = () => {
           </div>
         </CardContent>
           </Card>
+          )}
         </>
       )}
 

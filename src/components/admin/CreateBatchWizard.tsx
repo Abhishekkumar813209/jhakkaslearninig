@@ -26,6 +26,9 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess }: CreateBatch
     max_capacity: 50,
     start_date: "",
     end_date: null,
+    intake_start_date: "",
+    intake_end_date: "",
+    auto_assign_enabled: true,
   });
 
   const totalSteps = 2;
@@ -136,6 +139,9 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess }: CreateBatch
       max_capacity: 50,
       start_date: "",
       end_date: null,
+      intake_start_date: "",
+      intake_end_date: "",
+      auto_assign_enabled: true,
     });
     onOpenChange(false);
   };

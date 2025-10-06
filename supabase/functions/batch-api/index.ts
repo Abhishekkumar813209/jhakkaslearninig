@@ -153,6 +153,37 @@ serve(async (req: Request) => {
         }
 
       case 'POST':
+        // Generate batch name helper
+        const generateBatchName = (
+          examDomain: string,
+          examName: string,
+          intakeStartDate: string,
+          targetClass?: string
+        ): string => {
+          const domainShort: Record<string, string> = {
+            'school': 'SCH',
+            'jee': 'JEE',
+            'neet': 'NEET',
+            'banking': 'BANK',
+            'ssc': 'SSC',
+            'upsc': 'UPSC',
+            'gate': 'GATE'
+          };
+          
+          const domainCode = domainShort[examDomain.toLowerCase()] || examDomain.substring(0, 3).toUpperCase();
+          const examShort = examName.substring(0, 4).toUpperCase();
+          
+          const date = new Date(intakeStartDate);
+          const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+          const monthYear = `${monthNames[date.getMonth()]}${date.getFullYear().toString().slice(-2)}`;
+          
+          const classLevel = targetClass 
+            ? (examDomain === 'school' ? `C${targetClass}` : targetClass.toUpperCase())
+            : 'GEN';
+
+          return `${domainCode}_${examShort}_${monthYear}_${classLevel}`;
+        };
+
         // Accept user token from standard Authorization header
         const userAuthHeader = req.headers.get('authorization')
         if (!userAuthHeader) {
@@ -176,6 +207,25 @@ serve(async (req: Request) => {
         const body = await req.json().catch(() => ({}))
         console.log('Creating batch with data:', body)
 
+        // Calculate intake dates (default 15 days from start_date)
+        const startDate = body.start_date || new Date().toISOString().split('T')[0];
+        const intakeStart = body.intake_start_date || startDate;
+        
+        let intakeEnd = body.intake_end_date;
+        if (!intakeEnd && intakeStart) {
+          const endDate = new Date(intakeStart);
+          endDate.setDate(endDate.getDate() + 15); // Default 15 days
+          intakeEnd = endDate.toISOString().split('T')[0];
+        }
+
+        // Auto-generate batch name
+        const batchName = body.name || generateBatchName(
+          body.exam_type,
+          body.exam_name,
+          intakeStart,
+          body.target_class
+        );
+
         // Get current user to set as instructor
         const { data: userData, error: userErr } = await authedClient.auth.getUser(token)
         if (userErr || !userData?.user) {
@@ -188,10 +238,10 @@ serve(async (req: Request) => {
 
         // Prepare batch data
         const batchData = {
-          name: body.name,
+          name: batchName,
           description: body.description || '',
           level: body.level,
-          start_date: body.start_date,
+          start_date: startDate,
           end_date: body.end_date,
           max_capacity: body.max_capacity || 50,
           current_strength: 0,
@@ -202,7 +252,11 @@ serve(async (req: Request) => {
           target_class: body.target_class || null,
           target_board: body.target_board || null,
           auto_assign_roadmap: body.auto_assign_roadmap || false,
-          linked_roadmap_id: body.linked_roadmap_id || null
+          linked_roadmap_id: body.linked_roadmap_id || null,
+          intake_start_date: intakeStart,
+          intake_end_date: intakeEnd,
+          is_current_intake: true,
+          auto_assign_enabled: body.auto_assign_enabled !== false
         }
 
         console.log('Inserting batch data:', batchData)

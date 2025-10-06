@@ -135,6 +135,7 @@ export type Database = {
       }
       batches: {
         Row: {
+          auto_assign_enabled: boolean | null
           auto_assign_roadmap: boolean | null
           created_at: string | null
           current_strength: number | null
@@ -144,7 +145,10 @@ export type Database = {
           exam_type: string | null
           id: string
           instructor_id: string
+          intake_end_date: string | null
+          intake_start_date: string | null
           is_active: boolean | null
+          is_current_intake: boolean | null
           level: string
           linked_roadmap_id: string | null
           max_capacity: number
@@ -155,6 +159,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auto_assign_enabled?: boolean | null
           auto_assign_roadmap?: boolean | null
           created_at?: string | null
           current_strength?: number | null
@@ -164,7 +169,10 @@ export type Database = {
           exam_type?: string | null
           id?: string
           instructor_id: string
+          intake_end_date?: string | null
+          intake_start_date?: string | null
           is_active?: boolean | null
+          is_current_intake?: boolean | null
           level: string
           linked_roadmap_id?: string | null
           max_capacity: number
@@ -175,6 +183,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auto_assign_enabled?: boolean | null
           auto_assign_roadmap?: boolean | null
           created_at?: string | null
           current_strength?: number | null
@@ -184,7 +193,10 @@ export type Database = {
           exam_type?: string | null
           id?: string
           instructor_id?: string
+          intake_end_date?: string | null
+          intake_start_date?: string | null
           is_active?: boolean | null
+          is_current_intake?: boolean | null
           level?: string
           linked_roadmap_id?: string | null
           max_capacity?: number
@@ -3400,6 +3412,10 @@ export type Database = {
         Args: { test_id_param: string }
         Returns: boolean
       }
+      check_batch_capacity: {
+        Args: { p_batch_id: string }
+        Returns: undefined
+      }
       generate_monthly_fees: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -3434,6 +3450,15 @@ export type Database = {
           total_days: number
           updated_at: string
         }[]
+      }
+      get_active_intake_batch: {
+        Args: {
+          p_exam_domain: string
+          p_exam_name: string
+          p_signup_date: string
+          p_student_class: string
+        }
+        Returns: string
       }
       get_subscription_status: {
         Args: { student_id_param: string }

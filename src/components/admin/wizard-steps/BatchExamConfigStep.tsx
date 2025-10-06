@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -185,6 +186,51 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
               onChange={(e) => onChange("end_date", e.target.value)}
             />
           </div>
+        </div>
+
+        {/* Intake Period */}
+        <div className="p-4 border rounded-lg bg-muted/50">
+          <h4 className="font-semibold mb-3">Intake Period (Student Enrollment Window)</h4>
+          <p className="text-sm text-muted-foreground mb-3">
+            Define when new students can be auto-assigned to this batch. Default: 15 days from start date.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="intake_start_date">Intake Start Date</Label>
+              <Input
+                id="intake_start_date"
+                type="date"
+                value={formData.intake_start_date || ""}
+                onChange={(e) => onChange("intake_start_date", e.target.value)}
+                placeholder="Defaults to start date"
+              />
+            </div>
+            <div>
+              <Label htmlFor="intake_end_date">Intake End Date</Label>
+              <Input
+                id="intake_end_date"
+                type="date"
+                value={formData.intake_end_date || ""}
+                onChange={(e) => onChange("intake_end_date", e.target.value)}
+                placeholder="Defaults to +15 days"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Auto Assignment Toggle */}
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div className="space-y-1">
+            <Label htmlFor="auto_assign">Enable Auto-Assignment</Label>
+            <p className="text-sm text-muted-foreground">
+              Automatically assign new students to this batch during intake period
+            </p>
+          </div>
+          <Switch
+            id="auto_assign"
+            checked={formData.auto_assign_enabled !== false}
+            onCheckedChange={(checked) => onChange("auto_assign_enabled", checked)}
+          />
         </div>
       </div>
     </div>

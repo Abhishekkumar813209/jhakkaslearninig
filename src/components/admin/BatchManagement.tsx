@@ -289,10 +289,20 @@ const BatchManagement = () => {
                   filteredBatches?.map((batch: any) => (
                     <TableRow key={batch.id} className="hover-scale">
                       <TableCell>
-                        <div>
+                        <div className="flex flex-col gap-1">
                           <div className="font-medium">{batch.name}</div>
                           {batch.description && (
                             <div className="text-sm text-muted-foreground">{batch.description}</div>
+                          )}
+                          {batch.is_current_intake && (
+                            <Badge className="bg-green-500 text-white w-fit text-xs">
+                              Current Intake
+                            </Badge>
+                          )}
+                          {batch.intake_start_date && (
+                            <span className="text-xs text-muted-foreground">
+                              Intake: {new Date(batch.intake_start_date).toLocaleDateString()} - {new Date(batch.intake_end_date).toLocaleDateString()}
+                            </span>
                           )}
                         </div>
                       </TableCell>
@@ -312,9 +322,21 @@ const BatchManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-muted-foreground">
-                          {batch.max_capacity}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{batch.max_capacity}</span>
+                          {(() => {
+                            const currentStrength = batch.student_count ?? batch.current_strength ?? 0;
+                            const capacityPercent = (currentStrength / batch.max_capacity) * 100;
+                            if (capacityPercent >= 90) {
+                              return (
+                                <Badge variant="destructive" className="text-xs">
+                                  Near Full
+                                </Badge>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">

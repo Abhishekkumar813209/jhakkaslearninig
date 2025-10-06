@@ -17,7 +17,7 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { email, password, full_name, role = 'student', student_class, education_board } = await req.json()
+    const { email, password, full_name, role = 'student', student_class, education_board, exam_domain, exam_name, target_exam } = await req.json()
 
     if (!email || !password || !full_name) {
       return new Response(
@@ -48,13 +48,50 @@ serve(async (req: Request) => {
       role: role as any
     })
 
-    // Update profile with class and board if provided
-    if (student_class || education_board) {
-      await supabase.from('profiles').update({
-        student_class,
-        education_board,
-        updated_at: new Date().toISOString()
-      }).eq('id', authData.user.id)
+    // Auto-assign to batch if exam domain and name are provided
+    let assignedBatchId = null;
+    if (exam_domain && exam_name) {
+      const { data: batchId, error: batchError } = await supabase.rpc('get_active_intake_batch', {
+        p_exam_domain: exam_domain,
+        p_exam_name: exam_name,
+        p_student_class: student_class || 'general',
+        p_signup_date: new Date().toISOString().split('T')[0]
+      });
+
+      if (!batchError && batchId) {
+        assignedBatchId = batchId;
+        console.log(`Auto-assigned student ${authData.user.id} to batch ${batchId}`);
+      }
+    }
+
+    // Update profile with class, board, exam info and batch assignment
+    const profileUpdates: any = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (student_class) profileUpdates.student_class = student_class;
+    if (education_board) profileUpdates.education_board = education_board;
+    if (exam_domain) profileUpdates.exam_domain = exam_domain;
+    if (target_exam) profileUpdates.target_exam = target_exam;
+    if (assignedBatchId) profileUpdates.batch_id = assignedBatchId;
+
+    await supabase.from('profiles').update(profileUpdates).eq('id', authData.user.id);
+
+    // If batch has auto-assign roadmap, assign it to student
+    if (assignedBatchId) {
+      const { data: batch } = await supabase
+        .from('batches')
+        .select('linked_roadmap_id, auto_assign_roadmap')
+        .eq('id', assignedBatchId)
+        .maybeSingle();
+
+      if (batch?.auto_assign_roadmap && batch.linked_roadmap_id) {
+        await supabase.from('student_roadmaps').insert({
+          student_id: authData.user.id,
+          batch_roadmap_id: batch.linked_roadmap_id
+        });
+        console.log(`Auto-assigned roadmap ${batch.linked_roadmap_id} to student ${authData.user.id}`);
+      }
     }
 
     return new Response(

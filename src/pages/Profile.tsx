@@ -32,6 +32,7 @@ const Profile = () => {
   const [zones, setZones] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
   const [filteredSchools, setFilteredSchools] = useState<any[]>([]);
+  const [availableBoards, setAvailableBoards] = useState<string[]>([]);
   const { examTypes } = useExamTypes();
 
   useEffect(() => {
@@ -74,6 +75,21 @@ const Profile = () => {
       setFilteredSchools(schools);
     }
   }, [zoneId, schools]);
+
+  // Load available boards when exam domain changes
+  useEffect(() => {
+    if (examDomain && examTypes.length > 0) {
+      const selectedExamType = examTypes.find(t => t.code === examDomain);
+      if (selectedExamType?.requires_board && selectedExamType.available_exams) {
+        // Extract board names from available_exams array
+        setAvailableBoards(selectedExamType.available_exams as string[]);
+      } else {
+        setAvailableBoards([]);
+      }
+    } else {
+      setAvailableBoards([]);
+    }
+  }, [examDomain, examTypes]);
 
   const loadZonesAndSchools = async () => {
     try {
@@ -460,41 +476,23 @@ const Profile = () => {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Education Board</label>
+                          <label className="text-sm font-medium">Education Board *</label>
                           {isEditing ? (
                             <Select value={educationBoard} onValueChange={setEducationBoard}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select Board" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="CBSE">CBSE</SelectItem>
-                                <SelectItem value="ICSE">ICSE</SelectItem>
-                                <SelectItem value="UP_BOARD">UP Board</SelectItem>
-                                <SelectItem value="BIHAR_BOARD">Bihar Board</SelectItem>
-                                <SelectItem value="RAJASTHAN_BOARD">Rajasthan Board</SelectItem>
-                                <SelectItem value="MAHARASHTRA_BOARD">Maharashtra Board</SelectItem>
-                                <SelectItem value="GUJARAT_BOARD">Gujarat Board</SelectItem>
-                                <SelectItem value="WEST_BENGAL_BOARD">West Bengal Board</SelectItem>
-                                <SelectItem value="KARNATAKA_BOARD">Karnataka Board</SelectItem>
-                                <SelectItem value="TAMIL_NADU_BOARD">Tamil Nadu Board</SelectItem>
-                                <SelectItem value="KERALA_BOARD">Kerala Board</SelectItem>
-                                <SelectItem value="ANDHRA_PRADESH_BOARD">Andhra Pradesh Board</SelectItem>
-                                <SelectItem value="TELANGANA_BOARD">Telangana Board</SelectItem>
-                                <SelectItem value="MADHYA_PRADESH_BOARD">Madhya Pradesh Board</SelectItem>
-                                <SelectItem value="HARYANA_BOARD">Haryana Board</SelectItem>
-                                <SelectItem value="PUNJAB_BOARD">Punjab Board</SelectItem>
-                                <SelectItem value="ASSAM_BOARD">Assam Board</SelectItem>
-                                <SelectItem value="ODISHA_BOARD">Odisha Board</SelectItem>
-                                <SelectItem value="JHARKHAND_BOARD">Jharkhand Board</SelectItem>
-                                <SelectItem value="CHHATTISGARH_BOARD">Chhattisgarh Board</SelectItem>
-                                <SelectItem value="UTTARAKHAND_BOARD">Uttarakhand Board</SelectItem>
-                                <SelectItem value="HIMACHAL_PRADESH_BOARD">Himachal Pradesh Board</SelectItem>
-                                <SelectItem value="JAMMU_KASHMIR_BOARD">Jammu & Kashmir Board</SelectItem>
+                                {availableBoards.map(board => (
+                                  <SelectItem key={board} value={board}>
+                                    {board}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           ) : (
                             <div className="p-3 bg-muted rounded-md">
-                              {educationBoard ? educationBoard.replace('_', ' ') : 'Not set'}
+                              {educationBoard || 'Not set'}
                             </div>
                           )}
                         </div>

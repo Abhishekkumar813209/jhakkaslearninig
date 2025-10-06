@@ -253,7 +253,7 @@ export function LessonContentBuilder() {
       .from("roadmap_chapters")
       .select("id, chapter_name, roadmap_id")
       .eq("roadmap_id", roadmapId)
-      .order("day_number");
+      .order("order_num");
 
     if (error) {
       toast({

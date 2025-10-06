@@ -198,11 +198,7 @@ export function LessonContentBuilder() {
       .order("display_order");
 
     if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load exam types",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to load exam types", variant: "destructive" });
       return;
     }
 
@@ -218,11 +214,7 @@ export function LessonContentBuilder() {
       .order("name");
 
     if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load batches",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to load batches", variant: "destructive" });
       return;
     }
 
@@ -237,11 +229,7 @@ export function LessonContentBuilder() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load roadmaps",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to load roadmaps", variant: "destructive" });
       return;
     }
 
@@ -256,11 +244,7 @@ export function LessonContentBuilder() {
       .order("order_num");
 
     if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load chapters",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to load chapters", variant: "destructive" });
       return;
     }
 
@@ -386,6 +370,81 @@ export function LessonContentBuilder() {
     }
   };
 
+  const handleBulkGenerateLessons = async () => {
+    if (!selectedTopic) {
+      toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    toast({ title: "Generating...", description: "AI is creating lesson content for this topic" });
+
+    try {
+      const selectedTopicData = topics.find(t => t.id === selectedTopic);
+      const selectedChapterData = chapters.find(c => c.id === selectedChapter);
+      
+      const { data, error } = await supabase.functions.invoke('ai-lesson-generator', {
+        body: {
+          topic_id: selectedTopic,
+          topic_name: selectedTopicData?.topic_name || 'Unknown Topic',
+          chapter_name: selectedChapterData?.chapter_name || 'Unknown Chapter',
+          lesson_types: ['theory', 'game', 'interactive_svg'],
+          difficulty: 'medium',
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.lessons && data.lessons.length > 0) {
+        const { data: user } = await supabase.auth.getUser();
+        const lessonsToInsert = data.lessons.map((lesson: any, idx: number) => ({
+          topic_id: selectedTopic,
+          lesson_type: lesson.lesson_type,
+          content_order: lessons.length + idx + 1,
+          theory_text: lesson.theory_text,
+          theory_html: lesson.theory_html,
+          svg_type: lesson.svg_type,
+          svg_data: lesson.svg_data,
+          game_type: lesson.game_type,
+          game_data: lesson.game_data,
+          estimated_time_minutes: lesson.estimated_time_minutes || 5,
+          xp_reward: lesson.xp_reward || 20,
+          coin_reward: lesson.coin_reward || 5,
+          generated_by: 'ai',
+          created_by: user?.user?.id,
+          human_reviewed: false,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('topic_learning_content')
+          .insert(lessonsToInsert);
+
+        if (insertError) throw insertError;
+
+        toast({ 
+          title: "Success!", 
+          description: `Generated ${data.lessons.length} AI-powered lessons. Review and approve them.`
+        });
+        fetchLessons();
+      } else {
+        toast({ 
+          title: "No Content", 
+          description: "AI didn't generate any lessons. Try again.", 
+          variant: "destructive" 
+        });
+      }
+    } catch (error: any) {
+      console.error('AI generation error:', error);
+      toast({ 
+        title: "Generation Failed", 
+        description: error.message || "Failed to generate lessons. Please try again.",
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -500,191 +559,197 @@ export function LessonContentBuilder() {
             <>
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Lessons ({lessons.length})</h3>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Lesson
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Add New Lesson</DialogTitle>
-                      <DialogDescription>Create a new lesson for this topic</DialogDescription>
-                    </DialogHeader>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleBulkGenerateLessons} disabled={loading}>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    AI Generate All
+                  </Button>
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Lesson
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Add New Lesson</DialogTitle>
+                        <DialogDescription>Create a new lesson for this topic</DialogDescription>
+                      </DialogHeader>
 
-                    <Tabs defaultValue="basic" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="basic">Basic</TabsTrigger>
-                        <TabsTrigger value="content">Content</TabsTrigger>
-                        <TabsTrigger value="rewards">Rewards</TabsTrigger>
-                      </TabsList>
+                      <Tabs defaultValue="basic" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="content">Content</TabsTrigger>
+                          <TabsTrigger value="rewards">Rewards</TabsTrigger>
+                        </TabsList>
 
-                      <TabsContent value="basic" className="space-y-4">
-                        <div>
-                          <Label>Lesson Type</Label>
-                          <Select
-                            value={newLesson.lesson_type}
-                            onValueChange={(v) => setNewLesson({ ...newLesson, lesson_type: v as LessonType })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="theory">Theory</SelectItem>
-                              <SelectItem value="interactive_svg">Interactive SVG</SelectItem>
-                              <SelectItem value="game">Game</SelectItem>
-                              <SelectItem value="quiz">Quiz</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label>Estimated Time (minutes)</Label>
-                          <Input
-                            type="number"
-                            value={newLesson.estimated_time_minutes}
-                            onChange={(e) => setNewLesson({ ...newLesson, estimated_time_minutes: parseInt(e.target.value) })}
-                          />
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="content" className="space-y-4">
-                        {newLesson.lesson_type === 'theory' && (
+                        <TabsContent value="basic" className="space-y-4">
                           <div>
-                            <Label>Theory Content</Label>
-                            <Textarea
-                              placeholder="Enter theory content..."
-                              value={newLesson.theory_text || ''}
-                              onChange={(e) => setNewLesson({ ...newLesson, theory_text: e.target.value })}
-                              rows={8}
+                            <Label>Lesson Type</Label>
+                            <Select
+                              value={newLesson.lesson_type}
+                              onValueChange={(v) => setNewLesson({ ...newLesson, lesson_type: v as LessonType })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="theory">Theory</SelectItem>
+                                <SelectItem value="interactive_svg">Interactive SVG</SelectItem>
+                                <SelectItem value="game">Game</SelectItem>
+                                <SelectItem value="quiz">Quiz</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label>Estimated Time (minutes)</Label>
+                            <Input
+                              type="number"
+                              value={newLesson.estimated_time_minutes}
+                              onChange={(e) => setNewLesson({ ...newLesson, estimated_time_minutes: parseInt(e.target.value) })}
                             />
                           </div>
-                        )}
+                        </TabsContent>
 
-                        {newLesson.lesson_type === 'interactive_svg' && (
-                          <div className="space-y-4">
+                        <TabsContent value="content" className="space-y-4">
+                          {newLesson.lesson_type === 'theory' && (
                             <div>
-                              <Label>SVG Type</Label>
-                              <Select
-                                value={newLesson.svg_type}
-                                onValueChange={(v) => setNewLesson({ ...newLesson, svg_type: v as SvgType })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select SVG type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="math_graph">Math Graph</SelectItem>
-                                  <SelectItem value="physics_motion">Physics Motion</SelectItem>
-                                  <SelectItem value="chemistry_molecule">Chemistry Molecule</SelectItem>
-                                  <SelectItem value="algorithm_viz">Algorithm Visualization</SelectItem>
-                                  <SelectItem value="concept_diagram">Concept Diagram</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>SVG Data (JSON)</Label>
+                              <Label>Theory Content</Label>
                               <Textarea
-                                placeholder='{"equation": "y = 2x + 3", "x_range": [-10, 10], ...}'
-                                value={typeof newLesson.svg_data === 'object' ? JSON.stringify(newLesson.svg_data, null, 2) : newLesson.svg_data || ''}
-                                onChange={(e) => {
-                                  try {
-                                    const parsed = JSON.parse(e.target.value);
-                                    setNewLesson({ ...newLesson, svg_data: parsed });
-                                  } catch {
-                                    setNewLesson({ ...newLesson, svg_data: e.target.value });
-                                  }
-                                }}
-                                rows={10}
-                                className="font-mono text-xs"
+                                placeholder="Enter theory content..."
+                                value={newLesson.theory_text || ''}
+                                onChange={(e) => setNewLesson({ ...newLesson, theory_text: e.target.value })}
+                                rows={8}
                               />
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Enter valid JSON data for the selected SVG type
-                              </p>
                             </div>
+                          )}
+
+                          {newLesson.lesson_type === 'interactive_svg' && (
+                            <div className="space-y-4">
+                              <div>
+                                <Label>SVG Type</Label>
+                                <Select
+                                  value={newLesson.svg_type}
+                                  onValueChange={(v) => setNewLesson({ ...newLesson, svg_type: v as SvgType })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select SVG type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="math_graph">Math Graph</SelectItem>
+                                    <SelectItem value="physics_motion">Physics Motion</SelectItem>
+                                    <SelectItem value="chemistry_molecule">Chemistry Molecule</SelectItem>
+                                    <SelectItem value="algorithm_viz">Algorithm Visualization</SelectItem>
+                                    <SelectItem value="concept_diagram">Concept Diagram</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>SVG Data (JSON)</Label>
+                                <Textarea
+                                  placeholder='{"equation": "y = 2x + 3", "x_range": [-10, 10], ...}'
+                                  value={typeof newLesson.svg_data === 'object' ? JSON.stringify(newLesson.svg_data, null, 2) : newLesson.svg_data || ''}
+                                  onChange={(e) => {
+                                    try {
+                                      const parsed = JSON.parse(e.target.value);
+                                      setNewLesson({ ...newLesson, svg_data: parsed });
+                                    } catch {
+                                      setNewLesson({ ...newLesson, svg_data: e.target.value });
+                                    }
+                                  }}
+                                  rows={10}
+                                  className="font-mono text-xs"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Enter valid JSON data for the selected SVG type
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {newLesson.lesson_type === 'game' && (
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Game Type</Label>
+                                <Select
+                                  value={newLesson.game_type}
+                                  onValueChange={(v) => setNewLesson({ ...newLesson, game_type: v as GameType })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select game type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="match_pairs">Match Pairs</SelectItem>
+                                    <SelectItem value="drag_drop">Drag & Drop</SelectItem>
+                                    <SelectItem value="typing_race">Typing Race</SelectItem>
+                                    <SelectItem value="word_puzzle">Word Puzzle</SelectItem>
+                                    <SelectItem value="fill_blanks">Fill in Blanks</SelectItem>
+                                    <SelectItem value="physics_simulator">Physics Simulator</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label>Game Data (JSON)</Label>
+                                <Textarea
+                                  placeholder={'{"pairs": [{"id": "1", "left": "F = ma", "right": "Newtons Law"}], ...}'}
+                                  value={typeof newLesson.game_data === 'object' ? JSON.stringify(newLesson.game_data, null, 2) : newLesson.game_data || ''}
+                                  onChange={(e) => {
+                                    try {
+                                      const parsed = JSON.parse(e.target.value);
+                                      setNewLesson({ ...newLesson, game_data: parsed });
+                                    } catch {
+                                      setNewLesson({ ...newLesson, game_data: e.target.value });
+                                    }
+                                  }}
+                                  rows={10}
+                                  className="font-mono text-xs"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Enter valid JSON data for the selected game type
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="rewards" className="space-y-4">
+                          <div>
+                            <Label>XP Reward</Label>
+                            <Input
+                              type="number"
+                              value={newLesson.xp_reward}
+                              onChange={(e) => setNewLesson({ ...newLesson, xp_reward: parseInt(e.target.value) })}
+                            />
                           </div>
-                        )}
-
-                        {newLesson.lesson_type === 'game' && (
-                          <div className="space-y-4">
-                            <div>
-                              <Label>Game Type</Label>
-                              <Select
-                                value={newLesson.game_type}
-                                onValueChange={(v) => setNewLesson({ ...newLesson, game_type: v as GameType })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select game type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="match_pairs">Match Pairs</SelectItem>
-                                  <SelectItem value="drag_drop">Drag & Drop</SelectItem>
-                                  <SelectItem value="typing_race">Typing Race</SelectItem>
-                                  <SelectItem value="word_puzzle">Word Puzzle</SelectItem>
-                                  <SelectItem value="fill_blanks">Fill in Blanks</SelectItem>
-                                  <SelectItem value="physics_simulator">Physics Simulator</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label>Game Data (JSON)</Label>
-                              <Textarea
-                                placeholder={'{"pairs": [{"id": "1", "left": "F = ma", "right": "Newtons Law"}], ...}'}
-                                value={typeof newLesson.game_data === 'object' ? JSON.stringify(newLesson.game_data, null, 2) : newLesson.game_data || ''}
-                                onChange={(e) => {
-                                  try {
-                                    const parsed = JSON.parse(e.target.value);
-                                    setNewLesson({ ...newLesson, game_data: parsed });
-                                  } catch {
-                                    setNewLesson({ ...newLesson, game_data: e.target.value });
-                                  }
-                                }}
-                                rows={10}
-                                className="font-mono text-xs"
-                              />
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Enter valid JSON data for the selected game type
-                              </p>
-                            </div>
+                          <div>
+                            <Label>Coin Reward</Label>
+                            <Input
+                              type="number"
+                              value={newLesson.coin_reward}
+                              onChange={(e) => setNewLesson({ ...newLesson, coin_reward: parseInt(e.target.value) })}
+                            />
                           </div>
-                        )}
-                      </TabsContent>
+                        </TabsContent>
+                      </Tabs>
 
-                      <TabsContent value="rewards" className="space-y-4">
-                        <div>
-                          <Label>XP Reward</Label>
-                          <Input
-                            type="number"
-                            value={newLesson.xp_reward}
-                            onChange={(e) => setNewLesson({ ...newLesson, xp_reward: parseInt(e.target.value) })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Coin Reward</Label>
-                          <Input
-                            type="number"
-                            value={newLesson.coin_reward}
-                            onChange={(e) => setNewLesson({ ...newLesson, coin_reward: parseInt(e.target.value) })}
-                          />
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-
-                    <div className="flex justify-end gap-2 mt-4">
-                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleAddLesson}>Create Lesson</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddLesson}>Create Lesson</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
 
               {loading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading lessons...</div>
               ) : lessons.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No lessons yet. Click "Add Lesson" to create one.
+                  No lessons yet. Click "Add Lesson" or "AI Generate All" to create content.
                 </div>
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

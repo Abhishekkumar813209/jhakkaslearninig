@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Lock, Play, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface Lesson {
@@ -133,6 +134,25 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  if (!lessons || lessons.length === 0) {
+    return (
+      <Card className="p-8 text-center max-w-md mx-auto mt-8">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Play className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold mb-2">No Lessons Yet</h3>
+            <p className="text-muted-foreground">
+              This topic doesn't have any lessons created yet. 
+              Please check back later or contact your instructor.
+            </p>
+          </div>
+        </div>
+      </Card>
     );
   }
 

@@ -140,22 +140,36 @@ const StudentManagement = () => {
     const schoolExam = examTypes.find(et => et.code === "school" || et.display_name === "School Education");
     const availableBoards = Array.isArray(schoolExam?.available_exams) ? schoolExam.available_exams : [];
     
-    // Bucketing function: maps student board to the correct bucket
+    // Normalize function for case-insensitive comparison
+    const normalize = (str: string): string => 
+      str.trim().toLowerCase().replace(/[-_]/g, ' ');
+    
+    // Bucketing function: maps student board to the correct bucket (case-insensitive)
     const getBucket = (studentBoard?: string | null): string => {
       const boardName = (studentBoard || "").trim();
+      if (!boardName) return "Unknown";
       
-      // If board exactly matches available boards, use it
-      if (availableBoards.includes(boardName)) {
-        return boardName;
+      const normalizedStudentBoard = normalize(boardName);
+      
+      // Find matching board from availableBoards (case-insensitive)
+      const matchedBoard = availableBoards.find(
+        availBoard => normalize(availBoard) === normalizedStudentBoard
+      );
+      
+      if (matchedBoard) {
+        return matchedBoard; // Return the original case from exam_types
       }
       
       // If "State Board" exists in available boards, aggregate unlisted boards there
-      if (availableBoards.includes("State Board")) {
-        return "State Board";
+      const stateBoardEntry = availableBoards.find(
+        board => normalize(board) === 'state board'
+      );
+      if (stateBoardEntry) {
+        return stateBoardEntry;
       }
       
       // Fallback
-      return boardName || "Unknown";
+      return boardName;
     };
     
     const byBoard: Record<string, number> = {};
@@ -189,21 +203,37 @@ const StudentManagement = () => {
       console.log('🔧 [StudentManagement] After exam type filter:', list.length);
     }
     
-    // Filter by board for school domain with bucketing logic
+    // Filter by board for school domain with bucketing logic (case-insensitive)
     if (selectedExamType === 'school' && selectedBoard) {
       const availableBoards = studentCounts.availableBoards || [];
+      const normalize = (str: string): string => 
+        str.trim().toLowerCase().replace(/[-_]/g, ' ');
       
       list = list.filter((s) => {
         const boardName = (s.education_board || "").trim();
+        if (!boardName) return false;
         
-        // If "State Board" is selected and it's in available boards
-        if (selectedBoard === "State Board" && availableBoards.includes("State Board")) {
-          // Show students with "State Board" OR students whose board is not in availableBoards
-          return boardName === "State Board" || !availableBoards.includes(boardName);
+        const normalizedStudentBoard = normalize(boardName);
+        const normalizedSelectedBoard = normalize(selectedBoard);
+        
+        // If "State Board" is selected
+        if (normalizedSelectedBoard === 'state board') {
+          const stateBoardExists = availableBoards.some(
+            board => normalize(board) === 'state board'
+          );
+          
+          if (stateBoardExists) {
+            // Show students with "State Board" OR students whose board is not in availableBoards
+            const isStateBoard = normalizedStudentBoard === 'state board';
+            const isInAvailableBoards = availableBoards.some(
+              board => normalize(board) === normalizedStudentBoard
+            );
+            return isStateBoard || !isInAvailableBoards;
+          }
         }
         
-        // Otherwise, exact match
-        return boardName === selectedBoard;
+        // Otherwise, case-insensitive match
+        return normalizedStudentBoard === normalizedSelectedBoard;
       });
       console.log('🔧 [StudentManagement] After board filter:', list.length);
     }

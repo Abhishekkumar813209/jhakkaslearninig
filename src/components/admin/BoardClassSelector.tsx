@@ -2,6 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, BookOpen } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface BoardClassSelectorProps {
   examType: string;
@@ -10,6 +18,7 @@ interface BoardClassSelectorProps {
   onBoardSelect: (board: string) => void;
   onClassSelect: (cls: string) => void;
   onReset: () => void;
+  onResetToBoard?: () => void;
   studentCounts?: {
     byBoard?: Record<string, number>;
     byClass?: Record<string, Record<string, number>>;
@@ -35,6 +44,7 @@ export const BoardClassSelector = ({
   onBoardSelect,
   onClassSelect,
   onReset,
+  onResetToBoard,
   studentCounts = {},
 }: BoardClassSelectorProps) => {
   // Only show for school education
@@ -44,32 +54,50 @@ export const BoardClassSelector = ({
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">School Education</span>
-        {selectedBoard && (
-          <>
-            <ChevronRight className="h-4 w-4" />
-            <span className="font-medium text-foreground">{selectedBoard}</span>
-          </>
-        )}
-        {selectedClass && (
-          <>
-            <ChevronRight className="h-4 w-4" />
-            <span className="font-medium text-foreground">Class {selectedClass}</span>
-          </>
-        )}
-        {(selectedBoard || selectedClass) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onReset}
-            className="ml-auto"
-          >
-            Reset Filters
-          </Button>
-        )}
-      </div>
+      {/* Interactive Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            {selectedBoard || selectedClass ? (
+              <BreadcrumbLink 
+                onClick={onReset}
+                className="cursor-pointer hover:text-primary transition-colors"
+              >
+                School Education
+              </BreadcrumbLink>
+            ) : (
+              <BreadcrumbPage>School Education</BreadcrumbPage>
+            )}
+          </BreadcrumbItem>
+          
+          {selectedBoard && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                {selectedClass ? (
+                  <BreadcrumbLink 
+                    onClick={onResetToBoard}
+                    className="cursor-pointer hover:text-primary transition-colors"
+                  >
+                    {selectedBoard}
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage>{selectedBoard}</BreadcrumbPage>
+                )}
+              </BreadcrumbItem>
+            </>
+          )}
+          
+          {selectedClass && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Class {selectedClass}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
+        </BreadcrumbList>
+      </Breadcrumb>
 
       {/* Board Selection */}
       {!selectedBoard && (

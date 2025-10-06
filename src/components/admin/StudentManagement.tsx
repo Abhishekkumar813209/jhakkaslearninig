@@ -49,7 +49,7 @@ const StudentManagement = () => {
   const { schools, getSchoolsByZone } = useSchools();
   const { examTypes } = useExamTypes();
   const { toast } = useToast();
-  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard } = useBoardClassHierarchy();
+  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -366,6 +366,7 @@ const StudentManagement = () => {
               onBoardSelect={setBoard}
               onClassSelect={setClass}
               onReset={resetFromBoard}
+              onResetToBoard={resetToBoard}
               studentCounts={{
                 byBoard: {},
                 byClass: {},

@@ -9,6 +9,7 @@ interface BoardClassHierarchy {
   setClass: (cls: string | null) => void;
   reset: () => void;
   resetFromBoard: () => void;
+  resetToBoard: () => void;
 }
 
 export const useBoardClassHierarchy = (): BoardClassHierarchy => {
@@ -42,6 +43,10 @@ export const useBoardClassHierarchy = (): BoardClassHierarchy => {
     setSelectedClass(null);
   }, []);
 
+  const resetToBoard = useCallback(() => {
+    setSelectedClass(null);
+  }, []);
+
   return {
     selectedDomain,
     selectedBoard,
@@ -51,5 +56,6 @@ export const useBoardClassHierarchy = (): BoardClassHierarchy => {
     setClass,
     reset,
     resetFromBoard,
+    resetToBoard,
   };
 };

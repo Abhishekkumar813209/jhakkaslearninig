@@ -20,7 +20,7 @@ const BatchManagement = () => {
   const [examFilter, setExamFilter] = useState<string>("all");
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
-  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard } = useBoardClassHierarchy();
+  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -194,6 +194,7 @@ const BatchManagement = () => {
               onBoardSelect={setBoard}
               onClassSelect={setClass}
               onReset={resetFromBoard}
+              onResetToBoard={resetToBoard}
               studentCounts={getStudentCounts()}
             />
           )}

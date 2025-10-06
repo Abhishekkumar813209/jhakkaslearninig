@@ -8,12 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Upload } from "lucide-react";
+import { Plus, Trash2, Save, Upload, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface Topic {
   topic_name: string;
-  estimated_hours: number;
   day_number: number;
   book_page_reference?: string;
   xp_reward?: number;
@@ -37,13 +36,22 @@ interface Chapter {
   id: string;
   chapter_name: string;
   subject: string;
+  estimated_days?: number;
+}
+
+interface ExamDomain {
+  id: string;
+  domain_name: string;
+  category: string;
 }
 
 export const ManualTopicEditor = () => {
+  const [domains, setDomains] = useState<ExamDomain[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   
+  const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [selectedBatch, setSelectedBatch] = useState<string>("");
   const [selectedRoadmap, setSelectedRoadmap] = useState<string>("");
   const [selectedChapter, setSelectedChapter] = useState<string>("");
@@ -51,12 +59,19 @@ export const ManualTopicEditor = () => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [csvInput, setCsvInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
   
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchBatches();
+    fetchDomains();
   }, []);
+
+  useEffect(() => {
+    if (selectedDomain) {
+      fetchBatches(selectedDomain);
+    }
+  }, [selectedDomain]);
 
   useEffect(() => {
     if (selectedBatch) {
@@ -70,11 +85,31 @@ export const ManualTopicEditor = () => {
     }
   }, [selectedRoadmap]);
 
-  const fetchBatches = async () => {
+  const fetchDomains = async () => {
+    const { data, error } = await supabase
+      .from("exam_domains")
+      .select("id, domain_name, category")
+      .eq("is_active", true)
+      .order("domain_name");
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load exam domains",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setDomains(data || []);
+  };
+
+  const fetchBatches = async (domainName: string) => {
     const { data, error } = await supabase
       .from("batches")
-      .select("id, name")
+      .select("id, name, exam_type")
       .eq("is_active", true)
+      .eq("exam_type", domainName)
       .order("name");
 
     if (error) {
@@ -87,6 +122,9 @@ export const ManualTopicEditor = () => {
     }
 
     setBatches(data || []);
+    setSelectedBatch("");
+    setRoadmaps([]);
+    setChapters([]);
   };
 
   const fetchRoadmaps = async (batchId: string) => {
@@ -113,7 +151,7 @@ export const ManualTopicEditor = () => {
   const fetchChapters = async (roadmapId: string) => {
     const { data, error } = await supabase
       .from("roadmap_chapters")
-      .select("id, chapter_name, subject")
+      .select("id, chapter_name, subject, estimated_days")
       .eq("roadmap_id", roadmapId)
       .order("order_num");
 
@@ -135,7 +173,6 @@ export const ManualTopicEditor = () => {
       ...topics,
       {
         topic_name: "",
-        estimated_hours: 1,
         day_number: topics.length + 1,
         xp_reward: 50,
         coin_reward: 10,
@@ -155,6 +192,66 @@ export const ManualTopicEditor = () => {
     setTopics(topics.filter((_, i) => i !== index));
   };
 
+  const generateTopicsWithAI = async () => {
+    if (!selectedChapter) return;
+
+    setAiGenerating(true);
+    try {
+      // Get chapter details
+      const selectedChapterData = chapters.find(c => c.id === selectedChapter);
+      if (!selectedChapterData) throw new Error("Chapter not found");
+
+      // Get roadmap details for exam info
+      const { data: roadmapData, error: roadmapError } = await supabase
+        .from("batch_roadmaps")
+        .select("exam_type, exam_name")
+        .eq("id", selectedRoadmap)
+        .single();
+
+      if (roadmapError) throw roadmapError;
+
+      console.log('Calling AI to generate topics...', {
+        chapter: selectedChapterData.chapter_name,
+        subject: selectedChapterData.subject,
+        exam_type: roadmapData.exam_type,
+        estimated_days: selectedChapterData.estimated_days
+      });
+
+      const { data, error } = await supabase.functions.invoke('ai-generate-chapter-topics', {
+        body: {
+          chapter_id: selectedChapter,
+          chapter_name: selectedChapterData.chapter_name,
+          subject: selectedChapterData.subject,
+          exam_type: roadmapData.exam_type,
+          exam_name: roadmapData.exam_name,
+          estimated_days: selectedChapterData.estimated_days || 5,
+          existing_topics_count: topics.length
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.topics) {
+        setTopics([...topics, ...data.topics]);
+        toast({
+          title: "✨ AI Generated Topics",
+          description: `Added ${data.topics.length} topics for ${selectedChapterData.chapter_name}`
+        });
+      } else {
+        throw new Error(data?.error || "Failed to generate topics");
+      }
+    } catch (error: any) {
+      console.error("AI Generation Error:", error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate topics with AI",
+        variant: "destructive"
+      });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const handleCsvParse = () => {
     try {
       const lines = csvInput.trim().split("\n");
@@ -165,13 +262,12 @@ export const ManualTopicEditor = () => {
         if (parts.length >= 2) {
           parsed.push({
             topic_name: parts[0],
-            estimated_hours: parseFloat(parts[1]) || 1,
-            day_number: parseInt(parts[2]) || (parsed.length + 1),
-            book_page_reference: parts[3] || undefined,
-            xp_reward: parseInt(parts[4]) || 50,
-            coin_reward: parseInt(parts[5]) || 10,
-            difficulty: parts[6] || "medium",
-            animation_type: parts[7] || "interactive_svg"
+            day_number: parseInt(parts[1]) || (parsed.length + 1),
+            book_page_reference: parts[2] || undefined,
+            xp_reward: parseInt(parts[3]) || 50,
+            coin_reward: parseInt(parts[4]) || 10,
+            difficulty: parts[5] || "medium",
+            animation_type: parts[6] || "interactive_svg"
           });
         }
       }
@@ -208,7 +304,7 @@ export const ManualTopicEditor = () => {
       const topicsToInsert = topics.map((topic, index) => ({
         chapter_id: selectedChapter,
         topic_name: topic.topic_name,
-        estimated_hours: topic.estimated_hours,
+        estimated_hours: 1,
         day_number: topic.day_number || (index + 1),
         order_num: index + 1,
         xp_reward: topic.xp_reward || 50,
@@ -252,10 +348,30 @@ export const ManualTopicEditor = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Selection Section */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label>Exam Domain</Label>
+              <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  {domains.map((domain) => (
+                    <SelectItem key={domain.id} value={domain.domain_name}>
+                      {domain.domain_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Batch</Label>
-              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+              <Select 
+                value={selectedBatch} 
+                onValueChange={setSelectedBatch}
+                disabled={!selectedDomain}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select batch" />
                 </SelectTrigger>
@@ -303,6 +419,11 @@ export const ManualTopicEditor = () => {
                   {chapters.map((chapter) => (
                     <SelectItem key={chapter.id} value={chapter.id}>
                       {chapter.chapter_name} ({chapter.subject})
+                      {chapter.estimated_days && (
+                        <Badge variant="secondary" className="ml-2">
+                          {chapter.estimated_days}d
+                        </Badge>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -314,10 +435,10 @@ export const ManualTopicEditor = () => {
           <div className="space-y-2">
             <Label>Bulk CSV Input</Label>
             <p className="text-xs text-muted-foreground">
-              Format: Topic Name, Hours, Day#, Page, XP, Coins, Difficulty, AnimationType
+              Format: Topic Name, Day#, Page, XP, Coins, Difficulty, AnimationType
             </p>
             <Textarea
-              placeholder="Introduction to Algebra, 1.5, 1, 45, 50, 10, medium, interactive_svg"
+              placeholder="Introduction to Algebra, 1, 45, 50, 10, medium, interactive_svg"
               value={csvInput}
               onChange={(e) => setCsvInput(e.target.value)}
               rows={4}
@@ -342,7 +463,6 @@ export const ManualTopicEditor = () => {
                   <TableRow>
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Topic Name</TableHead>
-                    <TableHead className="w-24">Hours</TableHead>
                     <TableHead className="w-24">Day#</TableHead>
                     <TableHead className="w-32">Page</TableHead>
                     <TableHead className="w-20">XP</TableHead>
@@ -361,14 +481,6 @@ export const ManualTopicEditor = () => {
                           onChange={(e) => updateTopic(index, "topic_name", e.target.value)}
                           placeholder="Topic name"
                           className="min-w-[200px]"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.5"
-                          value={topic.estimated_hours}
-                          onChange={(e) => updateTopic(index, "estimated_hours", parseFloat(e.target.value))}
                         />
                       </TableCell>
                       <TableCell>
@@ -432,14 +544,25 @@ export const ManualTopicEditor = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-4 border-t">
-            <Button 
-              variant="outline" 
-              onClick={addEmptyTopic}
-              disabled={!selectedChapter}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Topic Row
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={addEmptyTopic}
+                disabled={!selectedChapter}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Topic Row
+              </Button>
+              
+              <Button 
+                variant="default"
+                onClick={generateTopicsWithAI}
+                disabled={!selectedChapter || aiGenerating}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {aiGenerating ? "Generating..." : "🪄 Generate with AI"}
+              </Button>
+            </div>
 
             <div className="flex gap-2">
               <Badge variant="secondary">

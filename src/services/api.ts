@@ -537,6 +537,57 @@ export const usersAPI = {
     if (!response.ok) throw new Error(result?.error || 'Failed to assign batch');
     return result;
   },
+
+  assignStudentToZone: async (studentId: string, zoneId: string) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students/${studentId}/zone`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ zone_id: zoneId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || 'Failed to assign zone');
+    return result;
+  },
+
+  assignStudentToSchool: async (studentId: string, schoolId: string) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students/${studentId}/school`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ school_id: schoolId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || 'Failed to assign school');
+    return result;
+  },
+
+  assignStudentClass: async (studentId: string, classValue: string, examDomain: string = 'school') => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students/${studentId}/class`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ class_value: classValue, exam_domain: examDomain }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || 'Failed to assign class');
+    return result;
+  },
 };
 
 // Analytics API

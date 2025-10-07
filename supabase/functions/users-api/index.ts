@@ -250,6 +250,161 @@ serve(async (req: Request) => {
             JSON.stringify({ profile: updated, success: true }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
+        } else if (/\/students\/.+\/zone$/.test(path)) {
+          // Assign a student to a zone (admin only)
+          const { data: roleRow } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user?.id)
+            .single()
+
+          if (roleRow?.role !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Admin access required' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const segments = path.split('/').filter(Boolean)
+          const targetUserId = segments[segments.length - 2]
+          const body = await req.json().catch(() => ({}))
+          const zoneId = body.zone_id
+
+          if (!zoneId) {
+            return new Response(
+              JSON.stringify({ error: 'zone_id is required' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const service = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          const { data: updated, error } = await service
+            .from('profiles')
+            .update({ zone_id: zoneId })
+            .eq('id', targetUserId)
+            .select('*')
+            .single()
+
+          if (error) {
+            return new Response(
+              JSON.stringify({ error: error.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          return new Response(
+            JSON.stringify({ profile: updated, success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } else if (/\/students\/.+\/school$/.test(path)) {
+          // Assign a student to a school (admin only)
+          const { data: roleRow } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user?.id)
+            .single()
+
+          if (roleRow?.role !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Admin access required' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const segments = path.split('/').filter(Boolean)
+          const targetUserId = segments[segments.length - 2]
+          const body = await req.json().catch(() => ({}))
+          const schoolId = body.school_id
+
+          if (!schoolId) {
+            return new Response(
+              JSON.stringify({ error: 'school_id is required' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const service = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          const { data: updated, error } = await service
+            .from('profiles')
+            .update({ school_id: schoolId })
+            .eq('id', targetUserId)
+            .select('*')
+            .single()
+
+          if (error) {
+            return new Response(
+              JSON.stringify({ error: error.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          return new Response(
+            JSON.stringify({ profile: updated, success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } else if (/\/students\/.+\/class$/.test(path)) {
+          // Assign a student to a class/level (admin only)
+          const { data: roleRow } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user?.id)
+            .single()
+
+          if (roleRow?.role !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Admin access required' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const segments = path.split('/').filter(Boolean)
+          const targetUserId = segments[segments.length - 2]
+          const body = await req.json().catch(() => ({}))
+          const classValue = body.class_value
+          const examDomain = body.exam_domain || 'school'
+
+          if (!classValue) {
+            return new Response(
+              JSON.stringify({ error: 'class_value is required' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const service = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          const updateData = examDomain === 'school' 
+            ? { student_class: classValue }
+            : { preparation_level: classValue }
+
+          const { data: updated, error } = await service
+            .from('profiles')
+            .update(updateData)
+            .eq('id', targetUserId)
+            .select('*')
+            .single()
+
+          if (error) {
+            return new Response(
+              JSON.stringify({ error: error.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          return new Response(
+            JSON.stringify({ profile: updated, success: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         }
         break
 

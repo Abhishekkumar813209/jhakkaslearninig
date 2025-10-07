@@ -340,56 +340,46 @@ const StudentManagement = () => {
 
   const handleAssignZone = async (studentId: string, zoneId: string) => {
     try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { error } = await supabase
-        .from('profiles')
-        .update({ zone_id: zoneId })
-        .eq('id', studentId);
-      
-      if (error) throw error;
-      
-      toast({ title: "Success", description: "Student assigned to zone" });
+      setLoading(true);
+      await usersAPI.assignStudentToZone(studentId, zoneId);
+      toast({ title: "Assigned", description: "Student assigned to zone" });
       fetchStudents(searchTerm.trim() || undefined);
     } catch (err) {
-      toast({ title: "Error", description: "Failed to assign zone", variant: "destructive" });
+      const msg = err instanceof Error ? err.message : "Failed to assign zone";
+      console.error("Assign zone error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAssignSchool = async (studentId: string, schoolId: string) => {
     try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { error } = await supabase
-        .from('profiles')
-        .update({ school_id: schoolId })
-        .eq('id', studentId);
-      
-      if (error) throw error;
-      
-      toast({ title: "Success", description: "Student assigned to school" });
+      setLoading(true);
+      await usersAPI.assignStudentToSchool(studentId, schoolId);
+      toast({ title: "Assigned", description: "Student assigned to school" });
       fetchStudents(searchTerm.trim() || undefined);
     } catch (err) {
-      toast({ title: "Error", description: "Failed to assign school", variant: "destructive" });
+      const msg = err instanceof Error ? err.message : "Failed to assign school";
+      console.error("Assign school error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAssignClass = async (studentId: string, classValue: string, examDomain: string) => {
     try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const updateData = examDomain === 'school' 
-        ? { student_class: classValue as any }
-        : { preparation_level: classValue };
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', studentId);
-
-      if (error) throw error;
-
-      toast({ title: "Success", description: "Class/Level assigned successfully" });
+      setLoading(true);
+      await usersAPI.assignStudentClass(studentId, classValue, examDomain);
+      toast({ title: "Assigned", description: "Class/Level assigned successfully" });
       fetchStudents(searchTerm.trim() || undefined);
     } catch (err) {
-      toast({ title: "Error", description: "Failed to assign class/level", variant: "destructive" });
+      const msg = err instanceof Error ? err.message : "Failed to assign class/level";
+      console.error("Assign class error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 

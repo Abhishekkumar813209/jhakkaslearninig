@@ -301,7 +301,16 @@ const RoadmapManagement = () => {
                 Change Domain
               </Button>
             </div>
-            <Button className="gap-2" onClick={() => setIsCreating(true)}>
+            <Button 
+              className="gap-2" 
+              onClick={() => {
+                if (!selectedDomain) {
+                  toast.error("Please select an exam domain first");
+                  return;
+                }
+                setIsCreating(true);
+              }}
+            >
               <Plus className="h-4 w-4" />
               Create AI Roadmap
             </Button>
@@ -339,6 +348,7 @@ const RoadmapManagement = () => {
       <CreateRoadmapWizard
         open={isCreating}
         onOpenChange={setIsCreating}
+        initialDomain={selectedDomain || undefined}
         onSuccess={fetchRoadmaps}
         onSwitchToManual={(prefillData) => {
           setManualBuilderPrefillData(prefillData);

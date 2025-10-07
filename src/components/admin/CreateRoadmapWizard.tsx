@@ -43,14 +43,29 @@ interface CreateRoadmapWizardProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   onSwitchToManual?: (prefillData: any) => void;
+  initialDomain?: string;
 }
 
-export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual }: CreateRoadmapWizardProps) => {
+export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 4;
+  const totalSteps = 3;
 
-  // Step 1: Exam Type
-  const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>('School');
+  // Map domain codes to exam types
+  const mapDomainToExamType = (domain: string): 'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom' => {
+    const mapping: Record<string, any> = {
+      'school': 'School',
+      'engineering': 'Engineering',
+      'medical': 'Medical-UG',
+      'government': 'SSC',
+      'banking': 'Banking',
+    };
+    return mapping[domain?.toLowerCase()] || 'School';
+  };
+
+  // Step 1: Exam Type (derived from initialDomain)
+  const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>(
+    initialDomain ? mapDomainToExamType(initialDomain) : 'School'
+  );
   const [examName, setExamName] = useState("");
   const [conditionalClass, setConditionalClass] = useState("");
   const [conditionalBoard, setConditionalBoard] = useState("");
@@ -481,7 +496,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const handleReset = () => {
     setCurrentStep(0);
-    setExamType('School');
+    setExamType(initialDomain ? mapDomainToExamType(initialDomain) : 'School');
     setExamName("");
     setConditionalClass("");
     setConditionalBoard("");
@@ -493,6 +508,13 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setUploadedPdf(null);
     setTimeBudget({});
   };
+
+  // Update exam type when initialDomain changes
+  useEffect(() => {
+    if (initialDomain) {
+      setExamType(mapDomainToExamType(initialDomain));
+    }
+  }, [initialDomain]);
 
   // Compute budget-aware suggested days when chapters or time budget changes
   useEffect(() => {
@@ -576,30 +598,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const handleNext = () => {
     if (currentStep === 0) {
-      // Validate Step 1
-      if (examType === 'School' && (!conditionalClass || !conditionalBoard)) {
-        toast.error("Please select class and board");
-        return;
-      }
-      if ((examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && !conditionalClass) {
-        toast.error("Please select student category");
-        return;
-      }
-      if ((examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') && conditionalClass === '11' && !roadmapType) {
-        toast.error("Please select roadmap duration");
-        return;
-      }
-      if (examType !== 'School' && examType !== 'Engineering' && examType !== 'Medical-UG' && examType !== 'Medical-PG' && !examName.trim()) {
-        toast.error("Please enter exam name");
-        return;
-      }
-      if (!batchId || !roadmapTitle) {
-        toast.error("Please fill all required fields");
-        return;
-      }
-    }
-
-    if (currentStep === 1) {
+      // Validate Step 0: Subject Selection
       const selectedSubjects = fetchedSubjects.filter(s => s.isSelected);
       if (selectedSubjects.length === 0) {
         toast.error("Please select at least one subject");
@@ -607,7 +606,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }
     }
 
-    if (currentStep === 2) {
+    if (currentStep === 1) {
+      // Validate Step 1: Time Budget
       const selectedSubjectNames = fetchedSubjects.filter(s => s.isSelected).map(s => s.name);
       const hasMissingBudget = selectedSubjectNames.some(name => !timeBudget[name] || timeBudget[name] <= 0);
       if (hasMissingBudget) {
@@ -616,7 +616,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }
     }
 
-    if (currentStep === 3) {
+    if (currentStep === 2) {
+      // Validate Step 2: Chapter Selection
       const selectedChaptersCount = Object.values(fetchedChapters)
         .flat()
         .filter(c => c.isSelected).length;
@@ -646,48 +647,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Step 0: Subject Selection (was Step 1) */}
           {currentStep === 0 && (
-            <>
-              <div className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/30">
-                <Label className="text-base font-semibold">Roadmap Mode</Label>
-                <RadioGroup value={roadmapMode} onValueChange={(v) => setRoadmapMode(v as 'sequential' | 'parallel')}>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
-                    <RadioGroupItem value="sequential" id="sequential" />
-                    <Label htmlFor="sequential" className="cursor-pointer flex-1">
-                      <div className="font-medium">📚 Sequential Mode</div>
-                      <div className="text-sm text-muted-foreground">One subject at a time - Deep focus approach</div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
-                    <RadioGroupItem value="parallel" id="parallel" />
-                    <Label htmlFor="parallel" className="cursor-pointer flex-1">
-                      <div className="font-medium">⚡ Parallel Mode (Independent)</div>
-                      <div className="text-sm text-muted-foreground">All subjects run independently from Day 1</div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <ExamTypeStep
-                examType={examType}
-                setExamType={setExamType}
-                examName={examName}
-                setExamName={setExamName}
-                conditionalClass={conditionalClass}
-                setConditionalClass={setConditionalClass}
-                conditionalBoard={conditionalBoard}
-                setConditionalBoard={setConditionalBoard}
-                batchId={batchId}
-                setBatchId={setBatchId}
-                roadmapTitle={roadmapTitle}
-                setRoadmapTitle={setRoadmapTitle}
-                roadmapType={roadmapType}
-                setRoadmapType={setRoadmapType}
-              />
-            </>
-          )}
-
-          {currentStep === 1 && (
             <SubjectSelectionStep
               subjects={fetchedSubjects}
               isFetching={isFetchingSubjects}
@@ -698,7 +659,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             />
           )}
 
-          {currentStep === 2 && (
+          {/* Step 1: Time Budget (was Step 2) */}
+          {currentStep === 1 && (
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Set Time Budget per Subject</h3>
@@ -740,7 +702,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             </div>
           )}
 
-          {currentStep === 3 && (
+          {/* Step 2: Chapter Selection (was Step 3) */}
+          {currentStep === 2 && (
             <ChapterSelectionStep
               subjects={fetchedSubjects.filter(s => s.isSelected)}
               chapters={fetchedChapters}

@@ -30,6 +30,8 @@ interface ManualRoadmapBuilderProps {
     roadmapTitle?: string;
     totalDays?: number;
     subjects?: SubjectColumn[];
+    selectedBoard?: string;
+    selectedClass?: string;
   };
 }
 
@@ -177,11 +179,22 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
 
   const fetchBatches = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('batches')
-        .select('id, name, level')
-        .eq('is_active', true)
-        .order('name');
+        .select('id, name, level, exam_type, target_board, target_class')
+        .eq('is_active', true);
+      
+      // If prefillData has board/class, filter accordingly
+      if (prefillData?.examType === 'school') {
+        if (prefillData?.selectedBoard) {
+          query = query.eq('target_board', prefillData.selectedBoard as any);
+        }
+        if (prefillData?.selectedClass) {
+          query = query.eq('target_class', prefillData.selectedClass as any);
+        }
+      }
+      
+      const { data, error } = await query.order('name');
 
       if (error) throw error;
       setBatches(data || []);

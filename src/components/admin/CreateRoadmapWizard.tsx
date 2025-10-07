@@ -59,9 +59,11 @@ interface CreateRoadmapWizardProps {
   onSuccess: () => void;
   onSwitchToManual?: (prefillData: any) => void;
   initialDomain?: string;
+  initialBoard?: string;
+  initialClass?: string;
 }
 
-export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain }: CreateRoadmapWizardProps) => {
+export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain, initialBoard, initialClass }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 6; // Batch, Subject, Time Budget, Chapters, Intensity, Preview
 
@@ -517,6 +519,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       fetchBatches(initialDomain);
     }
   }, [initialDomain, open]);
+  
+  // Pre-fill board/class when wizard opens
+  useEffect(() => {
+    if (open && initialDomain) {
+      setExamType(initialDomain);
+      if (initialBoard) setConditionalBoard(initialBoard);
+      if (initialClass) setConditionalClass(initialClass);
+    }
+  }, [open, initialDomain, initialBoard, initialClass]);
 
   // Auto-set exam info from selected batch
   useEffect(() => {
@@ -540,12 +551,19 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const fetchBatches = async (domain: string) => {
     setLoadingBatches(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('batches')
         .select('id, name, level, exam_type, exam_name, start_date, end_date')
         .eq('exam_type', domain)
-        .eq('is_active', true)
-        .order('start_date', { ascending: false });
+        .eq('is_active', true);
+      
+      // For school domain, filter by board and class
+      if (domain === 'school') {
+        if (initialBoard) query = query.eq('target_board', initialBoard as any);
+        if (initialClass) query = query.eq('target_class', initialClass as any);
+      }
+      
+      const { data, error } = await query.order('start_date', { ascending: false });
 
       if (error) throw error;
       setBatches(data || []);

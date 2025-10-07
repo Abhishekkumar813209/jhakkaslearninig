@@ -12,18 +12,31 @@ import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
 import { EditRoadmapDialog } from "./EditRoadmapDialog";
 import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
 import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
+import { BoardClassSelector } from "./BoardClassSelector";
+import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { useAuth } from "@/hooks/useAuth";
 import { format, parseISO } from 'date-fns';
 import { useExamTypes } from "@/hooks/useExamTypes";
+import * as LucideIcons from "lucide-react";
 
 const RoadmapManagement = () => {
   const { loading: authLoading } = useAuth();
   const { examTypes, loading: examTypesLoading } = useExamTypes();
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [roadmaps, setRoadmaps] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isManualBuilding, setIsManualBuilding] = useState(false);
   const [manualBuilderPrefillData, setManualBuilderPrefillData] = useState<any>(null);
+  
+  const { 
+    selectedBoard, 
+    selectedClass, 
+    setBoard, 
+    setClass, 
+    resetFromBoard, 
+    resetToBoard 
+  } = useBoardClassHierarchy();
   
   // State for details/edit/delete dialogs
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
@@ -205,10 +218,25 @@ const RoadmapManagement = () => {
     }
   };
 
+  const fetchBatches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('batches')
+        .select('id, target_board, target_class, exam_type')
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      setBatches(data || []);
+    } catch (error: any) {
+      console.error('Error fetching batches:', error);
+    }
+  };
+
   useEffect(() => {
     // Wait for auth to load before fetching roadmaps
     if (!authLoading) {
       fetchRoadmaps();
+      fetchBatches();
     }
   }, [authLoading]);
 
@@ -235,9 +263,45 @@ const RoadmapManagement = () => {
     return roadmaps.filter(r => r.exam_type === examType).length;
   };
 
-  const filteredRoadmaps = selectedDomain 
-    ? roadmaps.filter(r => r.exam_type === selectedDomain || !r.exam_type)
-    : roadmaps;
+  const filteredRoadmaps = roadmaps.filter(r => {
+    // Filter by selected domain
+    if (selectedDomain && r.exam_type !== selectedDomain) return false;
+    
+    // For school domain, additionally filter by board and class
+    if (selectedDomain === 'school') {
+      // Get batch details for this roadmap
+      const roadmapBatch = batches.find(b => b.id === r.batch_id);
+      
+      if (selectedBoard && roadmapBatch?.target_board !== selectedBoard) return false;
+      if (selectedClass && roadmapBatch?.target_class !== selectedClass) return false;
+    }
+    
+    return true;
+  });
+  
+  const getRoadmapCounts = () => {
+    const domainRoadmaps = roadmaps.filter(r => r.exam_type === selectedDomain);
+    const byBoard: Record<string, number> = {};
+    const byClass: Record<string, Record<string, number>> = {};
+
+    domainRoadmaps.forEach(roadmap => {
+      // Find the batch to get board/class info
+      const batch = batches.find(b => b.id === roadmap.batch_id);
+      if (!batch) return;
+      
+      const board = batch.target_board || 'CBSE';
+      const cls = batch.target_class;
+      
+      byBoard[board] = (byBoard[board] || 0) + 1;
+      
+      if (!byClass[board]) byClass[board] = {};
+      if (cls) {
+        byClass[board][cls] = (byClass[board][cls] || 0) + 1;
+      }
+    });
+
+    return { byBoard, byClass };
+  };
 
   const activeRoadmaps = filteredRoadmaps.filter(r => r.status === 'active').length;
   const totalChapters = filteredRoadmaps.reduce((sum, r) => sum + (r.chapters?.length || 0), 0);
@@ -263,23 +327,21 @@ const RoadmapManagement = () => {
               return (
                 <Card
                   key={examType.id}
-                  className="cursor-pointer hover:shadow-lg transition-all hover-scale animate-fade-in"
+                  className="cursor-pointer hover:shadow-lg transition-all hover-scale animate-fade-in border-2 hover:border-primary"
                   style={{ animationDelay: `${idx * 0.1}s` }}
-                  onClick={() => setSelectedDomain(examType.code)}
+                  onClick={() => {
+                    setSelectedDomain(examType.code);
+                    resetFromBoard();
+                  }}
                 >
                   <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`p-3 rounded-lg ${examType.color_class || 'bg-primary/10'}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">{examType.display_name}</h3>
-                        <p className="text-sm text-muted-foreground capitalize">{examType.category}</p>
-                      </div>
+                    <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
+                      <Icon className="h-12 w-12 text-white" />
                     </div>
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                      <span className="text-sm text-muted-foreground">Roadmaps</span>
-                      <Badge variant="secondary" className="font-semibold">{count}</Badge>
+                    <h4 className="font-semibold text-lg mb-2">{examType.display_name}</h4>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{count} roadmaps</span>
+                      <Badge variant="secondary">{count}</Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -287,31 +349,45 @@ const RoadmapManagement = () => {
             })}
           </div>
         </div>
+      ) : selectedDomain === 'school' && (!selectedBoard || !selectedClass) ? (
+        // BoardClassSelector for School Domain
+        <BoardClassSelector
+          examType={selectedDomain}
+          selectedBoard={selectedBoard}
+          selectedClass={selectedClass}
+          onBoardSelect={setBoard}
+          onClassSelect={setClass}
+          onReset={resetFromBoard}
+          onResetToBoard={resetToBoard}
+          studentCounts={getRoadmapCounts()}
+        />
       ) : (
         <>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
               <Badge variant="default" className="text-base px-4 py-2">
-                Selected: {examTypes.find(e => e.code === selectedDomain)?.display_name} 
-                {examTypes.find(e => e.code === selectedDomain)?.category && 
-                  ` (${examTypes.find(e => e.code === selectedDomain)?.category})`
-                }
+                Selected: {examTypes.find(e => e.code === selectedDomain)?.display_name}
+                {selectedDomain === 'school' && selectedBoard && (
+                  <> • {selectedBoard}</>
+                )}
+                {selectedDomain === 'school' && selectedClass && (
+                  <> • Class {selectedClass}</>
+                )}
               </Badge>
-              <Button variant="outline" size="sm" onClick={() => setSelectedDomain(null)}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  setSelectedDomain(null);
+                  resetFromBoard();
+                }}
+              >
                 Change Domain
               </Button>
             </div>
-            <Button 
-              className="gap-2" 
-              onClick={() => {
-                if (!selectedDomain) {
-                  toast.error("Please select an exam domain first");
-                  return;
-                }
-                setIsCreating(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
+            
+            <Button onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4 mr-2" />
               Create AI Roadmap
             </Button>
           </div>
@@ -363,7 +439,11 @@ const RoadmapManagement = () => {
           if (!open) setManualBuilderPrefillData(null);
         }}
         onSuccess={fetchRoadmaps}
-        prefillData={manualBuilderPrefillData}
+        prefillData={{
+          ...manualBuilderPrefillData,
+          selectedBoard: selectedBoard || undefined,
+          selectedClass: selectedClass || undefined,
+        }}
       />
 
       {selectedDomain && (

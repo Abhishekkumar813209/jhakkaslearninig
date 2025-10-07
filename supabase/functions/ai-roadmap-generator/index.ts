@@ -109,19 +109,19 @@ serve(async (req) => {
 CRITICAL RULES - MUST FOLLOW:
 1. Return ONLY valid JSON, no markdown or extra text
 2. **The sum of estimated_days per subject MUST EXACTLY equal the time_budget**
-3. Distribute days based on chapter complexity:
-   - Complex chapters (Puzzles, Calculus, Organic Chemistry, Modern Physics): 10-15 days
-   - Moderate chapters (Algebra, Mechanics, Inorganic Chemistry): 6-9 days
-   - Simple chapters (Basic concepts, Definitions, Short topics): 4-6 days
-4. Reserve 3-5% of total budget for revision within complex chapters
+3. **BUDGET ADHERENCE IS ABSOLUTE - If budget is tight (e.g., 30 days for 25 chapters), distribute proportionally even if it means 1-2 days per chapter**
+4. Distribute days based on chapter complexity AND available budget:
+   - When budget allows (>5 days/chapter average): Complex chapters get 10-15 days, Moderate 6-9 days, Simple 4-6 days
+   - When budget is tight (<3 days/chapter average): Distribute proportionally, e.g., Complex 2 days, Moderate 1 day, Simple 1 day
+   - Always prioritize EXACT budget match over ideal day allocation
 
-**MATHEMATICAL EXAMPLE:**
+**MATHEMATICAL EXAMPLE 1 (Generous Budget):**
 Subject: Reasoning
 Time Budget: 100 days
 Total Chapters: 13
 Average per chapter: 100 ÷ 13 = ~7.7 days
 
-CORRECT Distribution Strategy:
+Distribution:
 - Puzzles (complex): 12 days
 - Seating Arrangement (complex): 11 days
 - Logical Reasoning: 10 days
@@ -137,9 +137,28 @@ CORRECT Distribution Strategy:
 - Revision & Practice: 5 days
 **TOTAL = 100 days ✓**
 
+**MATHEMATICAL EXAMPLE 2 (Tight Budget):**
+Subject: Quantitative Aptitude
+Time Budget: 30 days
+Total Chapters: 25
+Average per chapter: 30 ÷ 25 = 1.2 days
+
+Distribution:
+- Number System (complex): 2 days
+- Percentage (complex): 2 days
+- Ratio & Proportion (complex): 2 days
+- Average (moderate): 2 days
+- Time & Work (complex): 2 days
+- Time, Speed & Distance: 2 days
+- Simple & Compound Interest: 1 day
+- Profit & Loss: 1 day
+- Mixtures & Alligations: 1 day
+- ... (continue with 1-2 days each)
+**TOTAL = 30 days EXACTLY ✓**
+
 WRONG Example (DO NOT DO THIS):
-- All chapters: 3-5 days = Only 45 days used ❌
-- Wastes 55 days of budget ❌
+- Forcing 3-5 days minimum when budget = 30 days for 25 chapters ❌
+- This would total 75+ days, exceeding budget by 2.5x ❌
 
 Return format:
 {
@@ -318,23 +337,28 @@ Return JSON with chapters array containing:
         const diff = (budgetDays as number) - currentTotal;
 
         if (Math.abs(diff) > 2) {
+          // Calculate dynamic minimum based on budget
+          const avgDaysPerChapter = (budgetDays as number) / subjectChapters.length;
+          const minDays = Math.max(1, Math.floor(avgDaysPerChapter * 0.5)); // Half of average, minimum 1
+          
           // Distribute difference proportionally
-          const totalWeight = subjectChapters.reduce((sum: number, ch: any) => sum + (ch.estimated_days || 3), 0);
+          const totalWeight = subjectChapters.reduce((sum: number, ch: any) => sum + (ch.estimated_days || minDays), 0);
           
           subjectChapters.forEach((ch: any) => {
-            const proportion = (ch.estimated_days || 3) / totalWeight;
-            ch.estimated_days = Math.max(3, Math.round((ch.estimated_days || 3) + (diff * proportion)));
+            const proportion = (ch.estimated_days || minDays) / totalWeight;
+            ch.estimated_days = Math.max(minDays, Math.round((ch.estimated_days || minDays) + (diff * proportion)));
           });
 
-          // Final normalization
+          // Final normalization - ensure exact budget match
           const newTotal = subjectChapters.reduce((sum: number, ch: any) => sum + ch.estimated_days, 0);
           const finalDiff = (budgetDays as number) - newTotal;
           
           if (finalDiff !== 0) {
-            subjectChapters[0].estimated_days += finalDiff;
+            // Add remaining days to the first chapter
+            subjectChapters[0].estimated_days = Math.max(minDays, subjectChapters[0].estimated_days + finalDiff);
           }
 
-          console.log(`✅ Rebalanced ${subject}: ${currentTotal}d → ${budgetDays}d`);
+          console.log(`✅ Rebalanced ${subject}: ${currentTotal}d → ${budgetDays}d (min: ${minDays}d/chapter)`);
         }
       }
     }

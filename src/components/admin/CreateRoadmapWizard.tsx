@@ -513,6 +513,10 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         return;
       }
 
+      // Calculate dynamic minimum based on budget
+      const avgDaysPerChapter = budget / selectedChapters.length;
+      const minDays = Math.max(1, Math.floor(avgDaysPerChapter * 0.5)); // Half of average, minimum 1
+
       // Calculate difficulty weights
       const difficultyWeights: Record<string, number> = {
         hard: 1.3,
@@ -534,7 +538,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         
         return {
           ...chapter,
-          suggested_days: Math.max(3, proportionalDays) // Minimum 3 days
+          suggested_days: Math.max(minDays, proportionalDays) // Dynamic minimum
         };
       });
 
@@ -559,7 +563,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           
           return {
             ...ch,
-            suggested_days: Math.max(3, (ch.suggested_days || 0) + baseAdjustment + extraAdjustment)
+            suggested_days: Math.max(minDays, (ch.suggested_days || 0) + baseAdjustment + extraAdjustment)
           };
         });
       } else {

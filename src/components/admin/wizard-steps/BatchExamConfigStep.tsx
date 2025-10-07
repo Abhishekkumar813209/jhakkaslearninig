@@ -37,14 +37,15 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
     }
   }, [domain, examTypes]);
 
-  const isSchoolDomain = domain === "School Education";
+  const isSchoolDomain = domain === "school";
+  const isEngineeringOrMedical = domain === 'engineering' || domain === 'medical';
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h3 className="text-xl font-semibold mb-2">Configure Exam Details</h3>
         <p className="text-sm text-muted-foreground">
-          Provide specific information for {domain}
+          Provide specific information for {examTypes.find(t => t.code === domain)?.display_name || domain}
         </p>
       </div>
 
@@ -113,7 +114,7 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
               </SelectContent>
             </Select>
           </div>
-        ) : (domain === 'Engineering Entrance' || domain === 'Medical Entrance') ? (
+        ) : isEngineeringOrMedical ? (
           <div>
             <Label htmlFor="target_class">Student Category *</Label>
             <Select

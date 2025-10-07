@@ -144,7 +144,20 @@ const BatchManagement = () => {
               Change Domain
             </Button>
           )}
-          <Button onClick={() => setShowWizard(true)} className="animate-scale-in">
+          <Button 
+            onClick={() => {
+              if (!selectedDomain) {
+                toast({
+                  title: "Domain Required",
+                  description: "Please select an exam domain first",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setShowWizard(true);
+            }} 
+            className="animate-scale-in"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Batch
           </Button>

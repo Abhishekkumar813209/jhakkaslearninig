@@ -1,11 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { BatchDomainStep } from "./wizard-steps/BatchDomainStep";
+import { useState } from "react";
 import { BatchExamConfigStep } from "./wizard-steps/BatchExamConfigStep";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface CreateBatchWizardProps {
   open: boolean;
@@ -16,8 +14,6 @@ interface CreateBatchWizardProps {
 
 export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain }: CreateBatchWizardProps) {
   const { toast } = useToast();
-  const [step, setStep] = useState(initialDomain ? 2 : 1);
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(initialDomain || null);
   const [formData, setFormData] = useState<any>({
     name: "",
     description: "",
@@ -32,35 +28,6 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
     auto_assign_enabled: true,
   });
 
-  const totalSteps = 2;
-
-  useEffect(() => {
-    if (open) {
-      setSelectedDomain(initialDomain || null);
-      setStep(initialDomain ? 2 : 1);
-    }
-  }, [open, initialDomain]);
-
-  const handleNext = () => {
-    if (step === 1 && !selectedDomain) {
-      toast({
-        title: "Domain Required",
-        description: "Please select an exam domain",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (step < totalSteps) {
-      setStep(step + 1);
-    }
-  };
-
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
@@ -68,7 +35,7 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
 
   const handleSubmit = async () => {
     // Validation for Engineering/Medical requires target_class
-    const isEngineeringOrMedical = selectedDomain === 'Engineering Entrance' || selectedDomain === 'Medical Entrance';
+    const isEngineeringOrMedical = initialDomain === 'engineering' || initialDomain === 'medical';
     
     if (!formData.name || !formData.start_date) {
       toast({
@@ -101,7 +68,7 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
 
       const batchData = {
         ...formData,
-        exam_type: selectedDomain,
+        exam_type: initialDomain,
       };
 
       const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api`, {
@@ -136,8 +103,6 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
   };
 
   const handleReset = () => {
-    setStep(initialDomain ? 2 : 1);
-    setSelectedDomain(initialDomain || null);
     setFormData({
       name: "",
       description: "",
@@ -158,52 +123,26 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
     <Dialog open={open} onOpenChange={handleReset}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Batch - Step {step} of {totalSteps}</DialogTitle>
+          <DialogTitle>Create New Batch</DialogTitle>
         </DialogHeader>
 
         <div className="py-6">
-          {step === 1 && (
-            <BatchDomainStep
-              selectedDomain={selectedDomain}
-              onDomainSelect={setSelectedDomain}
-            />
-          )}
-
-          {step === 2 && selectedDomain && (
+          {initialDomain && (
             <BatchExamConfigStep
-              domain={selectedDomain}
+              domain={initialDomain}
               formData={formData}
               onChange={handleFieldChange}
             />
           )}
         </div>
 
-        <div className="flex justify-between pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={step === 1}
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Back
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button variant="ghost" onClick={handleReset}>
+            Cancel
           </Button>
-
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={handleReset}>
-              Cancel
-            </Button>
-
-            {step < totalSteps ? (
-              <Button onClick={handleNext}>
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleSubmit}>
-                Create Batch
-              </Button>
-            )}
-          </div>
+          <Button onClick={handleSubmit}>
+            Create Batch
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

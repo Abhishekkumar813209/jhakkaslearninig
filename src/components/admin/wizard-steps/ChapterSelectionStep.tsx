@@ -7,8 +7,33 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Sparkles, Plus, Trash2, Upload, Loader2, FileText } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Sparkles, Plus, Trash2, Upload, Loader2, FileText, Filter } from "lucide-react";
 import type { Subject, Chapter, ChaptersBySubject } from "../CreateRoadmapWizard";
+
+const getImportanceBadge = (relevance?: string, score?: number) => {
+  if (!relevance && !score) return null;
+  
+  const badges = {
+    core: { label: "🔴 Core", variant: "destructive" as const },
+    important: { label: "🟡 Important", variant: "default" as const },
+    optional: { label: "⚪ Optional", variant: "outline" as const },
+  };
+  
+  const badge = badges[relevance as keyof typeof badges] || badges.important;
+  
+  return (
+    <Badge variant={badge.variant} className="text-xs mr-1">
+      {badge.label} {score && `(${score}/10)`}
+    </Badge>
+  );
+};
 
 interface ChapterSelectionStepProps {
   subjects: Subject[];
@@ -40,6 +65,7 @@ export const ChapterSelectionStep = ({
   const [customChapterInputs, setCustomChapterInputs] = useState<{ [key: string]: { name: string; days: number } }>({});
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [fetchedInitial, setFetchedInitial] = useState<Set<string>>(new Set());
+  const [importanceFilters, setImportanceFilters] = useState<{ [subject: string]: string }>({});
 
   const handleAddCustomChapter = (subjectName: string) => {
     const input = customChapterInputs[subjectName];
@@ -121,7 +147,13 @@ export const ChapterSelectionStep = ({
       ) : (
         <Accordion type="multiple" className="space-y-2">
           {subjects.map((subject) => {
-            const subjectChapters = chapters[subject.name] || [];
+            const allSubjectChapters = chapters[subject.name] || [];
+            const importanceFilter = importanceFilters[subject.name] || 'all';
+            
+            const subjectChapters = importanceFilter === 'all' 
+              ? allSubjectChapters
+              : allSubjectChapters.filter(c => c.exam_relevance === importanceFilter);
+            
             const selectedCount = subjectChapters.filter(c => c.isSelected).length;
 
             const budget = timeBudget[subject.name] || 0;
@@ -148,7 +180,7 @@ export const ChapterSelectionStep = ({
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 pt-4">
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap items-center">
                       {!fetchedInitial.has(subject.name) ? (
                         <Button
                           onClick={async () => {
@@ -193,18 +225,38 @@ export const ChapterSelectionStep = ({
                           )}
                         </Button>
                       )}
-                      {subjectChapters.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            subjectChapters.forEach(c => {
-                              if (!c.isSelected) onToggleChapter(subject.name, c.id);
-                            });
-                          }}
-                        >
-                          Select All
-                        </Button>
+                      {allSubjectChapters.length > 0 && (
+                        <>
+                          <Select 
+                            value={importanceFilter} 
+                            onValueChange={(value) => setImportanceFilters({
+                              ...importanceFilters,
+                              [subject.name]: value
+                            })}
+                          >
+                            <SelectTrigger className="w-[160px] h-9">
+                              <Filter className="h-3 w-3 mr-2" />
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Chapters</SelectItem>
+                              <SelectItem value="core">🔴 Core Only</SelectItem>
+                              <SelectItem value="important">🟡 Important</SelectItem>
+                              <SelectItem value="optional">⚪ Optional</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              subjectChapters.forEach(c => {
+                                if (!c.isSelected) onToggleChapter(subject.name, c.id);
+                              });
+                            }}
+                          >
+                            Select All
+                          </Button>
+                        </>
                       )}
                     </div>
                     {fetchedInitial.has(subject.name) && subjectChapters.length > 0 && (
@@ -228,13 +280,26 @@ export const ChapterSelectionStep = ({
                                 checked={chapter.isSelected}
                                 onCheckedChange={() => onToggleChapter(subject.name, chapter.id)}
                               />
-                              <div className="flex-1 flex items-center gap-2">
-                                <span className="text-sm">{chapter.chapter_name}</span>
-                                {chapter.suggested_days && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {chapter.suggested_days} days
-                                  </Badge>
-                                )}
+                              <div className="flex-1 flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{chapter.chapter_name}</span>
+                                  {getImportanceBadge(chapter.exam_relevance, chapter.importance_score)}
+                                  {chapter.can_skip && (
+                                    <Badge variant="secondary" className="text-xs">Skippable</Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {chapter.suggested_days && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {chapter.suggested_days} days
+                                    </Badge>
+                                  )}
+                                  {chapter.difficulty && (
+                                    <Badge variant="outline" className="text-xs capitalize">
+                                      {chapter.difficulty}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                               {chapter.isCustom && (
                                 <Badge variant="secondary" className="text-xs">Custom</Badge>

@@ -218,12 +218,15 @@ export type Database = {
       }
       chapter_library: {
         Row: {
+          can_skip: boolean | null
           chapter_name: string
           created_at: string | null
           created_by: string | null
           difficulty: string | null
+          exam_relevance: string | null
           exam_type: string
           id: string
+          importance_score: number | null
           is_active: boolean | null
           is_custom: boolean | null
           subject: string
@@ -233,12 +236,15 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          can_skip?: boolean | null
           chapter_name: string
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
+          exam_relevance?: string | null
           exam_type: string
           id?: string
+          importance_score?: number | null
           is_active?: boolean | null
           is_custom?: boolean | null
           subject: string
@@ -248,12 +254,15 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          can_skip?: boolean | null
           chapter_name?: string
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
+          exam_relevance?: string | null
           exam_type?: string
           id?: string
+          importance_score?: number | null
           is_active?: boolean | null
           is_custom?: boolean | null
           subject?: string

@@ -32,6 +32,9 @@ export interface Chapter {
   isSelected: boolean;
   isCustom?: boolean;
   difficulty?: 'easy' | 'medium' | 'hard';
+  importance_score?: number;
+  exam_relevance?: 'core' | 'important' | 'optional';
+  can_skip?: boolean;
 }
 
 export interface ChaptersBySubject {

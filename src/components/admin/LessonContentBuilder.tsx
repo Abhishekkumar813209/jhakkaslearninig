@@ -14,6 +14,8 @@ import { Plus, Trash2, Eye, Sparkles, GripVertical, Check, X } from "lucide-reac
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useExamTypes } from "@/hooks/useExamTypes";
+import * as LucideIcons from "lucide-react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
 type GameType = 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order';
@@ -110,6 +112,10 @@ function SortableLesson({ lesson, onEdit, onDelete }: { lesson: Lesson; onEdit: 
 
 export function LessonContentBuilder() {
   const { toast } = useToast();
+  const { examTypes } = useExamTypes();
+  
+  // Domain selection
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   
   // Hierarchical filtering state
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -138,9 +144,27 @@ export function LessonContentBuilder() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Zap: LucideIcons.Zap,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
+  };
+
   useEffect(() => {
-    fetchBatches();
-  }, []);
+    if (selectedDomain) {
+      fetchBatches();
+      setSelectedBatch("");
+      setSelectedSubject("");
+      setSelectedChapter("");
+      setSelectedTopic("");
+    }
+  }, [selectedDomain]);
 
   useEffect(() => {
     if (selectedBatch) {
@@ -173,10 +197,13 @@ export function LessonContentBuilder() {
   }, [selectedTopic]);
 
   const fetchBatches = async () => {
+    if (!selectedDomain) return;
+
     const { data, error } = await supabase
       .from("batches")
       .select("id, name, exam_type, exam_name, linked_roadmap_id")
       .eq("is_active", true)
+      .eq("exam_type", selectedDomain)
       .order("name");
 
     if (error) {
@@ -428,14 +455,80 @@ export function LessonContentBuilder() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Lesson Content Builder</CardTitle>
-          <CardDescription>Create and manage lesson content for topics</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Simplified Filtering: Batch → Subject → Chapter → Topic */}
-          <div className="grid gap-4 md:grid-cols-4">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-3xl font-bold">Lesson Content Builder</h2>
+          <p className="text-muted-foreground mt-1">
+            {selectedDomain 
+              ? `Building lessons for ${selectedDomain} domain` 
+              : "Select an exam domain to start"}
+          </p>
+        </div>
+        {selectedDomain && (
+          <Button onClick={() => setSelectedDomain(null)} variant="outline">
+            Change Domain
+          </Button>
+        )}
+      </div>
+
+      {/* Domain Selection Cards */}
+      {!selectedDomain ? (
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold">Select Exam Domain</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {examTypes.map((examType, index) => {
+              const IconComponent = examType.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+              return (
+                <Card 
+                  key={examType.id}
+                  className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  onClick={() => setSelectedDomain(examType.code)}
+                >
+                  <CardContent className="p-6">
+                    <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
+                      <IconComponent className="h-12 w-12 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-lg mb-2">{examType.display_name}</h4>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Selected Domain Badge */}
+          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const examType = examTypes.find(t => t.code === selectedDomain);
+                  const IconComponent = examType?.icon_name ? iconMap[examType.icon_name] || LucideIcons.BookOpen : LucideIcons.BookOpen;
+                  return (
+                    <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-gray-500'}`}>
+                      <IconComponent className="h-6 w-6 text-white" />
+                    </div>
+                  );
+                })()}
+                <div>
+                  <p className="text-sm text-muted-foreground">Selected Domain</p>
+                  <p className="text-xl font-bold">{examTypes.find(t => t.code === selectedDomain)?.display_name}</p>
+                </div>
+              </div>
+              <Badge className="text-lg px-4 py-2">{batches.length} batches</Badge>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Build Lesson Content</CardTitle>
+              <CardDescription>Create and manage lesson content for topics</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Simplified Filtering: Batch → Subject → Chapter → Topic */}
+              <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <Label>Batch</Label>
               <Select value={selectedBatch} onValueChange={setSelectedBatch}>
@@ -496,42 +589,42 @@ export function LessonContentBuilder() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+              </div>
 
-          {selectedChapter && (
-            <div className="space-y-2">
-              <Label>Topic</Label>
-              <Select value={selectedTopic} onValueChange={setSelectedTopic}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a topic" />
-                </SelectTrigger>
-                <SelectContent>
-                  {topics.map((topic) => (
-                    <SelectItem key={topic.id} value={topic.id}>
-                      {topic.topic_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+              {selectedChapter && (
+                <div className="space-y-2">
+                  <Label>Topic</Label>
+                  <Select value={selectedTopic} onValueChange={setSelectedTopic}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a topic" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {topics.map((topic) => (
+                        <SelectItem key={topic.id} value={topic.id}>
+                          {topic.topic_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-          {selectedTopic && (
-            <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Lessons ({lessons.length})</h3>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleBulkGenerateLessons} disabled={loading}>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    AI Generate All
-                  </Button>
-                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Lesson
+              {selectedTopic && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">Lessons ({lessons.length})</h3>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={handleBulkGenerateLessons} disabled={loading}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        AI Generate All
                       </Button>
-                    </DialogTrigger>
+                      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Lesson
+                          </Button>
+                        </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Add New Lesson</DialogTitle>
@@ -726,10 +819,12 @@ export function LessonContentBuilder() {
                   </SortableContext>
                 </DndContext>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </>
+            )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

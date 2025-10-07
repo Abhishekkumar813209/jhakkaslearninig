@@ -10,10 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Download, Clock, Users, FileText, Wand2, BookOpen, Calendar, GraduationCap, Building2, Briefcase } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, Clock, Users, FileText, Wand2, BookOpen, Calendar, GraduationCap, Building2, Briefcase, Globe, Shield, Zap, Award, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
+import { BoardClassSelector } from './BoardClassSelector';
+import { useBoardClassHierarchy } from '@/hooks/useBoardClassHierarchy';
+import * as LucideIcons from 'lucide-react';
 
 interface Test {
   id: string;
@@ -52,6 +55,7 @@ const TestManagement: React.FC = () => {
   const navigate = useNavigate();
   const { examTypes, loading: examTypesLoading } = useExamTypes();
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -70,6 +74,19 @@ const TestManagement: React.FC = () => {
   });
   const { boards: availableBoards, requiresBoard } = useBoards(newTest.exam_domain);
   const { toast } = useToast();
+
+  // Icon map for exam types
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Zap: LucideIcons.Zap,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
+  };
 
   useEffect(() => {
     fetchTests();
@@ -254,59 +271,106 @@ const TestManagement: React.FC = () => {
     );
   }
 
-  const iconMap: Record<string, any> = {
-    'school': BookOpen,
-    'engineering': GraduationCap,
-    'medical': Building2,
-    'government': Briefcase,
-  };
-
   const getDomainTestCount = (examType: string) => {
-    return tests.filter(t => t.subject?.toLowerCase().includes(examType.toLowerCase())).length;
+    return tests.filter(t => t.exam_domain === examType).length;
   };
 
-  const filteredTests = selectedDomain
-    ? tests.filter(t => t.subject?.toLowerCase().includes(selectedDomain.toLowerCase()))
-    : tests;
+  const getTestCounts = () => {
+    const domainTests = tests.filter(t => t.exam_domain === selectedDomain);
+    const byBoard: Record<string, number> = {};
+    const byClass: Record<string, Record<string, number>> = {};
+
+    domainTests.forEach(test => {
+      const board = test.target_board || 'General';
+      const cls = test.target_class;
+      
+      byBoard[board] = (byBoard[board] || 0) + 1;
+      
+      if (!byClass[board]) byClass[board] = {};
+      if (cls) {
+        byClass[board][cls] = (byClass[board][cls] || 0) + 1;
+      }
+    });
+
+    return { byBoard, byClass };
+  };
+
+  const filteredTests = tests.filter(t => {
+    if (!selectedDomain) return false;
+    if (t.exam_domain !== selectedDomain) return false;
+    
+    if (selectedDomain === 'school') {
+      if (selectedBoard && t.target_board !== selectedBoard) return false;
+      if (selectedClass && t.target_class !== selectedClass) return false;
+    }
+    
+    return true;
+  });
 
   const publishedTests = filteredTests.filter(t => t.status === 'published').length;
   const totalQuestions = filteredTests.reduce((sum, t) => sum + t.question_count, 0);
 
+  const handleOpenCreateDialog = () => {
+    setNewTest(prev => ({
+      ...prev,
+      exam_domain: selectedDomain || 'school',
+      target_board: selectedBoard || '',
+      target_class: selectedClass || ''
+    }));
+    setShowCreateDialog(true);
+  };
+
+  const handleChangeDomain = () => {
+    setSelectedDomain(null);
+    resetFromBoard();
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Test Management</h2>
-        <p className="text-muted-foreground">Create, manage, and monitor your tests and exams</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold">Test Management</h2>
+          <p className="text-muted-foreground mt-1">
+            {selectedDomain 
+              ? `Managing tests for ${examTypes.find(t => t.code === selectedDomain)?.display_name}` 
+              : "Select an exam domain to manage tests"}
+          </p>
+        </div>
+        {selectedDomain && (
+          <Button onClick={handleChangeDomain} variant="outline">
+            Change Domain
+          </Button>
+        )}
       </div>
 
       {!selectedDomain ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Select Exam Domain</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {examTypes.map((examType, idx) => {
-              const Icon = iconMap[examType.category.toLowerCase()] || GraduationCap;
+          <h3 className="text-xl font-semibold">Select Exam Domain</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {examTypes.map((examType, index) => {
+              const IconComponent = examType.icon_name 
+                ? iconMap[examType.icon_name] || LucideIcons.BookOpen 
+                : LucideIcons.BookOpen;
               const count = getDomainTestCount(examType.code);
               
               return (
-                <Card
+                <Card 
                   key={examType.id}
-                  className="cursor-pointer hover:shadow-lg transition-all hover-scale animate-fade-in"
-                  style={{ animationDelay: `${idx * 0.1}s` }}
-                  onClick={() => setSelectedDomain(examType.code)}
+                  className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  onClick={() => {
+                    setSelectedDomain(examType.code);
+                    resetFromBoard();
+                  }}
                 >
                   <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`p-3 rounded-lg ${examType.color_class || 'bg-primary/10'}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">{examType.display_name}</h3>
-                        <p className="text-sm text-muted-foreground capitalize">{examType.category}</p>
-                      </div>
+                    <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
+                      <IconComponent className="h-12 w-12 text-white" />
                     </div>
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                      <span className="text-sm text-muted-foreground">Tests</span>
-                      <Badge variant="secondary" className="font-semibold">{count}</Badge>
+                    <h4 className="font-semibold text-lg mb-2">{examType.display_name}</h4>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{count} tests</span>
+                      <Badge variant="secondary">{count}</Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -314,23 +378,52 @@ const TestManagement: React.FC = () => {
             })}
           </div>
         </div>
+      ) : selectedDomain === 'school' && (!selectedBoard || !selectedClass) ? (
+        <BoardClassSelector
+          examType={selectedDomain}
+          selectedBoard={selectedBoard}
+          selectedClass={selectedClass}
+          onBoardSelect={setBoard}
+          onClassSelect={setClass}
+          onReset={resetFromBoard}
+          onResetToBoard={resetToBoard}
+          studentCounts={getTestCounts()}
+        />
       ) : (
         <>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Badge variant="default" className="text-base px-4 py-2">
-                Selected: {examTypes.find(e => e.code === selectedDomain)?.display_name}
-                {examTypes.find(e => e.code === selectedDomain)?.category &&
-                  ` (${examTypes.find(e => e.code === selectedDomain)?.category})`
-                }
-              </Badge>
-              <Button variant="outline" size="sm" onClick={() => setSelectedDomain(null)}>
-                Change Domain
-              </Button>
-            </div>
+          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const examType = examTypes.find(e => e.code === selectedDomain);
+                  const IconComponent = examType?.icon_name 
+                    ? iconMap[examType.icon_name] || LucideIcons.BookOpen 
+                    : LucideIcons.BookOpen;
+                  return (
+                    <>
+                      <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-primary/20'}`}>
+                        <IconComponent className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{examType?.display_name}</h3>
+                        {selectedDomain === 'school' && (
+                          <p className="text-sm text-muted-foreground">
+                            {selectedBoard} • Class {selectedClass}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              <Badge className="text-lg px-4 py-2">{filteredTests.length} tests</Badge>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
+                <Button className="flex items-center gap-2" onClick={handleOpenCreateDialog}>
                   <Plus className="h-4 w-4" />
                   Create Test
                 </Button>

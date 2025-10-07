@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Save, Upload, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useExamTypes } from "@/hooks/useExamTypes";
+import { BoardClassSelector } from "./BoardClassSelector";
+import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import * as LucideIcons from "lucide-react";
 
 interface Topic {
@@ -60,6 +62,7 @@ export const ManualTopicEditor = () => {
   
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
+  const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -80,7 +83,7 @@ export const ManualTopicEditor = () => {
       setSelectedSubject("");
       setSelectedChapter("");
     }
-  }, [selectedDomain]);
+  }, [selectedDomain, selectedBoard, selectedClass]);
 
   useEffect(() => {
     if (selectedBatch) {
@@ -100,12 +103,13 @@ export const ManualTopicEditor = () => {
   const fetchBatches = async () => {
     if (!selectedDomain) return;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("batches")
-      .select("id, name, exam_type, exam_name, level, linked_roadmap_id")
+      .select("id, name, exam_type, exam_name, level, linked_roadmap_id, target_board, target_class, current_strength")
       .eq("is_active", true)
-      .eq("exam_type", selectedDomain)
-      .order("name");
+      .eq("exam_type", selectedDomain);
+
+    const { data, error } = await query.order("name");
 
     if (error) {
       toast({
@@ -116,11 +120,36 @@ export const ManualTopicEditor = () => {
       return;
     }
 
-    setBatches(data || []);
+    // Filter by board and class for school domain
+    let filteredData = data || [];
+    if (selectedDomain === 'school') {
+      filteredData = filteredData.filter(b => 
+        (!selectedBoard || b.target_board === selectedBoard) &&
+        (!selectedClass || b.target_class === selectedClass)
+      );
+    }
+
+    setBatches(filteredData);
   };
 
-  const getDomainBatchCount = (domain: string) => {
-    return batches.filter(b => b.exam_type === domain).length;
+  const getStudentCounts = () => {
+    const domainBatches = batches.filter((b: any) => b.exam_type === selectedDomain);
+    const byBoard: Record<string, number> = {};
+    const byClass: Record<string, Record<string, number>> = {};
+
+    domainBatches.forEach((batch: any) => {
+      const board = batch.target_board || 'CBSE';
+      const cls = batch.target_class;
+      
+      byBoard[board] = (byBoard[board] || 0) + (batch.current_strength || 0);
+      
+      if (!byClass[board]) byClass[board] = {};
+      if (cls) {
+        byClass[board][cls] = (byClass[board][cls] || 0) + (batch.current_strength || 0);
+      }
+    });
+
+    return { byBoard, byClass };
   };
 
   const fetchSubjects = async () => {
@@ -349,15 +378,21 @@ export const ManualTopicEditor = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-3xl font-bold">Manual Topic Addition</h2>
+          <h2 className="text-3xl font-bold">Add Topics</h2>
           <p className="text-muted-foreground mt-1">
             {selectedDomain 
-              ? `Adding topics for ${selectedDomain} domain` 
-              : "Select an exam domain to start"}
+              ? `Managing topics for ${examTypes.find(t => t.code === selectedDomain)?.display_name}` 
+              : "Select an exam domain to manage topics"}
           </p>
         </div>
         {selectedDomain && (
-          <Button onClick={() => setSelectedDomain(null)} variant="outline">
+          <Button onClick={() => { 
+            setSelectedDomain(null); 
+            resetFromBoard();
+            setSelectedBatch("");
+            setSelectedSubject("");
+            setSelectedChapter("");
+          }} variant="outline">
             Change Domain
           </Button>
         )}
@@ -375,7 +410,10 @@ export const ManualTopicEditor = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => setSelectedDomain(examType.code)}
+                  onClick={() => {
+                    setSelectedDomain(examType.code);
+                    resetFromBoard();
+                  }}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
@@ -388,6 +426,17 @@ export const ManualTopicEditor = () => {
             })}
           </div>
         </div>
+      ) : selectedDomain === 'school' && (!selectedBoard || !selectedClass) ? (
+        <BoardClassSelector
+          examType={selectedDomain}
+          selectedBoard={selectedBoard}
+          selectedClass={selectedClass}
+          onBoardSelect={setBoard}
+          onClassSelect={setClass}
+          onReset={resetFromBoard}
+          onResetToBoard={resetToBoard}
+          studentCounts={getStudentCounts()}
+        />
       ) : (
         <>
           {/* Selected Domain Badge */}

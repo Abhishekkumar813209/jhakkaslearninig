@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BatchDomainStep } from "./wizard-steps/BatchDomainStep";
 import { BatchExamConfigStep } from "./wizard-steps/BatchExamConfigStep";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,13 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
   });
 
   const totalSteps = 2;
+
+  useEffect(() => {
+    if (open) {
+      setSelectedDomain(initialDomain || null);
+      setStep(initialDomain ? 2 : 1);
+    }
+  }, [open, initialDomain]);
 
   const handleNext = () => {
     if (step === 1 && !selectedDomain) {

@@ -41,10 +41,11 @@ serve(async (req) => {
       auto_detect = true,
       mode = 'parallel',
       title,
-      time_budget
+      time_budget,
+      intensity = 'balanced' // 'full' | 'important' | 'balanced'
     } = await req.json();
 
-    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget });
+    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget, intensity });
 
     // Smart extraction
     let extractedClass = conditional_class || target_class;
@@ -103,62 +104,44 @@ serve(async (req) => {
       });
     }
 
-    // Create AI prompt with time budget
-    const systemPrompt = `You are an expert educational roadmap planner specialized in mathematical time budget distribution.
+    // Create AI prompt with time budget and intensity
+    const systemPrompt = `You are an expert educational roadmap planner specialized in mathematical time budget distribution and adaptive chapter selection based on importance.
 
 CRITICAL RULES - MUST FOLLOW:
 1. Return ONLY valid JSON, no markdown or extra text
 2. **The sum of estimated_days per subject MUST EXACTLY equal the time_budget**
 3. **BUDGET ADHERENCE IS ABSOLUTE - If budget is tight (e.g., 30 days for 25 chapters), distribute proportionally even if it means 1-2 days per chapter**
-4. Distribute days based on chapter complexity AND available budget:
+4. **CHAPTER SELECTION BASED ON INTENSITY MODE** (see below)
+5. Distribute days based on chapter complexity AND available budget:
    - When budget allows (>5 days/chapter average): Complex chapters get 10-15 days, Moderate 6-9 days, Simple 4-6 days
    - When budget is tight (<3 days/chapter average): Distribute proportionally, e.g., Complex 2 days, Moderate 1 day, Simple 1 day
    - Always prioritize EXACT budget match over ideal day allocation
 
-**MATHEMATICAL EXAMPLE 1 (Generous Budget):**
-Subject: Reasoning
-Time Budget: 100 days
-Total Chapters: 13
-Average per chapter: 100 ÷ 13 = ~7.7 days
+**INTENSITY MODES:**
 
-Distribution:
-- Puzzles (complex): 12 days
-- Seating Arrangement (complex): 11 days
-- Logical Reasoning: 10 days
-- Blood Relations: 9 days
-- Coding-Decoding: 8 days
-- Syllogism: 8 days
-- Series: 7 days
-- Analogy: 7 days
-- Data Sufficiency: 6 days
-- Verbal Reasoning: 6 days
-- Direction Sense: 6 days
-- Non-Verbal: 5 days
-- Revision & Practice: 5 days
-**TOTAL = 100 days ✓**
+A) "full" - Full Syllabus Coverage:
+   - Include ALL chapters provided
+   - Distribute days proportionally (even if 1-2 days/chapter)
+   - For tight budgets (<2 days avg): Cluster related concepts into combined topics
+   - Example: "Variables + Data Types + Operators" (1 combined chapter, 2 days)
 
-**MATHEMATICAL EXAMPLE 2 (Tight Budget):**
-Subject: Quantitative Aptitude
-Time Budget: 30 days
-Total Chapters: 25
-Average per chapter: 30 ÷ 25 = 1.2 days
+B) "important" - Important Chapters Only:
+   - Select top 70% of chapters based on importance_score
+   - Prioritize chapters with exam_relevance="core" or "important"
+   - Skip chapters with can_skip=true or importance_score < 5
+   - Allocate 3-5 days per chapter for better learning outcomes
 
-Distribution:
-- Number System (complex): 2 days
-- Percentage (complex): 2 days
-- Ratio & Proportion (complex): 2 days
-- Average (moderate): 2 days
-- Time & Work (complex): 2 days
-- Time, Speed & Distance: 2 days
-- Simple & Compound Interest: 1 day
-- Profit & Loss: 1 day
-- Mixtures & Alligations: 1 day
-- ... (continue with 1-2 days each)
-**TOTAL = 30 days EXACTLY ✓**
+C) "balanced" - Balanced Mix:
+   - Include ALL core chapters (exam_relevance="core")
+   - Include 50% of important chapters (exam_relevance="important")
+   - Allocate: Core chapters 4-6 days, Important 2-3 days
+   - Skip optional chapters (exam_relevance="optional")
 
-WRONG Example (DO NOT DO THIS):
-- Forcing 3-5 days minimum when budget = 30 days for 25 chapters ❌
-- This would total 75+ days, exceeding budget by 2.5x ❌
+**CHAPTER CLUSTERING (for tight budgets in "full" mode):**
+- If avg_days_per_chapter < 2: Combine related chapters
+- Example: Instead of separate chapters, create:
+  "Introduction to OS + OS Architecture" (combined, 2 days)
+- Always maintain importance_score for transparency
 
 Return format:
 {
@@ -168,6 +151,8 @@ Return format:
       "subject": "string",
       "order_num": number,
       "estimated_days": number,
+      "importance_score": number, // from input data
+      "is_clustered": boolean, // true if combining multiple concepts
       "topics": [
         {
           "topic_name": "string",
@@ -176,7 +161,14 @@ Return format:
         }
       ]
     }
-  ]
+  ],
+  "metadata": {
+    "intensity": "full|important|balanced",
+    "total_chapters_available": number,
+    "total_chapters_included": number,
+    "chapters_excluded": number,
+    "clustering_applied": boolean
+  }
 }`;
     
     let studentContext = '';
@@ -205,46 +197,50 @@ Return format:
 ${studentContext}
 Subjects: ${extractedSubjects.join(', ')}
 
+**INTENSITY MODE: ${intensity}**
+
 **TIME BUDGET (MUST BE FULLY UTILIZED):**
 ${time_budget ? Object.entries(time_budget).map(([subject, days]) => {
-  const chapterCount = selected_subjects?.find((s: any) => s.subject === subject)?.selected_chapters?.length || 10;
-  const avgDays = Math.round((days as number) / chapterCount);
-  return `- ${subject}: ${days} days total (${chapterCount} chapters, ~${avgDays} days/chapter average)`;
+  const subjectData = selected_subjects?.find((s: any) => s.subject === subject);
+  const allChapters = subjectData?.selected_chapters || [];
+  const chapterCount = allChapters.length;
+  const avgDays = chapterCount > 0 ? Math.round((days as number) / chapterCount) : 0;
+  const coreCount = allChapters.filter((c: any) => c.exam_relevance === 'core').length;
+  const importantCount = allChapters.filter((c: any) => c.exam_relevance === 'important').length;
+  
+  return `- ${subject}: ${days} days total (${chapterCount} chapters, ~${avgDays} days/chapter average)
+  🔴 Core: ${coreCount}, 🟡 Important: ${importantCount}`;
 }).join('\n') : 'Not specified'}
 
 ${existing_syllabus ? `Context: ${existing_syllabus}` : ''}
 
 ${selected_subjects ? `
-CHAPTERS TO INCLUDE (with client-computed suggested days as hints):
+CHAPTERS WITH IMPORTANCE METADATA:
 ${selected_subjects.map((s: any) => {
   const budget = time_budget?.[s.subject] || 0;
-  return `${s.subject} (${budget} days budget):\n${s.selected_chapters.map((c: any) => 
-    `  - ${c.chapter_name} (suggested: ${c.suggested_days || 'auto'} days)`
-  ).join('\n')}`;
+  return `${s.subject} (${budget} days budget, Intensity: ${intensity}):\n${s.selected_chapters.map((c: any) => {
+    const importanceBadge = c.exam_relevance === 'core' ? '🔴' : c.exam_relevance === 'important' ? '🟡' : '⚪';
+    const skipIndicator = c.can_skip ? '[SKIPPABLE]' : '';
+    return `  ${importanceBadge} ${c.chapter_name} (score: ${c.importance_score || 5}/10, days: ${c.suggested_days || 'auto'}) ${skipIndicator}`;
+  }).join('\n')}`;
 }).join('\n\n')}
 
-**Use these suggested_days as baseline hints, but ensure final distribution sums to exact budget.**
+**APPLY INTENSITY STRATEGY:**
+- If intensity='full': Include ALL chapters above, distribute days proportionally
+- If intensity='important': Select top 70% by importance_score, exclude can_skip=true
+- If intensity='balanced': Include ALL core (🔴), 50% of important (🟡), skip optional (⚪)
 ` : ''}
 
 **CRITICAL INSTRUCTIONS:**
-1. Calculate: total_budget ÷ number_of_chapters = average_days
-2. Distribute days around this average (complex chapters +3 to +5, simple -2 to -3)
-3. Complex/difficult chapters get MORE than average
-4. Simple/easy chapters get LESS than average
-5. **VERIFY BEFORE RETURNING: Sum of all chapter days = time_budget EXACTLY**
-6. Add small revision/buffer in last chapter (3-5% of total)
+1. Apply intensity filter FIRST to select chapters
+2. Calculate: selected_budget ÷ number_of_selected_chapters = average_days
+3. Distribute days around this average (complex +3 to +5, simple -2 to -3)
+4. **VERIFY: Sum of all chapter days = time_budget EXACTLY**
+5. If avg < 2 days AND intensity='full': Apply clustering (combine related chapters)
+6. Always include importance_score in output for transparency
 
-Mathematical Example:
-- Budget: 100 days, Chapters: 13 → Average = 7.7 days
-- Assign days: [12, 11, 10, 9, 8, 8, 7, 7, 6, 6, 6, 5, 5] = 100 ✓
-- NOT: [3, 4, 5, 3, 4, 5...] = Only 50 days ❌
+Return JSON with chapters array and metadata object.`;
 
-Return JSON with chapters array containing:
-- chapter_name
-- subject
-- order_num
-- estimated_days (MUST sum to budget)
-- topics array (topic_name, order_num, estimated_hours)`;
 
     // Call Lovable AI Gateway
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -388,7 +384,9 @@ Return JSON with chapters array containing:
             target_board: extractedBoard,
             subjects: extractedSubjects,
             mode,
-            time_budget
+            time_budget,
+            intensity,
+            generation_timestamp: new Date().toISOString()
           }
         },
         created_by: user.id

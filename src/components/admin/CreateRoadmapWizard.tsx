@@ -5,6 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
 import { SubjectSelectionStep } from "./wizard-steps/SubjectSelectionStep";
 import { ChapterSelectionStep } from "./wizard-steps/ChapterSelectionStep";
+import { IntensitySelectionStep } from "./wizard-steps/IntensitySelectionStep";
+import { RoadmapPreviewStep } from "./wizard-steps/RoadmapPreviewStep";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -61,7 +63,7 @@ interface CreateRoadmapWizardProps {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 4; // Batch, Subject, Time Budget, Chapters
+  const totalSteps = 6; // Batch, Subject, Time Budget, Chapters, Intensity, Preview
 
   // Batch selection state
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -89,7 +91,12 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   
   // Step 3: Time Budget
   const [timeBudget, setTimeBudget] = useState<Record<string, number>>({});
-
+  
+  // Step 5: Intensity Selection
+  const [intensity, setIntensity] = useState<'full' | 'important' | 'balanced'>('balanced');
+  
+  // Step 6: Preview state
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Timeline will be set manually - no auto-calculation
 
@@ -381,7 +388,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     );
 
     try {
-      // Prepare selected data
+      // Prepare selected data with importance metadata
       const selected_subjects = selectedSubjects.map(subject => {
         const subjectChapters = fetchedChapters[subject.name] || [];
         const selected_chapters = subjectChapters
@@ -389,7 +396,11 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           .map(c => ({
             chapter_id: c.id,
             chapter_name: c.chapter_name,
-            suggested_days: c.suggested_days
+            suggested_days: c.suggested_days,
+            importance_score: c.importance_score,
+            exam_relevance: c.exam_relevance,
+            can_skip: c.can_skip,
+            difficulty: c.difficulty
           }));
 
         return {
@@ -409,7 +420,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           selected_subjects,
           title: roadmapTitle,
           mode: roadmapMode,
-          time_budget: timeBudget
+          time_budget: timeBudget,
+          intensity: intensity // Pass intensity mode
         }
       });
 
@@ -822,6 +834,32 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             />
           )}
 
+          {/* Step 4: Intensity Selection */}
+          {currentStep === 4 && (
+            <IntensitySelectionStep
+              intensity={intensity}
+              onIntensityChange={setIntensity}
+              totalBudget={Object.values(timeBudget).reduce((sum, val) => sum + val, 0)}
+              totalChapters={Object.values(fetchedChapters).flat().filter(c => c.isSelected).length}
+              coreChapters={Object.values(fetchedChapters).flat().filter(c => c.isSelected && c.exam_relevance === 'core').length}
+              importantChapters={Object.values(fetchedChapters).flat().filter(c => c.isSelected && c.exam_relevance === 'important').length}
+            />
+          )}
+
+          {/* Step 5: Preview */}
+          {currentStep === 5 && (
+            <RoadmapPreviewStep
+              chapters={fetchedChapters}
+              timeBudget={timeBudget}
+              intensity={intensity}
+              onRegenerate={() => {
+                // Could trigger a re-calculation or AI call here
+                toast.info("Regeneration functionality coming soon");
+              }}
+              isRegenerating={isRegenerating}
+            />
+          )}
+
         </div>
 
         <div className="flex justify-between pt-4 border-t">
@@ -845,7 +883,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
               Cancel
             </Button>
 
-            {currentStep < totalSteps ? (
+            {currentStep < 5 ? (
               <Button onClick={handleNext}>
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />

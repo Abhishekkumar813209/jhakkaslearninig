@@ -17,8 +17,8 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
   const [classes, setClasses] = useState<string[]>([]);
 
   useEffect(() => {
-    // Find the exam type matching the selected domain
-    const examType = examTypes.find(et => et.display_name === domain);
+    // Find the exam type matching the selected domain by code
+    const examType = examTypes.find(et => et.code === domain);
     
     if (examType?.available_exams) {
       const examsArray = Array.isArray(examType.available_exams) 
@@ -26,9 +26,13 @@ export function BatchExamConfigStep({ domain, formData, onChange }: BatchExamCon
         : [];
       setExams(examsArray);
       
-      // For school domain, set classes
-      if (domain === "School Education") {
-        setClasses(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+      // Set classes based on exam type requirements
+      if (examType.requires_class) {
+        if (examType.code === 'school') {
+          setClasses(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+        } else if (examType.code === 'engineering' || examType.code === 'medical') {
+          setClasses(['11', '12', 'Dropper']);
+        }
       }
     }
   }, [domain, examTypes]);

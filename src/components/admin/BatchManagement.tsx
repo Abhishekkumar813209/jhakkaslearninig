@@ -431,6 +431,7 @@ const BatchManagement = () => {
             description: "Batch created successfully!",
           });
         }}
+        initialDomain={selectedDomain}
       />
     </div>
   );

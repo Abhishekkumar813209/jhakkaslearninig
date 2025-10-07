@@ -11,12 +11,13 @@ interface CreateBatchWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  initialDomain?: string | null;
 }
 
-export function CreateBatchWizard({ open, onOpenChange, onSuccess }: CreateBatchWizardProps) {
+export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain }: CreateBatchWizardProps) {
   const { toast } = useToast();
-  const [step, setStep] = useState(1);
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [step, setStep] = useState(initialDomain ? 2 : 1);
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(initialDomain || null);
   const [formData, setFormData] = useState<any>({
     name: "",
     description: "",
@@ -128,8 +129,8 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess }: CreateBatch
   };
 
   const handleReset = () => {
-    setStep(1);
-    setSelectedDomain(null);
+    setStep(initialDomain ? 2 : 1);
+    setSelectedDomain(initialDomain || null);
     setFormData({
       name: "",
       description: "",

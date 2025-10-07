@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 
 interface CreateRoadmapWizardProps {
   open: boolean;
@@ -38,6 +38,16 @@ export interface ChaptersBySubject {
   [subjectName: string]: Chapter[];
 }
 
+interface Batch {
+  id: string;
+  name: string;
+  level: string;
+  exam_type: string;
+  exam_name: string;
+  start_date: string;
+  end_date: string | null;
+}
+
 interface CreateRoadmapWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,7 +58,12 @@ interface CreateRoadmapWizardProps {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 3;
+  const totalSteps = 4; // Batch, Subject, Time Budget, Chapters
+
+  // Batch selection state
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
 
   // Map domain codes to exam types
   const mapDomainToExamType = (domain: string): 'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom' => {
@@ -496,6 +511,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const handleReset = () => {
     setCurrentStep(0);
+    setSelectedBatch(null);
     setExamType(initialDomain ? mapDomainToExamType(initialDomain) : 'School');
     setExamName("");
     setConditionalClass("");
@@ -509,12 +525,32 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setTimeBudget({});
   };
 
-  // Update exam type when initialDomain changes
+  // Update exam type and fetch batches when initialDomain changes
   useEffect(() => {
-    if (initialDomain) {
+    if (initialDomain && open) {
       setExamType(mapDomainToExamType(initialDomain));
+      fetchBatches(initialDomain);
     }
-  }, [initialDomain]);
+  }, [initialDomain, open]);
+
+  const fetchBatches = async (domain: string) => {
+    setLoadingBatches(true);
+    try {
+      const { data, error } = await supabase
+        .from('batches')
+        .select('id, name, level, exam_type, exam_name, start_date, end_date')
+        .eq('exam_type', domain)
+        .eq('is_active', true)
+        .order('start_date', { ascending: false });
+
+      if (error) throw error;
+      setBatches(data || []);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to fetch batches");
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
 
   // Compute budget-aware suggested days when chapters or time budget changes
   useEffect(() => {
@@ -598,7 +634,16 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const handleNext = () => {
     if (currentStep === 0) {
-      // Validate Step 0: Subject Selection
+      // Validate Step 0: Batch Selection
+      if (!selectedBatch) {
+        toast.error("Please select a batch for this roadmap");
+        return;
+      }
+      setBatchId(selectedBatch.id);
+    }
+
+    if (currentStep === 1) {
+      // Validate Step 1: Subject Selection
       const selectedSubjects = fetchedSubjects.filter(s => s.isSelected);
       if (selectedSubjects.length === 0) {
         toast.error("Please select at least one subject");
@@ -606,8 +651,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }
     }
 
-    if (currentStep === 1) {
-      // Validate Step 1: Time Budget
+    if (currentStep === 2) {
+      // Validate Step 2: Time Budget
       const selectedSubjectNames = fetchedSubjects.filter(s => s.isSelected).map(s => s.name);
       const hasMissingBudget = selectedSubjectNames.some(name => !timeBudget[name] || timeBudget[name] <= 0);
       if (hasMissingBudget) {
@@ -616,8 +661,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }
     }
 
-    if (currentStep === 2) {
-      // Validate Step 2: Chapter Selection
+    if (currentStep === 3) {
+      // Validate Step 3: Chapter Selection
       const selectedChaptersCount = Object.values(fetchedChapters)
         .flat()
         .filter(c => c.isSelected).length;
@@ -647,8 +692,63 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Step 0: Subject Selection (was Step 1) */}
+          {/* Step 0: Batch Selection */}
           {currentStep === 0 && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Select Batch</h3>
+                <p className="text-sm text-muted-foreground">
+                  Choose the batch for which you want to create this roadmap
+                </p>
+              </div>
+
+              {loadingBatches ? (
+                <div className="flex justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : batches.length === 0 ? (
+                <div className="text-center p-8 border border-dashed rounded-lg">
+                  <p className="text-muted-foreground">No active batches found for this exam domain</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {batches.map((batch) => (
+                    <div
+                      key={batch.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedBatch?.id === batch.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedBatch(batch)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{batch.name}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {batch.exam_name} • {batch.level}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Start: {new Date(batch.start_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {selectedBatch?.id === batch.id && (
+                          <div className="ml-2">
+                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Check className="w-3 h-3 text-primary-foreground" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 1: Subject Selection */}
+          {currentStep === 1 && (
             <SubjectSelectionStep
               subjects={fetchedSubjects}
               isFetching={isFetchingSubjects}
@@ -659,8 +759,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             />
           )}
 
-          {/* Step 1: Time Budget (was Step 2) */}
-          {currentStep === 1 && (
+          {/* Step 2: Time Budget */}
+          {currentStep === 2 && (
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Set Time Budget per Subject</h3>
@@ -702,8 +802,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             </div>
           )}
 
-          {/* Step 2: Chapter Selection (was Step 3) */}
-          {currentStep === 2 && (
+          {/* Step 3: Chapter Selection */}
+          {currentStep === 3 && (
             <ChapterSelectionStep
               subjects={fetchedSubjects.filter(s => s.isSelected)}
               chapters={fetchedChapters}

@@ -65,22 +65,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
 
-  // Map domain codes to exam types
-  const mapDomainToExamType = (domain: string): 'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom' => {
-    const mapping: Record<string, any> = {
-      'school': 'School',
-      'engineering': 'Engineering',
-      'medical': 'Medical-UG',
-      'government': 'SSC',
-      'banking': 'Banking',
-    };
-    return mapping[domain?.toLowerCase()] || 'School';
-  };
-
-  // Step 1: Exam Type (derived from initialDomain)
-  const [examType, setExamType] = useState<'School' | 'Engineering' | 'Medical-UG' | 'Medical-PG' | 'SSC' | 'Banking' | 'UPSC' | 'Railway' | 'Defence' | 'Custom'>(
-    initialDomain ? mapDomainToExamType(initialDomain) : 'School'
-  );
+  // State derived from batch selection
+  const [examType, setExamType] = useState<string>("");
   const [examName, setExamName] = useState("");
   const [conditionalClass, setConditionalClass] = useState("");
   const [conditionalBoard, setConditionalBoard] = useState("");
@@ -106,29 +92,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const progress = (currentStep / totalSteps) * 100;
 
-  // Derive exam name from exam type
-  const getDerivedExamName = (): string => {
-    if (examType === 'School') {
-      return `${conditionalBoard} Class ${conditionalClass}`;
-    } else if (examType === 'Engineering') {
-      return 'IIT JEE';
-    } else if (examType === 'Medical-UG') {
-      return 'NEET UG';
-    } else if (examType === 'Medical-PG') {
-      return 'NEET PG';
-    }
-    return examName;
-  };
-
   const handleFetchSubjects = async () => {
-    const derivedExamName = getDerivedExamName();
-    
-    if (!derivedExamName) {
-      toast.error("Please enter exam name");
+    if (!selectedBatch) {
+      toast.error("Please select a batch first");
       return;
     }
-    if (examType === 'School' && (!conditionalClass || !conditionalBoard)) {
-      toast.error("Please select class and board");
+    
+    if (!examName) {
+      toast.error("Batch doesn't have exam name set");
       return;
     }
 
@@ -138,7 +109,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       const { data: template } = await supabase
         .from('exam_templates')
         .select('standard_subjects')
-        .eq('exam_name', derivedExamName)
+        .eq('exam_name', examName)
         .eq('exam_type', examType)
         .eq('is_active', true)
         .single();
@@ -152,7 +123,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           isCustom: false
         }));
         setFetchedSubjects(subjects);
-        toast.success(`Loaded ${subjects.length} subjects for ${derivedExamName}`);
+        toast.success(`Loaded ${subjects.length} subjects for ${examName}`);
         setIsFetchingSubjects(false);
         return;
       }
@@ -161,7 +132,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       const { data, error } = await supabase.functions.invoke('fetch-exam-subjects', {
         body: {
           exam_type: examType,
-          exam_name: derivedExamName,
+          exam_name: examName,
         }
       });
 
@@ -428,7 +399,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         body: {
           batch_id: batchId,
           exam_type: examType,
-          exam_name: getDerivedExamName(),
+          exam_name: examName,
           conditional_class: conditionalClass,
           conditional_board: examType === 'School' ? conditionalBoard : undefined,
           roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
@@ -499,7 +470,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     const prefillData = {
       batchId,
       examType,
-      examName: getDerivedExamName(),
+      examName,
       roadmapTitle,
       subjects
     };
@@ -512,7 +483,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const handleReset = () => {
     setCurrentStep(0);
     setSelectedBatch(null);
-    setExamType(initialDomain ? mapDomainToExamType(initialDomain) : 'School');
+    setExamType("");
     setExamName("");
     setConditionalClass("");
     setConditionalBoard("");
@@ -525,13 +496,31 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setTimeBudget({});
   };
 
-  // Update exam type and fetch batches when initialDomain changes
+  // Fetch batches when wizard opens
   useEffect(() => {
     if (initialDomain && open) {
-      setExamType(mapDomainToExamType(initialDomain));
       fetchBatches(initialDomain);
     }
   }, [initialDomain, open]);
+
+  // Auto-set exam info from selected batch
+  useEffect(() => {
+    if (selectedBatch) {
+      setExamType(selectedBatch.exam_type);
+      setExamName(selectedBatch.exam_name);
+      // Auto-set roadmap title from batch name
+      if (!roadmapTitle) {
+        setRoadmapTitle(`${selectedBatch.name} - Roadmap`);
+      }
+    }
+  }, [selectedBatch]);
+
+  // Auto-fetch subjects when moving to Step 1
+  useEffect(() => {
+    if (currentStep === 1 && selectedBatch && fetchedSubjects.length === 0 && !isFetchingSubjects) {
+      handleFetchSubjects();
+    }
+  }, [currentStep, selectedBatch]);
 
   const fetchBatches = async (domain: string) => {
     setLoadingBatches(true);
@@ -749,14 +738,25 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
           {/* Step 1: Subject Selection */}
           {currentStep === 1 && (
-            <SubjectSelectionStep
-              subjects={fetchedSubjects}
-              isFetching={isFetchingSubjects}
-              onFetch={handleFetchSubjects}
-              onToggle={handleToggleSubject}
-              onAdd={handleAddCustomSubject}
-              onDelete={handleDeleteSubject}
-            />
+            <div className="space-y-4">
+              {selectedBatch && (
+                <div className="p-4 bg-muted rounded-lg space-y-2">
+                  <h4 className="font-semibold">Selected Batch Info</h4>
+                  <p className="text-sm"><strong>Batch:</strong> {selectedBatch.name}</p>
+                  <p className="text-sm"><strong>Exam:</strong> {selectedBatch.exam_name}</p>
+                  <p className="text-sm"><strong>Level:</strong> {selectedBatch.level}</p>
+                </div>
+              )}
+              
+              <SubjectSelectionStep
+                subjects={fetchedSubjects}
+                isFetching={isFetchingSubjects}
+                onFetch={handleFetchSubjects}
+                onToggle={handleToggleSubject}
+                onAdd={handleAddCustomSubject}
+                onDelete={handleDeleteSubject}
+              />
+            </div>
           )}
 
           {/* Step 2: Time Budget */}

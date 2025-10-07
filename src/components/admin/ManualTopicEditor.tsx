@@ -24,12 +24,14 @@ interface Topic {
 interface Batch {
   id: string;
   name: string;
+  exam_type: string;
+  exam_name: string;
+  level: string;
+  linked_roadmap_id: string;
 }
 
-interface Roadmap {
-  id: string;
-  title: string;
-  batch_id: string;
+interface Subject {
+  subject: string;
 }
 
 interface Chapter {
@@ -39,22 +41,13 @@ interface Chapter {
   estimated_days?: number;
 }
 
-interface ExamDomain {
-  id: string;
-  code: string;
-  display_name: string;
-  category: string;
-}
-
 export const ManualTopicEditor = () => {
-  const [domains, setDomains] = useState<ExamDomain[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   
-  const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [selectedBatch, setSelectedBatch] = useState<string>("");
-  const [selectedRoadmap, setSelectedRoadmap] = useState<string>("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedChapter, setSelectedChapter] = useState<string>("");
   
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -65,52 +58,29 @@ export const ManualTopicEditor = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchDomains();
+    fetchBatches();
   }, []);
 
   useEffect(() => {
-    if (selectedDomain) {
-      fetchBatches(selectedDomain);
-    }
-  }, [selectedDomain]);
-
-  useEffect(() => {
     if (selectedBatch) {
-      fetchRoadmaps(selectedBatch);
+      fetchSubjects();
+      setSelectedSubject("");
+      setSelectedChapter("");
     }
   }, [selectedBatch]);
 
   useEffect(() => {
-    if (selectedRoadmap) {
-      fetchChapters(selectedRoadmap);
+    if (selectedSubject) {
+      fetchChapters();
+      setSelectedChapter("");
     }
-  }, [selectedRoadmap]);
+  }, [selectedSubject]);
 
-  const fetchDomains = async () => {
-    const { data, error } = await supabase
-      .from("exam_types")
-      .select("id, code, display_name, category")
-      .eq("is_active", true)
-      .order("display_order");
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load exam types",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setDomains(data || []);
-  };
-
-  const fetchBatches = async (domainCode: string) => {
+  const fetchBatches = async () => {
     const { data, error } = await supabase
       .from("batches")
-      .select("id, name, exam_type")
+      .select("id, name, exam_type, exam_name, level, linked_roadmap_id")
       .eq("is_active", true)
-      .eq("exam_type", domainCode)
       .order("name");
 
     if (error) {
@@ -123,37 +93,51 @@ export const ManualTopicEditor = () => {
     }
 
     setBatches(data || []);
-    setSelectedBatch("");
-    setRoadmaps([]);
-    setChapters([]);
   };
 
-  const fetchRoadmaps = async (batchId: string) => {
-    const { data, error } = await supabase
-      .from("batch_roadmaps")
-      .select("id, title, batch_id")
-      .eq("batch_id", batchId)
-      .order("created_at", { ascending: false });
+  const fetchSubjects = async () => {
+    if (!selectedBatch) return;
 
-    if (error) {
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch?.linked_roadmap_id) {
       toast({
-        title: "Error",
-        description: "Failed to load roadmaps",
+        title: "Warning",
+        description: "This batch has no linked roadmap",
         variant: "destructive"
       });
       return;
     }
 
-    setRoadmaps(data || []);
-    setSelectedRoadmap("");
-    setChapters([]);
+    const { data, error } = await supabase
+      .from("roadmap_chapters")
+      .select("subject")
+      .eq("roadmap_id", batch.linked_roadmap_id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load subjects",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const uniqueSubjects = Array.from(new Set(data.map(d => d.subject)))
+      .map(subject => ({ subject }));
+    setSubjects(uniqueSubjects);
   };
 
-  const fetchChapters = async (roadmapId: string) => {
+  const fetchChapters = async () => {
+    if (!selectedBatch || !selectedSubject) return;
+
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch?.linked_roadmap_id) return;
+
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("id, chapter_name, subject, estimated_days")
-      .eq("roadmap_id", roadmapId)
+      .eq("roadmap_id", batch.linked_roadmap_id)
+      .eq("subject", selectedSubject)
       .order("order_num");
 
     if (error) {
@@ -166,7 +150,6 @@ export const ManualTopicEditor = () => {
     }
 
     setChapters(data || []);
-    setSelectedChapter("");
   };
 
   const addEmptyTopic = () => {
@@ -194,27 +177,22 @@ export const ManualTopicEditor = () => {
   };
 
   const generateTopicsWithAI = async () => {
-    if (!selectedChapter) return;
+    if (!selectedChapter || !selectedBatch) {
+      toast({ title: "Error", description: "Please select a batch and chapter", variant: "destructive" });
+      return;
+    }
 
     setAiGenerating(true);
     try {
-      // Get chapter details
       const selectedChapterData = chapters.find(c => c.id === selectedChapter);
-      if (!selectedChapterData) throw new Error("Chapter not found");
+      const batch = batches.find(b => b.id === selectedBatch);
+      
+      if (!selectedChapterData || !batch) throw new Error("Chapter or batch not found");
 
-      // Get roadmap details for exam info
-      const { data: roadmapData, error: roadmapError } = await supabase
-        .from("batch_roadmaps")
-        .select("exam_type, exam_name")
-        .eq("id", selectedRoadmap)
-        .single();
-
-      if (roadmapError) throw roadmapError;
-
-      console.log('Calling AI to generate topics...', {
+      console.log('Generating budget-aware topics...', {
         chapter: selectedChapterData.chapter_name,
         subject: selectedChapterData.subject,
-        exam_type: roadmapData.exam_type,
+        exam_type: batch.exam_type,
         estimated_days: selectedChapterData.estimated_days
       });
 
@@ -223,9 +201,9 @@ export const ManualTopicEditor = () => {
           chapter_id: selectedChapter,
           chapter_name: selectedChapterData.chapter_name,
           subject: selectedChapterData.subject,
-          exam_type: roadmapData.exam_type,
-          exam_name: roadmapData.exam_name,
-          estimated_days: selectedChapterData.estimated_days || 5,
+          exam_type: batch.exam_type,
+          exam_name: batch.exam_name,
+          estimated_days: selectedChapterData.estimated_days || 3,
           existing_topics_count: topics.length
         }
       });
@@ -236,7 +214,7 @@ export const ManualTopicEditor = () => {
         setTopics([...topics, ...data.topics]);
         toast({
           title: "✨ AI Generated Topics",
-          description: `Added ${data.topics.length} topics for ${selectedChapterData.chapter_name}`
+          description: `Added ${data.topics.length} budget-aware topics for ${selectedChapterData.chapter_name}`
         });
       } else {
         throw new Error(data?.error || "Failed to generate topics");
@@ -348,22 +326,22 @@ export const ManualTopicEditor = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Selection Section */}
-          <div className="grid gap-4 md:grid-cols-4">
+          {/* Simplified Selection: Batch → Subject → Chapter */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label>Exam Domain</Label>
-              <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+              <Label>Batch</Label>
+              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select domain" />
+                  <SelectValue placeholder="Select batch" />
                 </SelectTrigger>
                 <SelectContent>
-                  {domains.map((domain) => (
-                    <SelectItem key={domain.id} value={domain.code}>
-                      <div className="flex items-center gap-2">
-                        {domain.display_name}
-                        <Badge variant="secondary" className="text-xs">
-                          {domain.category}
-                        </Badge>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      <div className="flex flex-col">
+                        <span>{batch.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {batch.exam_name} ({batch.level})
+                        </span>
                       </div>
                     </SelectItem>
                   ))}
@@ -372,39 +350,19 @@ export const ManualTopicEditor = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Batch</Label>
+              <Label>Subject</Label>
               <Select 
-                value={selectedBatch} 
-                onValueChange={setSelectedBatch}
-                disabled={!selectedDomain}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select batch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {batches.map((batch) => (
-                    <SelectItem key={batch.id} value={batch.id}>
-                      {batch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Roadmap</Label>
-              <Select 
-                value={selectedRoadmap} 
-                onValueChange={setSelectedRoadmap}
+                value={selectedSubject} 
+                onValueChange={setSelectedSubject}
                 disabled={!selectedBatch}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select roadmap" />
+                  <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roadmaps.map((roadmap) => (
-                    <SelectItem key={roadmap.id} value={roadmap.id}>
-                      {roadmap.title}
+                  {subjects.map((subj, idx) => (
+                    <SelectItem key={idx} value={subj.subject}>
+                      {subj.subject}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -416,7 +374,7 @@ export const ManualTopicEditor = () => {
               <Select 
                 value={selectedChapter} 
                 onValueChange={setSelectedChapter}
-                disabled={!selectedRoadmap}
+                disabled={!selectedSubject}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select chapter" />
@@ -424,12 +382,12 @@ export const ManualTopicEditor = () => {
                 <SelectContent>
                   {chapters.map((chapter) => (
                     <SelectItem key={chapter.id} value={chapter.id}>
-                      {chapter.chapter_name} ({chapter.subject})
-                      {chapter.estimated_days && (
-                        <Badge variant="secondary" className="ml-2">
+                      <div className="flex items-center justify-between w-full">
+                        <span>{chapter.chapter_name}</span>
+                        <Badge variant="outline" className="ml-2 text-xs">
                           {chapter.estimated_days}d
                         </Badge>
-                      )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -500,7 +458,7 @@ export const ManualTopicEditor = () => {
                         <Input
                           value={topic.book_page_reference || ""}
                           onChange={(e) => updateTopic(index, "book_page_reference", e.target.value)}
-                          placeholder="e.g., 45-47"
+                          placeholder="Page ref"
                         />
                       </TableCell>
                       <TableCell>
@@ -520,7 +478,7 @@ export const ManualTopicEditor = () => {
                       <TableCell>
                         <Select
                           value={topic.difficulty}
-                          onValueChange={(value) => updateTopic(index, "difficulty", value)}
+                          onValueChange={(val) => updateTopic(index, "difficulty", val)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -549,39 +507,29 @@ export const ManualTopicEditor = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={addEmptyTopic}
-                disabled={!selectedChapter}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Topic Row
-              </Button>
-              
-              <Button 
-                variant="default"
-                onClick={generateTopicsWithAI}
-                disabled={!selectedChapter || aiGenerating}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                {aiGenerating ? "Generating..." : "🪄 Generate with AI"}
-              </Button>
-            </div>
-
-            <div className="flex gap-2">
-              <Badge variant="secondary">
-                {topics.length} topic(s) ready
-              </Badge>
-              <Button 
-                onClick={saveTopics} 
-                disabled={loading || topics.length === 0 || !selectedChapter}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? "Saving..." : "Save All Topics"}
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button onClick={addEmptyTopic} variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Topic Row
+            </Button>
+            
+            <Button
+              onClick={generateTopicsWithAI}
+              variant="secondary"
+              disabled={!selectedChapter || aiGenerating}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              {aiGenerating ? "Generating..." : "Generate with AI"}
+            </Button>
+            
+            <Button
+              onClick={saveTopics}
+              disabled={topics.length === 0 || loading}
+              className="ml-auto"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {loading ? "Saving..." : `Save ${topics.length} Topics`}
+            </Button>
           </div>
         </CardContent>
       </Card>

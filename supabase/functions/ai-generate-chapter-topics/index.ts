@@ -28,23 +28,36 @@ Deno.serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Build context-aware prompt
+    // Build budget-aware prompt with clustering logic
+    const maxTopics = Math.max(2, Math.min(10, estimated_days));
+    const shouldCluster = estimated_days < 3;
+    
     const systemPrompt = `You are an expert educational content creator specializing in ${exam_type} exam preparation.
-Your task is to generate a comprehensive list of topics for a chapter in a structured learning roadmap.
+Your task is to generate a BUDGET-AWARE list of topics that STRICTLY respects the ${estimated_days}-day time budget.
 
-CRITICAL INSTRUCTIONS:
-- Generate 5-10 high-quality, exam-relevant topics
-- Topics should be specific, actionable learning objectives
-- Distribute topics evenly across ${estimated_days} days
-- Each topic should have appropriate difficulty, rewards, and learning activities
-- Use exam-specific terminology and concepts
+CRITICAL TIME BUDGET RULES:
+- Chapter has ONLY ${estimated_days} days total
+- Maximum topics: ${maxTopics}
+- ${shouldCluster ? 'CLUSTER multiple concepts into consolidated topics to fit budget' : 'Distribute topics across available days'}
+- NEVER generate topics exceeding the day budget
+- If budget is tight (1-2 days), create 2-3 CONSOLIDATED topics that combine related concepts
+
+TOPIC DISTRIBUTION:
+${estimated_days >= 5 ? `- Generate ${Math.min(estimated_days, 7)} detailed topics (1 per day)` : ''}
+${estimated_days === 3 || estimated_days === 4 ? `- Generate ${estimated_days} focused topics (1 per day)` : ''}
+${estimated_days <= 2 ? `- Generate 2-3 CONSOLIDATED topics combining multiple concepts\n  Example: "Introduction + Core Concepts + Applications" (1 combined topic for 1 day)` : ''}
+
+TOPIC QUALITY:
+- Make topics exam-specific and highly relevant
+- Topics should be actionable learning objectives
+- Use ${exam_type} exam terminology
 - Topics should build on each other logically
 
-OUTPUT FORMAT: Return ONLY a valid JSON array, no markdown formatting:
+OUTPUT FORMAT: Return ONLY a valid JSON array, no markdown:
 [
   {
-    "topic_name": "string (specific, actionable topic)",
-    "day_number": number (1 to ${estimated_days}),
+    "topic_name": "string (specific, may combine concepts if budget tight)",
+    "day_number": number (1 to ${estimated_days}, MUST NOT exceed this),
     "xp_reward": number (30-100 based on complexity),
     "coin_reward": number (5-20 based on difficulty),
     "difficulty": "easy" | "medium" | "hard",
@@ -52,19 +65,25 @@ OUTPUT FORMAT: Return ONLY a valid JSON array, no markdown formatting:
   }
 ]`;
 
-    const userPrompt = `Generate topics for this chapter:
+    const userPrompt = `Generate BUDGET-AWARE topics for this chapter:
 Chapter: ${chapter_name}
 Subject: ${subject}
 Exam: ${exam_name} (${exam_type})
-Days Available: ${estimated_days}
+TIME BUDGET: ${estimated_days} days (STRICT LIMIT)
 Already Added Topics: ${existing_topics_count}
 
-Consider:
-- This is for ${exam_type} exam preparation
-- Focus on ${exam_name} syllabus requirements
-- Topics should fit within ${estimated_days} days
-- Start from topic ${existing_topics_count + 1}
-- Make topics exam-oriented and practical`;
+MANDATORY BUDGET COMPLIANCE:
+- You MUST fit topics within ${estimated_days} days
+- day_number MUST NOT exceed ${estimated_days}
+- If ${estimated_days} <= 2: Combine multiple related concepts into single topics
+- If ${estimated_days} >= 5: Create detailed, separated topics (1 per day)
+- Each topic must be exam-relevant and cover essential concepts
+
+EXAM CONTEXT:
+- Prioritize ${exam_type} exam pattern and syllabus
+- Focus on high-weightage ${exam_name} topics first
+- Include practical, exam-oriented content
+- Topics should prepare students effectively within the time budget`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

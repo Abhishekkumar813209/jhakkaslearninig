@@ -38,28 +38,22 @@ interface Lesson {
   approved_at?: string;
 }
 
-interface ExamDomain {
-  id: string;
-  code: string;
-  display_name: string;
-  category: string;
-}
-
 interface Batch {
   id: string;
   name: string;
   exam_type: string;
+  exam_name: string;
+  linked_roadmap_id: string;
 }
 
-interface Roadmap {
-  id: string;
-  title: string;
-  batch_id: string;
+interface Subject {
+  subject: string;
 }
 
 interface Chapter {
   id: string;
   chapter_name: string;
+  subject: string;
   roadmap_id: string;
 }
 
@@ -118,12 +112,10 @@ export function LessonContentBuilder() {
   const { toast } = useToast();
   
   // Hierarchical filtering state
-  const [domains, setDomains] = useState<ExamDomain[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
-  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
-  const [selectedRoadmap, setSelectedRoadmap] = useState<string>("");
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapter, setSelectedChapter] = useState<string>("");
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -147,35 +139,25 @@ export function LessonContentBuilder() {
   );
 
   useEffect(() => {
-    fetchDomains();
+    fetchBatches();
   }, []);
 
   useEffect(() => {
-    if (selectedDomain) {
-      fetchBatches(selectedDomain);
-      setSelectedBatch("");
-      setSelectedRoadmap("");
-      setSelectedChapter("");
-      setSelectedTopic("");
-    }
-  }, [selectedDomain]);
-
-  useEffect(() => {
     if (selectedBatch) {
-      fetchRoadmaps(selectedBatch);
-      setSelectedRoadmap("");
+      fetchSubjects();
+      setSelectedSubject("");
       setSelectedChapter("");
       setSelectedTopic("");
     }
   }, [selectedBatch]);
 
   useEffect(() => {
-    if (selectedRoadmap) {
-      fetchChapters(selectedRoadmap);
+    if (selectedSubject) {
+      fetchChapters();
       setSelectedChapter("");
       setSelectedTopic("");
     }
-  }, [selectedRoadmap]);
+  }, [selectedSubject]);
 
   useEffect(() => {
     if (selectedChapter) {
@@ -190,27 +172,11 @@ export function LessonContentBuilder() {
     }
   }, [selectedTopic]);
 
-  const fetchDomains = async () => {
-    const { data, error } = await supabase
-      .from("exam_types")
-      .select("id, code, display_name, category")
-      .eq("is_active", true)
-      .order("display_order");
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to load exam types", variant: "destructive" });
-      return;
-    }
-
-    setDomains(data || []);
-  };
-
-  const fetchBatches = async (domainCode: string) => {
+  const fetchBatches = async () => {
     const { data, error } = await supabase
       .from("batches")
-      .select("id, name, exam_type")
+      .select("id, name, exam_type, exam_name, linked_roadmap_id")
       .eq("is_active", true)
-      .eq("exam_type", domainCode)
       .order("name");
 
     if (error) {
@@ -221,26 +187,41 @@ export function LessonContentBuilder() {
     setBatches(data || []);
   };
 
-  const fetchRoadmaps = async (batchId: string) => {
-    const { data, error } = await supabase
-      .from("batch_roadmaps")
-      .select("id, title, batch_id")
-      .eq("batch_id", batchId)
-      .order("created_at", { ascending: false });
+  const fetchSubjects = async () => {
+    if (!selectedBatch) return;
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to load roadmaps", variant: "destructive" });
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch?.linked_roadmap_id) {
+      toast({ title: 'Warning', description: 'This batch has no linked roadmap', variant: 'destructive' });
       return;
     }
 
-    setRoadmaps(data || []);
+    const { data, error } = await supabase
+      .from('roadmap_chapters')
+      .select('subject')
+      .eq('roadmap_id', batch.linked_roadmap_id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to load subjects", variant: "destructive" });
+      return;
+    }
+
+    const uniqueSubjects = Array.from(new Set(data.map(d => d.subject)))
+      .map(subject => ({ subject }));
+    setSubjects(uniqueSubjects);
   };
 
-  const fetchChapters = async (roadmapId: string) => {
+  const fetchChapters = async () => {
+    if (!selectedBatch || !selectedSubject) return;
+
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch?.linked_roadmap_id) return;
+
     const { data, error } = await supabase
       .from("roadmap_chapters")
-      .select("id, chapter_name, roadmap_id")
-      .eq("roadmap_id", roadmapId)
+      .select("id, chapter_name, subject, roadmap_id")
+      .eq("roadmap_id", batch.linked_roadmap_id)
+      .eq("subject", selectedSubject)
       .order("order_num");
 
     if (error) {
@@ -453,22 +434,22 @@ export function LessonContentBuilder() {
           <CardDescription>Create and manage lesson content for topics</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Hierarchical Filtering */}
+          {/* Simplified Filtering: Batch → Subject → Chapter → Topic */}
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
-              <Label>Exam Domain</Label>
-              <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+              <Label>Batch</Label>
+              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select exam type" />
+                  <SelectValue placeholder="Select batch" />
                 </SelectTrigger>
                 <SelectContent>
-                  {domains.map((domain) => (
-                    <SelectItem key={domain.id} value={domain.code}>
-                      <div className="flex items-center gap-2">
-                        {domain.display_name}
-                        <Badge variant="secondary" className="text-xs">
-                          {domain.category}
-                        </Badge>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      <div className="flex flex-col">
+                        <span>{batch.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {batch.exam_name}
+                        </span>
                       </div>
                     </SelectItem>
                   ))}
@@ -477,39 +458,19 @@ export function LessonContentBuilder() {
             </div>
 
             <div className="space-y-2">
-              <Label>Batch</Label>
+              <Label>Subject</Label>
               <Select 
-                value={selectedBatch} 
-                onValueChange={setSelectedBatch}
-                disabled={!selectedDomain}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select batch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {batches.map((batch) => (
-                    <SelectItem key={batch.id} value={batch.id}>
-                      {batch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Roadmap</Label>
-              <Select 
-                value={selectedRoadmap} 
-                onValueChange={setSelectedRoadmap}
+                value={selectedSubject} 
+                onValueChange={setSelectedSubject}
                 disabled={!selectedBatch}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select roadmap" />
+                  <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roadmaps.map((roadmap) => (
-                    <SelectItem key={roadmap.id} value={roadmap.id}>
-                      {roadmap.title}
+                  {subjects.map((subj, idx) => (
+                    <SelectItem key={idx} value={subj.subject}>
+                      {subj.subject}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -521,7 +482,7 @@ export function LessonContentBuilder() {
               <Select 
                 value={selectedChapter} 
                 onValueChange={setSelectedChapter}
-                disabled={!selectedRoadmap}
+                disabled={!selectedSubject}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select chapter" />

@@ -337,9 +337,23 @@ const TestManagement: React.FC = () => {
           </p>
         </div>
         {selectedDomain && (
-          <Button onClick={handleChangeDomain} variant="outline">
-            Change Domain
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handleChangeDomain} variant="outline">
+              Change Domain
+            </Button>
+            
+            {selectedDomain === 'school' && selectedBoard && (
+              <Button variant="outline" onClick={resetFromBoard}>
+                Change Board
+              </Button>
+            )}
+            
+            {selectedDomain === 'school' && selectedBoard && selectedClass && (
+              <Button variant="outline" onClick={resetToBoard}>
+                Change Class
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

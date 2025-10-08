@@ -132,7 +132,9 @@ export const ManualTopicEditor = () => {
     setBatches(filteredData);
   };
 
-  const getStudentCounts = () => {
+  const getRoadmapCounts = () => {
+    // This would need access to roadmaps data - for now returning batch counts
+    // In a full implementation, fetch batch_roadmaps filtered by exam_type
     const domainBatches = batches.filter((b: any) => b.exam_type === selectedDomain);
     const byBoard: Record<string, number> = {};
     const byClass: Record<string, Record<string, number>> = {};
@@ -141,11 +143,13 @@ export const ManualTopicEditor = () => {
       const board = batch.target_board || 'CBSE';
       const cls = batch.target_class;
       
-      byBoard[board] = (byBoard[board] || 0) + (batch.current_strength || 0);
+      // Count roadmaps linked to batches (each batch with linked_roadmap_id = 1 roadmap)
+      const roadmapCount = batch.linked_roadmap_id ? 1 : 0;
+      byBoard[board] = (byBoard[board] || 0) + roadmapCount;
       
       if (!byClass[board]) byClass[board] = {};
       if (cls) {
-        byClass[board][cls] = (byClass[board][cls] || 0) + (batch.current_strength || 0);
+        byClass[board][cls] = (byClass[board][cls] || 0) + roadmapCount;
       }
     });
 
@@ -386,15 +390,29 @@ export const ManualTopicEditor = () => {
           </p>
         </div>
         {selectedDomain && (
-          <Button onClick={() => { 
-            setSelectedDomain(null); 
-            resetFromBoard();
-            setSelectedBatch("");
-            setSelectedSubject("");
-            setSelectedChapter("");
-          }} variant="outline">
-            Change Domain
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={() => { 
+              setSelectedDomain(null); 
+              resetFromBoard();
+              setSelectedBatch("");
+              setSelectedSubject("");
+              setSelectedChapter("");
+            }} variant="outline">
+              Change Domain
+            </Button>
+            
+            {selectedDomain === 'school' && selectedBoard && (
+              <Button variant="outline" onClick={resetFromBoard}>
+                Change Board
+              </Button>
+            )}
+            
+            {selectedDomain === 'school' && selectedBoard && selectedClass && (
+              <Button variant="outline" onClick={resetToBoard}>
+                Change Class
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -435,7 +453,7 @@ export const ManualTopicEditor = () => {
           onClassSelect={setClass}
           onReset={resetFromBoard}
           onResetToBoard={resetToBoard}
-          studentCounts={getStudentCounts()}
+          studentCounts={getRoadmapCounts()}
         />
       ) : (
         <>

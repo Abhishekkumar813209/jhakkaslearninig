@@ -34,7 +34,7 @@ serve(async (req: Request) => {
       { count: totalTests },
       { count: totalBatches }
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('user_roles.role', 'student'),
+      supabase.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
       supabase.from('courses').select('*', { count: 'exact', head: true }),
       supabase.from('tests').select('*', { count: 'exact', head: true }),
       supabase.from('batches').select('*', { count: 'exact', head: true })

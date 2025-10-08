@@ -704,7 +704,7 @@ const StudentManagement = () => {
                                 <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="" disabled>
+                              <SelectItem value="no-batches" disabled>
                                 No matching batches available
                               </SelectItem>
                             )}

@@ -606,6 +606,24 @@ export const usersAPI = {
     if (!response.ok) throw new Error(result?.error || 'Failed to assign class');
     return result;
   },
+
+  searchUsersByEmail: async (email: string) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result?.error || 'Failed to search users');
+    return result;
+  },
 };
 
 // Analytics API

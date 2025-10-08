@@ -44,6 +44,86 @@ serve(async (req: Request) => {
     }
 
     switch (req.method) {
+      case 'POST':
+        // Search users by email
+        const body = await req.json().catch(() => ({}))
+        
+        if (!body.email) {
+          return new Response(
+            JSON.stringify({ error: 'Email is required for search' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Check admin role
+        const { data: adminRoleRow, error: adminRoleErr } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user?.id)
+          .maybeSingle()
+
+        if (adminRoleErr || adminRoleRow?.role !== 'admin') {
+          return new Response(
+            JSON.stringify({ error: 'Admin access required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const service = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+
+        // Search profiles by email (partial match)
+        const { data: profiles, error: profilesErr } = await service
+          .from('profiles')
+          .select('id, email, full_name, avatar_url')
+          .ilike('email', `%${body.email}%`)
+          .limit(20)
+
+        if (profilesErr) {
+          console.error('❌ [Search] Profile search error:', profilesErr)
+          return new Response(
+            JSON.stringify({ error: profilesErr.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        if (!profiles || profiles.length === 0) {
+          return new Response(
+            JSON.stringify({ users: [] }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get roles for found users
+        const profileIds = profiles.map(p => p.id)
+        const { data: roles, error: rolesErr } = await service
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', profileIds)
+
+        if (rolesErr) {
+          console.error('❌ [Search] Roles fetch error:', rolesErr)
+          return new Response(
+            JSON.stringify({ error: rolesErr.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Merge profiles with roles
+        const usersWithRoles = profiles.map(p => ({
+          ...p,
+          role: roles?.find(r => r.user_id === p.id)?.role || 'student'
+        }))
+
+        console.log(`✅ [Search] Found ${usersWithRoles.length} users matching email: ${body.email}`)
+
+        return new Response(
+          JSON.stringify({ users: usersWithRoles }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
       case 'GET':
         if (path.includes('/me')) {
           // Get current user profile
@@ -125,7 +205,7 @@ serve(async (req: Request) => {
             )
           }
 
-          // 2) Fetch profiles for those IDs (with batch, zone, and school info)
+          // 2) Fetch profiles for those IDs (with batch, zone, and school info) - NO user_roles join
           let query = service
             .from('profiles')
             .select(`
@@ -143,8 +223,7 @@ serve(async (req: Request) => {
               created_at,
               batches!profiles_batch_id_fkey (id, name, level),
               zones!fk_profiles_zone (name),
-              schools!fk_profiles_school (name),
-              user_roles!user_roles_user_id_fkey (role)
+              schools!fk_profiles_school (name)
             `)
             .in('id', studentIds)
             .order('created_at', { ascending: false })

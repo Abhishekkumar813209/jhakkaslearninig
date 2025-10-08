@@ -17,7 +17,8 @@ import {
   DollarSign,
   Map,
   Building,
-  BookText
+  BookText,
+  UserCog
 } from "lucide-react";
 
 // Import dashboard components
@@ -37,6 +38,7 @@ import { ZoneSchoolAnalytics } from "@/components/admin/ZoneSchoolAnalytics";
 import RoadmapManagement from "@/components/admin/RoadmapManagement";
 import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
+import UserRoleManagement from "@/components/admin/UserRoleManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -66,6 +68,12 @@ const AdminDashboard = () => {
       label: "Students",
       icon: Users,
       component: StudentManagement
+    },
+    {
+      value: "user-roles",
+      label: "User Roles",
+      icon: UserCog,
+      component: UserRoleManagement
     },
     {
       value: "batches",

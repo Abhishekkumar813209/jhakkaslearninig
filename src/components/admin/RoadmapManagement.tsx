@@ -260,7 +260,15 @@ const RoadmapManagement = () => {
   };
 
   const getDomainRoadmapCount = (examType: string) => {
-    return roadmaps.filter(r => r.exam_type === examType).length;
+    return roadmaps.filter(r => {
+      // Get batch for this roadmap
+      const roadmapBatch = batches.find(b => b.id === r.batch_id);
+      
+      // Use roadmap's exam_type, or fallback to batch's exam_type
+      const roadmapExamType = (r.exam_type || roadmapBatch?.exam_type || '').toLowerCase();
+      
+      return roadmapExamType === examType.toLowerCase();
+    }).length;
   };
 
   const filteredRoadmaps = roadmaps.filter(r => {

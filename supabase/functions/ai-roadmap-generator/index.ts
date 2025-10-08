@@ -345,7 +345,8 @@ Before returning JSON, verify:
 ✓ Metadata reflects actual chapters included/excluded
 ✓ If tight budget + full mode → clustering_applied = true
 
-Return ONLY the JSON structure (no markdown, no extra text).`;
+Return ONLY the JSON structure (no markdown, no extra text).` : ''}
+`;
 
 
     // Call Lovable AI Gateway

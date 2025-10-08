@@ -402,16 +402,10 @@ const BatchManagement = () => {
                 ) : filteredBatches?.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <p className="text-muted-foreground">
-                          No batches found in {selectedDomain}
-                          {examFilter !== "all" && ` for ${examFilter}`}
-                        </p>
-                        <Button onClick={() => setShowWizard(true)} variant="outline">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Batch
-                        </Button>
-                      </div>
+                      <p className="text-muted-foreground">
+                        No batches found in {selectedDomain}
+                        {examFilter !== "all" && ` for ${examFilter}`}
+                      </p>
                     </TableCell>
                   </TableRow>
                 ) : (

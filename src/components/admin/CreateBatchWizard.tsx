@@ -70,6 +70,18 @@ export function CreateBatchWizard({
   };
 
   const handleSubmit = async () => {
+    // Check for school domain requirements
+    if (initialDomain === 'school') {
+      if (!preselectedBoard || !preselectedClass) {
+        toast({
+          title: "Error",
+          description: "Board and Class must be selected for school batches",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!formData.name || !formData.start_date || !formData.intake_start_date || !formData.intake_end_date) {
       toast({
         title: "Missing Fields",
@@ -90,11 +102,23 @@ export function CreateBatchWizard({
         return;
       }
 
+      // Debug logging
+      console.log('📋 Batch Creation Debug:', {
+        initialDomain,
+        preselectedBoard,
+        preselectedClass,
+        formData: {
+          target_board: formData.target_board,
+          target_class: formData.target_class,
+          exam_name: formData.exam_name,
+        }
+      });
+
       // For school batches, ensure exam_name matches target_board
       const batchData = {
         ...formData,
         exam_type: initialDomain,
-        exam_name: initialDomain === 'school' ? formData.target_board : formData.exam_name,
+        exam_name: initialDomain === 'school' ? (formData.target_board || preselectedBoard) : formData.exam_name,
       };
 
       const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api`, {

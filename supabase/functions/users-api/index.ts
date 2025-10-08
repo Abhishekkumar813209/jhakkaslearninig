@@ -143,7 +143,8 @@ serve(async (req: Request) => {
               created_at,
               batches!profiles_batch_id_fkey (id, name, level),
               zones!fk_profiles_zone (name),
-              schools!fk_profiles_school (name)
+              schools!fk_profiles_school (name),
+              user_roles!user_roles_user_id_fkey (role)
             `)
             .in('id', studentIds)
             .order('created_at', { ascending: false })
@@ -179,7 +180,77 @@ serve(async (req: Request) => {
         break
 
       case 'PUT':
-        if (path.includes('/profile')) {
+        if (/\/students\/.+\/role$/.test(path)) {
+          // Change user role (admin only)
+          const { data: roleRow } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user?.id)
+            .single()
+
+          if (roleRow?.role !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Admin access required' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const segments = path.split('/').filter(Boolean)
+          const targetUserId = segments[segments.length - 2]
+          const body = await req.json().catch(() => ({}))
+          const newRole = body.role
+
+          if (!newRole || !['admin', 'student', 'instructor'].includes(newRole)) {
+            return new Response(
+              JSON.stringify({ error: 'Valid role is required (admin, student, or instructor)' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          // Prevent self-demotion
+          if (targetUserId === user?.id && newRole !== 'admin') {
+            return new Response(
+              JSON.stringify({ error: 'Cannot demote yourself from admin role' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          const service = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          )
+
+          // Update role
+          const { data: updatedRole, error: roleError } = await service
+            .from('user_roles')
+            .update({ role: newRole })
+            .eq('user_id', targetUserId)
+            .select()
+            .single()
+
+          if (roleError) {
+            return new Response(
+              JSON.stringify({ error: roleError.message }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+
+          // Log to audit trail
+          await service.from('profile_audit_log').insert({
+            profile_id: targetUserId,
+            action: 'role_change',
+            performed_by: user?.id,
+            changed_fields: { old_role: body.old_role, new_role: newRole },
+            success: true
+          })
+
+          console.log(`✅ Role changed: User ${targetUserId} → ${newRole} by admin ${user?.id}`)
+
+          return new Response(
+            JSON.stringify({ success: true, role: updatedRole }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } else if (path.includes('/profile')) {
           // Update profile (self)
           const body = await req.json()
           const { data: updatedProfile, error } = await supabase

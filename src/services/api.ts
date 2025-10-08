@@ -572,6 +572,24 @@ export const usersAPI = {
     return result;
   },
 
+  changeUserRole: async (userId: string, newRole: string, oldRole: string) => {
+    const token = await getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/users-api/students/${userId}/role`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ role: newRole, old_role: oldRole }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result?.error || 'Failed to change user role');
+    return result;
+  },
+
   assignStudentClass: async (studentId: string, classValue: string, examDomain: string = 'school') => {
     const token = await getAuthToken();
     if (!token) throw new Error('No authentication token');

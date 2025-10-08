@@ -29,6 +29,7 @@ interface Student {
   student_class?: string | null;
   education_board?: string | null;
   preparation_level?: string | null;
+  role?: string;
   user_roles?: { role: string } | null;
   batches?: { id: string; name: string; level: string } | null;
   zones?: { name: string } | null;
@@ -70,7 +71,14 @@ const StudentManagement = () => {
       const { students } = await usersAPI.getStudents(search);
       console.log('✅ [StudentManagement] Received students:', students?.length || 0, 'students');
       console.log('📋 [StudentManagement] First student sample:', students?.[0]);
-      setStudents(students as Student[]);
+      
+      // Map user_roles to role field for easier access
+      const studentsWithRole = students.map((s: any) => ({
+        ...s,
+        role: s.user_roles?.role || 'student'
+      }));
+      
+      setStudents(studentsWithRole as Student[]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch students";
       console.error("❌ [StudentManagement] Students fetch error:", err);
@@ -383,6 +391,32 @@ const StudentManagement = () => {
     }
   };
 
+  const handleChangeRole = async (student: Student, newRole: string) => {
+    const currentRole = student.role || 'student';
+    
+    if (currentRole === newRole) {
+      toast({ title: "Info", description: "User already has this role" });
+      return;
+    }
+
+    if (!confirm(`Change ${student.full_name || student.email}'s role from ${currentRole} to ${newRole}?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await usersAPI.changeUserRole(student.id, newRole, currentRole);
+      toast({ title: "Success", description: `Role changed to ${newRole}` });
+      fetchStudents(searchTerm.trim() || undefined);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to change role";
+      console.error("Change role error:", err);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter batches for a specific student based on their exam_domain, board, and class
   const getFilteredBatchesForStudent = (student: Student) => {
     return batches.filter(batch => {
@@ -608,6 +642,7 @@ const StudentManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Class/Level</TableHead>
                   <TableHead>Zone</TableHead>
                   <TableHead>School</TableHead>
@@ -618,14 +653,14 @@ const StudentManagement = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       No students found
                     </TableCell>
                   </TableRow>
@@ -637,6 +672,29 @@ const StudentManagement = () => {
                           <div className="font-medium text-foreground">{student.full_name || 'Unnamed'}</div>
                           <div className="text-sm text-muted-foreground">{student.email}</div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select 
+                          value={student.role || 'student'}
+                          onValueChange={(newRole) => handleChangeRole(student, newRole)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <Badge 
+                              className={
+                                student.role === 'admin' ? 'bg-destructive text-destructive-foreground' :
+                                student.role === 'instructor' ? 'bg-purple-500 text-white' :
+                                'bg-primary text-primary-foreground'
+                              }
+                            >
+                              {student.role || 'student'}
+                            </Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="student">Student</SelectItem>
+                            <SelectItem value="instructor">Instructor</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Select 

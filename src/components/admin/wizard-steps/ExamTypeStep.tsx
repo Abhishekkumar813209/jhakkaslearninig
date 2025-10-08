@@ -7,6 +7,16 @@ import { useBatches } from "@/hooks/useBatches";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { useBoards } from "@/hooks/useBoards";
 
+interface Batch {
+  id: string;
+  name: string;
+  level: string;
+  exam_type: string;
+  exam_name: string;
+  target_class?: string;
+  target_board?: string;
+}
+
 interface ExamTypeStepProps {
   examType: string;
   setExamType: (value: any) => void;
@@ -22,6 +32,7 @@ interface ExamTypeStepProps {
   setRoadmapTitle: (value: string) => void;
   roadmapType: 'single_year' | 'combined';
   setRoadmapType: (value: 'single_year' | 'combined') => void;
+  setSelectedBatch: (batch: Batch | null) => void;
 }
 
 export const ExamTypeStep = ({
@@ -39,6 +50,7 @@ export const ExamTypeStep = ({
   setRoadmapTitle,
   roadmapType,
   setRoadmapType,
+  setSelectedBatch,
 }: ExamTypeStepProps) => {
   const { batches } = useBatches();
   const { examTypes } = useExamTypes();
@@ -259,7 +271,18 @@ export const ExamTypeStep = ({
       <div className="space-y-4 pt-4 border-t">
         <div>
           <Label>Select Batch *</Label>
-          <Select value={batchId} onValueChange={setBatchId}>
+          <Select 
+            value={batchId} 
+            onValueChange={(id) => {
+              setBatchId(id);
+              
+              // Find and set the complete batch object
+              const selectedBatchObj = filteredBatches.find((b: any) => b.id === id);
+              if (selectedBatchObj) {
+                setSelectedBatch(selectedBatchObj as Batch);
+              }
+            }}
+          >
             <SelectTrigger className="mt-1.5">
               <SelectValue placeholder="Choose a batch" />
             </SelectTrigger>

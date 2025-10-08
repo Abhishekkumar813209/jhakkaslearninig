@@ -500,6 +500,7 @@ const StudentManagement = () => {
               onReset={resetFromBoard}
               onResetToBoard={resetToBoard}
               studentCounts={studentCounts}
+              countLabel="students"
             />
           )}
 

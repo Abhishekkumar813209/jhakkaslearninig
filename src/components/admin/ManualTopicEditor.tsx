@@ -454,6 +454,7 @@ export const ManualTopicEditor = () => {
           onReset={resetFromBoard}
           onResetToBoard={resetToBoard}
           studentCounts={getRoadmapCounts()}
+          countLabel="roadmaps"
         />
       ) : (
         <>

@@ -270,6 +270,7 @@ const BatchManagement = () => {
               studentCounts={getStudentCounts()}
               getBoardBatchCount={(board) => getBoardBatchCount('school', board)}
               getClassBatchCount={(cls) => getClassBatchCount('school', selectedBoard || '', cls)}
+              countLabel="batches"
             />
           )}
 

@@ -422,6 +422,7 @@ const RoadmapManagement = () => {
               onReset={resetFromBoard}
               onResetToBoard={resetToBoard}
               studentCounts={getRoadmapCounts()}
+              countLabel="roadmaps"
             />
           )}
           

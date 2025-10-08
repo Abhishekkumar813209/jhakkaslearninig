@@ -569,6 +569,7 @@ export function LessonContentBuilder() {
           onReset={resetFromBoard}
           onResetToBoard={resetToBoard}
           studentCounts={getRoadmapCounts()}
+          countLabel="roadmaps"
         />
       ) : (
         <>

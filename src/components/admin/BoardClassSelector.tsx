@@ -27,6 +27,7 @@ interface BoardClassSelectorProps {
   };
   getBoardBatchCount?: (board: string) => number;
   getClassBatchCount?: (cls: string) => number;
+  countLabel?: string;
 }
 
 const colorPalette = [
@@ -54,6 +55,7 @@ export const BoardClassSelector = ({
   studentCounts = {},
   getBoardBatchCount,
   getClassBatchCount,
+  countLabel = "items",
 }: BoardClassSelectorProps) => {
   const { examTypes } = useExamTypes();
   
@@ -144,7 +146,7 @@ export const BoardClassSelector = ({
                     </div>
                     <h4 className="font-semibold text-lg mb-2">{boardName}</h4>
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{getBoardBatchCount ? `${getBoardBatchCount(boardName)} batches` : `${studentCounts?.byBoard?.[boardName] || 0} roadmaps`}</span>
+                      <span>{getBoardBatchCount ? `${getBoardBatchCount(boardName)} batches` : `${studentCounts?.byBoard?.[boardName] || 0} ${countLabel}`}</span>
                       <Badge variant="secondary">{getBoardBatchCount ? getBoardBatchCount(boardName) : studentCounts?.byBoard?.[boardName] || 0}</Badge>
                     </div>
                   </CardContent>
@@ -193,7 +195,7 @@ export const BoardClassSelector = ({
                 <CardContent className="p-4 text-center">
                   <div className="text-3xl font-bold text-primary mb-2">{cls.value}</div>
                   <p className="text-sm text-muted-foreground">
-                    {getClassBatchCount ? `${getClassBatchCount(cls.value)} batches` : `${studentCounts?.byClass?.[selectedBoard]?.[cls.value] || 0} roadmaps`}
+                    {getClassBatchCount ? `${getClassBatchCount(cls.value)} batches` : `${studentCounts?.byClass?.[selectedBoard]?.[cls.value] || 0} ${countLabel}`}
                   </p>
                 </CardContent>
               </Card>
@@ -216,7 +218,7 @@ export const BoardClassSelector = ({
               </div>
             </div>
             <Badge className="text-lg px-4 py-2">
-              {studentCounts.byClass?.[selectedBoard]?.[selectedClass] || 0} roadmaps
+              {studentCounts.byClass?.[selectedBoard]?.[selectedClass] || 0} {countLabel}
             </Badge>
           </CardContent>
         </Card>

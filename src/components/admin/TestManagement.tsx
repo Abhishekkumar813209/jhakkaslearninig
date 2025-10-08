@@ -402,6 +402,7 @@ const TestManagement: React.FC = () => {
           onReset={resetFromBoard}
           onResetToBoard={resetToBoard}
           studentCounts={getTestCounts()}
+          countLabel="tests"
         />
       ) : (
         <>

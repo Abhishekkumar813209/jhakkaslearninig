@@ -331,7 +331,16 @@ const RoadmapManagement = () => {
   });
   
   const getRoadmapCounts = () => {
-    const domainRoadmaps = roadmaps.filter(r => r.exam_type === selectedDomain);
+    const domainRoadmaps = roadmaps.filter(r => {
+      // Get batch for roadmap
+      const roadmapBatch = batches.find(b => b.id === r.batch_id);
+      
+      // Use roadmap's exam_type, or fallback to batch's exam_type
+      const roadmapExamType = (r.exam_type || roadmapBatch?.exam_type || '').toLowerCase();
+      
+      return roadmapExamType === selectedDomain?.toLowerCase();
+    });
+    
     const byBoard: Record<string, number> = {};
     const byClass: Record<string, Record<string, number>> = {};
 
@@ -417,7 +426,7 @@ const RoadmapManagement = () => {
           )}
           
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <Badge variant="default" className="text-base px-4 py-2">
                 Selected: {examTypes.find(e => e.code === selectedDomain)?.display_name}
                 {selectedDomain === 'school' && selectedBoard && (
@@ -427,6 +436,7 @@ const RoadmapManagement = () => {
                   <> • Class {selectedClass}</>
                 )}
               </Badge>
+              
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -437,6 +447,26 @@ const RoadmapManagement = () => {
               >
                 Change Domain
               </Button>
+              
+              {selectedDomain === 'school' && selectedBoard && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={resetFromBoard}
+                >
+                  Change Board
+                </Button>
+              )}
+              
+              {selectedDomain === 'school' && selectedBoard && selectedClass && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={resetToBoard}
+                >
+                  Change Class
+                </Button>
+              )}
             </div>
             
             <Button onClick={() => setIsCreating(true)}>

@@ -153,35 +153,35 @@ serve(async (req: Request) => {
         }
 
       case 'POST':
-        // Generate batch name helper
-        const generateBatchName = (
-          examDomain: string,
+        // Server-side deterministic batch name generation
+        const generateBatchName = async (
+          examType: string,
           examName: string,
-          intakeStartDate: string,
-          targetClass?: string
-        ): string => {
-          const domainShort: Record<string, string> = {
-            'school': 'SCH',
-            'jee': 'JEE',
-            'neet': 'NEET',
-            'banking': 'BANK',
-            'ssc': 'SSC',
-            'upsc': 'UPSC',
-            'gate': 'GATE'
-          };
+          targetClass?: string,
+          targetBoard?: string,
+          year?: number
+        ): Promise<string> => {
+          const currentYear = year || new Date().getFullYear();
           
-          const domainCode = domainShort[examDomain.toLowerCase()] || examDomain.substring(0, 3).toUpperCase();
-          const examShort = examName.substring(0, 4).toUpperCase();
-          
-          const date = new Date(intakeStartDate);
-          const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-          const monthYear = `${monthNames[date.getMonth()]}${date.getFullYear().toString().slice(-2)}`;
-          
-          const classLevel = targetClass 
-            ? (examDomain === 'school' ? `C${targetClass}` : targetClass.toUpperCase())
-            : 'GEN';
+          // Count existing batches with matching criteria
+          const { count } = await service
+            .from('batches')
+            .select('*', { count: 'exact', head: true })
+            .eq('exam_type', examType)
+            .eq('exam_name', examName || '')
+            .eq('target_class', targetClass || null)
+            .eq('target_board', targetBoard || null)
+            .ilike('name', `%${currentYear}%`);
 
-          return `${domainCode}_${examShort}_${monthYear}_${classLevel}`;
+          const batchLetter = String.fromCharCode(65 + (count || 0)); // A, B, C...
+          
+          if (examType === 'school' && targetClass && targetBoard) {
+            return `${targetBoard} Class ${targetClass} - Batch ${batchLetter} (${currentYear})`;
+          } else if (targetClass) {
+            return `${examName} Class ${targetClass} - Batch ${batchLetter} (${currentYear})`;
+          } else {
+            return `${examName} - Batch ${batchLetter} (${currentYear})`;
+          }
         };
 
         // Accept user token from standard Authorization header
@@ -218,12 +218,14 @@ serve(async (req: Request) => {
           intakeEnd = endDate.toISOString().split('T')[0];
         }
 
-        // Auto-generate batch name
-        const batchName = body.name || generateBatchName(
+        // Server-side batch name generation (ignore client-provided name)
+        const year = new Date(intakeStart).getFullYear();
+        const batchName = await generateBatchName(
           body.exam_type,
           body.exam_name,
-          intakeStart,
-          body.target_class
+          body.target_class,
+          body.target_board,
+          year
         );
 
         // Get current user to set as instructor
@@ -343,7 +345,7 @@ serve(async (req: Request) => {
         )
 
       case 'DELETE':
-        // Handle batch deletion
+        // Handle batch deletion with proper permission checks
         if (!batchId) {
           return new Response(
             JSON.stringify({ error: 'Batch ID required for deletion' }),
@@ -368,6 +370,46 @@ serve(async (req: Request) => {
           Deno.env.get('SUPABASE_ANON_KEY') ?? '',
           { global: { headers: { Authorization: `Bearer ${deleteToken}` } } }
         )
+
+        // Get current user and check permissions
+        const { data: deleteUser, error: deleteUserErr } = await deleteClient.auth.getUser(deleteToken)
+        if (deleteUserErr || !deleteUser?.user) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid user token' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Fetch batch to check instructor
+        const { data: batch, error: batchFetchErr } = await service
+          .from('batches')
+          .select('instructor_id')
+          .eq('id', batchId)
+          .maybeSingle()
+
+        if (batchFetchErr || !batch) {
+          return new Response(
+            JSON.stringify({ error: 'Batch not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Check if user is admin or instructor
+        const { data: userRole } = await service
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', deleteUser.user.id)
+          .maybeSingle()
+
+        const isAdmin = userRole?.role === 'admin'
+        const isInstructor = batch.instructor_id === deleteUser.user.id
+
+        if (!isAdmin && !isInstructor) {
+          return new Response(
+            JSON.stringify({ error: 'You do not have permission to delete this batch' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
 
         // Check if batch has students assigned and reassign them to null
         const { data: studentsInBatch, error: studentsError } = await service
@@ -399,7 +441,8 @@ serve(async (req: Request) => {
           }
         }
 
-        const { error: deleteError } = await deleteClient
+        // Delete using service role since we've already checked permissions
+        const { error: deleteError } = await service
           .from('batches')
           .delete()
           .eq('id', batchId)
@@ -407,7 +450,7 @@ serve(async (req: Request) => {
         if (deleteError) {
           return new Response(
             JSON.stringify({ error: deleteError.message }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
 

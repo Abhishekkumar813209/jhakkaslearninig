@@ -26,24 +26,7 @@ export function CreateBatchWizard({
 }: CreateBatchWizardProps) {
   const { toast } = useToast();
   
-  const generateBatchName = (startDate: string) => {
-    if (!startDate || !preselectedBoard) return "";
-    const year = new Date(startDate).getFullYear();
-    const sameBoardClassBatches = existingBatches.filter((b: any) => 
-      b.exam_type === initialDomain && 
-      b.target_board === preselectedBoard && 
-      b.target_class?.toString() === preselectedClass?.toString()
-    );
-    const batchLetter = String.fromCharCode(65 + sameBoardClassBatches.length);
-    
-    if (preselectedClass) {
-      return `${preselectedBoard} Class ${preselectedClass} - Batch ${batchLetter} (${year})`;
-    }
-    return `${preselectedBoard} - Batch ${batchLetter} (${year})`;
-  };
-
   const [formData, setFormData] = useState<any>({
-    name: "",
     exam_name: preselectedBoard || "",
     target_board: preselectedBoard || null,
     level: preselectedClass ? `Class ${preselectedClass}` : "",
@@ -54,6 +37,8 @@ export function CreateBatchWizard({
     intake_end_date: "",
     auto_assign_enabled: true,
   });
+  
+  const [generatedBatchName, setGeneratedBatchName] = useState<string>("");
 
   // Step 1: Update formData when preselected values change
   useEffect(() => {
@@ -66,16 +51,7 @@ export function CreateBatchWizard({
   }, [preselectedBoard, preselectedClass]);
 
   const handleFieldChange = (field: string, value: any) => {
-    setFormData((prev: any) => {
-      const updated = { ...prev, [field]: value };
-      
-      // Auto-generate batch name when start date changes
-      if (field === 'start_date' && value && !prev.name) {
-        updated.name = generateBatchName(value);
-      }
-      
-      return updated;
-    });
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
@@ -91,7 +67,7 @@ export function CreateBatchWizard({
       }
     }
 
-    if (!formData.name || !formData.start_date || !formData.intake_start_date || !formData.intake_end_date) {
+    if (!formData.start_date || !formData.intake_start_date || !formData.intake_end_date) {
       toast({
         title: "Missing Fields",
         description: "Please enter all required fields",
@@ -158,9 +134,12 @@ export function CreateBatchWizard({
         throw new Error(result.error || 'Failed to create batch');
       }
 
+      // Show the server-generated batch name
+      const createdBatchName = result.batch?.name || "";
+      
       toast({
         title: "Success",
-        description: "Batch created successfully!",
+        description: `Batch "${createdBatchName}" created successfully!`,
       });
 
       handleReset();
@@ -176,7 +155,6 @@ export function CreateBatchWizard({
 
   const handleReset = () => {
     setFormData({
-      name: "",
       exam_name: preselectedBoard || "",
       target_board: preselectedBoard || null,
       level: preselectedClass ? `Class ${preselectedClass}` : "",
@@ -187,6 +165,7 @@ export function CreateBatchWizard({
       intake_end_date: "",
       auto_assign_enabled: true,
     });
+    setGeneratedBatchName("");
     onOpenChange(false);
   };
 

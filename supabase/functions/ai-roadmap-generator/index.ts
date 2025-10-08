@@ -112,7 +112,10 @@ CRITICAL RULES - MUST FOLLOW:
 2. **The sum of estimated_days per subject MUST EXACTLY equal the time_budget**
 3. **BUDGET ADHERENCE IS ABSOLUTE - If budget is tight (e.g., 30 days for 25 chapters), distribute proportionally even if it means 1-2 days per chapter**
 4. **CHAPTER SELECTION BASED ON INTENSITY MODE** (see below)
-5. Distribute days based on chapter complexity AND available budget:
+5. **PARALLEL MODE: Each subject has an INDEPENDENT timeline starting from day 1**
+   - Physics Day 1-30, Chemistry Day 1-30, Math Day 1-30 (all run concurrently)
+   - Students can study all subjects in parallel, NOT sequentially
+6. Distribute days based on chapter complexity AND available budget:
    - When budget allows (>5 days/chapter average): Complex chapters get 10-15 days, Moderate 6-9 days, Simple 4-6 days
    - When budget is tight (<3 days/chapter average): Distribute proportionally, e.g., Complex 2 days, Moderate 1 day, Simple 1 day
    - Always prioritize EXACT budget match over ideal day allocation
@@ -149,8 +152,10 @@ Return format:
     {
       "chapter_name": "string",
       "subject": "string",
-      "order_num": number,
+      "order_num": number, // order within this subject (1, 2, 3...)
       "estimated_days": number,
+      "day_start": number, // independent timeline per subject, always starts from 1
+      "day_end": number, // day_start + estimated_days - 1
       "importance_score": number, // from input data
       "is_clustered": boolean, // true if combining multiple concepts
       "topics": [
@@ -167,9 +172,14 @@ Return format:
     "total_chapters_available": number,
     "total_chapters_included": number,
     "chapters_excluded": number,
-    "clustering_applied": boolean
+    "clustering_applied": boolean,
+    "parallel_mode": true
   }
-}`;
+}
+
+IMPORTANT: For parallel mode, each subject's chapters start from day_start=1 independently.
+Example: Physics Ch1 (Day 1-5), Physics Ch2 (Day 6-10), Chemistry Ch1 (Day 1-3), Chemistry Ch2 (Day 4-8)
+This allows students to study multiple subjects simultaneously.`;
     
     let studentContext = '';
     if (exam_type === 'School') {
@@ -238,8 +248,13 @@ ${selected_subjects.map((s: any) => {
 4. **VERIFY: Sum of all chapter days = time_budget EXACTLY**
 5. If avg < 2 days AND intensity='full': Apply clustering (combine related chapters)
 6. Always include importance_score in output for transparency
+7. **PARALLEL MODE: Calculate day_start and day_end for each chapter within its subject timeline**
+   - Each subject starts from day 1 independently
+   - Example: Physics has 3 chapters (5, 7, 3 days) → Ch1: 1-5, Ch2: 6-12, Ch3: 13-15
+   - Chemistry has 2 chapters (4, 6 days) → Ch1: 1-4, Ch2: 5-10
+   - Both timelines run in parallel (students study both simultaneously)
 
-Return JSON with chapters array and metadata object.`;
+Return JSON with chapters array (including day_start/day_end) and metadata object.`;
 
 
     // Call Lovable AI Gateway
@@ -404,7 +419,7 @@ Return JSON with chapters array and metadata object.`;
       });
     }
 
-    // Insert chapters with AI-assigned days
+    // Insert chapters with AI-assigned days (including parallel timeline)
     for (const chapter of roadmapData.chapters) {
       const { data: insertedChapter, error: chapterError } = await supabase
         .from('roadmap_chapters')
@@ -414,8 +429,8 @@ Return JSON with chapters array and metadata object.`;
           subject: chapter.subject,
           order_num: chapter.order_num,
           estimated_days: chapter.estimated_days || 3,
-          day_start: null,
-          day_end: null,
+          day_start: chapter.day_start || null,
+          day_end: chapter.day_end || null,
           xp_reward: 100
         })
         .select()

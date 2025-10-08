@@ -124,3 +124,6 @@ verify_jwt = true
 
 [functions.ai-pdf-topic-extractor]
 verify_jwt = true
+
+[functions.roadmap-reorder]
+verify_jwt = true

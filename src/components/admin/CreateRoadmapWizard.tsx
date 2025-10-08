@@ -411,14 +411,27 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         };
       }).filter(s => s.selected_chapters.length > 0);
 
+      // Validation
+      console.log('🔍 CreateRoadmapWizard: Generating roadmap with:', {
+        examType,
+        examName,
+        batchId,
+        selectedBatch
+      });
+      
+      if (!examType || !examName) {
+        toast.error('Please select exam type and exam name');
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
         body: {
           batch_id: batchId,
           exam_type: examType,
           exam_name: examName,
           conditional_class: conditionalClass,
-          conditional_board: examType === 'School' ? conditionalBoard : undefined,
-          roadmap_type: (examType === 'Engineering' || examType === 'Medical-UG' || examType === 'Medical-PG') ? roadmapType : undefined,
+          conditional_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
+          roadmap_type: (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') ? roadmapType : undefined,
           selected_subjects,
           title: roadmapTitle,
           mode: roadmapMode,

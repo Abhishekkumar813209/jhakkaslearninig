@@ -56,6 +56,9 @@ export const ExamTypeStep = ({
   const { examTypes } = useExamTypes();
   const { boards: availableBoards } = useBoards(examType);
 
+  // Get selected exam type to access available exams
+  const selectedExamType = examTypes.find(et => et.code === examType);
+
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
     BookOpen: LucideIcons.BookOpen,
@@ -231,31 +234,27 @@ export const ExamTypeStep = ({
         </div>
       )}
 
-      {examType === 'engineering' && (
-        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-          <p className="text-sm font-medium">
-            📚 Exam: <strong>IIT JEE (Main & Advanced)</strong>
-          </p>
+      {/* Exam Name Selection for all exam types */}
+      {examType && examType !== 'school' && selectedExamType?.available_exams && (
+        <div>
+          <Label>Exam Name *</Label>
+          <Select value={examName} onValueChange={setExamName}>
+            <SelectTrigger className="mt-1.5">
+              <SelectValue placeholder="Select exam" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedExamType.available_exams.map((exam: string) => (
+                <SelectItem key={exam} value={exam}>
+                  {exam}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
-      {examType === 'medical-ug' && (
-        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-          <p className="text-sm font-medium">
-            📚 Exam: <strong>NEET UG</strong>
-          </p>
-        </div>
-      )}
-
-      {examType === 'medical-pg' && (
-        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-          <p className="text-sm font-medium">
-            📚 Exam: <strong>NEET PG</strong>
-          </p>
-        </div>
-      )}
-
-      {examType && !['school', 'engineering', 'medical-ug', 'medical-pg'].includes(examType) && (
+      {/* Manual input for exam types without predefined exams */}
+      {examType && examType !== 'school' && (!selectedExamType?.available_exams || selectedExamType.available_exams.length === 0) && (
         <div>
           <Label>Exam Name *</Label>
           <Input

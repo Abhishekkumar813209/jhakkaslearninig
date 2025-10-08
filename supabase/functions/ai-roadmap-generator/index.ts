@@ -47,6 +47,25 @@ serve(async (req) => {
 
     console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget, intensity });
 
+    // Fallback: Fetch exam_type and exam_name from batch if not provided
+    let finalExamType = exam_type;
+    let finalExamName = exam_name;
+    
+    if ((!finalExamType || !finalExamName) && batch_id) {
+      console.log('📦 Fetching exam info from batch...');
+      const { data: batch } = await supabase
+        .from('batches')
+        .select('exam_type, exam_name')
+        .eq('id', batch_id)
+        .single();
+      
+      if (batch) {
+        finalExamType = finalExamType || batch.exam_type;
+        finalExamName = finalExamName || batch.exam_name;
+        console.log('📦 Fetched from batch:', { finalExamType, finalExamName });
+      }
+    }
+
     // Smart extraction
     let extractedClass = conditional_class || target_class;
     let extractedBoard = conditional_board || target_board;
@@ -387,13 +406,13 @@ Return JSON with chapters array (including day_start/day_end) and metadata objec
         status: 'draft',
         mode: mode,
         selected_subjects: extractedSubjects,
-        exam_type,
-        exam_name,
+        exam_type: finalExamType,
+        exam_name: finalExamName,
         ai_generated_plan: {
           ...roadmapData,
           metadata: {
-            exam_type,
-            exam_name,
+            exam_type: finalExamType,
+            exam_name: finalExamName,
             roadmap_type,
             target_class: extractedClass,
             target_board: extractedBoard,

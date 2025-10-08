@@ -559,6 +559,11 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       
       // For school domain, filter by board and class
       if (domain === 'school') {
+        // Only fetch batches with valid board and class
+        query = query.not('target_board', 'is', null);
+        query = query.not('target_class', 'is', null);
+        
+        // Apply user's selected filters
         if (initialBoard) query = query.eq('target_board', initialBoard as any);
         if (initialClass) query = query.eq('target_class', initialClass as any);
       }

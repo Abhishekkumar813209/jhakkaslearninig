@@ -45,6 +45,7 @@ export function CreateBatchWizard({
   const [formData, setFormData] = useState<any>({
     name: "",
     exam_name: preselectedBoard || "",
+    target_board: preselectedBoard || null,
     level: preselectedClass ? `Class ${preselectedClass}` : "",
     target_class: preselectedClass || null,
     max_capacity: 50,
@@ -142,6 +143,7 @@ export function CreateBatchWizard({
     setFormData({
       name: "",
       exam_name: preselectedBoard || "",
+      target_board: preselectedBoard || null,
       level: preselectedClass ? `Class ${preselectedClass}` : "",
       target_class: preselectedClass || null,
       max_capacity: 50,

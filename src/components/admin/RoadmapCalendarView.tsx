@@ -97,7 +97,7 @@ const SortableChapterPill = ({ chapter, isEditable, onUpdate, onDelete }: Sortab
     <div
       ref={setNodeRef}
       style={style}
-      className={`inline-flex flex-col gap-1 p-2 border rounded-lg ${colorClass} relative group mr-2 mb-2 min-w-[200px]`}
+      className={`flex flex-col gap-1 p-2 border rounded-lg ${colorClass} relative group mb-2 w-full`}
     >
       {isEditable && (
         <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background rounded-full shadow-sm p-1">
@@ -669,9 +669,9 @@ export const RoadmapCalendarView = ({
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-muted">
-                  <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 min-w-[150px]">
-                    Date
-                  </th>
+            <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 w-[120px]">
+              Date
+            </th>
                   {subjects.map(subject => (
                     <th key={subject} className="border p-3 text-center font-semibold min-w-[220px]">
                       {subject}
@@ -688,7 +688,7 @@ export const RoadmapCalendarView = ({
                   
                   return (
                     <tr key={`row-${date}`} className={`border-b hover:bg-muted/20 ${isNewWeek ? 'border-t-4 border-t-primary/40 bg-primary/5' : ''}`}>
-                      <td className={`border p-3 font-medium text-sm sticky left-0 bg-background z-10 min-w-[150px] ${isNewWeek ? 'border-t-4 border-t-primary/40 pt-6' : ''}`}>
+                      <td className={`border p-3 font-medium text-sm sticky left-0 bg-background z-10 w-[120px] ${isNewWeek ? 'border-t-4 border-t-primary/40 pt-6' : ''}`}>
                         <div className="flex flex-col gap-1">
                           <div className="font-semibold">
                             {format(dateObj, 'MMM dd, yyyy')}

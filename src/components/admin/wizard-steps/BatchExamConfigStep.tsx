@@ -133,9 +133,6 @@ export function BatchExamConfigStep({
             value={formData.intake_end_date || ""}
             onChange={(e) => onChange("intake_end_date", e.target.value)}
           />
-          <p className="text-xs text-muted-foreground mt-1">
-            Should be on or before batch start date
-          </p>
         </div>
       </div>
     </div>

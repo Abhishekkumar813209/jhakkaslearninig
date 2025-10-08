@@ -79,16 +79,6 @@ export function CreateBatchWizard({
       return;
     }
 
-    // Logical validation: intake_end should be before or on batch start
-    if (new Date(formData.intake_end_date) > new Date(formData.start_date)) {
-      toast({
-        title: "Invalid Dates",
-        description: "Intake end date should be on or before batch start date",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {

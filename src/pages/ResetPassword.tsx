@@ -17,21 +17,52 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    let mounted = true;
+    
+    // Listen for auth state changes (this catches the recovery session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setValidSession(true);
+        toast({
+          title: 'Ready to Reset',
+          description: 'Please enter your new password below.',
+        });
+      } else if (session) {
+        setValidSession(true);
+      }
+    });
+    
+    // Also check for existing session
     const checkSession = async () => {
+      if (!mounted) return;
+      
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session) {
         setValidSession(true);
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Invalid Link',
-          description: 'This password reset link is invalid or has expired.',
-        });
-        setTimeout(() => navigate('/login'), 3000);
+        // Wait for auth state change to fire
+        setTimeout(() => {
+          if (!mounted || validSession) return;
+          toast({
+            variant: 'destructive',
+            title: 'Invalid Link',
+            description: 'This password reset link is invalid or has expired.',
+          });
+          navigate('/login');
+        }, 2000);
       }
     };
+    
     checkSession();
-  }, [navigate, toast]);
+    
+    return () => {
+      mounted = true;
+      subscription.unsubscribe();
+    };
+  }, [navigate, toast, validSession]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -105,21 +105,26 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const progress = (currentStep / totalSteps) * 100;
 
   const handleFetchSubjects = async () => {
-    if (!selectedBatch) {
-      toast.error("Please select a batch first");
-      return;
-    }
-
     const isSchool = examType?.toLowerCase() === 'school';
     const finalExamName = isSchool ? conditionalBoard : examName;
 
+    console.log('🔍 Fetching subjects:', { 
+      examType, 
+      finalExamName, 
+      isSchool, 
+      board: conditionalBoard, 
+      class: conditionalClass,
+      batch: selectedBatch 
+    });
+
     if (!examType) {
-      toast.error('Please select exam type');
+      toast.error('Please select exam type first');
       return;
     }
+    
     if (isSchool) {
-      if (!conditionalBoard) {
-        toast.error('Please select a board');
+      if (!conditionalBoard || !conditionalClass) {
+        toast.error('Please select both board and class for school domain');
         return;
       }
     } else if (!examName) {
@@ -185,6 +190,17 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       setIsFetchingSubjects(false);
     }
   };
+
+  // Auto-fetch subjects when exam details are set
+  useEffect(() => {
+    const isSchool = examType?.toLowerCase() === 'school';
+    const canAutoFetch = examType && (isSchool ? conditionalBoard : examName);
+    
+    if (currentStep === 1 && fetchedSubjects.length === 0 && canAutoFetch) {
+      console.log('🤖 Auto-fetching subjects for:', { examType, conditionalBoard, examName, isSchool });
+      handleFetchSubjects();
+    }
+  }, [currentStep, examType, examName, conditionalBoard]);
 
   const handleAddCustomSubject = (name: string) => {
     if (!name.trim()) return;
@@ -426,11 +442,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }).filter(s => s.selected_chapters.length > 0);
 
       // Validation
-      const finalExamName = examType === 'school' ? conditionalBoard : examName;
+      const isSchool = examType?.toLowerCase() === 'school';
+      const finalExamName = isSchool ? conditionalBoard : examName;
       
-      console.log('🔍 CreateRoadmapWizard: Generating roadmap with:', {
-        examType,
-        examName: finalExamName,
+      console.log('🚀 Generating roadmap:', { 
+        examType, 
+        finalExamName, 
+        isSchool, 
+        board: conditionalBoard, 
+        class: conditionalClass,
         batchId,
         selectedBatch
       });
@@ -440,7 +460,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         return;
       }
 
-      if (examType === 'school') {
+      if (isSchool) {
         if (!conditionalBoard) {
           toast.error('Please select a board for school exams');
           return;

@@ -296,12 +296,17 @@ export const ExamTypeStep = ({
               ) : (
                 filteredBatches.map((batch: any) => (
                   <SelectItem key={batch.id} value={batch.id}>
-                    {batch.name} - {batch.level}
+                    {batch.name} - {batch.level} {batch.target_board && `(${batch.target_board})`}
                   </SelectItem>
                 ))
               )}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            {examType === 'school' 
+              ? 'Select batch after choosing board and class above' 
+              : 'Optional: Select a batch to link this roadmap'}
+          </p>
         </div>
 
         <div>

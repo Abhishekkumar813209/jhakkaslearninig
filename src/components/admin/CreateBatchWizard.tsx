@@ -10,16 +10,43 @@ interface CreateBatchWizardProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   initialDomain?: string | null;
+  preselectedBoard?: string | null;
+  preselectedClass?: string | null;
+  existingBatches?: any[];
 }
 
-export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain }: CreateBatchWizardProps) {
+export function CreateBatchWizard({ 
+  open, 
+  onOpenChange, 
+  onSuccess, 
+  initialDomain,
+  preselectedBoard,
+  preselectedClass,
+  existingBatches = []
+}: CreateBatchWizardProps) {
   const { toast } = useToast();
+  
+  const generateBatchName = (startDate: string) => {
+    if (!startDate || !preselectedBoard) return "";
+    const year = new Date(startDate).getFullYear();
+    const sameBoardClassBatches = existingBatches.filter((b: any) => 
+      b.exam_type === initialDomain && 
+      b.target_board === preselectedBoard && 
+      b.target_class?.toString() === preselectedClass?.toString()
+    );
+    const batchLetter = String.fromCharCode(65 + sameBoardClassBatches.length);
+    
+    if (preselectedClass) {
+      return `${preselectedBoard} Class ${preselectedClass} - Batch ${batchLetter} (${year})`;
+    }
+    return `${preselectedBoard} - Batch ${batchLetter} (${year})`;
+  };
+
   const [formData, setFormData] = useState<any>({
     name: "",
-    description: "",
-    exam_name: "",
-    level: "",
-    target_class: null,
+    exam_name: preselectedBoard || "",
+    level: preselectedClass ? `Class ${preselectedClass}` : "",
+    target_class: preselectedClass || null,
     max_capacity: 50,
     start_date: "",
     end_date: null,
@@ -30,26 +57,35 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
 
 
   const handleFieldChange = (field: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
+    setFormData((prev: any) => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-generate batch name when start date changes
+      if (field === 'start_date' && value && !prev.name) {
+        updated.name = generateBatchName(value);
+      }
+      
+      // Auto-calculate intake dates
+      if (field === 'start_date' && value) {
+        const startDate = new Date(value);
+        const intakeStart = new Date(startDate);
+        intakeStart.setDate(intakeStart.getDate() - 30); // 30 days before start
+        const intakeEnd = new Date(startDate);
+        intakeEnd.setDate(intakeEnd.getDate() - 1); // 1 day before start
+        
+        updated.intake_start_date = intakeStart.toISOString().split('T')[0];
+        updated.intake_end_date = intakeEnd.toISOString().split('T')[0];
+      }
+      
+      return updated;
+    });
   };
 
   const handleSubmit = async () => {
-    // Validation for Engineering/Medical requires target_class
-    const isEngineeringOrMedical = initialDomain === 'engineering' || initialDomain === 'medical';
-    
     if (!formData.name || !formData.start_date) {
       toast({
         title: "Missing Fields",
-        description: "Please fill all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (isEngineeringOrMedical && !formData.target_class) {
-      toast({
-        title: "Missing Student Category",
-        description: "Please select a student category for Engineering/Medical batch",
+        description: "Please enter batch name and start date",
         variant: "destructive",
       });
       return;
@@ -105,10 +141,9 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
   const handleReset = () => {
     setFormData({
       name: "",
-      description: "",
-      exam_name: "",
-      level: "",
-      target_class: null,
+      exam_name: preselectedBoard || "",
+      level: preselectedClass ? `Class ${preselectedClass}` : "",
+      target_class: preselectedClass || null,
       max_capacity: 50,
       start_date: "",
       end_date: null,
@@ -132,6 +167,8 @@ export function CreateBatchWizard({ open, onOpenChange, onSuccess, initialDomain
               domain={initialDomain}
               formData={formData}
               onChange={handleFieldChange}
+              preselectedBoard={preselectedBoard}
+              preselectedClass={preselectedClass}
             />
           )}
         </div>

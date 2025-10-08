@@ -38,6 +38,20 @@ const BatchManagement = () => {
     return batches.filter((b: any) => b.exam_type === domain).length;
   };
 
+  const getBoardBatchCount = (domain: string, board: string) => {
+    return batches.filter((b: any) => 
+      b.exam_type === domain && b.target_board === board
+    ).length;
+  };
+
+  const getClassBatchCount = (domain: string, board: string, cls: string) => {
+    return batches.filter((b: any) => 
+      b.exam_type === domain && 
+      b.target_board === board && 
+      b.target_class?.toString() === cls
+    ).length;
+  };
+
   const getUniqueExamNames = () => {
     if (!selectedDomain) return [];
     const domainBatches = batches.filter((b: any) => b.exam_type === selectedDomain);
@@ -209,6 +223,8 @@ const BatchManagement = () => {
               onReset={resetFromBoard}
               onResetToBoard={resetToBoard}
               studentCounts={getStudentCounts()}
+              getBoardBatchCount={(board) => getBoardBatchCount('school', board)}
+              getClassBatchCount={(cls) => getClassBatchCount('school', selectedBoard || '', cls)}
             />
           )}
 
@@ -439,12 +455,13 @@ const BatchManagement = () => {
         onOpenChange={setShowWizard}
         onSuccess={() => {
           fetchBatches();
-          toast({
-            title: "Success",
-            description: "Batch created successfully!",
-          });
+          resetToBoard();
+          setShowWizard(false);
         }}
         initialDomain={selectedDomain}
+        preselectedBoard={selectedBoard}
+        preselectedClass={selectedClass}
+        existingBatches={batches}
       />
     </div>
   );

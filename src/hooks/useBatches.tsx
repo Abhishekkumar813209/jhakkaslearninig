@@ -22,6 +22,8 @@ export interface Batch {
   exam_name?: string;
   target_board?: string;
   target_class?: string;
+  linked_roadmap_id?: string | null;
+  auto_assign_roadmap?: boolean;
 }
 
 export const useBatches = () => {

@@ -4,20 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter } from "lucide-react";
+import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter, Link2, X } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 import { CreateBatchWizard } from "./CreateBatchWizard";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
+import { supabase } from "@/integrations/supabase/client";
 import * as LucideIcons from "lucide-react";
 
 const BatchManagement = () => {
-  const { batches, loading, deleteBatch, fetchBatches, totalStudents, avgPerformance } = useBatches();
+  const { batches, loading, deleteBatch, fetchBatches, totalStudents, avgPerformance, updateBatch } = useBatches();
   const [showWizard, setShowWizard] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [examFilter, setExamFilter] = useState<string>("all");
+  const [availableRoadmaps, setAvailableRoadmaps] = useState<any[]>([]);
+  const [linkingBatch, setLinkingBatch] = useState<string | null>(null);
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
@@ -174,6 +177,47 @@ const BatchManagement = () => {
     });
 
     return { byBoard, byClass };
+  };
+
+  const fetchAvailableRoadmaps = async (batchId: string) => {
+    const batch = batches.find(b => b.id === batchId);
+    if (!batch) return;
+
+    const { data, error } = await supabase
+      .from('batch_roadmaps')
+      .select('id, title, description, exam_type, exam_name')
+      .eq('exam_type', batch.exam_type)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to fetch roadmaps", variant: "destructive" });
+      return;
+    }
+
+    setAvailableRoadmaps(data || []);
+  };
+
+  const handleLinkRoadmap = async (batchId: string, roadmapId: string | null) => {
+    try {
+      await updateBatch(batchId, {
+        linked_roadmap_id: roadmapId,
+        auto_assign_roadmap: roadmapId ? true : false
+      });
+
+      toast({
+        title: "Success",
+        description: roadmapId ? "Roadmap linked successfully" : "Roadmap unlinked successfully"
+      });
+
+      fetchBatches();
+      setLinkingBatch(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to link roadmap",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -385,6 +429,7 @@ const BatchManagement = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Domain</TableHead>
                   <TableHead>Exam/Board</TableHead>
+                  <TableHead>Linked Roadmap</TableHead>
                   <TableHead>Students</TableHead>
                   <TableHead>Capacity</TableHead>
                   <TableHead>Start Date</TableHead>
@@ -395,14 +440,14 @@ const BatchManagement = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                       Loading batches...
                     </TableCell>
                   </TableRow>
                 ) : filteredBatches?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <p className="text-muted-foreground">
                         No batches found in {selectedDomain}
                         {examFilter !== "all" && ` for ${examFilter}`}
@@ -438,6 +483,60 @@ const BatchManagement = () => {
                         {batch.level === "Dropper" ? "Dropper" : `Class ${batch.target_class}`}
                       </div>
                     )}
+                      </TableCell>
+                      <TableCell>
+                        {linkingBatch === batch.id ? (
+                          <Select 
+                            value={batch.linked_roadmap_id || "none"} 
+                            onValueChange={(value) => handleLinkRoadmap(batch.id, value === "none" ? null : value)}
+                          >
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Select roadmap" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                <div className="flex items-center gap-2">
+                                  <X className="h-4 w-4" />
+                                  <span>No Roadmap</span>
+                                </div>
+                              </SelectItem>
+                              {availableRoadmaps.map((roadmap) => (
+                                <SelectItem key={roadmap.id} value={roadmap.id}>
+                                  {roadmap.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : batch.linked_roadmap_id ? (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-green-500/10 text-green-700">
+                              <Link2 className="h-3 w-3 mr-1" />
+                              Linked
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setLinkingBatch(batch.id);
+                                fetchAvailableRoadmaps(batch.id);
+                              }}
+                            >
+                              Change
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setLinkingBatch(batch.id);
+                              fetchAvailableRoadmaps(batch.id);
+                            }}
+                          >
+                            <Link2 className="h-4 w-4 mr-1" />
+                            Link
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

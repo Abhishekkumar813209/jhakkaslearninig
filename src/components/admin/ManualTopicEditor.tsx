@@ -59,6 +59,7 @@ export const ManualTopicEditor = () => {
   const [csvInput, setCsvInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [roadmapCounts, setRoadmapCounts] = useState<any>({ byBoard: {}, byClass: {} });
   
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
@@ -79,6 +80,7 @@ export const ManualTopicEditor = () => {
   useEffect(() => {
     if (selectedDomain) {
       fetchBatches();
+      fetchRoadmapCounts();
       setSelectedBatch("");
       setSelectedSubject("");
       setSelectedChapter("");
@@ -132,28 +134,36 @@ export const ManualTopicEditor = () => {
     setBatches(filteredData);
   };
 
-  const getRoadmapCounts = () => {
-    // This would need access to roadmaps data - for now returning batch counts
-    // In a full implementation, fetch batch_roadmaps filtered by exam_type
-    const domainBatches = batches.filter((b: any) => b.exam_type === selectedDomain);
+  const fetchRoadmapCounts = async () => {
+    if (!selectedDomain) return;
+    
+    const { data, error } = await supabase
+      .from('batch_roadmaps')
+      .select('id, batch_id, batches!inner(exam_type, target_board, target_class, is_active)')
+      .eq('batches.exam_type', selectedDomain)
+      .eq('batches.is_active', true);
+    
+    if (error) {
+      console.error('Error fetching roadmap counts:', error);
+      return;
+    }
+    
     const byBoard: Record<string, number> = {};
     const byClass: Record<string, Record<string, number>> = {};
-
-    domainBatches.forEach((batch: any) => {
-      const board = batch.target_board || 'CBSE';
-      const cls = batch.target_class;
+    
+    data?.forEach((roadmap: any) => {
+      const board = roadmap.batches.target_board || 'General';
+      const cls = roadmap.batches.target_class;
       
-      // Count roadmaps linked to batches (each batch with linked_roadmap_id = 1 roadmap)
-      const roadmapCount = batch.linked_roadmap_id ? 1 : 0;
-      byBoard[board] = (byBoard[board] || 0) + roadmapCount;
+      byBoard[board] = (byBoard[board] || 0) + 1;
       
-      if (!byClass[board]) byClass[board] = {};
       if (cls) {
-        byClass[board][cls] = (byClass[board][cls] || 0) + roadmapCount;
+        if (!byClass[board]) byClass[board] = {};
+        byClass[board][cls] = (byClass[board][cls] || 0) + 1;
       }
     });
-
-    return { byBoard, byClass };
+    
+    setRoadmapCounts({ byBoard, byClass });
   };
 
   const fetchSubjects = async () => {
@@ -453,7 +463,7 @@ export const ManualTopicEditor = () => {
           onClassSelect={setClass}
           onReset={resetFromBoard}
           onResetToBoard={resetToBoard}
-          studentCounts={getRoadmapCounts()}
+          studentCounts={roadmapCounts}
           countLabel="roadmaps"
         />
       ) : (

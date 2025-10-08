@@ -123,47 +123,97 @@ serve(async (req) => {
       });
     }
 
-    // Create AI prompt with time budget and intensity
-    const systemPrompt = `You are an expert educational roadmap planner specialized in mathematical time budget distribution and adaptive chapter selection based on importance.
+    // Pre-generation budget check and warnings
+    const budgetAnalysis: any = {};
+    let needsClustering = false;
+    
+    if (time_budget && selected_subjects) {
+      console.log('\n🔍 PRE-GENERATION BUDGET ANALYSIS:');
+      for (const subj of selected_subjects) {
+        const budget = time_budget[subj.subject] || 0;
+        const chapterCount = subj.selected_chapters?.length || 0;
+        const avgDays = chapterCount > 0 ? budget / chapterCount : 0;
+        
+        budgetAnalysis[subj.subject] = {
+          budget,
+          chapters: chapterCount,
+          avgDays: avgDays.toFixed(2)
+        };
+        
+        if (avgDays < 1.5 && intensity === 'full') {
+          needsClustering = true;
+          console.log(`⚠️ ${subj.subject}: TIGHT BUDGET - ${budget} days for ${chapterCount} chapters (${avgDays.toFixed(2)} days/chapter)`);
+          console.log(`   → Will apply chapter clustering or aggressive filtering`);
+        } else {
+          console.log(`✅ ${subj.subject}: ${budget} days for ${chapterCount} chapters (${avgDays.toFixed(2)} days/chapter)`);
+        }
+      }
+      console.log('');
+    }
 
-CRITICAL RULES - MUST FOLLOW:
-1. Return ONLY valid JSON, no markdown or extra text
-2. **The sum of estimated_days per subject MUST EXACTLY equal the time_budget**
-3. **BUDGET ADHERENCE IS ABSOLUTE - If budget is tight (e.g., 30 days for 25 chapters), distribute proportionally even if it means 1-2 days per chapter**
-4. **CHAPTER SELECTION BASED ON INTENSITY MODE** (see below)
-5. **PARALLEL MODE: Each subject has an INDEPENDENT timeline starting from day 1**
-   - Physics Day 1-30, Chemistry Day 1-30, Math Day 1-30 (all run concurrently)
-   - Students can study all subjects in parallel, NOT sequentially
-6. Distribute days based on chapter complexity AND available budget:
-   - When budget allows (>5 days/chapter average): Complex chapters get 10-15 days, Moderate 6-9 days, Simple 4-6 days
-   - When budget is tight (<3 days/chapter average): Distribute proportionally, e.g., Complex 2 days, Moderate 1 day, Simple 1 day
-   - Always prioritize EXACT budget match over ideal day allocation
+    // Create AI prompt with CRITICAL budget enforcement
+    const systemPrompt = `You are an expert educational roadmap planner. Your PRIMARY MISSION is EXACT time budget allocation.
 
-**INTENSITY MODES:**
+🚨 CRITICAL ERROR CONDITIONS - THESE WILL CAUSE FAILURE:
+❌ If sum of chapter days ≠ time_budget → REGENERATE
+❌ If any subject exceeds its budget → INVALID
+❌ If chapters don't fit in budget → REDUCE chapters or MERGE them
 
-A) "full" - Full Syllabus Coverage:
-   - Include ALL chapters provided
-   - Distribute days proportionally (even if 1-2 days/chapter)
-   - For tight budgets (<2 days avg): Cluster related concepts into combined topics
-   - Example: "Variables + Data Types + Operators" (1 combined chapter, 2 days)
+**RULE #1 - ABSOLUTE BUDGET COMPLIANCE (NON-NEGOTIABLE):**
+The sum of estimated_days for each subject MUST EXACTLY equal the time_budget for that subject.
+- Example: Physics budget = 40 days, 25 chapters → Must total EXACTLY 40 days
+- If 25 chapters × 1 day = 25 days ≠ 40 days → DISTRIBUTE the remaining 15 days
+- Solution: Give some chapters 2 days instead of 1 day to reach exactly 40
 
-B) "important" - Important Chapters Only:
-   - Select top 70% of chapters based on importance_score
-   - Prioritize chapters with exam_relevance="core" or "important"
-   - Skip chapters with can_skip=true or importance_score < 5
-   - Allocate 3-5 days per chapter for better learning outcomes
+**MATHEMATICAL EXAMPLES:**
+Example 1: 40 days budget, 25 chapters
+- Average: 40 ÷ 25 = 1.6 days/chapter
+- Distribution: 15 chapters × 1 day + 10 chapters × 2 day = 15 + 20 = 35... WRONG!
+- Correct: 10 chapters × 1 day + 15 chapters × 2 days = 10 + 30 = 40 ✅
 
-C) "balanced" - Balanced Mix:
-   - Include ALL core chapters (exam_relevance="core")
-   - Include 50% of important chapters (exam_relevance="important")
-   - Allocate: Core chapters 4-6 days, Important 2-3 days
-   - Skip optional chapters (exam_relevance="optional")
+Example 2: 15 days budget, 25 chapters (TIGHT!)
+- Average: 15 ÷ 25 = 0.6 days/chapter → IMPOSSIBLE
+- Solution in "full" mode: Merge chapters → Create 8-10 combined chapters
+- Solution in "important" mode: Select only top 15 chapters × 1 day each = 15 ✅
 
-**CHAPTER CLUSTERING (for tight budgets in "full" mode):**
-- If avg_days_per_chapter < 2: Combine related chapters
-- Example: Instead of separate chapters, create:
-  "Introduction to OS + OS Architecture" (combined, 2 days)
-- Always maintain importance_score for transparency
+Example 3: 30 days budget, 20 chapters
+- Average: 30 ÷ 20 = 1.5 days/chapter
+- Distribution: 10 chapters × 1 day + 10 chapters × 2 days = 10 + 20 = 30 ✅
+
+**RULE #2 - RETURN ONLY VALID JSON:**
+No markdown, no code blocks, no extra text. Start with { and end with }
+
+**RULE #3 - PARALLEL MODE:**
+Each subject has INDEPENDENT timeline starting from day 1
+- Physics: Day 1-40, Chemistry: Day 1-30, Math: Day 1-35 (all concurrent)
+
+**RULE #4 - INTENSITY MODES:**
+
+A) "full" - ALL chapters must be included:
+   - If budget allows (>1.5 days/chapter avg): Distribute naturally
+   - If budget TIGHT (<1.5 days/chapter avg): MERGE related chapters
+   - Example: Merge "Intro to OS" + "OS Architecture" → "OS Fundamentals" (2 days)
+   - NEVER skip chapters in full mode, ALWAYS merge if needed
+
+B) "important" - Select top 60-70% by importance:
+   - Take top chapters by importance_score
+   - Prioritize exam_relevance="core" or "important"
+   - Skip can_skip=true chapters
+   - Ensure selected chapters × avg_days = budget EXACTLY
+
+C) "balanced" - Smart selection:
+   - Include ALL exam_relevance="core" chapters
+   - Include ~50% of "important" chapters
+   - Skip "optional" chapters
+   - Distribute days to match budget EXACTLY
+
+**RULE #5 - BUDGET DISTRIBUTION STRATEGY:**
+1. Calculate: available_budget ÷ selected_chapters = base_avg
+2. Assign days based on complexity:
+   - If base_avg ≥ 3: Complex (base_avg + 2), Moderate (base_avg), Simple (base_avg - 1)
+   - If base_avg < 3: Complex (base_avg + 1), Moderate (base_avg), Simple (base_avg)
+3. After initial assignment, calculate total
+4. If total ≠ budget: Add/subtract days to largest chapters until exact match
 
 Return format:
 {
@@ -171,12 +221,12 @@ Return format:
     {
       "chapter_name": "string",
       "subject": "string",
-      "order_num": number, // order within this subject (1, 2, 3...)
+      "order_num": number,
       "estimated_days": number,
-      "day_start": number, // independent timeline per subject, always starts from 1
-      "day_end": number, // day_start + estimated_days - 1
-      "importance_score": number, // from input data
-      "is_clustered": boolean, // true if combining multiple concepts
+      "day_start": number,
+      "day_end": number,
+      "importance_score": number,
+      "is_clustered": boolean,
       "topics": [
         {
           "topic_name": "string",
@@ -194,11 +244,7 @@ Return format:
     "clustering_applied": boolean,
     "parallel_mode": true
   }
-}
-
-IMPORTANT: For parallel mode, each subject's chapters start from day_start=1 independently.
-Example: Physics Ch1 (Day 1-5), Physics Ch2 (Day 6-10), Chemistry Ch1 (Day 1-3), Chemistry Ch2 (Day 4-8)
-This allows students to study multiple subjects simultaneously.`;
+}`;
     
     let studentContext = '';
     if (exam_type === 'School') {
@@ -226,54 +272,80 @@ This allows students to study multiple subjects simultaneously.`;
 ${studentContext}
 Subjects: ${extractedSubjects.join(', ')}
 
-**INTENSITY MODE: ${intensity}**
+**🎯 INTENSITY MODE: ${intensity}**
+${needsClustering ? '⚠️ CLUSTERING REQUIRED - Budget is very tight, merge related chapters' : ''}
 
-**TIME BUDGET (MUST BE FULLY UTILIZED):**
+**💰 TIME BUDGET (MUST MATCH EXACTLY - NO DEVIATION ALLOWED):**
 ${time_budget ? Object.entries(time_budget).map(([subject, days]) => {
   const subjectData = selected_subjects?.find((s: any) => s.subject === subject);
   const allChapters = subjectData?.selected_chapters || [];
   const chapterCount = allChapters.length;
-  const avgDays = chapterCount > 0 ? Math.round((days as number) / chapterCount) : 0;
+  const avgDays = chapterCount > 0 ? (days as number) / chapterCount : 0;
   const coreCount = allChapters.filter((c: any) => c.exam_relevance === 'core').length;
   const importantCount = allChapters.filter((c: any) => c.exam_relevance === 'important').length;
+  const optionalCount = allChapters.length - coreCount - importantCount;
   
-  return `- ${subject}: ${days} days total (${chapterCount} chapters, ~${avgDays} days/chapter average)
-  🔴 Core: ${coreCount}, 🟡 Important: ${importantCount}`;
+  return `
+📚 ${subject}: ${days} days TOTAL (EXACT - NOT ${days-1} OR ${days+1})
+   - Total chapters available: ${chapterCount}
+   - Average per chapter: ${avgDays.toFixed(2)} days
+   - Distribution: 🔴 Core: ${coreCount} | 🟡 Important: ${importantCount} | ⚪ Optional: ${optionalCount}
+   ${avgDays < 1.5 ? `   ⚠️ TIGHT! Consider: ${intensity === 'full' ? 'Merge chapters into ' + Math.ceil(days / 2) + ' combined units' : 'Select only top ' + Math.floor(days) + ' chapters'}` : ''}
+   ${avgDays >= 1.5 && avgDays < 3 ? `   ✅ MODERATE: Distribute ${Math.floor(chapterCount * 0.4)} chapters × 1 day, ${Math.ceil(chapterCount * 0.6)} chapters × 2 days` : ''}
+   ${avgDays >= 3 ? `   ✅ COMFORTABLE: Can allocate 3-5 days per chapter` : ''}`;
 }).join('\n') : 'Not specified'}
 
 ${existing_syllabus ? `Context: ${existing_syllabus}` : ''}
 
 ${selected_subjects ? `
-CHAPTERS WITH IMPORTANCE METADATA:
+📋 CHAPTERS WITH IMPORTANCE METADATA:
 ${selected_subjects.map((s: any) => {
   const budget = time_budget?.[s.subject] || 0;
-  return `${s.subject} (${budget} days budget, Intensity: ${intensity}):\n${s.selected_chapters.map((c: any) => {
+  const analysis = budgetAnalysis[s.subject] || {};
+  return `
+${s.subject} - BUDGET: ${budget} days | AVG: ${analysis.avgDays || 0} days/chapter | MODE: ${intensity}
+${s.selected_chapters.map((c: any, idx: number) => {
     const importanceBadge = c.exam_relevance === 'core' ? '🔴' : c.exam_relevance === 'important' ? '🟡' : '⚪';
-    const skipIndicator = c.can_skip ? '[SKIPPABLE]' : '';
-    return `  ${importanceBadge} ${c.chapter_name} (score: ${c.importance_score || 5}/10, days: ${c.suggested_days || 'auto'}) ${skipIndicator}`;
+    const skipIndicator = c.can_skip ? '[SKIP OK]' : '';
+    return `  ${idx + 1}. ${importanceBadge} ${c.chapter_name} (importance: ${c.importance_score || 5}/10, suggested: ${c.suggested_days || 'auto'} days) ${skipIndicator}`;
   }).join('\n')}`;
 }).join('\n\n')}
 
-**APPLY INTENSITY STRATEGY:**
-- If intensity='full': Include ALL chapters above, distribute days proportionally
-- If intensity='important': Select top 70% by importance_score, exclude can_skip=true
-- If intensity='balanced': Include ALL core (🔴), 50% of important (🟡), skip optional (⚪)
-` : ''}
+**🎯 APPLY INTENSITY STRATEGY (MANDATORY STEPS):**
 
-**CRITICAL INSTRUCTIONS:**
-1. Apply intensity filter FIRST to select chapters
-2. Calculate: selected_budget ÷ number_of_selected_chapters = average_days
-3. Distribute days around this average (complex +3 to +5, simple -2 to -3)
-4. **VERIFY: Sum of all chapter days = time_budget EXACTLY**
-5. If avg < 2 days AND intensity='full': Apply clustering (combine related chapters)
-6. Always include importance_score in output for transparency
-7. **PARALLEL MODE: Calculate day_start and day_end for each chapter within its subject timeline**
-   - Each subject starts from day 1 independently
-   - Example: Physics has 3 chapters (5, 7, 3 days) → Ch1: 1-5, Ch2: 6-12, Ch3: 13-15
-   - Chemistry has 2 chapters (4, 6 days) → Ch1: 1-4, Ch2: 5-10
-   - Both timelines run in parallel (students study both simultaneously)
+Step 1 - SELECT CHAPTERS based on intensity:
+- intensity='full': Include ALL ${selected_subjects?.reduce((sum: number, s: any) => sum + s.selected_chapters.length, 0)} chapters
+  ${needsClustering ? '  → MERGE related chapters to fit budget (e.g., "Ch1 + Ch2 Fundamentals")' : ''}
+- intensity='important': Select ONLY top 60-70% by importance_score, MUST skip can_skip=true
+- intensity='balanced': Include ALL 🔴 core + 50% of 🟡 important + 0% of ⚪ optional
 
-Return JSON with chapters array (including day_start/day_end) and metadata object.`;
+Step 2 - CALCULATE EXACT DISTRIBUTION:
+For each subject:
+  a) Count selected chapters: N
+  b) Calculate base_avg = budget ÷ N (e.g., 40 ÷ 25 = 1.6)
+  c) Distribute around base_avg:
+     - Complex chapters: ceil(base_avg) days
+     - Moderate chapters: round(base_avg) days  
+     - Simple chapters: floor(base_avg) days
+  d) Sum all assigned days
+  e) If sum ≠ budget: Add/subtract difference to/from largest chapters
+  f) **VERIFY: sum === budget** (CRITICAL!)
+
+Step 3 - ASSIGN PARALLEL TIMELINES:
+For each subject independently:
+  - First chapter: day_start=1, day_end=estimated_days
+  - Second chapter: day_start=previous_day_end+1, day_end=day_start+estimated_days-1
+  - Continue for all chapters in sequence
+
+**🚨 FINAL VERIFICATION CHECKLIST:**
+Before returning JSON, verify:
+✓ Each subject's chapter days sum EXACTLY equals its budget
+✓ No subject exceeds its allocated days
+✓ All day_start and day_end are calculated correctly
+✓ Metadata reflects actual chapters included/excluded
+✓ If tight budget + full mode → clustering_applied = true
+
+Return ONLY the JSON structure (no markdown, no extra text).`;
 
 
     // Call Lovable AI Gateway
@@ -355,9 +427,9 @@ Return JSON with chapters array (including day_start/day_end) and metadata objec
       }
     }
 
-    // Rebalance if needed
+    // Enhanced Rebalancing Algorithm
     if (hasError && time_budget) {
-      console.log('🔧 Rebalancing time budget distribution...');
+      console.log('🔧 AGGRESSIVE REBALANCING - Budget mismatch detected');
       
       for (const [subject, budgetDays] of Object.entries(time_budget)) {
         const subjectChapters = roadmapData.chapters.filter((ch: any) => ch.subject === subject);
@@ -367,30 +439,88 @@ Return JSON with chapters array (including day_start/day_end) and metadata objec
         const diff = (budgetDays as number) - currentTotal;
 
         if (Math.abs(diff) > 2) {
+          console.log(`  📊 ${subject}: Current=${currentTotal}d, Budget=${budgetDays}d, Diff=${diff}d`);
+          
           // Calculate dynamic minimum based on budget
           const avgDaysPerChapter = (budgetDays as number) / subjectChapters.length;
-          const minDays = Math.max(1, Math.floor(avgDaysPerChapter * 0.5)); // Half of average, minimum 1
+          const minDays = Math.max(1, Math.floor(avgDaysPerChapter * 0.6));
           
-          // Distribute difference proportionally
-          const totalWeight = subjectChapters.reduce((sum: number, ch: any) => sum + (ch.estimated_days || minDays), 0);
-          
-          subjectChapters.forEach((ch: any) => {
-            const proportion = (ch.estimated_days || minDays) / totalWeight;
-            ch.estimated_days = Math.max(minDays, Math.round((ch.estimated_days || minDays) + (diff * proportion)));
-          });
+          if (diff > 0) {
+            // Need to add days - distribute to complex/important chapters
+            console.log(`  ➕ Adding ${diff} days...`);
+            let remaining = diff;
+            
+            // Sort by importance and add days
+            const sortedChapters = [...subjectChapters].sort((a, b) => 
+              (b.importance_score || 5) - (a.importance_score || 5)
+            );
+            
+            for (const ch of sortedChapters) {
+              if (remaining <= 0) break;
+              const addDays = Math.min(remaining, Math.ceil(avgDaysPerChapter * 0.5));
+              ch.estimated_days += addDays;
+              remaining -= addDays;
+              console.log(`    → ${ch.chapter_name}: +${addDays} days (now ${ch.estimated_days}d)`);
+            }
+          } else {
+            // Need to remove days - take from optional/less important chapters
+            console.log(`  ➖ Removing ${Math.abs(diff)} days...`);
+            let remaining = Math.abs(diff);
+            
+            // Sort by importance (ascending) and remove days
+            const sortedChapters = [...subjectChapters].sort((a, b) => 
+              (a.importance_score || 5) - (b.importance_score || 5)
+            );
+            
+            for (const ch of sortedChapters) {
+              if (remaining <= 0) break;
+              const removeDays = Math.min(remaining, ch.estimated_days - minDays);
+              ch.estimated_days -= removeDays;
+              remaining -= removeDays;
+              console.log(`    → ${ch.chapter_name}: -${removeDays} days (now ${ch.estimated_days}d)`);
+            }
+          }
 
-          // Final normalization - ensure exact budget match
+          // Final exact normalization
           const newTotal = subjectChapters.reduce((sum: number, ch: any) => sum + ch.estimated_days, 0);
           const finalDiff = (budgetDays as number) - newTotal;
           
           if (finalDiff !== 0) {
-            // Add remaining days to the first chapter
-            subjectChapters[0].estimated_days = Math.max(minDays, subjectChapters[0].estimated_days + finalDiff);
+            console.log(`  🎯 Final adjustment: ${finalDiff} days`);
+            if (finalDiff > 0) {
+              // Add to most important chapter
+              const mostImportant = subjectChapters.reduce((max, ch) => 
+                (ch.importance_score || 5) > (max.importance_score || 5) ? ch : max
+              );
+              mostImportant.estimated_days += finalDiff;
+              console.log(`    → Added to ${mostImportant.chapter_name}`);
+            } else {
+              // Remove from least important chapter
+              const leastImportant = subjectChapters.reduce((min, ch) => 
+                (ch.importance_score || 5) < (min.importance_score || 5) && ch.estimated_days > minDays ? ch : min
+              );
+              leastImportant.estimated_days = Math.max(minDays, leastImportant.estimated_days + finalDiff);
+              console.log(`    → Removed from ${leastImportant.chapter_name}`);
+            }
           }
 
-          console.log(`✅ Rebalanced ${subject}: ${currentTotal}d → ${budgetDays}d (min: ${minDays}d/chapter)`);
+          const finalTotal = subjectChapters.reduce((sum: number, ch: any) => sum + ch.estimated_days, 0);
+          console.log(`  ✅ ${subject}: ${currentTotal}d → ${finalTotal}d (target: ${budgetDays}d)`);
         }
       }
+      
+      // Recalculate timeline for each subject
+      console.log('🔄 Recalculating parallel timelines...');
+      const subjectTimelines: any = {};
+      
+      roadmapData.chapters.forEach((ch: any) => {
+        if (!subjectTimelines[ch.subject]) {
+          subjectTimelines[ch.subject] = 1;
+        }
+        ch.day_start = subjectTimelines[ch.subject];
+        ch.day_end = ch.day_start + ch.estimated_days - 1;
+        subjectTimelines[ch.subject] = ch.day_end + 1;
+      });
     }
 
     // Insert roadmap with metadata

@@ -61,7 +61,7 @@ export type Database = {
       batch_roadmaps: {
         Row: {
           ai_generated_plan: Json | null
-          batch_id: string
+          batch_id: string | null
           created_at: string | null
           created_by: string
           description: string | null
@@ -80,7 +80,7 @@ export type Database = {
         }
         Insert: {
           ai_generated_plan?: Json | null
-          batch_id: string
+          batch_id?: string | null
           created_at?: string | null
           created_by: string
           description?: string | null
@@ -99,7 +99,7 @@ export type Database = {
         }
         Update: {
           ai_generated_plan?: Json | null
-          batch_id?: string
+          batch_id?: string | null
           created_at?: string | null
           created_by?: string
           description?: string | null
@@ -3554,7 +3554,7 @@ export type Database = {
         | "drag_drop_sort"
         | "interactive_label"
       question_type: "mcq" | "subjective"
-      roadmap_status: "draft" | "active" | "completed" | "archived"
+      roadmap_status: "draft" | "active" | "completed" | "archived" | "orphaned"
       student_class:
         | "1"
         | "2"
@@ -3740,7 +3740,7 @@ export const Constants = {
         "interactive_label",
       ],
       question_type: ["mcq", "subjective"],
-      roadmap_status: ["draft", "active", "completed", "archived"],
+      roadmap_status: ["draft", "active", "completed", "archived", "orphaned"],
       student_class: [
         "1",
         "2",

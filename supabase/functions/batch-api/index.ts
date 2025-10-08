@@ -411,6 +411,45 @@ serve(async (req: Request) => {
           )
         }
 
+        // Check for linked roadmaps before deletion
+        const { data: linkedRoadmaps, error: roadmapError } = await service
+          .from('batch_roadmaps')
+          .select('id, title, description')
+          .eq('batch_id', batchId)
+
+        if (roadmapError) {
+          console.log('Error checking linked roadmaps:', roadmapError)
+          return new Response(
+            JSON.stringify({ error: roadmapError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // If roadmaps exist, orphan them instead of deleting
+        if (linkedRoadmaps && linkedRoadmaps.length > 0) {
+          console.log(`🔗 Found ${linkedRoadmaps.length} roadmap(s) linked to batch. Orphaning them...`)
+          
+          // Set batch_id to NULL and mark as orphaned
+          const { error: orphanError } = await service
+            .from('batch_roadmaps')
+            .update({ 
+              batch_id: null, 
+              status: 'orphaned',
+            })
+            .eq('batch_id', batchId)
+
+          if (orphanError) {
+            console.log('Failed to orphan roadmaps:', orphanError)
+            return new Response(
+              JSON.stringify({ 
+                error: 'Failed to orphan roadmaps: ' + orphanError.message 
+              }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+          console.log('✅ Roadmaps orphaned successfully')
+        }
+
         // Check if batch has students assigned and reassign them to null
         const { data: studentsInBatch, error: studentsError } = await service
           .from('profiles')

@@ -124,11 +124,36 @@ export const useBatches = () => {
 
   const deleteBatch = async (id: string) => {
     try {
+      // First check if roadmaps are linked
+      const { data: roadmaps } = await supabase
+        .from('batch_roadmaps')
+        .select('id, title')
+        .eq('batch_id', id);
+      
+      if (roadmaps && roadmaps.length > 0) {
+        const roadmapsList = roadmaps.map(r => `• ${r.title}`).join('\n');
+        const confirmDelete = window.confirm(
+          `⚠️ This batch has ${roadmaps.length} linked roadmap(s):\n\n${roadmapsList}\n\n` +
+          `These roadmaps will become "orphaned" and can be reassigned to another batch later.\n\n` +
+          `Student progress on these roadmaps will be preserved.\n\n` +
+          `Do you want to continue?`
+        );
+        
+        if (!confirmDelete) {
+          return;
+        }
+      }
+
       await batchAPI.deleteBatch(id);
       await fetchBatches();
+      
+      const message = roadmaps && roadmaps.length > 0
+        ? 'Batch deleted successfully. Linked roadmaps have been preserved.'
+        : 'Batch deleted successfully';
+      
       toast({
         title: "Success",
-        description: "Batch deleted successfully",
+        description: message,
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete batch';

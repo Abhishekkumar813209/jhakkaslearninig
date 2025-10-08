@@ -315,7 +315,7 @@ ${s.selected_chapters.map((c: any, idx: number) => {
 
 Step 1 - SELECT CHAPTERS based on intensity:
 - intensity='full': Include ALL ${selected_subjects?.reduce((sum: number, s: any) => sum + s.selected_chapters.length, 0)} chapters
-  ${needsClustering ? '  → MERGE related chapters to fit budget (e.g., "Ch1 + Ch2 Fundamentals")' : ''}
+  ${needsClustering ? '  → MERGE related chapters to fit budget (e.g., Ch1 + Ch2 Fundamentals)' : ''}
 - intensity='important': Select ONLY top 60-70% by importance_score, MUST skip can_skip=true
 - intensity='balanced': Include ALL 🔴 core + 50% of 🟡 important + 0% of ⚪ optional
 

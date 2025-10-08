@@ -109,9 +109,21 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       toast.error("Please select a batch first");
       return;
     }
-    
-    if (!examName) {
-      toast.error("Batch doesn't have exam name set");
+
+    const isSchool = examType?.toLowerCase() === 'school';
+    const finalExamName = isSchool ? conditionalBoard : examName;
+
+    if (!examType) {
+      toast.error('Please select exam type');
+      return;
+    }
+    if (isSchool) {
+      if (!conditionalBoard) {
+        toast.error('Please select a board');
+        return;
+      }
+    } else if (!examName) {
+      toast.error('Please select an exam name');
       return;
     }
 
@@ -121,11 +133,11 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       const { data: template } = await supabase
         .from('exam_templates')
         .select('standard_subjects')
-        .eq('exam_name', examName)
+        .eq('exam_name', finalExamName)
         .eq('exam_type', examType)
         .eq('is_active', true)
         .single();
-      
+
       if (template?.standard_subjects) {
         // Use template subjects
         const subjects: Subject[] = (template.standard_subjects as string[]).map((s: string) => ({
@@ -135,16 +147,18 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           isCustom: false
         }));
         setFetchedSubjects(subjects);
-        toast.success(`Loaded ${subjects.length} subjects for ${examName}`);
+        toast.success(`Loaded ${subjects.length} subjects for ${finalExamName}`);
         setIsFetchingSubjects(false);
         return;
       }
-      
+
       // Fallback: Call edge function if no template
       const { data, error } = await supabase.functions.invoke('fetch-exam-subjects', {
         body: {
           exam_type: examType,
-          exam_name: examName,
+          exam_name: finalExamName,
+          board: isSchool ? conditionalBoard : undefined,
+          student_class: isSchool ? conditionalClass : undefined,
         }
       });
 
@@ -215,8 +229,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         body: {
           exam_type: examType,
           subject: subjectName,
-          student_class: examType === 'School' ? conditionalClass : undefined,
-          board: examType === 'School' ? conditionalBoard : undefined,
+          student_class: examType?.toLowerCase() === 'school' ? conditionalClass : undefined,
+          board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
           fetch_mode: fetchMode,
           already_fetched: alreadyFetched,
         }

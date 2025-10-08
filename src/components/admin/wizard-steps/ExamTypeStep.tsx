@@ -96,9 +96,12 @@ export const ExamTypeStep = ({
   // Filter batches based on selected exam type
   const filteredBatches = batches.filter((batch: any) => {
     if (examType === 'school') {
+      const normalize = (v: any) => (v ?? '').toString().trim().toLowerCase();
+      const boardMatches = normalize(batch.target_board) === normalize(conditionalBoard) ||
+                           normalize(batch.exam_name) === normalize(conditionalBoard);
       return batch.exam_type === 'school' &&
              batch.target_class === conditionalClass &&
-             batch.exam_name === conditionalBoard;
+             boardMatches;
     } else if (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') {
       // Filter by domain AND student category (class or dropper)
       if (conditionalClass === 'dropper') {

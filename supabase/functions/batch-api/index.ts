@@ -326,6 +326,16 @@ serve(async (req: Request) => {
             end_date: updateBody.end_date,
             max_capacity: updateBody.max_capacity,
             is_active: updateBody.is_active,
+            linked_roadmap_id: updateBody.linked_roadmap_id,
+            auto_assign_roadmap: updateBody.auto_assign_roadmap,
+            exam_type: updateBody.exam_type,
+            exam_name: updateBody.exam_name,
+            target_class: updateBody.target_class,
+            target_board: updateBody.target_board,
+            intake_start_date: updateBody.intake_start_date,
+            intake_end_date: updateBody.intake_end_date,
+            is_current_intake: updateBody.is_current_intake,
+            auto_assign_enabled: updateBody.auto_assign_enabled,
             updated_at: new Date().toISOString()
           })
           .eq('id', batchId)

@@ -158,7 +158,30 @@ export const BoardClassSelector = ({
       {/* Class Selection */}
       {selectedBoard && !selectedClass && (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Select Class ({selectedBoard})</h3>
+          {/* Header with navigation buttons on right */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold">Select Class ({selectedBoard})</h3>
+            
+            {/* Navigation Buttons - Right Side */}
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onReset}
+              >
+                Change Domain
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onResetToBoard}
+              >
+                Change Board
+              </Button>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {CLASSES.map((cls, index) => (
               <Card

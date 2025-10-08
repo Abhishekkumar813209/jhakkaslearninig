@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BatchExamConfigStep } from "./wizard-steps/BatchExamConfigStep";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +55,15 @@ export function CreateBatchWizard({
     auto_assign_enabled: true,
   });
 
+  // Step 1: Update formData when preselected values change
+  useEffect(() => {
+    if (preselectedBoard) {
+      setFormData(prev => ({ ...prev, target_board: preselectedBoard, exam_name: preselectedBoard }));
+    }
+    if (preselectedClass) {
+      setFormData(prev => ({ ...prev, target_class: preselectedClass }));
+    }
+  }, [preselectedBoard, preselectedClass]);
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev: any) => {
@@ -102,7 +111,18 @@ export function CreateBatchWizard({
         return;
       }
 
-      // Debug logging
+      // Step 3: Final validation and logging before API call
+      console.log('🔍 Final formData before API:', formData);
+      
+      if (initialDomain === 'school' && (!formData.target_board || !formData.target_class)) {
+        toast({
+          title: "Validation Failed",
+          description: `target_board: ${formData.target_board}, target_class: ${formData.target_class}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       console.log('📋 Batch Creation Debug:', {
         initialDomain,
         preselectedBoard,
@@ -114,10 +134,12 @@ export function CreateBatchWizard({
         }
       });
 
-      // For school batches, ensure exam_name matches target_board
+      // For school batches, ensure all required fields are set
       const batchData = {
         ...formData,
         exam_type: initialDomain,
+        target_board: initialDomain === 'school' ? (formData.target_board || preselectedBoard) : formData.target_board,
+        target_class: initialDomain === 'school' ? (formData.target_class || preselectedClass) : formData.target_class,
         exam_name: initialDomain === 'school' ? (formData.target_board || preselectedBoard) : formData.exam_name,
       };
 

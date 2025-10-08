@@ -412,23 +412,37 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }).filter(s => s.selected_chapters.length > 0);
 
       // Validation
+      const finalExamName = examType === 'school' ? conditionalBoard : examName;
+      
       console.log('🔍 CreateRoadmapWizard: Generating roadmap with:', {
         examType,
-        examName,
+        examName: finalExamName,
         batchId,
         selectedBatch
       });
       
-      if (!examType || !examName) {
-        toast.error('Please select exam type and exam name');
+      if (!examType) {
+        toast.error('Please select exam type');
         return;
+      }
+
+      if (examType === 'school') {
+        if (!conditionalBoard) {
+          toast.error('Please select a board for school exams');
+          return;
+        }
+      } else {
+        if (!examName) {
+          toast.error('Please select an exam name');
+          return;
+        }
       }
 
       const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
         body: {
           batch_id: batchId,
           exam_type: examType,
-          exam_name: examName,
+          exam_name: finalExamName,
           conditional_class: conditionalClass,
           conditional_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
           roadmap_type: (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') ? roadmapType : undefined,
@@ -744,7 +758,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                 <div className="p-4 bg-muted rounded-lg space-y-2">
                   <h4 className="font-semibold">Selected Exam Info</h4>
                   <p className="text-sm"><strong>Exam Type:</strong> {examType}</p>
-                  <p className="text-sm"><strong>Exam:</strong> {examName || conditionalBoard}</p>
+                  {examType === 'school' ? (
+                    <>
+                      <p className="text-sm"><strong>Board:</strong> {conditionalBoard}</p>
+                      <p className="text-sm"><strong>Class:</strong> {conditionalClass}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm"><strong>Exam:</strong> {examName}</p>
+                  )}
                   <p className="text-sm"><strong>Batch:</strong> {selectedBatch.name}</p>
                 </div>
               )}

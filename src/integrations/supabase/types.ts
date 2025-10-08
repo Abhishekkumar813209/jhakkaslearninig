@@ -62,6 +62,7 @@ export type Database = {
         Row: {
           ai_generated_plan: Json | null
           batch_id: string | null
+          board: string | null
           created_at: string | null
           created_by: string
           description: string | null
@@ -83,6 +84,7 @@ export type Database = {
         Insert: {
           ai_generated_plan?: Json | null
           batch_id?: string | null
+          board?: string | null
           created_at?: string | null
           created_by: string
           description?: string | null
@@ -104,6 +106,7 @@ export type Database = {
         Update: {
           ai_generated_plan?: Json | null
           batch_id?: string | null
+          board?: string | null
           created_at?: string | null
           created_by?: string
           description?: string | null

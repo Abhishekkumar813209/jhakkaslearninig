@@ -351,6 +351,13 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
 
       // Get batch details for board and class
       const selectedBatch = batches.find(b => b.id === batchId);
+      const examType = selectedBatch?.exam_type || prefillData?.examType;
+      const targetBoard = selectedBatch?.target_board || prefillData?.selectedBoard;
+      const targetClass = selectedBatch?.target_class || prefillData?.selectedClass;
+      const examName = selectedBatch?.exam_name || prefillData?.examName || 
+        (examType === 'school' && targetBoard && targetClass 
+          ? `${targetBoard} Class ${targetClass}`
+          : undefined);
       
       // Create roadmap
       const { data: roadmap, error: roadmapError } = await supabase
@@ -364,9 +371,11 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
           end_date: format(endDate, 'yyyy-MM-dd'),
           status,
           created_by: (await supabase.auth.getUser()).data.user?.id,
-          target_board: selectedBatch?.target_board || prefillData?.selectedBoard,
-          target_class: selectedBatch?.target_class || prefillData?.selectedClass,
-          exam_type: selectedBatch?.exam_type || prefillData?.examType,
+          exam_type: examType,
+          exam_name: examName,
+          board: examType === 'school' ? targetBoard : undefined,
+          target_board: targetBoard,
+          target_class: targetClass,
         })
         .select()
         .single();

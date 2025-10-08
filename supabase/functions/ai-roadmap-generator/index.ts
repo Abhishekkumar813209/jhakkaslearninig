@@ -31,6 +31,7 @@ serve(async (req) => {
       subjects,
       target_class,
       target_board,
+      board,
       conditional_class,
       conditional_board,
       exam_type,
@@ -538,8 +539,11 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
         mode: mode,
         selected_subjects: extractedSubjects,
         exam_type: finalExamType,
-        exam_name: finalExamName,
-        target_board: extractedBoard,
+        exam_name: finalExamType === 'school' && (board || extractedBoard) && extractedClass 
+          ? `${board || extractedBoard} Class ${extractedClass}`
+          : finalExamName,
+        board: finalExamType === 'school' ? (board || extractedBoard) : undefined,
+        target_board: extractedBoard || board,
         target_class: extractedClass,
         ai_generated_plan: {
           ...roadmapData,

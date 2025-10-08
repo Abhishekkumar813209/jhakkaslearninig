@@ -185,21 +185,26 @@ const BatchManagement = () => {
 
     let query = supabase
       .from('batch_roadmaps')
-      .select('id, title, description, exam_type, exam_name, target_board, target_class')
+      .select('id, title, description, exam_type, exam_name, board, target_board, target_class')
       .order('created_at', { ascending: false });
 
-    // Filter by exam_type
+    // Filter by exam_type (domain)
     if (batch.exam_type) {
       query = query.eq('exam_type', batch.exam_type);
     }
 
-    // For school batches, match board and class directly
+    // For school batches, match board (using new board column) and class
     if (batch.exam_type === 'school') {
       if (batch.target_board) {
-        query = query.eq('target_board', batch.target_board);
+        query = query.eq('board', batch.target_board);
       }
       if (batch.target_class) {
         query = query.eq('target_class', batch.target_class);
+      }
+    } else {
+      // For non-school domains, filter by exam_name
+      if (batch.exam_name) {
+        query = query.eq('exam_name', batch.exam_name);
       }
     }
 
@@ -520,10 +525,18 @@ const BatchManagement = () => {
                                 <SelectItem key={roadmap.id} value={roadmap.id}>
                                   <div className="flex flex-col gap-0.5">
                                     <span>{roadmap.title}</span>
-                                    {roadmap.target_board && roadmap.target_class && (
-                                      <span className="text-xs text-muted-foreground">
-                                        {roadmap.target_board} - Class {roadmap.target_class}
-                                      </span>
+                                    {roadmap.exam_type === 'school' ? (
+                                      roadmap.board && roadmap.target_class && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {roadmap.board} - Class {roadmap.target_class}
+                                        </span>
+                                      )
+                                    ) : (
+                                      roadmap.exam_name && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {roadmap.exam_name}
+                                        </span>
+                                      )
                                     )}
                                   </div>
                                 </SelectItem>

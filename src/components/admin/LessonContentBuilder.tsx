@@ -17,8 +17,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
-import { YouTubeContentFetcher } from "./YouTubeContentFetcher";
-import { MultilingualSummarizer } from "./MultilingualSummarizer";
+import { EnhancedLessonWorkflow } from "./EnhancedLessonWorkflow";
 import * as LucideIcons from "lucide-react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
@@ -144,9 +143,6 @@ export function LessonContentBuilder() {
     human_reviewed: false,
   });
 
-  // YouTube integration state
-  const [selectedVideo, setSelectedVideo] = useState<any>(null);
-  const [showSummarizer, setShowSummarizer] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -417,88 +413,6 @@ export function LessonContentBuilder() {
     }
   };
 
-  const handleVideoSelect = (video: any) => {
-    setSelectedVideo(video);
-    setShowSummarizer(true);
-  };
-
-  const handleLessonGenerateFromYouTube = async (summary: any, language: string) => {
-    if (!selectedTopic) {
-      toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
-      return;
-    }
-
-    setLoading(true);
-    toast({ title: "Generating...", description: "Creating AI-enhanced lessons from YouTube content" });
-
-    try {
-      const selectedTopicData = topics.find(t => t.id === selectedTopic);
-      const selectedSubjectData = selectedSubject;
-      
-      const { data, error } = await supabase.functions.invoke('ai-lesson-from-youtube', {
-        body: {
-          summary,
-          language,
-          videoTitle: selectedVideo?.title || 'YouTube Video',
-          topicName: selectedTopicData?.topic_name || 'Unknown Topic',
-          subject: selectedSubjectData || 'General',
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.lessons && data.lessons.length > 0) {
-        const { data: user } = await supabase.auth.getUser();
-        const lessonsToInsert = data.lessons.map((lesson: any, idx: number) => ({
-          topic_id: selectedTopic,
-          lesson_type: lesson.lesson_type,
-          content_order: lessons.length + idx + 1,
-          theory_text: lesson.theory_text,
-          theory_html: lesson.theory_html,
-          svg_type: lesson.svg_type,
-          svg_data: lesson.svg_data,
-          game_type: lesson.game_type,
-          game_data: lesson.game_data,
-          estimated_time_minutes: lesson.estimated_time_minutes || 5,
-          xp_reward: lesson.xp_reward || 20,
-          coin_reward: lesson.coin_reward || 5,
-          generated_by: 'youtube_ai',
-          created_by: user?.user?.id,
-          human_reviewed: false,
-        }));
-
-        const { error: insertError } = await supabase
-          .from('topic_learning_content')
-          .insert(lessonsToInsert);
-
-        if (insertError) throw insertError;
-
-        toast({ 
-          title: "Success!", 
-          description: `Generated ${data.lessons.length} lessons from YouTube content in ${language}!`
-        });
-        fetchLessons();
-        setShowSummarizer(false);
-        setSelectedVideo(null);
-      } else {
-        toast({ 
-          title: "No Content", 
-          description: "AI didn't generate any lessons. Try again.", 
-          variant: "destructive" 
-        });
-      }
-    } catch (error: any) {
-      console.error('YouTube lesson generation error:', error);
-      toast({ 
-        title: "Generation Failed", 
-        description: error.message || "Failed to generate lessons from YouTube.",
-        variant: "destructive" 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleBulkGenerateLessons = async () => {
     if (!selectedTopic) {
       toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
@@ -753,18 +667,6 @@ export function LessonContentBuilder() {
 
               {selectedTopic && (
                 <>
-                  {/* YouTube Integration Section */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                    <YouTubeContentFetcher onVideoSelect={handleVideoSelect} />
-                    {showSummarizer && selectedVideo && (
-                      <MultilingualSummarizer
-                        videoId={selectedVideo.id}
-                        videoTitle={selectedVideo.title}
-                        onLessonGenerate={handleLessonGenerateFromYouTube}
-                      />
-                    )}
-                  </div>
-
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold">Lessons ({lessons.length})</h3>
                     <div className="flex gap-2">

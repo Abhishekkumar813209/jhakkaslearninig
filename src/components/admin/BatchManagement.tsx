@@ -204,6 +204,15 @@ const BatchManagement = () => {
                 });
                 return;
               }
+              // School domain requires board and class selection
+              if (selectedDomain === 'school' && (!selectedBoard || !selectedClass)) {
+                toast({
+                  title: "Board & Class Required",
+                  description: "School batches ke liye pehle Board aur Class select karein",
+                  variant: "destructive",
+                });
+                return;
+              }
               setShowWizard(true);
             }} 
             className="animate-scale-in"
@@ -489,9 +498,13 @@ const BatchManagement = () => {
       <CreateBatchWizard
         open={showWizard} 
         onOpenChange={setShowWizard}
-        onSuccess={() => {
+        onSuccess={(createdBatch) => {
           fetchBatches();
-          resetToBoard();
+          // Auto-select the board and class of the created batch for school domain
+          if (createdBatch && selectedDomain === 'school') {
+            if (createdBatch.target_board) setBoard(createdBatch.target_board);
+            if (createdBatch.target_class) setClass(createdBatch.target_class);
+          }
           setShowWizard(false);
         }}
         initialDomain={selectedDomain}

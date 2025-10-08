@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface CreateBatchWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess: (createdBatch?: any) => void;
   initialDomain?: string | null;
   preselectedBoard?: string | null;
   preselectedClass?: string | null;
@@ -92,6 +92,26 @@ export function CreateBatchWizard({
       return;
     }
 
+    // Strong validation for school batches
+    if (initialDomain === 'school') {
+      if (!formData.target_board) {
+        toast({
+          title: "Missing Board",
+          description: "Please select a Board for school batch",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!formData.target_class) {
+        toast({
+          title: "Missing Class",
+          description: "Please select a Class for school batch",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -103,9 +123,11 @@ export function CreateBatchWizard({
         return;
       }
 
+      // For school batches, ensure exam_name matches target_board
       const batchData = {
         ...formData,
         exam_type: initialDomain,
+        exam_name: initialDomain === 'school' ? formData.target_board : formData.exam_name,
       };
 
       const response = await fetch(`https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/batch-api`, {
@@ -129,7 +151,7 @@ export function CreateBatchWizard({
       });
 
       handleReset();
-      onSuccess();
+      onSuccess(result.batch || result);
     } catch (error: any) {
       toast({
         title: "Error",

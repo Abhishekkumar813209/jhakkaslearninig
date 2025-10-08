@@ -383,6 +383,27 @@ const StudentManagement = () => {
     }
   };
 
+  // Filter batches for a specific student based on their exam_domain, board, and class
+  const getFilteredBatchesForStudent = (student: Student) => {
+    return batches.filter(batch => {
+      // Must match exam domain
+      if (batch.exam_type !== (student.exam_domain || 'school')) return false;
+      
+      // For school domain, match board and class
+      if ((student.exam_domain || 'school') === 'school') {
+        if (batch.target_board !== student.education_board) return false;
+        if (batch.target_class !== student.student_class) return false;
+      }
+      
+      // For competitive exams (SSC/Banking/etc.), match exam_name if set
+      if (student.exam_domain !== 'school' && student.preparation_level) {
+        if (batch.exam_name !== student.preparation_level) return false;
+      }
+      
+      return true;
+    });
+  };
+
 
   return (
     <div className="space-y-6">
@@ -677,9 +698,15 @@ const StudentManagement = () => {
                             <SelectValue placeholder={student.batches?.name || 'No batch'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {batches.map((b) => (
-                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                            ))}
+                            {getFilteredBatchesForStudent(student).length > 0 ? (
+                              getFilteredBatchesForStudent(student).map((b) => (
+                                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="" disabled>
+                                No matching batches available
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </TableCell>

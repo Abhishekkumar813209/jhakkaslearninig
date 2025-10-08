@@ -18,6 +18,10 @@ export interface Batch {
   updated_at: string;
   student_count?: number;
   avg_score?: number;
+  exam_type?: string;
+  exam_name?: string;
+  target_board?: string;
+  target_class?: string;
 }
 
 export const useBatches = () => {

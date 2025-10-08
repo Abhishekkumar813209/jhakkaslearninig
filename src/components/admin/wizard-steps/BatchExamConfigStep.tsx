@@ -68,6 +68,30 @@ export function BatchExamConfigStep({
       )}
 
       <div className="space-y-4">
+        {preselectedBoard && (
+          <div>
+            <Label htmlFor="board">Board/Exam</Label>
+            <Input
+              id="board"
+              value={preselectedBoard}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+        )}
+
+        {preselectedClass && (
+          <div>
+            <Label htmlFor="class">Class</Label>
+            <Input
+              id="class"
+              value={`Class ${preselectedClass}`}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+        )}
+
         <div>
           <Label htmlFor="name">Batch Name *</Label>
           <Input

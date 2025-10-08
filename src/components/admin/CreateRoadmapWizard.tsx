@@ -479,6 +479,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           exam_name: finalExamName,
           conditional_class: conditionalClass,
           conditional_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
+          target_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
+          target_class: conditionalClass,
           roadmap_type: (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') ? roadmapType : undefined,
           selected_subjects,
           title: roadmapTitle,

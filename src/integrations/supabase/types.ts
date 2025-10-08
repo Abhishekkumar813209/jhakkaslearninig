@@ -74,6 +74,8 @@ export type Database = {
           selected_subjects: Json | null
           start_date: string
           status: Database["public"]["Enums"]["roadmap_status"] | null
+          target_board: string | null
+          target_class: string | null
           title: string
           total_days: number | null
           updated_at: string | null
@@ -93,6 +95,8 @@ export type Database = {
           selected_subjects?: Json | null
           start_date: string
           status?: Database["public"]["Enums"]["roadmap_status"] | null
+          target_board?: string | null
+          target_class?: string | null
           title: string
           total_days?: number | null
           updated_at?: string | null
@@ -112,6 +116,8 @@ export type Database = {
           selected_subjects?: Json | null
           start_date?: string
           status?: Database["public"]["Enums"]["roadmap_status"] | null
+          target_board?: string | null
+          target_class?: string | null
           title?: string
           total_days?: number | null
           updated_at?: string | null

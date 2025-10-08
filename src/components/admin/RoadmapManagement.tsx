@@ -572,6 +572,18 @@ const RoadmapManagement = () => {
                     <span className="font-medium text-xs">{roadmap.exam_name}</span>
                   </div>
                 )}
+                {roadmap.target_board && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Board:</span>
+                    <span className="font-medium">{roadmap.target_board}</span>
+                  </div>
+                )}
+                {roadmap.target_class && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Class:</span>
+                    <span className="font-medium">Class {roadmap.target_class}</span>
+                  </div>
+                )}
               </div>
 
               {roadmap.chapters && roadmap.chapters.length > 0 && (

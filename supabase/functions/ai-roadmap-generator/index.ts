@@ -538,6 +538,8 @@ Return ONLY the JSON structure (no markdown, no extra text).`;
         selected_subjects: extractedSubjects,
         exam_type: finalExamType,
         exam_name: finalExamName,
+        target_board: extractedBoard,
+        target_class: extractedClass,
         ai_generated_plan: {
           ...roadmapData,
           metadata: {

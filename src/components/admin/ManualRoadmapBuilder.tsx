@@ -349,6 +349,9 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + totalDays);
 
+      // Get batch details for board and class
+      const selectedBatch = batches.find(b => b.id === batchId);
+      
       // Create roadmap
       const { data: roadmap, error: roadmapError } = await supabase
         .from('batch_roadmaps')
@@ -361,6 +364,9 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
           end_date: format(endDate, 'yyyy-MM-dd'),
           status,
           created_by: (await supabase.auth.getUser()).data.user?.id,
+          target_board: selectedBatch?.target_board || prefillData?.selectedBoard,
+          target_class: selectedBatch?.target_class || prefillData?.selectedClass,
+          exam_type: selectedBatch?.exam_type || prefillData?.examType,
         })
         .select()
         .single();

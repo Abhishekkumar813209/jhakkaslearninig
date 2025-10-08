@@ -183,11 +183,27 @@ const BatchManagement = () => {
     const batch = batches.find(b => b.id === batchId);
     if (!batch) return;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('batch_roadmaps')
-      .select('id, title, description, exam_type, exam_name')
-      .eq('exam_type', batch.exam_type)
+      .select('id, title, description, exam_type, exam_name, target_board, target_class')
       .order('created_at', { ascending: false });
+
+    // Filter by exam_type
+    if (batch.exam_type) {
+      query = query.eq('exam_type', batch.exam_type);
+    }
+
+    // For school batches, match board and class directly
+    if (batch.exam_type === 'school') {
+      if (batch.target_board) {
+        query = query.eq('target_board', batch.target_board);
+      }
+      if (batch.target_class) {
+        query = query.eq('target_class', batch.target_class);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       toast({ title: "Error", description: "Failed to fetch roadmaps", variant: "destructive" });
@@ -502,7 +518,14 @@ const BatchManagement = () => {
                               </SelectItem>
                               {availableRoadmaps.map((roadmap) => (
                                 <SelectItem key={roadmap.id} value={roadmap.id}>
-                                  {roadmap.title}
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>{roadmap.title}</span>
+                                    {roadmap.target_board && roadmap.target_class && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {roadmap.target_board} - Class {roadmap.target_class}
+                                      </span>
+                                    )}
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>

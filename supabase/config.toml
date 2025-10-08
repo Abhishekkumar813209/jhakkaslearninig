@@ -109,3 +109,15 @@ verify_jwt = true
 
 [functions.ai-generate-chapter-topics]
 verify_jwt = true
+
+[functions.youtube-transcript-fetcher]
+verify_jwt = true
+
+[functions.ai-multilingual-summarizer]
+verify_jwt = true
+
+[functions.ai-lesson-from-youtube]
+verify_jwt = true
+
+[functions.youtube-video-details]
+verify_jwt = true

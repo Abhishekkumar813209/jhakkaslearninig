@@ -138,10 +138,11 @@ export const ManualTopicEditor = () => {
     if (!selectedDomain) return;
     
     const { data, error } = await supabase
-      .from('batch_roadmaps')
-      .select('id, batch_id, batches!inner(exam_type, target_board, target_class, is_active)')
-      .eq('batches.exam_type', selectedDomain)
-      .eq('batches.is_active', true);
+      .from('batches')
+      .select('id, exam_type, target_board, target_class, linked_roadmap_id')
+      .eq('exam_type', selectedDomain)
+      .eq('is_active', true)
+      .not('linked_roadmap_id', 'is', null);
     
     if (error) {
       console.error('Error fetching roadmap counts:', error);
@@ -151,9 +152,9 @@ export const ManualTopicEditor = () => {
     const byBoard: Record<string, number> = {};
     const byClass: Record<string, Record<string, number>> = {};
     
-    data?.forEach((roadmap: any) => {
-      const board = roadmap.batches.target_board || 'General';
-      const cls = roadmap.batches.target_class;
+    data?.forEach((batch: any) => {
+      const board = batch.target_board || 'General';
+      const cls = batch.target_class;
       
       byBoard[board] = (byBoard[board] || 0) + 1;
       

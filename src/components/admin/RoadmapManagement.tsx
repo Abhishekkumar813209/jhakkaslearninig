@@ -264,19 +264,62 @@ const RoadmapManagement = () => {
   };
 
   const filteredRoadmaps = roadmaps.filter(r => {
-    // Filter by selected domain
-    if (selectedDomain && r.exam_type !== selectedDomain) return false;
+    // Get batch details for this roadmap
+    const roadmapBatch = batches.find(b => b.id === r.batch_id);
     
-    // For school domain, additionally filter by board and class
+    // Helper: normalize exam type (use batch if roadmap is null)
+    const normalizeExamType = (examType: string | null) => {
+      if (!examType && roadmapBatch?.exam_type) return roadmapBatch.exam_type.toLowerCase();
+      return examType?.toLowerCase() || '';
+    };
+    
+    // Filter by selected domain (tolerant: case-insensitive, fallback to batch)
+    if (selectedDomain) {
+      const roadmapExamType = normalizeExamType(r.exam_type);
+      if (roadmapExamType !== selectedDomain.toLowerCase()) {
+        console.log(`🔍 Filtering out roadmap ${r.title}: exam_type mismatch (${roadmapExamType} !== ${selectedDomain})`);
+        return false;
+      }
+    }
+    
+    // For school domain, filter by board and class (tolerant)
     if (selectedDomain === 'school') {
-      // Get batch details for this roadmap
-      const roadmapBatch = batches.find(b => b.id === r.batch_id);
+      // Show roadmaps even if only board OR class is selected
+      if (selectedBoard) {
+        const roadmapBoard = (roadmapBatch?.target_board || '').toLowerCase();
+        if (roadmapBoard !== selectedBoard.toLowerCase()) {
+          console.log(`🔍 Filtering out roadmap ${r.title}: board mismatch (${roadmapBoard} !== ${selectedBoard})`);
+          return false;
+        }
+      }
       
-      if (selectedBoard && roadmapBatch?.target_board !== selectedBoard) return false;
-      if (selectedClass && roadmapBatch?.target_class !== selectedClass) return false;
+      if (selectedClass) {
+        // Normalize class: extract digits from "Class 10", "10", "10th" etc.
+        const normalizeClass = (cls: string | undefined) => {
+          if (!cls) return '';
+          return cls.match(/\d+/)?.[0] || '';
+        };
+        
+        const roadmapClass = normalizeClass(roadmapBatch?.target_class);
+        const filterClass = normalizeClass(selectedClass);
+        
+        if (roadmapClass !== filterClass) {
+          console.log(`🔍 Filtering out roadmap ${r.title}: class mismatch (${roadmapClass} !== ${filterClass})`);
+          return false;
+        }
+      }
     }
     
     return true;
+  });
+  
+  // Log filtering results
+  console.log('🔍 RoadmapManagement: Filtered roadmaps:', {
+    selectedDomain,
+    selectedBoard,
+    selectedClass,
+    totalRoadmaps: roadmaps.length,
+    filteredRoadmaps: filteredRoadmaps.length,
   });
   
   const getRoadmapCounts = () => {
@@ -349,20 +392,22 @@ const RoadmapManagement = () => {
             })}
           </div>
         </div>
-      ) : selectedDomain === 'school' && (!selectedBoard || !selectedClass) ? (
-        // BoardClassSelector for School Domain
-        <BoardClassSelector
-          examType={selectedDomain}
-          selectedBoard={selectedBoard}
-          selectedClass={selectedClass}
-          onBoardSelect={setBoard}
-          onClassSelect={setClass}
-          onReset={resetFromBoard}
-          onResetToBoard={resetToBoard}
-          studentCounts={getRoadmapCounts()}
-        />
       ) : (
         <>
+          {/* Show BoardClassSelector for school if not both selected */}
+          {selectedDomain === 'school' && (!selectedBoard || !selectedClass) && (
+            <BoardClassSelector
+              examType={selectedDomain}
+              selectedBoard={selectedBoard}
+              selectedClass={selectedClass}
+              onBoardSelect={setBoard}
+              onClassSelect={setClass}
+              onReset={resetFromBoard}
+              onResetToBoard={resetToBoard}
+              studentCounts={getRoadmapCounts()}
+            />
+          )}
+          
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
               <Badge variant="default" className="text-base px-4 py-2">
@@ -425,6 +470,8 @@ const RoadmapManagement = () => {
         open={isCreating}
         onOpenChange={setIsCreating}
         initialDomain={selectedDomain || undefined}
+        initialBoard={selectedBoard || undefined}
+        initialClass={selectedClass || undefined}
         onSuccess={fetchRoadmaps}
         onSwitchToManual={(prefillData) => {
           setManualBuilderPrefillData(prefillData);

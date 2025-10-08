@@ -43,14 +43,16 @@ export interface ChaptersBySubject {
   [subjectName: string]: Chapter[];
 }
 
-interface Batch {
+export interface Batch {
   id: string;
   name: string;
   level: string;
   exam_type: string;
   exam_name: string;
-  start_date: string;
-  end_date: string | null;
+  start_date?: string;
+  end_date?: string | null;
+  target_class?: string;
+  target_board?: string;
 }
 
 interface CreateRoadmapWizardProps {
@@ -65,18 +67,16 @@ interface CreateRoadmapWizardProps {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain, initialBoard, initialClass }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 6; // Batch, Subject, Time Budget, Chapters, Intensity, Preview
+  const totalSteps = 6; // ExamType, Subject, Time Budget, Chapters, Intensity, Preview
 
-  // Batch selection state
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [loadingBatches, setLoadingBatches] = useState(false);
+  // Batch selection state - no longer used for fetching
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
 
-  // State derived from batch selection
-  const [examType, setExamType] = useState<string>("");
+  // Manual state for exam type/name - Step 0
+  const [examType, setExamType] = useState<string>(initialDomain || "");
   const [examName, setExamName] = useState("");
-  const [conditionalClass, setConditionalClass] = useState("");
-  const [conditionalBoard, setConditionalBoard] = useState("");
+  const [conditionalClass, setConditionalClass] = useState(initialClass || "");
+  const [conditionalBoard, setConditionalBoard] = useState(initialBoard || "");
   const [batchId, setBatchId] = useState("");
   const [roadmapTitle, setRoadmapTitle] = useState("");
   const [roadmapType, setRoadmapType] = useState<'single_year' | 'combined'>('single_year');
@@ -513,10 +513,10 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const handleReset = () => {
     setCurrentStep(0);
     setSelectedBatch(null);
-    setExamType("");
+    setExamType(initialDomain || "");
     setExamName("");
-    setConditionalClass("");
-    setConditionalBoard("");
+    setConditionalClass(initialClass || "");
+    setConditionalBoard(initialBoard || "");
     setBatchId("");
     setRoadmapTitle("");
     setRoadmapType('single_year');
@@ -524,73 +524,34 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setFetchedChapters({});
     setUploadedPdf(null);
     setTimeBudget({});
+    setIntensity('balanced');
   };
 
-  // Fetch batches when wizard opens
   useEffect(() => {
-    if (initialDomain && open) {
-      fetchBatches(initialDomain);
+    if (!open) {
+      handleReset();
     }
-  }, [initialDomain, open]);
-  
-  // Pre-fill board/class when wizard opens
+  }, [open]);
+
+  // Auto-prefill initial domain/board/class if provided
   useEffect(() => {
-    if (open && initialDomain) {
+    if (open && initialDomain && !examType) {
       setExamType(initialDomain);
-      if (initialBoard) setConditionalBoard(initialBoard);
-      if (initialClass) setConditionalClass(initialClass);
+    }
+    if (open && initialBoard && !conditionalBoard) {
+      setConditionalBoard(initialBoard);
+    }
+    if (open && initialClass && !conditionalClass) {
+      setConditionalClass(initialClass);
     }
   }, [open, initialDomain, initialBoard, initialClass]);
 
-  // Auto-set exam info from selected batch
+  // Auto-fetch subjects when moving to Step 1 (Subject Selection)
   useEffect(() => {
-    if (selectedBatch) {
-      setExamType(selectedBatch.exam_type);
-      setExamName(selectedBatch.exam_name);
-      // Auto-set roadmap title from batch name
-      if (!roadmapTitle) {
-        setRoadmapTitle(`${selectedBatch.name} - Roadmap`);
-      }
-    }
-  }, [selectedBatch]);
-
-  // Auto-fetch subjects when moving to Step 1
-  useEffect(() => {
-    if (currentStep === 1 && selectedBatch && fetchedSubjects.length === 0 && !isFetchingSubjects) {
+    if (currentStep === 1 && fetchedSubjects.length === 0 && examType && examName) {
       handleFetchSubjects();
     }
-  }, [currentStep, selectedBatch]);
-
-  const fetchBatches = async (domain: string) => {
-    setLoadingBatches(true);
-    try {
-      let query = supabase
-        .from('batches')
-        .select('id, name, level, exam_type, exam_name, start_date, end_date')
-        .eq('exam_type', domain)
-        .eq('is_active', true);
-      
-      // For school domain, filter by board and class
-      if (domain === 'school') {
-        // Only fetch batches with valid board and class
-        query = query.not('target_board', 'is', null);
-        query = query.not('target_class', 'is', null);
-        
-        // Apply user's selected filters
-        if (initialBoard) query = query.eq('target_board', initialBoard as any);
-        if (initialClass) query = query.eq('target_class', initialClass as any);
-      }
-      
-      const { data, error } = await query.order('start_date', { ascending: false });
-
-      if (error) throw error;
-      setBatches(data || []);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to fetch batches");
-    } finally {
-      setLoadingBatches(false);
-    }
-  };
+  }, [currentStep]);
 
   // Compute budget-aware suggested days when chapters or time budget changes
   useEffect(() => {
@@ -674,12 +635,35 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
   const handleNext = () => {
     if (currentStep === 0) {
-      // Validate Step 0: Batch Selection
-      if (!selectedBatch) {
-        toast.error("Please select a batch for this roadmap");
+      // Exam type selection validation
+      if (!examType) {
+        toast.error("Please select an exam type");
         return;
       }
-      setBatchId(selectedBatch.id);
+      
+      // For school domain
+      if (examType === 'school') {
+        if (!conditionalBoard || !conditionalClass) {
+          toast.error("Please select both board and class for school domain");
+          return;
+        }
+      } else {
+        // For other domains, exam name is required
+        if (!examName) {
+          toast.error("Please select or enter an exam name");
+          return;
+        }
+      }
+      
+      // Batch and title validation
+      if (!batchId) {
+        toast.error("Please select a batch");
+        return;
+      }
+      if (!roadmapTitle) {
+        toast.error("Please enter a roadmap title");
+        return;
+      }
     }
 
     if (currentStep === 1) {
@@ -732,59 +716,25 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Step 0: Batch Selection */}
+          {/* Step 0: Exam Type Selection */}
           {currentStep === 0 && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Select Batch</h3>
-                <p className="text-sm text-muted-foreground">
-                  Choose the batch for which you want to create this roadmap
-                </p>
-              </div>
-
-              {loadingBatches ? (
-                <div className="flex justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : batches.length === 0 ? (
-                <div className="text-center p-8 border border-dashed rounded-lg">
-                  <p className="text-muted-foreground">No active batches found for this exam domain</p>
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {batches.map((batch) => (
-                    <div
-                      key={batch.id}
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        selectedBatch?.id === batch.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => setSelectedBatch(batch)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{batch.name}</h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {batch.exam_name} • {batch.level}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Start: {new Date(batch.start_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        {selectedBatch?.id === batch.id && (
-                          <div className="ml-2">
-                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                              <Check className="w-3 h-3 text-primary-foreground" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ExamTypeStep
+              examType={examType}
+              setExamType={setExamType}
+              examName={examName}
+              setExamName={setExamName}
+              conditionalClass={conditionalClass}
+              setConditionalClass={setConditionalClass}
+              conditionalBoard={conditionalBoard}
+              setConditionalBoard={setConditionalBoard}
+              batchId={batchId}
+              setBatchId={setBatchId}
+              roadmapTitle={roadmapTitle}
+              setRoadmapTitle={setRoadmapTitle}
+              roadmapType={roadmapType}
+              setRoadmapType={setRoadmapType}
+              setSelectedBatch={(batch) => setSelectedBatch(batch)}
+            />
           )}
 
           {/* Step 1: Subject Selection */}
@@ -792,10 +742,10 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             <div className="space-y-4">
               {selectedBatch && (
                 <div className="p-4 bg-muted rounded-lg space-y-2">
-                  <h4 className="font-semibold">Selected Batch Info</h4>
+                  <h4 className="font-semibold">Selected Exam Info</h4>
+                  <p className="text-sm"><strong>Exam Type:</strong> {examType}</p>
+                  <p className="text-sm"><strong>Exam:</strong> {examName || conditionalBoard}</p>
                   <p className="text-sm"><strong>Batch:</strong> {selectedBatch.name}</p>
-                  <p className="text-sm"><strong>Exam:</strong> {selectedBatch.exam_name}</p>
-                  <p className="text-sm"><strong>Level:</strong> {selectedBatch.level}</p>
                 </div>
               )}
               

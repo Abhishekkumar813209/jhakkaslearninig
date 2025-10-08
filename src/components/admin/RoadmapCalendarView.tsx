@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, parseISO } from 'date-fns';
-import { DndContext, DragEndEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
+import { format, addDays, parseISO, getWeek } from 'date-fns';
+import { DndContext, DragEndEvent, DragOverEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Calendar, Download, GripVertical, Plus, Video, Trash2 } from 'lucide-react';
@@ -232,6 +232,7 @@ interface CalendarCellProps {
   onAddChapter: (date: string, subject: string) => void;
   onUpdate: (id: string, updates: Partial<CalendarChapter>) => void;
   onDelete: (id: string) => void;
+  dragInfo?: { willShift: number; shiftDays: number } | null;
 }
 
 const CalendarCell = ({
@@ -242,6 +243,7 @@ const CalendarCell = ({
   onAddChapter,
   onUpdate,
   onDelete,
+  dragInfo,
 }: CalendarCellProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: makeCellId(date, subject) });
 
@@ -250,6 +252,11 @@ const CalendarCell = ({
       ref={setNodeRef} 
       className={`border p-2 align-top min-w-[220px] ${isOver ? 'bg-primary/10 ring-2 ring-primary/40' : ''}`}
     >
+      {isOver && dragInfo && (
+        <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
+          <strong>⚠️ Will shift {dragInfo.willShift} chapter{dragInfo.willShift > 1 ? 's' : ''}</strong> by {dragInfo.shiftDays} day{dragInfo.shiftDays > 1 ? 's' : ''}
+        </div>
+      )}
       <SortableContext items={cellChapters.map(c => c.id)} strategy={verticalListSortingStrategy}>
         <div className="flex flex-col gap-2 min-h-[80px]">
           {cellChapters.map(chapter => (
@@ -292,6 +299,7 @@ export const RoadmapCalendarView = ({
   onChaptersChange
 }: RoadmapCalendarViewProps) => {
   const [chapters, setChapters] = useState<CalendarChapter[]>(initialChapters);
+  const [dragOverInfo, setDragOverInfo] = useState<{ date: string; subject: string; willShift: number; shiftDays: number } | null>(null);
   
   // Sync with initialChapters when they change (prevent snap-back after drag)
   useEffect(() => {
@@ -338,8 +346,57 @@ export const RoadmapCalendarView = ({
     return acc;
   }, {} as Record<string, Record<string, CalendarChapter[]>>);
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) {
+      setDragOverInfo(null);
+      return;
+    }
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const activeChapter = chapters.find(c => c.id === activeId);
+    if (!activeChapter) return;
+
+    let targetDate = activeChapter.date;
+    let targetSubject = activeChapter.subject;
+
+    const overChapter = chapters.find(c => c.id === overId);
+    if (overChapter) {
+      targetDate = overChapter.date;
+      targetSubject = overChapter.subject;
+    } else if (overId.startsWith(CELL_PREFIX)) {
+      const parsed = parseCellId(overId);
+      targetDate = parsed.date;
+      targetSubject = parsed.subject;
+    }
+
+    // Calculate impact
+    const movedDays = activeChapter.estimatedDays || 1;
+    const chaptersToShift = chapters.filter(ch => {
+      if (ch.id === activeId) return false;
+      const chDate = parseISO(ch.date);
+      const tDate = parseISO(targetDate);
+      if (chDate < tDate) return false;
+      
+      if (mode === 'parallel') {
+        return ch.subject === targetSubject;
+      }
+      return true;
+    });
+
+    setDragOverInfo({
+      date: targetDate,
+      subject: targetSubject,
+      willShift: chaptersToShift.length,
+      shiftDays: movedDays
+    });
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setDragOverInfo(null);
+    
     if (!over) return;
 
     const activeId = String(active.id);
@@ -355,12 +412,10 @@ export const RoadmapCalendarView = ({
     const overChapter = chapters.find(c => c.id === overId);
 
     if (overChapter) {
-      // Drop over a chapter -> move to that chapter's date+subject and insert before it
       targetDate = overChapter.date;
       targetSubject = overChapter.subject;
       insertBeforeId = overChapter.id;
     } else if (overId.startsWith(CELL_PREFIX)) {
-      // Drop over a cell -> append to that cell
       const parsed = parseCellId(overId);
       targetDate = parsed.date;
       targetSubject = parsed.subject;
@@ -368,10 +423,17 @@ export const RoadmapCalendarView = ({
       return;
     }
 
-    // If nothing changed, bail out
     if (targetDate === activeChapter.date && targetSubject === activeChapter.subject && insertBeforeId === null) {
       return;
     }
+
+    console.log('🔵 Drag Start:', {
+      chapter: activeChapter.chapterName,
+      fromDate: activeChapter.date,
+      toDate: targetDate,
+      subject: targetSubject,
+      estimatedDays: activeChapter.estimatedDays || 1
+    });
 
     const withoutActive = chapters.filter(c => c.id !== activeId);
     const moved: CalendarChapter = { ...activeChapter, date: targetDate, subject: targetSubject };
@@ -379,7 +441,6 @@ export const RoadmapCalendarView = ({
     let updatedChapters: CalendarChapter[] = [];
 
     if (insertBeforeId) {
-      // Insert before the target chapter
       for (const item of withoutActive) {
         if (item.id === insertBeforeId) {
           updatedChapters.push(moved);
@@ -387,7 +448,6 @@ export const RoadmapCalendarView = ({
         updatedChapters.push(item);
       }
     } else {
-      // Append to end of target cell (same date+subject)
       const cellChapters = withoutActive.filter(c => c.date === targetDate && c.subject === targetSubject && !c.isBufferTime);
       const lastCellChapterIndex = cellChapters.length > 0 
         ? withoutActive.lastIndexOf(cellChapters[cellChapters.length - 1])
@@ -398,9 +458,44 @@ export const RoadmapCalendarView = ({
       updatedChapters.splice(insertIndex, 0, moved);
     }
 
+    // Auto-shift subsequent chapters
+    const movedDays = moved.estimatedDays || 1;
+    const movedDate = parseISO(moved.date);
+    const nextAvailableDate = addDays(movedDate, movedDays);
+
+    console.log('🟢 Auto-shifting logic:', { movedDays, nextAvailableDate: format(nextAvailableDate, 'yyyy-MM-dd') });
+
+    const shifted: string[] = [];
+    
+    for (let i = 0; i < updatedChapters.length; i++) {
+      const ch = updatedChapters[i];
+      const chDate = parseISO(ch.date);
+      
+      // Skip the moved chapter itself
+      if (ch.id === moved.id) continue;
+      
+      // Only shift chapters that are on or after the nextAvailableDate
+      if (chDate < nextAvailableDate) continue;
+      
+      // In parallel mode, only shift same subject
+      if (mode === 'parallel' && ch.subject !== moved.subject) continue;
+      
+      // Calculate how many days to shift this chapter
+      const daysDiff = Math.ceil((nextAvailableDate.getTime() - chDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff > 0) {
+        const newDate = addDays(chDate, daysDiff);
+        updatedChapters[i] = { ...ch, date: format(newDate, 'yyyy-MM-dd') };
+        shifted.push(ch.chapterName);
+        console.log(`  ↳ Shifted "${ch.chapterName}" from ${ch.date} to ${format(newDate, 'yyyy-MM-dd')} (+${daysDiff} days)`);
+      }
+    }
+
+    console.log('✅ Total shifted:', shifted.length, shifted);
+
     setChapters(updatedChapters);
     onChaptersChange?.(updatedChapters);
-    toast.success('Chapter moved!', { duration: 1000 });
+    toast.success(`Chapter moved! ${shifted.length > 0 ? `${shifted.length} chapter${shifted.length > 1 ? 's' : ''} auto-shifted.` : ''}`, { duration: 2000 });
   };
 
   const handleUpdateChapter = (id: string, updates: Partial<CalendarChapter>) => {
@@ -568,12 +663,13 @@ export const RoadmapCalendarView = ({
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-muted">
-                  <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 min-w-[120px]">
+                  <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 min-w-[150px]">
                     Date
                   </th>
                   {subjects.map(subject => (
@@ -584,25 +680,42 @@ export const RoadmapCalendarView = ({
                 </tr>
               </thead>
               <tbody>
-                {allDates.map((date) => (
-                  <tr key={`row-${date}`} className="border-b hover:bg-muted/20">
-                    <td className="border p-3 font-medium text-sm sticky left-0 bg-background z-10 min-w-[120px]">
-                      {format(parseISO(date), 'MMM dd, yyyy')}
-                    </td>
-                    {subjects.map(subject => (
-                      <CalendarCell
-                        key={`${date}-${subject}`}
-                        date={date}
-                        subject={subject}
-                        cellChapters={groupedByDateSubject[date][subject]}
-                        isEditable={isEditable}
-                        onAddChapter={handleAddChapter}
-                        onUpdate={handleUpdateChapter}
-                        onDelete={handleDeleteChapter}
-                      />
-                    ))}
-                  </tr>
-                ))}
+                {allDates.map((date, index) => {
+                  const dateObj = parseISO(date);
+                  const weekNum = getWeek(dateObj);
+                  const dayOfWeek = format(dateObj, 'EEE');
+                  const isNewWeek = index === 0 || getWeek(parseISO(allDates[index - 1])) !== weekNum;
+                  
+                  return (
+                    <tr key={`row-${date}`} className={`border-b hover:bg-muted/20 ${isNewWeek ? 'border-t-2 border-t-primary/30' : ''}`}>
+                      <td className={`border p-3 font-medium text-sm sticky left-0 bg-background z-10 min-w-[150px] ${isNewWeek ? 'border-t-2 border-t-primary/30' : ''}`}>
+                        <div className="flex flex-col gap-1">
+                          <div className="font-semibold">
+                            {format(dateObj, 'MMM dd, yyyy')}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <span className="font-medium text-primary">{dayOfWeek}</span>
+                            <span>•</span>
+                            <span className={isNewWeek ? 'font-semibold text-primary' : ''}>Week {weekNum}</span>
+                          </div>
+                        </div>
+                      </td>
+                      {subjects.map(subject => (
+                        <CalendarCell
+                          key={`${date}-${subject}`}
+                          date={date}
+                          subject={subject}
+                          cellChapters={groupedByDateSubject[date][subject]}
+                          isEditable={isEditable}
+                          onAddChapter={handleAddChapter}
+                          onUpdate={handleUpdateChapter}
+                          onDelete={handleDeleteChapter}
+                          dragInfo={dragOverInfo?.date === date && dragOverInfo?.subject === subject ? dragOverInfo : null}
+                        />
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </DndContext>
@@ -614,9 +727,10 @@ export const RoadmapCalendarView = ({
           <p>💡 <strong>Tips:</strong></p>
           <ul className="list-disc list-inside ml-2 space-y-1">
             <li>Click on any chapter name to edit it</li>
-            <li>Drag chapters using the grip handle to reorder</li>
-            <li>Click "Buffer" button to add rest days</li>
+            <li>Drag chapters using the grip handle to reorder - <strong>subsequent chapters will auto-shift!</strong></li>
+            <li>Adjust estimated days using +/- buttons - chapters will automatically reschedule</li>
             <li>Add video links to each chapter for easy access</li>
+            <li>Week numbers are shown in the date column for easy planning</li>
           </ul>
         </div>
       )}

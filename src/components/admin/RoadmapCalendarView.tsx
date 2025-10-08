@@ -300,13 +300,6 @@ export const RoadmapCalendarView = ({
 }: RoadmapCalendarViewProps) => {
   const [chapters, setChapters] = useState<CalendarChapter[]>(initialChapters);
   const [dragOverInfo, setDragOverInfo] = useState<{ date: string; subject: string; willShift: number; shiftDays: number } | null>(null);
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem('roadmap-column-widths');
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [resizingColumn, setResizingColumn] = useState<string | null>(null);
-  const [resizeStartX, setResizeStartX] = useState<number>(0);
-  const [resizeStartWidth, setResizeStartWidth] = useState<number>(0);
   
   // Sync with initialChapters when they change (prevent snap-back after drag)
   useEffect(() => {
@@ -330,39 +323,6 @@ export const RoadmapCalendarView = ({
       },
     })
   );
-
-  // Column resize handlers
-  const handleResizeStart = (subject: string, startX: number, startWidth: number) => {
-    setResizingColumn(subject);
-    setResizeStartX(startX);
-    setResizeStartWidth(startWidth);
-  };
-
-  useEffect(() => {
-    if (!resizingColumn) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = e.clientX - resizeStartX;
-      const newWidth = Math.max(150, Math.min(500, resizeStartWidth + delta));
-      setColumnWidths(prev => ({ ...prev, [resizingColumn]: newWidth }));
-    };
-
-    const handleMouseUp = () => {
-      if (resizingColumn) {
-        const newWidths = { ...columnWidths };
-        localStorage.setItem('roadmap-column-widths', JSON.stringify(newWidths));
-      }
-      setResizingColumn(null);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [resizingColumn, resizeStartX, resizeStartWidth, columnWidths]);
 
   // Generate all dates from startDate to totalDays
   const generateDateRange = (start: Date, days: number): string[] => {
@@ -712,31 +672,11 @@ export const RoadmapCalendarView = ({
                   <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 min-w-[150px]">
                     Date
                   </th>
-                  {subjects.map(subject => {
-                    const width = columnWidths[subject] || 220;
-                    return (
-                      <th 
-                        key={subject} 
-                        className="border p-3 text-center font-semibold relative group"
-                        style={{ width: `${width}px`, minWidth: `${width}px` }}
-                      >
-                        {subject}
-                        {isEditable && (
-                          <div
-                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors group-hover:bg-primary/30"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              handleResizeStart(subject, e.clientX, width);
-                            }}
-                            onDoubleClick={() => {
-                              setColumnWidths(prev => ({ ...prev, [subject]: 220 }));
-                              localStorage.setItem('roadmap-column-widths', JSON.stringify({ ...columnWidths, [subject]: 220 }));
-                            }}
-                          />
-                        )}
-                      </th>
-                    );
-                  })}
+                  {subjects.map(subject => (
+                    <th key={subject} className="border p-3 text-center font-semibold min-w-[220px]">
+                      {subject}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -760,27 +700,19 @@ export const RoadmapCalendarView = ({
                           </div>
                         </div>
                       </td>
-                      {subjects.map(subject => {
-                        const width = columnWidths[subject] || 220;
-                        return (
-                          <td
-                            key={`${date}-${subject}-wrapper`}
-                            className={isNewWeek ? 'border-t-4 border-t-primary/40 pt-4' : ''}
-                            style={{ width: `${width}px`, minWidth: `${width}px`, padding: 0 }}
-                          >
-                            <CalendarCell
-                              date={date}
-                              subject={subject}
-                              cellChapters={groupedByDateSubject[date][subject]}
-                              isEditable={isEditable}
-                              onAddChapter={handleAddChapter}
-                              onUpdate={handleUpdateChapter}
-                              onDelete={handleDeleteChapter}
-                              dragInfo={dragOverInfo?.date === date && dragOverInfo?.subject === subject ? dragOverInfo : null}
-                            />
-                          </td>
-                        );
-                      })}
+                      {subjects.map(subject => (
+                        <CalendarCell
+                          key={`${date}-${subject}`}
+                          date={date}
+                          subject={subject}
+                          cellChapters={groupedByDateSubject[date][subject]}
+                          isEditable={isEditable}
+                          onAddChapter={handleAddChapter}
+                          onUpdate={handleUpdateChapter}
+                          onDelete={handleDeleteChapter}
+                          dragInfo={dragOverInfo?.date === date && dragOverInfo?.subject === subject ? dragOverInfo : null}
+                        />
+                      ))}
                     </tr>
                   );
                 })}
@@ -799,7 +731,6 @@ export const RoadmapCalendarView = ({
             <li>Adjust estimated days using +/- buttons - chapters will automatically reschedule</li>
             <li>Add video links to each chapter for easy access</li>
             <li>Week numbers are shown in the date column - new weeks have extra spacing</li>
-            <li>Drag column borders to resize (like Excel) - double-click to reset width</li>
           </ul>
         </div>
       )}

@@ -50,7 +50,6 @@ export function CreateBatchWizard({
     target_class: preselectedClass || null,
     max_capacity: 50,
     start_date: "",
-    end_date: null,
     intake_start_date: "",
     intake_end_date: "",
     auto_assign_enabled: true,
@@ -66,50 +65,28 @@ export function CreateBatchWizard({
         updated.name = generateBatchName(value);
       }
       
-      // Auto-calculate intake dates
-      if (field === 'start_date' && value) {
-        const startDate = new Date(value);
-        const intakeStart = new Date(startDate);
-        intakeStart.setDate(intakeStart.getDate() - 30); // 30 days before start
-        const intakeEnd = new Date(startDate);
-        intakeEnd.setDate(intakeEnd.getDate() - 1); // 1 day before start
-        
-        updated.intake_start_date = intakeStart.toISOString().split('T')[0];
-        updated.intake_end_date = intakeEnd.toISOString().split('T')[0];
-      }
-      
       return updated;
     });
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.start_date) {
+    if (!formData.name || !formData.start_date || !formData.intake_start_date || !formData.intake_end_date) {
       toast({
         title: "Missing Fields",
-        description: "Please enter batch name and start date",
+        description: "Please enter all required fields",
         variant: "destructive",
       });
       return;
     }
 
-    // Strong validation for school batches
-    if (initialDomain === 'school') {
-      if (!formData.target_board) {
-        toast({
-          title: "Missing Board",
-          description: "Please select a Board for school batch",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!formData.target_class) {
-        toast({
-          title: "Missing Class",
-          description: "Please select a Class for school batch",
-          variant: "destructive",
-        });
-        return;
-      }
+    // Logical validation: intake_end should be before or on batch start
+    if (new Date(formData.intake_end_date) > new Date(formData.start_date)) {
+      toast({
+        title: "Invalid Dates",
+        description: "Intake end date should be on or before batch start date",
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
@@ -170,7 +147,6 @@ export function CreateBatchWizard({
       target_class: preselectedClass || null,
       max_capacity: 50,
       start_date: "",
-      end_date: null,
       intake_start_date: "",
       intake_end_date: "",
       auto_assign_enabled: true,

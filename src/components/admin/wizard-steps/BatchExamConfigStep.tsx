@@ -105,35 +105,38 @@ export function BatchExamConfigStep({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="start_date">Start Date *</Label>
-            <Input
-              id="start_date"
-              type="date"
-              value={formData.start_date || ""}
-              onChange={(e) => onChange("start_date", e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="end_date">End Date (Optional)</Label>
-            <Input
-              id="end_date"
-              type="date"
-              value={formData.end_date || ""}
-              onChange={(e) => onChange("end_date", e.target.value)}
-            />
-          </div>
+        <div>
+          <Label htmlFor="start_date">Batch Start Date *</Label>
+          <Input
+            id="start_date"
+            type="date"
+            value={formData.start_date || ""}
+            onChange={(e) => onChange("start_date", e.target.value)}
+          />
         </div>
 
-        {formData.intake_start_date && formData.intake_end_date && (
-          <div className="p-3 bg-muted/50 rounded-md text-sm">
-            <p className="text-muted-foreground">
-              📅 Intake Period: {new Date(formData.intake_start_date).toLocaleDateString()} to {new Date(formData.intake_end_date).toLocaleDateString()}
-            </p>
-          </div>
-        )}
+        <div>
+          <Label htmlFor="intake_start_date">Intake Start Date *</Label>
+          <Input
+            id="intake_start_date"
+            type="date"
+            value={formData.intake_start_date || ""}
+            onChange={(e) => onChange("intake_start_date", e.target.value)}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="intake_end_date">Intake End Date *</Label>
+          <Input
+            id="intake_end_date"
+            type="date"
+            value={formData.intake_end_date || ""}
+            onChange={(e) => onChange("intake_end_date", e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Should be on or before batch start date
+          </p>
+        </div>
       </div>
     </div>
   );

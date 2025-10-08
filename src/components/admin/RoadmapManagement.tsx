@@ -366,6 +366,17 @@ const RoadmapManagement = () => {
   const activeRoadmaps = filteredRoadmaps.filter(r => r.status === 'active').length;
   const totalChapters = filteredRoadmaps.reduce((sum, r) => sum + (r.chapters?.length || 0), 0);
 
+  // Helper to determine if roadmaps should be displayed
+  const shouldShowRoadmaps = () => {
+    // For school domain: require BOTH board AND class selection
+    if (selectedDomain === 'school') {
+      return selectedBoard !== null && selectedClass !== null;
+    }
+    
+    // For non-school domains: show immediately after domain selection
+    return true;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -532,7 +543,7 @@ const RoadmapManagement = () => {
         }}
       />
 
-      {selectedDomain && (
+      {selectedDomain && shouldShowRoadmaps() && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRoadmaps.map((roadmap, idx) => (
           <Card 
@@ -671,7 +682,7 @@ const RoadmapManagement = () => {
         </div>
       )}
 
-      {selectedDomain && filteredRoadmaps.length === 0 && (
+      {selectedDomain && shouldShowRoadmaps() && filteredRoadmaps.length === 0 && (
         <Card className="text-center p-12 animate-scale-in">
           <Map className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No roadmaps created yet</h3>

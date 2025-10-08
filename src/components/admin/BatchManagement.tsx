@@ -34,21 +34,32 @@ const BatchManagement = () => {
     Pencil: LucideIcons.Pencil,
   };
 
+  // Helper functions for robust matching
+  const normalize = (s: any) => s?.toString().trim().toLowerCase();
+  
+  const boardMatches = (batch: any, board: string) => {
+    return normalize(batch.target_board || batch.exam_name) === normalize(board);
+  };
+  
+  const classMatches = (batch: any, cls: string) => {
+    return normalize(batch.target_class) === normalize(cls);
+  };
+
   const getDomainBatchCount = (domain: string) => {
     return batches.filter((b: any) => b.exam_type === domain).length;
   };
 
   const getBoardBatchCount = (domain: string, board: string) => {
     return batches.filter((b: any) => 
-      b.exam_type === domain && b.target_board === board
+      b.exam_type === domain && boardMatches(b, board)
     ).length;
   };
 
   const getClassBatchCount = (domain: string, board: string, cls: string) => {
     return batches.filter((b: any) => 
       b.exam_type === domain && 
-      b.target_board === board && 
-      b.target_class?.toString() === cls
+      boardMatches(b, board) && 
+      classMatches(b, cls)
     ).length;
   };
 
@@ -106,18 +117,43 @@ const BatchManagement = () => {
         if (b.exam_type !== selectedDomain) return false;
         
         // Filter by board for school domain
-        if (selectedDomain === 'school' && selectedBoard && b.target_board !== selectedBoard) {
+        if (selectedDomain === 'school' && selectedBoard && !boardMatches(b, selectedBoard)) {
           return false;
         }
         
         // Filter by class for school domain
-        if (selectedDomain === 'school' && selectedClass && b.target_class !== selectedClass) {
+        if (selectedDomain === 'school' && selectedClass && !classMatches(b, selectedClass)) {
           return false;
         }
         
         if (examFilter === "all") return true;
         return b.exam_name === examFilter;
       });
+
+  // Calculate statsSource for dynamic footer cards
+  const statsSource = !selectedDomain 
+    ? []
+    : selectedDomain === 'school' && selectedBoard && selectedClass
+      ? batches.filter((b: any) => 
+          b.exam_type === 'school' && 
+          boardMatches(b, selectedBoard) && 
+          classMatches(b, selectedClass)
+        )
+      : selectedDomain === 'school' && selectedBoard
+        ? batches.filter((b: any) => 
+            b.exam_type === 'school' && 
+            boardMatches(b, selectedBoard)
+          )
+        : batches.filter((b: any) => b.exam_type === selectedDomain);
+
+  // Dynamic label for footer cards
+  const footerLabel = !selectedDomain 
+    ? "Batches"
+    : selectedDomain === 'school' && selectedClass
+      ? "Class Batches"
+      : selectedDomain === 'school' && selectedBoard
+        ? "Board Batches"
+        : "Domain Batches";
 
   // Calculate student counts for board/class hierarchy
   const getStudentCounts = () => {
@@ -126,7 +162,7 @@ const BatchManagement = () => {
     const byClass: Record<string, Record<string, number>> = {};
 
     domainBatches.forEach((batch: any) => {
-      const board = batch.target_board || 'CBSE';
+      const board = batch.target_board || batch.exam_name || 'Unknown';
       const cls = batch.target_class;
       
       byBoard[board] = (byBoard[board] || 0) + (batch.student_count || 0);
@@ -258,8 +294,8 @@ const BatchManagement = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Domain Batches</p>
-                    <p className="text-2xl font-bold">{filteredBatches.length}</p>
+                    <p className="text-sm font-medium text-muted-foreground">{footerLabel}</p>
+                    <p className="text-2xl font-bold">{statsSource.length}</p>
                   </div>
                   <div className="p-3 rounded-full bg-primary/10">
                     <Users className="h-6 w-6 text-primary" />
@@ -274,7 +310,7 @@ const BatchManagement = () => {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Students</p>
                     <p className="text-2xl font-bold">
-                      {filteredBatches.reduce((sum: number, b: any) => sum + (b.student_count || 0), 0)}
+                      {statsSource.reduce((sum: number, b: any) => sum + (b.student_count || 0), 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-full bg-primary/10">
@@ -291,8 +327,8 @@ const BatchManagement = () => {
                     <p className="text-sm font-medium text-muted-foreground">Capacity Used</p>
                     <p className="text-2xl font-bold">
                       {Math.round(
-                        (filteredBatches.reduce((sum: number, b: any) => sum + (b.student_count || 0), 0) /
-                        filteredBatches.reduce((sum: number, b: any) => sum + (b.max_capacity || 1), 1)) * 100
+                        (statsSource.reduce((sum: number, b: any) => sum + (b.student_count || 0), 0) /
+                        statsSource.reduce((sum: number, b: any) => sum + (b.max_capacity || 1), 1)) * 100
                       )}%
                     </p>
                   </div>

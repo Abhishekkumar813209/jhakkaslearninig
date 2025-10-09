@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List } from "lucide-react";
+import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List, LayoutGrid } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -13,6 +13,7 @@ import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifi
 import { TopicStudyView } from "./TopicStudyView";
 import { ChapterTopicListView } from "./ChapterTopicListView";
 import { StudentRoadmapCalendar } from "./StudentRoadmapCalendar";
+import { RoadmapCardView } from "../RoadmapCardView";
 
 interface RoadmapData {
   id: string;
@@ -195,7 +196,7 @@ export const StudentBatchRoadmap = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string; topics: any[] } | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<{ id: string; chapterName: string; name: string } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'cards'>('list');
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -206,6 +207,31 @@ export const StudentBatchRoadmap = () => {
   useEffect(() => {
     fetchRoadmap();
   }, []);
+
+  // Realtime sync for chapter reordering
+  useEffect(() => {
+    if (!roadmap?.id) return;
+
+    const channel = supabase
+      .channel('chapter-reorder-sync')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'roadmap_chapters',
+          filter: `roadmap_id=eq.${roadmap.id}`
+        },
+        () => {
+          console.log('Chapter order updated, refetching roadmap');
+          fetchRoadmap();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roadmap?.id]);
 
   const fetchRoadmap = async () => {
     try {
@@ -384,14 +410,24 @@ export const StudentBatchRoadmap = () => {
               size="sm"
               onClick={() => setViewMode('list')}
             >
-              📋 List View
+              <List className="h-4 w-4 mr-2" />
+              List View
             </Button>
             <Button 
               variant={viewMode === 'calendar' ? 'default' : 'outline'} 
               size="sm"
               onClick={() => setViewMode('calendar')}
             >
-              📅 Calendar View
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Calendar View
+            </Button>
+            <Button 
+              variant={viewMode === 'cards' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setViewMode('cards')}
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Card View
             </Button>
           </div>
         </div>
@@ -418,6 +454,16 @@ export const StudentBatchRoadmap = () => {
           onTopicClick={(topicId, chapterName) => {
             setSelectedTopic({ id: topicId, chapterName, name: '' });
           }}
+        />
+      ) : viewMode === 'cards' ? (
+        <RoadmapCardView
+          roadmapId={roadmap.id}
+          subjects={roadmap.subjects}
+          isEditable={false}
+          onChapterClick={(chapterId, chapterName, topics) => {
+            setSelectedChapter({ id: chapterId, name: chapterName, topics });
+          }}
+          onChapterReorder={handleChapterReorder}
         />
       ) : (
         <>

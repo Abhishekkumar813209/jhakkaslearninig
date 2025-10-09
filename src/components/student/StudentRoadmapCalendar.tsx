@@ -3,8 +3,10 @@ import { format, addDays, parseISO, getWeek } from 'date-fns';
 import { Calendar, CheckCircle2, Lock, PlayCircle, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface RoadmapTopic {
   id: string;
@@ -145,8 +147,10 @@ export const StudentRoadmapCalendar = ({
   subjects,
   onTopicClick
 }: StudentRoadmapCalendarProps) => {
+  const isMobile = useIsMobile();
   const [chapters, setChapters] = useState<CalendarChapter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0] || '');
 
   useEffect(() => {
     fetchRoadmapData();
@@ -257,6 +261,23 @@ export const StudentRoadmapCalendar = ({
         <h3 className="text-lg font-semibold">Your Learning Calendar</h3>
       </div>
 
+      {isMobile && (
+        <div className="mb-4">
+          <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <SelectTrigger className="w-full bg-background z-50">
+              <SelectValue placeholder="Select Subject" />
+            </SelectTrigger>
+            <SelectContent className="bg-background z-50">
+              {subjects.map(subject => (
+                <SelectItem key={subject} value={subject}>
+                  {subject}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <Card className="p-4">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -265,11 +286,17 @@ export const StudentRoadmapCalendar = ({
                 <th className="border p-3 text-left font-semibold sticky left-0 bg-muted z-10 w-[120px]">
                   Date
                 </th>
-                {subjects.map(subject => (
-                  <th key={subject} className="border p-3 text-center font-semibold min-w-[220px]">
-                    {subject}
+                {isMobile ? (
+                  <th className="border p-3 text-center font-semibold min-w-[220px]">
+                    {selectedSubject}
                   </th>
-                ))}
+                ) : (
+                  subjects.map(subject => (
+                    <th key={subject} className="border p-3 text-center font-semibold min-w-[220px]">
+                      {subject}
+                    </th>
+                  ))
+                )}
               </tr>
             </thead>
             <tbody>
@@ -299,10 +326,11 @@ export const StudentRoadmapCalendar = ({
                         </div>
                       </div>
                     </td>
-                    {subjects.map(subject => (
-                      <td key={`${date}-${subject}`} className="border p-2 align-top">
+                    
+                    {isMobile ? (
+                      <td className="border p-2 align-top">
                         <div className="min-h-[80px]">
-                          {groupedByDateSubject[date][subject].map(chapter => (
+                          {groupedByDateSubject[date][selectedSubject]?.map(chapter => (
                             <ChapterPill
                               key={chapter.id}
                               chapter={chapter}
@@ -311,12 +339,31 @@ export const StudentRoadmapCalendar = ({
                               onTopicClick={onTopicClick}
                             />
                           ))}
-                          {groupedByDateSubject[date][subject].length === 0 && (
+                          {(!groupedByDateSubject[date][selectedSubject] || groupedByDateSubject[date][selectedSubject].length === 0) && (
                             <div className="text-muted-foreground text-xs text-center py-4">—</div>
                           )}
                         </div>
                       </td>
-                    ))}
+                    ) : (
+                      subjects.map(subject => (
+                        <td key={`${date}-${subject}`} className="border p-2 align-top">
+                          <div className="min-h-[80px]">
+                            {groupedByDateSubject[date][subject].map(chapter => (
+                              <ChapterPill
+                                key={chapter.id}
+                                chapter={chapter}
+                                isToday={isToday}
+                                isPast={isPast}
+                                onTopicClick={onTopicClick}
+                              />
+                            ))}
+                            {groupedByDateSubject[date][subject].length === 0 && (
+                              <div className="text-muted-foreground text-xs text-center py-4">—</div>
+                            )}
+                          </div>
+                        </td>
+                      ))
+                    )}
                   </tr>
                 );
               })}

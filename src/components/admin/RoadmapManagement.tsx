@@ -5,13 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Map, Plus, Edit, Trash2, Play, Eye, GraduationCap, BookOpen, Building2, Briefcase } from "lucide-react";
+import { Map, Plus, Edit, Trash2, Play, Eye, GraduationCap, BookOpen, Building2, Briefcase, Calendar as CalendarIcon, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
 import { EditRoadmapDialog } from "./EditRoadmapDialog";
 import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
 import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
+import { RoadmapCardView } from "../RoadmapCardView";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +47,7 @@ const RoadmapManagement = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState<any>(null);
   const [roadmapDetails, setRoadmapDetails] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [adminViewMode, setAdminViewMode] = useState<'calendar' | 'cards'>('calendar');
 
   const fetchRoadmaps = async () => {
     try {
@@ -215,6 +218,41 @@ const RoadmapManagement = () => {
       toast.error('Failed to delete roadmap');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const organizeChaptersBySubject = (chapters: any[]): Array<{ name: string; chapters: any[] }> => {
+    const subjectMap: Record<string, { name: string; chapters: any[] }> = {};
+    
+    chapters.forEach(chapter => {
+      if (!subjectMap[chapter.subject]) {
+        subjectMap[chapter.subject] = { name: chapter.subject, chapters: [] };
+      }
+      subjectMap[chapter.subject].chapters.push(chapter);
+    });
+    
+    return Object.values(subjectMap);
+  };
+
+  const handleAdminChapterReorder = async (subjectName: string, chapterIds: string[]) => {
+    try {
+      // Update order_num for each chapter
+      const updates = chapterIds.map((id, index) => 
+        supabase
+          .from('roadmap_chapters')
+          .update({ order_num: index + 1 })
+          .eq('id', id)
+      );
+      
+      await Promise.all(updates);
+      
+      toast.success(`Chapters reordered for ${subjectName}`);
+      if (selectedRoadmap) {
+        fetchRoadmapDetails(selectedRoadmap.id);
+      }
+    } catch (error) {
+      console.error('Error reordering chapters:', error);
+      toast.error('Failed to reorder chapters');
     }
   };
 
@@ -740,22 +778,52 @@ const RoadmapManagement = () => {
                 )}
               </div>
 
-              <RoadmapCalendarView
-                mode={(roadmapDetails.mode as 'sequential' | 'parallel') || 'parallel'}
-                startDate={parseISO(roadmapDetails.start_date)}
-                totalDays={roadmapDetails.total_days}
-                subjects={[...new Set(roadmapDetails.chapters.map((c: any) => c.subject))] as string[]}
-                chapters={roadmapDetails.chapters.map((ch: any) => ({
-                  id: ch.id,
-                  date: format(parseISO(roadmapDetails.start_date).getTime() + (ch.day_start - 1) * 24 * 60 * 60 * 1000, 'yyyy-MM-dd'),
-                  subject: ch.subject,
-                  chapterName: ch.chapter_name,
-                  videoLink: (ch as any).video_link,
-                  isBufferTime: false,
-                  isLive: false
-                }))}
-                isEditable={false}
-              />
+              <Tabs value={adminViewMode} onValueChange={(v) => setAdminViewMode(v as any)}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="calendar">
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    Calendar View
+                  </TabsTrigger>
+                  <TabsTrigger value="cards">
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    Card View
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="calendar">
+                  <RoadmapCalendarView
+                    mode={(roadmapDetails.mode as 'sequential' | 'parallel') || 'parallel'}
+                    startDate={parseISO(roadmapDetails.start_date)}
+                    totalDays={roadmapDetails.total_days}
+                    subjects={[...new Set(roadmapDetails.chapters.map((c: any) => c.subject))] as string[]}
+                    chapters={roadmapDetails.chapters.map((ch: any) => ({
+                      id: ch.id,
+                      date: format(parseISO(roadmapDetails.start_date).getTime() + (ch.day_start - 1) * 24 * 60 * 60 * 1000, 'yyyy-MM-dd'),
+                      subject: ch.subject,
+                      chapterName: ch.chapter_name,
+                      videoLink: (ch as any).video_link,
+                      isBufferTime: false,
+                      isLive: false
+                    }))}
+                    isEditable={false}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="cards">
+                  <RoadmapCardView
+                    roadmapId={roadmapDetails.id}
+                    subjects={organizeChaptersBySubject(roadmapDetails.chapters)}
+                    isEditable={true}
+                    onChapterEdit={(chapterId) => {
+                      console.log('Edit chapter:', chapterId);
+                    }}
+                    onChapterDelete={(chapterId) => {
+                      console.log('Delete chapter:', chapterId);
+                    }}
+                    onChapterReorder={handleAdminChapterReorder}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           ) : (
             <p className="text-muted-foreground text-center py-8">No chapters in this roadmap</p>

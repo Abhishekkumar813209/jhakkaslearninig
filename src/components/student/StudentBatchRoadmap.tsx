@@ -5,16 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Calendar, BookOpen, Target, RotateCcw } from "lucide-react";
+import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { TopicStudyView } from "./TopicStudyView";
 import { ChapterTopicListView } from "./ChapterTopicListView";
+import { StudentRoadmapCalendar } from "./StudentRoadmapCalendar";
 
 interface RoadmapData {
   id: string;
+  batch_id: string;
+  roadmap_id: string;
   title: string;
   description: string;
   total_days: number;
@@ -75,7 +78,7 @@ const SortableChapter = ({ chapter, onChapterClick }: SortableChapterProps) => {
           </Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3" />
+          <CalendarIcon className="h-3 w-3" />
           <span>Day {chapter.day_start}-{chapter.day_end}</span>
         </div>
       </div>
@@ -396,7 +399,7 @@ export const StudentBatchRoadmap = () => {
 
       <div className="grid gap-2 text-sm">
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           <span>{new Date(roadmap.start_date).toLocaleDateString()} - {new Date(roadmap.end_date).toLocaleDateString()}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -406,19 +409,16 @@ export const StudentBatchRoadmap = () => {
       </div>
 
       {viewMode === 'calendar' ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center space-y-4">
-              <Calendar className="h-12 w-12 mx-auto text-primary" />
-              <div>
-                <h3 className="font-semibold mb-2">📅 Calendar View Coming Soon</h3>
-                <p className="text-muted-foreground text-sm">
-                  Visual calendar view with topics distributed across days
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StudentRoadmapCalendar
+          roadmapId={roadmap.id}
+          batchId={roadmap.batch_id || ''}
+          startDate={new Date(roadmap.start_date)}
+          totalDays={roadmap.total_days}
+          subjects={roadmap.subjects.map(s => s.name)}
+          onTopicClick={(topicId, chapterName) => {
+            setSelectedTopic({ id: topicId, chapterName, name: '' });
+          }}
+        />
       ) : (
         <>
           <div className="bg-muted/50 border rounded-lg p-3 text-sm space-y-1">

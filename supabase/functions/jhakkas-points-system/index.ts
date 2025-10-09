@@ -30,6 +30,13 @@ serve(async (req) => {
       );
     }
 
+    // Get user's exam domain and class for domain-aware operations
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('exam_domain, student_class')
+      .eq('id', user.id)
+      .single();
+
     const body = await req.json();
     const { action, xp_amount, activity_type } = body;
 
@@ -148,20 +155,31 @@ serve(async (req) => {
     }
 
     if (action === 'leaderboard') {
-      const { data, error } = await supabase
+      let query = supabase
         .from('student_gamification')
         .select(`
           student_id,
           total_xp,
           level,
           streak_days,
+          exam_domain,
+          student_class,
           profiles!inner (
             full_name,
             avatar_url
           )
         `)
-        .order('total_xp', { ascending: false })
-        .limit(100);
+        .order('total_xp', { ascending: false });
+
+      // Filter by domain and class if profile has them
+      if (profile?.exam_domain) {
+        query = query.eq('exam_domain', profile.exam_domain);
+      }
+      if (profile?.student_class) {
+        query = query.eq('student_class', profile.student_class);
+      }
+
+      const { data, error } = await query.limit(100);
 
       if (error) {
         console.error('Error fetching leaderboard:', error);

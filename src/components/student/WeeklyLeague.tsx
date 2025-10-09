@@ -35,6 +35,18 @@ export const WeeklyLeague = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Get user's profile with exam domain and class
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('exam_domain, student_class')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile?.exam_domain || !profile?.student_class) {
+          console.log('Profile incomplete - exam domain and class required');
+          return;
+        }
+
         // Get user's XP
         const { data: xpData } = await supabase
           .from("student_gamification")
@@ -67,7 +79,7 @@ export const WeeklyLeague = () => {
         weekStart.setDate(now.getDate() - diff);
         weekStart.setHours(0, 0, 0, 0);
 
-        // Get leaderboard
+        // Get leaderboard (domain and class specific)
         const { data: leagueData } = await supabase
           .from("student_leagues")
           .select(`
@@ -77,6 +89,8 @@ export const WeeklyLeague = () => {
             profiles!inner(full_name)
           `)
           .eq("league_week_start", weekStart.toISOString().split('T')[0])
+          .eq("exam_domain", profile.exam_domain)
+          .eq("student_class", profile.student_class)
           .order("rank_in_league", { ascending: true })
           .limit(10);
 
@@ -114,7 +128,11 @@ export const WeeklyLeague = () => {
               <Trophy className="h-5 w-5" style={{ color: currentLeague.color }} />
               {currentLeague.name} League
             </CardTitle>
-            <CardDescription>Weekly competition • Resets Monday</CardDescription>
+            <CardDescription>
+              Weekly competition • Resets Monday
+              <br />
+              <span className="text-xs">Domain-specific: Your exam & class only</span>
+            </CardDescription>
           </div>
           {userRank && (
             <Badge variant="secondary" className="text-lg">

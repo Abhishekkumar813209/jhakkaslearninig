@@ -1689,6 +1689,87 @@ export type Database = {
           },
         ]
       }
+      referral_credits: {
+        Row: {
+          available_credits: number | null
+          created_at: string
+          id: string
+          last_earned_at: string | null
+          locked_for_withdrawal: number
+          student_id: string
+          total_credits: number
+          updated_at: string
+          used_credits: number
+        }
+        Insert: {
+          available_credits?: number | null
+          created_at?: string
+          id?: string
+          last_earned_at?: string | null
+          locked_for_withdrawal?: number
+          student_id: string
+          total_credits?: number
+          updated_at?: string
+          used_credits?: number
+        }
+        Update: {
+          available_credits?: number | null
+          created_at?: string
+          id?: string
+          last_earned_at?: string | null
+          locked_for_withdrawal?: number
+          student_id?: string
+          total_credits?: number
+          updated_at?: string
+          used_credits?: number
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          bonus_paid: number | null
+          created_at: string
+          id: string
+          joined_at: string | null
+          paid_at: string | null
+          referral_code: string
+          referred_email: string | null
+          referred_id: string | null
+          referred_name: string | null
+          referrer_id: string
+          status: string
+          xp_earned: number | null
+        }
+        Insert: {
+          bonus_paid?: number | null
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          paid_at?: string | null
+          referral_code: string
+          referred_email?: string | null
+          referred_id?: string | null
+          referred_name?: string | null
+          referrer_id: string
+          status?: string
+          xp_earned?: number | null
+        }
+        Update: {
+          bonus_paid?: number | null
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          paid_at?: string | null
+          referral_code?: string
+          referred_email?: string | null
+          referred_id?: string | null
+          referred_name?: string | null
+          referrer_id?: string
+          status?: string
+          xp_earned?: number | null
+        }
+        Relationships: []
+      }
       roadmap_chapters: {
         Row: {
           chapter_library_id: string | null
@@ -3396,6 +3477,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      withdrawal_history: {
+        Row: {
+          admin_approved_by: string | null
+          admin_notes: string | null
+          amount: number
+          completed_at: string | null
+          failure_reason: string | null
+          id: string
+          requested_at: string
+          status: string
+          student_id: string
+          upi_id: string | null
+          withdrawal_method: string | null
+        }
+        Insert: {
+          admin_approved_by?: string | null
+          admin_notes?: string | null
+          amount: number
+          completed_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          student_id: string
+          upi_id?: string | null
+          withdrawal_method?: string | null
+        }
+        Update: {
+          admin_approved_by?: string | null
+          admin_notes?: string | null
+          amount?: number
+          completed_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          student_id?: string
+          upi_id?: string | null
+          withdrawal_method?: string | null
+        }
+        Relationships: []
       }
       zones: {
         Row: {

@@ -71,16 +71,33 @@ serve(async (req) => {
 
       console.log('[razorpay-subscription] Creating one-time order for monthly access, user:', user.id);
 
+      // Fetch available credits
+      const { data: credits } = await supabaseService
+        .from('referral_credits')
+        .select('available_credits')
+        .eq('student_id', user.id)
+        .maybeSingle();
+
+      const availableCredits = credits?.available_credits || 0;
+      const creditsToUse = Math.min(availableCredits, 299); // Can use up to full amount
+      const discountInPaise = Math.floor(creditsToUse * 100);
+      const finalAmount = Math.max(29900 - discountInPaise, 0); // ₹299 - discount
+
+      console.log(`[Subscription] User ${user.id} using ₹${creditsToUse} credits. Final: ₹${finalAmount/100}`);
+
       // Create one-time order instead of subscription
       const orderPayload = {
-        amount: 29900, // ₹299 in paise
+        amount: finalAmount,
         currency: 'INR',
         receipt: `ord_${user.id.substring(0, 8)}_${Date.now().toString().substring(-8)}`.substring(0, 40),
         notes: {
           student_id: user.id,
           subscription_type: 'premium',
           includes_roadmap: 'true',
-          validity_days: '30'
+          validity_days: '30',
+          original_amount: '29900',
+          credits_applied: creditsToUse.toString(),
+          discount_amount: discountInPaise.toString()
         }
       };
 
@@ -114,10 +131,12 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           orderId: order.id,
-          amount: 29900,
+          amount: finalAmount,
           currency: 'INR',
           keyId: razorpayKeyId,
-          isOneTime: true
+          isOneTime: true,
+          creditsApplied: creditsToUse,
+          discountAmount: discountInPaise
         }),
         { 
           status: 200, 
@@ -151,6 +170,60 @@ serve(async (req) => {
       }
 
       console.log('[razorpay-subscription] Payment verified successfully');
+
+      // Fetch order to get credits applied
+      const orderResponse = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
+        headers: {
+          'Authorization': `Basic ${btoa(`${Deno.env.get('RAZORPAY_KEY_ID')}:${razorpayKeySecret}`)}`
+        }
+      });
+      const orderDetails = await orderResponse.json();
+      const creditsUsed = parseFloat(orderDetails.notes?.credits_applied || '0');
+
+      // Deduct used credits from student's wallet
+      if (creditsUsed > 0) {
+        await supabaseService
+          .from('referral_credits')
+          .update({
+            used_credits: supabaseService.sql`used_credits + ${creditsUsed}`
+          })
+          .eq('student_id', user.id);
+
+        console.log(`[Subscription] Deducted ₹${creditsUsed} from user ${user.id}'s wallet`);
+      }
+
+      // Check if THIS user was referred - award ₹25 to referrer
+      const { data: referral } = await supabaseService
+        .from('referrals')
+        .select('*')
+        .eq('referred_id', user.id)
+        .eq('status', 'joined')
+        .maybeSingle();
+
+      if (referral) {
+        // Award ₹25 to referrer
+        await supabaseService
+          .from('referral_credits')
+          .upsert({
+            student_id: referral.referrer_id,
+            total_credits: supabaseService.sql`COALESCE(total_credits, 0) + 25`,
+            last_earned_at: new Date().toISOString()
+          }, {
+            onConflict: 'student_id'
+          });
+
+        // Update referral status to 'paid'
+        await supabaseService
+          .from('referrals')
+          .update({
+            status: 'paid',
+            bonus_paid: 25,
+            paid_at: new Date().toISOString()
+          })
+          .eq('id', referral.id);
+
+        console.log(`[Referral Bonus] Awarded ₹25 to referrer ${referral.referrer_id}`);
+      }
 
       // Create subscription record for 30-day access using service role client
       const { error: subscriptionError } = await supabaseService

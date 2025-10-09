@@ -16,6 +16,7 @@ import { StudentRankings } from '@/components/student/StudentRankings';
 import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
+import { ReferralWallet } from '@/components/student/ReferralWallet';
 
 const Profile = () => {
   const { user, isAdmin, isStudent } = useAuth();
@@ -522,6 +523,15 @@ const Profile = () => {
 
           {isStudent && (
             <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>💰 Referral Wallet</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ReferralWallet />
+                </CardContent>
+              </Card>
+              
               <StudentAnalytics userId={user?.id} />
               <StudentRankings userId={user?.id} studentClass={studentClass} />
             </>

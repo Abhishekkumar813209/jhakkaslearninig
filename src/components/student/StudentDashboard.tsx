@@ -15,6 +15,7 @@ import { WeeklyLeague } from './WeeklyLeague';
 import { DailyQuests } from './DailyQuests';
 import { AchievementPopup } from './AchievementPopup';
 import { AttendanceButton } from './AttendanceButton';
+import { ReferralCard } from './ReferralCard';
 
 const StudentDashboard: React.FC = () => {
   const { 
@@ -163,8 +164,10 @@ const StudentDashboard: React.FC = () => {
             <WeeklyLeague />
           </div>
 
-          {/* Column 3: Quick Stats */}
+          {/* Column 3: Referral & Quick Stats */}
           <div className="space-y-4">
+            <ReferralCard />
+            
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">

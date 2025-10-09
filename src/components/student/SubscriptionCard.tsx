@@ -6,6 +6,7 @@ import { CheckCircle, Trophy, BookOpen, Clock, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 declare global {
   interface Window {
@@ -26,6 +27,23 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Fetch available credits
+  const { data: credits } = useQuery({
+    queryKey: ['referral-credits', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('referral_credits')
+        .select('available_credits')
+        .eq('student_id', user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user?.id
+  });
+
+  const availableCredits = credits?.available_credits || 0;
 
   const loadRazorpayScript = () => {
     return new Promise<boolean>((resolve) => {
@@ -242,9 +260,23 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
               Get unlimited tests + complete learning roadmaps
             </CardDescription>
           </div>
-          <Badge variant="secondary" className="text-primary font-semibold">
-            ₹299/month
-          </Badge>
+          <div className="text-right">
+            {availableCredits > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground line-through">₹299</p>
+                <Badge variant="secondary" className="text-primary font-semibold text-lg">
+                  ₹{Math.max(0, 299 - availableCredits).toFixed(0)}
+                </Badge>
+                <p className="text-xs text-green-600 mt-1">
+                  ₹{Math.min(availableCredits, 299).toFixed(0)} discount applied!
+                </p>
+              </>
+            ) : (
+              <Badge variant="secondary" className="text-primary font-semibold">
+                ₹299/month
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

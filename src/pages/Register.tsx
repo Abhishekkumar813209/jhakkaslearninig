@@ -13,8 +13,11 @@ import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { Card as ExamCard, CardContent as ExamCardContent } from '@/components/ui/card';
 import * as LucideIcons from 'lucide-react';
+import { useEffect } from 'react';
 
 const Register = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const referralCodeFromUrl = urlParams.get('ref') || '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,6 +31,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [referralCode, setReferralCode] = useState(referralCodeFromUrl);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
@@ -98,7 +102,8 @@ const Register = () => {
           role: 'student',
           exam_domain: examDomain,
           student_class: requiresClass ? studentClass : null,
-          education_board: requiresBoard ? educationBoard : null
+          education_board: requiresBoard ? educationBoard : null,
+          referral_code: referralCode || null
         }
       });
 
@@ -378,6 +383,22 @@ const Register = () => {
                     </Select>
                   </div>
                 )}
+
+                {/* Referral Code Input */}
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Referral Code (Optional)"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    className="uppercase"
+                  />
+                  {referralCode && (
+                    <p className="text-xs text-green-600">
+                      ✓ Your friend will earn rewards when you subscribe!
+                    </p>
+                  )}
+                </div>
                 
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creating Account...' : 'Create Account'}

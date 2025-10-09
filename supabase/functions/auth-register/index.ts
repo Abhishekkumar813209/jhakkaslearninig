@@ -17,7 +17,7 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { email, password, full_name, role = 'student', student_class, education_board, exam_domain, exam_name, target_exam } = await req.json()
+    const { email, password, full_name, role = 'student', student_class, education_board, exam_domain, exam_name, target_exam, referral_code } = await req.json()
 
     if (!email || !password || !full_name) {
       return new Response(
@@ -76,6 +76,42 @@ serve(async (req: Request) => {
     if (assignedBatchId) profileUpdates.batch_id = assignedBatchId;
 
     await supabase.from('profiles').update(profileUpdates).eq('id', authData.user.id);
+
+    // Handle referral code if provided
+    if (referral_code) {
+      const { data: referrer } = await supabase
+        .from('referrals')
+        .select('referrer_id, referral_code')
+        .eq('referral_code', referral_code)
+        .maybeSingle();
+
+      if (referrer) {
+        // Create referral record
+        await supabase.from('referrals').insert({
+          referrer_id: referrer.referrer_id,
+          referred_id: authData.user.id,
+          referral_code: referral_code,
+          referred_email: email,
+          referred_name: full_name,
+          status: 'joined',
+          joined_at: new Date().toISOString()
+        });
+
+        // Award +10 XP to referrer
+        await supabase.functions.invoke('xp-coin-reward-system', {
+          body: {
+            student_id: referrer.referrer_id,
+            action: 'referral_signup',
+            metadata: {
+              referred_user: authData.user.id,
+              referred_email: email
+            }
+          }
+        });
+
+        console.log(`Referral: ${referrer.referrer_id} referred ${authData.user.id} using code ${referral_code}`);
+      }
+    }
 
     // If batch has auto-assign roadmap, assign it to student
     if (assignedBatchId) {

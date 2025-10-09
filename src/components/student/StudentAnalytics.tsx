@@ -10,11 +10,6 @@ interface StudentAnalyticsProps {
 interface Analytics {
   tests_attempted: number;
   average_score: number;
-  performance_index: number;
-  base_score: number;
-  speed_bonus: number;
-  consistency_factor: number;
-  recency_factor: number;
   streak_days: number;
   total_study_time_minutes: number;
 }
@@ -33,7 +28,7 @@ export const StudentAnalytics = ({ userId }: StudentAnalyticsProps) => {
     try {
       const { data, error } = await supabase
         .from('student_analytics')
-        .select('tests_attempted, average_score, performance_index, base_score, speed_bonus, consistency_factor, recency_factor, streak_days, total_study_time_minutes')
+        .select('tests_attempted, average_score, streak_days, total_study_time_minutes')
         .eq('student_id', userId)
         .maybeSingle();
 
@@ -65,46 +60,14 @@ export const StudentAnalytics = ({ userId }: StudentAnalyticsProps) => {
         <CardTitle>Performance Metrics</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Main Performance Index */}
+        {/* Main Average Score */}
         <div className="text-center p-6 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg border-2 border-primary/20">
-          <div className="text-sm text-muted-foreground mb-2">Your Performance Index</div>
+          <div className="text-sm text-muted-foreground mb-2">Average Score</div>
           <div className="text-5xl font-bold text-primary mb-2">
-            {analytics?.performance_index?.toFixed(0) || 0}
+            {analytics?.average_score?.toFixed(1) || 0}%
           </div>
           <div className="text-xs text-muted-foreground">
-            Based on Score, Speed, Consistency & Recent Performance
-          </div>
-        </div>
-
-        {/* Performance Breakdown */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="text-center p-3 bg-muted/50 rounded-lg">
-            <div className="text-xs text-muted-foreground mb-1">Base Score</div>
-            <div className="text-lg font-bold text-foreground">
-              {analytics?.base_score?.toFixed(0) || 0}
-            </div>
-            <div className="text-xs text-muted-foreground">50% weight</div>
-          </div>
-          <div className="text-center p-3 bg-muted/50 rounded-lg">
-            <div className="text-xs text-muted-foreground mb-1">Speed</div>
-            <div className="text-lg font-bold text-foreground">
-              {((analytics?.speed_bonus || 0) * 100).toFixed(0)}
-            </div>
-            <div className="text-xs text-muted-foreground">20% weight</div>
-          </div>
-          <div className="text-center p-3 bg-muted/50 rounded-lg">
-            <div className="text-xs text-muted-foreground mb-1">Consistency</div>
-            <div className="text-lg font-bold text-foreground">
-              {((analytics?.consistency_factor || 0) * 100).toFixed(0)}
-            </div>
-            <div className="text-xs text-muted-foreground">15% weight</div>
-          </div>
-          <div className="text-center p-3 bg-muted/50 rounded-lg">
-            <div className="text-xs text-muted-foreground mb-1">Recent</div>
-            <div className="text-lg font-bold text-foreground">
-              {analytics?.recency_factor?.toFixed(0) || 0}
-            </div>
-            <div className="text-xs text-muted-foreground">15% weight</div>
+            Across all tests attempted
           </div>
         </div>
 

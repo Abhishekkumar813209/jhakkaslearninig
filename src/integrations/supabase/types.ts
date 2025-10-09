@@ -1847,18 +1847,13 @@ export type Database = {
       student_analytics: {
         Row: {
           average_score: number | null
-          base_score: number | null
           batch_rank: number | null
-          consistency_factor: number | null
           id: string
           last_active_date: string | null
           overall_percentile: number | null
           overall_rank: number | null
-          performance_index: number | null
-          recency_factor: number | null
           school_percentile: number | null
           school_rank: number | null
-          speed_bonus: number | null
           streak_days: number | null
           student_id: string
           tests_attempted: number | null
@@ -1869,18 +1864,13 @@ export type Database = {
         }
         Insert: {
           average_score?: number | null
-          base_score?: number | null
           batch_rank?: number | null
-          consistency_factor?: number | null
           id?: string
           last_active_date?: string | null
           overall_percentile?: number | null
           overall_rank?: number | null
-          performance_index?: number | null
-          recency_factor?: number | null
           school_percentile?: number | null
           school_rank?: number | null
-          speed_bonus?: number | null
           streak_days?: number | null
           student_id: string
           tests_attempted?: number | null
@@ -1891,18 +1881,13 @@ export type Database = {
         }
         Update: {
           average_score?: number | null
-          base_score?: number | null
           batch_rank?: number | null
-          consistency_factor?: number | null
           id?: string
           last_active_date?: string | null
           overall_percentile?: number | null
           overall_rank?: number | null
-          performance_index?: number | null
-          recency_factor?: number | null
           school_percentile?: number | null
           school_rank?: number | null
-          speed_bonus?: number | null
           streak_days?: number | null
           student_id?: string
           tests_attempted?: number | null
@@ -2672,7 +2657,6 @@ export type Database = {
           student_id: string
           subject: string
           subject_percentile: number | null
-          subject_performance_index: number | null
           subject_rank: number | null
           tests_taken: number | null
           total_marks_obtained: number | null
@@ -2689,7 +2673,6 @@ export type Database = {
           student_id: string
           subject: string
           subject_percentile?: number | null
-          subject_performance_index?: number | null
           subject_rank?: number | null
           tests_taken?: number | null
           total_marks_obtained?: number | null
@@ -2706,7 +2689,6 @@ export type Database = {
           student_id?: string
           subject?: string
           subject_percentile?: number | null
-          subject_performance_index?: number | null
           subject_rank?: number | null
           tests_taken?: number | null
           total_marks_obtained?: number | null
@@ -3426,10 +3408,6 @@ export type Database = {
       }
     }
     Functions: {
-      calculate_performance_index: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       calculate_zone_rankings: {
         Args: Record<PropertyKey, never>
         Returns: undefined

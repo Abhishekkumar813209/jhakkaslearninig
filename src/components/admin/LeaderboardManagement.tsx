@@ -69,7 +69,7 @@ const LeaderboardManagement = () => {
         student_id: entry.student_id,
         student_name: profileMap.get(entry.student_id)?.full_name || 'Unknown',
         student_class: profileMap.get(entry.student_id)?.student_class || '',
-        total_xp: entry.performance_index || 0,
+        total_xp: Math.round(entry.average_score || 0),
         level: Math.floor((entry.average_score || 0) / 10),
         current_streak_days: entry.streak_days || 0,
         rank: entry.overall_rank || 0
@@ -102,7 +102,7 @@ const LeaderboardManagement = () => {
           student_name: profile?.full_name || 'Unknown',
           student_class: profile?.student_class || '',
           zone_name: (profile?.zones as any)?.name || 'N/A',
-          total_xp: entry.performance_index || 0,
+          total_xp: Math.round(entry.average_score || 0),
           level: Math.floor((entry.average_score || 0) / 10),
           current_streak_days: entry.streak_days || 0,
           rank: entry.zone_rank || 0
@@ -136,7 +136,7 @@ const LeaderboardManagement = () => {
           student_name: profile?.full_name || 'Unknown',
           student_class: profile?.student_class || '',
           school_name: (profile?.schools as any)?.name || 'N/A',
-          total_xp: entry.performance_index || 0,
+          total_xp: Math.round(entry.average_score || 0),
           level: Math.floor((entry.average_score || 0) / 10),
           current_streak_days: entry.streak_days || 0,
           rank: entry.school_rank || 0

@@ -25,34 +25,32 @@ serve(async (req: Request) => {
 
     switch (type) {
       case 'overall':
-        // Fetch real students from student_analytics
-        const { data: overallStudents, error: overallError } = await supabase
-          .from('student_analytics')
+        // Overall XP-based leaderboard
+        const { data: xpStudents, error: xpError } = await supabase
+          .from('student_gamification')
           .select(`
             student_id,
-            average_score,
-            tests_attempted,
+            total_xp,
+            level,
             streak_days,
-            overall_rank,
-            profiles (full_name, avatar_url)
+            profiles!inner (full_name, avatar_url, student_class)
           `)
-          .not('overall_rank', 'is', null)
-          .order('overall_rank', { ascending: true })
+          .order('total_xp', { ascending: false })
           .limit(limit);
 
-        if (overallError) throw overallError;
+        if (xpError) throw xpError;
 
         leaderboardData = {
-          title: 'Overall Performance',
-          description: 'Ranked by average test scores',
-          students: (overallStudents || []).map((student: any, index: number) => ({
-            rank: student.overall_rank || (index + 1),
+          title: 'Overall XP Leaderboard',
+          description: 'Ranked by total Jhakkas Points earned',
+          students: (xpStudents || []).map((student: any, index: number) => ({
+            rank: index + 1,
             name: student.profiles?.full_name || 'Student',
             avatar: student.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.student_id}`,
-            score: Math.round(student.average_score),
+            xp: student.total_xp || 0,
+            level: student.level || 1,
             streak: student.streak_days || 0,
-            tests: student.tests_attempted || 0,
-            change: 0 // TODO: Calculate from historical data
+            change: 0
           }))
         };
         break;

@@ -30,7 +30,6 @@ export interface SubjectPerformance {
   best_score: number;
   subject_rank: number;
   subject_percentile: number;
-  subject_performance_index: number;
   mastery_level: 'beginner' | 'intermediate' | 'advanced' | 'master';
   last_test_date: string;
 }

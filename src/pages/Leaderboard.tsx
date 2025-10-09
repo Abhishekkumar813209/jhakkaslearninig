@@ -15,7 +15,8 @@ interface LeaderboardEntry {
   student_id: string;
   name: string;
   score: number;
-  performance_index: number;
+  xp: number;
+  level: number;
   streak: number;
   batch_name?: string;
   avatar_url?: string;
@@ -53,16 +54,14 @@ const Leaderboard = () => {
       }
       
       const { data: analyticsData, error: analyticsError } = await supabase
-        .from('student_analytics')
+        .from('student_gamification')
         .select(`
           student_id,
-          average_score,
-          performance_index,
-          tests_attempted,
-          streak_days,
-          overall_rank
+          total_xp,
+          level,
+          current_streak_days
         `)
-        .order('overall_rank', { ascending: true })
+        .order('total_xp', { ascending: false })
         .limit(50);
 
       if (analyticsError) throw analyticsError;
@@ -96,22 +95,23 @@ const Leaderboard = () => {
         if (!error) batchesData = data || [];
       }
 
-      const combined: LeaderboardEntry[] = analyticsData.map(analytics => {
+      const combined: LeaderboardEntry[] = analyticsData.map((analytics, index) => {
         const profile = profilesData?.find(p => p.id === analytics.student_id);
         const batch = batchesData.find(b => b.id === profile?.batch_id);
         
         return {
-          rank: analytics.overall_rank || 0,
+          rank: index + 1,
           student_id: analytics.student_id,
           name: profile?.full_name || 'Unknown Student',
-          score: Math.round(analytics.average_score || 0),
-          performance_index: Math.round(analytics.performance_index || 0),
-          streak: analytics.streak_days || 0,
+          score: 0,
+          xp: analytics.total_xp || 0,
+          level: analytics.level || 1,
+          streak: analytics.current_streak_days || 0,
           batch_name: batch?.name,
           avatar_url: profile?.avatar_url,
-          tests_attempted: analytics.tests_attempted || 0,
+          tests_attempted: 0,
         };
-      }).sort((a, b) => a.rank - b.rank);
+      });
 
       setLeaderboardData(combined);
 
@@ -121,8 +121,8 @@ const Leaderboard = () => {
           setCurrentUserRank(userEntry);
         } else {
           const { data: userData } = await supabase
-            .from('student_analytics')
-            .select('overall_rank, average_score, performance_index, streak_days, tests_attempted')
+            .from('student_gamification')
+            .select('total_xp, level, current_streak_days')
             .eq('student_id', currentUser.id)
             .maybeSingle();
 
@@ -133,14 +133,16 @@ const Leaderboard = () => {
               .eq('id', currentUser.id)
               .maybeSingle();
 
+            const userRank = combined.findIndex(u => u.student_id === currentUser.id) + 1;
             setCurrentUserRank({
-              rank: userData.overall_rank || 0,
+              rank: userRank || 999,
               student_id: currentUser.id,
               name: userProfile?.full_name || 'You',
-              score: Math.round(userData.average_score || 0),
-              performance_index: Math.round(userData.performance_index || 0),
-              streak: userData.streak_days || 0,
-              tests_attempted: userData.tests_attempted || 0,
+              score: 0,
+              xp: userData.total_xp || 0,
+              level: userData.level || 1,
+              streak: userData.current_streak_days || 0,
+              tests_attempted: 0,
             });
           }
         }
@@ -298,9 +300,10 @@ const Leaderboard = () => {
                                 {getRankIcon(student.rank)}
                               </div>
                             </div>
-                            <h3 className="font-semibold mb-1">{student.name}</h3>
-                            <div className="text-2xl font-bold text-primary mb-1">{student.performance_index}</div>
-                            <div className="text-sm text-muted-foreground mb-2">Performance Index</div>
+            <h3 className="font-semibold mb-1">{student.name}</h3>
+                            <div className="text-2xl font-bold text-primary mb-1">{student.xp}</div>
+                            <div className="text-sm text-muted-foreground mb-2">Jhakkas Points</div>
+                            <div className="text-xs text-muted-foreground">Level {student.level}</div>
                             {student.batch_name && (
                               <Badge variant={getBatchColor(student.batch_name)} className="text-xs">
                                 {student.batch_name}
@@ -360,9 +363,8 @@ const Leaderboard = () => {
                             )}
                             
                             <div className="text-right">
-                              <div className="font-bold text-primary text-lg">{student.performance_index}</div>
-                              <div className="text-xs text-muted-foreground">Performance Index</div>
-                              <div className="text-xs text-muted-foreground mt-1">{student.score}% avg</div>
+                              <div className="font-bold text-primary text-lg">{student.xp} XP</div>
+                              <div className="text-xs text-muted-foreground">Level {student.level}</div>
                             </div>
                           </div>
                         );
@@ -387,9 +389,8 @@ const Leaderboard = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold text-primary text-lg">{currentUserRank.performance_index}</div>
-                            <div className="text-xs text-muted-foreground">Performance Index</div>
-                            <div className="text-xs text-muted-foreground mt-1">{currentUserRank.score}% avg</div>
+                            <div className="font-bold text-primary text-lg">{currentUserRank.xp} XP</div>
+                            <div className="text-xs text-muted-foreground">Level {currentUserRank.level}</div>
                           </div>
                         </div>
                       </CardContent>

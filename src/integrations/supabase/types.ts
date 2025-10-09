@@ -1997,6 +1997,7 @@ export type Database = {
           current_streak_days: number | null
           daily_attendance_xp: number | null
           exam_domain: string | null
+          exam_name: string | null
           id: string
           last_activity_date: string | null
           level: number | null
@@ -2013,6 +2014,7 @@ export type Database = {
           current_streak_days?: number | null
           daily_attendance_xp?: number | null
           exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
@@ -2029,6 +2031,7 @@ export type Database = {
           current_streak_days?: number | null
           daily_attendance_xp?: number | null
           exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
@@ -2667,6 +2670,7 @@ export type Database = {
           best_score: number | null
           created_at: string | null
           exam_domain: string | null
+          exam_name: string | null
           id: string
           last_test_date: string | null
           mastery_level: string | null
@@ -2685,6 +2689,7 @@ export type Database = {
           best_score?: number | null
           created_at?: string | null
           exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           last_test_date?: string | null
           mastery_level?: string | null
@@ -2703,6 +2708,7 @@ export type Database = {
           best_score?: number | null
           created_at?: string | null
           exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           last_test_date?: string | null
           mastery_level?: string | null

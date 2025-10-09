@@ -14,7 +14,6 @@ interface Quest {
   quest_type: string;
   target_value: number;
   xp_reward: number;
-  coin_reward: number;
   icon: string;
 }
 
@@ -97,12 +96,11 @@ export const DailyQuests = () => {
       const questProgress = progress.get(quest.id);
       if (!questProgress?.is_completed) return;
 
-      // Award XP and coins
-      const { error } = await supabase.functions.invoke("xp-coin-reward-system", {
+      // Award XP
+      const { error } = await supabase.functions.invoke("jhakkas-points-system", {
         body: {
           action: "add",
           xp_amount: quest.xp_reward,
-          coin_amount: quest.coin_reward,
           activity_type: "quest_completion"
         }
       });
@@ -111,7 +109,7 @@ export const DailyQuests = () => {
 
       toast({
         title: "Quest Completed!",
-        description: `Earned ${quest.xp_reward} XP and ${quest.coin_reward} coins!`,
+        description: `Earned ${quest.xp_reward} XP!`,
       });
 
       fetchProgress();
@@ -186,9 +184,6 @@ export const DailyQuests = () => {
                     <div className="text-right text-sm">
                       <div className="font-medium text-primary">
                         +{quest.xp_reward} XP
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        +{quest.coin_reward} coins
                       </div>
                     </div>
                   </div>

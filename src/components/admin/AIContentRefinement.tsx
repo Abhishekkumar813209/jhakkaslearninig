@@ -145,7 +145,6 @@ export const AIContentRefinement = ({
               correct_answer: game.correct_answer,
               difficulty: metadata?.difficulty || 'medium',
               xp_reward: 15,
-              coin_reward: 3,
             });
 
           if (gameExerciseError) throw gameExerciseError;
@@ -181,7 +180,6 @@ export const AIContentRefinement = ({
           explanation: exercise.explanation,
           difficulty: exercise.difficulty || metadata?.difficulty || 'medium',
           xp_reward: exercise.difficulty === 'hard' ? 15 : exercise.difficulty === 'easy' ? 5 : 10,
-          coin_reward: exercise.difficulty === 'hard' ? 3 : 2,
         }));
 
         const { error: exerciseError } = await supabase

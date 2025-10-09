@@ -16,7 +16,6 @@ interface Exercise {
   correct_answer: any;
   explanation: string;
   xp_reward: number;
-  coin_reward: number;
 }
 
 export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise; onComplete: () => void }) => {
@@ -41,7 +40,7 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
     if (correct) {
       toast({
         title: "🎉 Correct!",
-        description: `+${exercise.xp_reward} XP, +${exercise.coin_reward} Coins`
+        description: `+${exercise.xp_reward} XP`
       });
     } else {
       toast({
@@ -145,16 +144,10 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">Exercise</CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Trophy className="h-3 w-3" />
-              {exercise.xp_reward} XP
-            </Badge>
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Coins className="h-3 w-3 text-yellow-500" />
-              {exercise.coin_reward}
-            </Badge>
-          </div>
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <Trophy className="h-3 w-3" />
+            {exercise.xp_reward} XP
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

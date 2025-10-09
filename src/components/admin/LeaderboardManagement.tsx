@@ -14,7 +14,6 @@ interface LeaderboardEntry {
   school_name?: string;
   zone_name?: string;
   total_xp: number;
-  total_coins: number;
   level: number;
   current_streak_days: number;
   rank: number;
@@ -23,7 +22,6 @@ interface LeaderboardEntry {
 interface XPLeaderboardEntry {
   student_id: string;
   total_xp: number;
-  total_coins: number;
   level: number;
   current_streak_days: number;
   profiles: {
@@ -72,7 +70,6 @@ const LeaderboardManagement = () => {
         student_name: profileMap.get(entry.student_id)?.full_name || 'Unknown',
         student_class: profileMap.get(entry.student_id)?.student_class || '',
         total_xp: entry.performance_index || 0,
-        total_coins: entry.tests_attempted || 0,
         level: Math.floor((entry.average_score || 0) / 10),
         current_streak_days: entry.streak_days || 0,
         rank: entry.overall_rank || 0
@@ -106,7 +103,6 @@ const LeaderboardManagement = () => {
           student_class: profile?.student_class || '',
           zone_name: (profile?.zones as any)?.name || 'N/A',
           total_xp: entry.performance_index || 0,
-          total_coins: entry.tests_attempted || 0,
           level: Math.floor((entry.average_score || 0) / 10),
           current_streak_days: entry.streak_days || 0,
           rank: entry.zone_rank || 0
@@ -141,7 +137,6 @@ const LeaderboardManagement = () => {
           student_class: profile?.student_class || '',
           school_name: (profile?.schools as any)?.name || 'N/A',
           total_xp: entry.performance_index || 0,
-          total_coins: entry.tests_attempted || 0,
           level: Math.floor((entry.average_score || 0) / 10),
           current_streak_days: entry.streak_days || 0,
           rank: entry.school_rank || 0
@@ -150,7 +145,7 @@ const LeaderboardManagement = () => {
       setSchoolLeaderboard(school);
 
       // Fetch XP Leaderboard
-      const { data: xpData, error: xpError } = await supabase.functions.invoke('xp-coin-reward-system', {
+      const { data: xpData, error: xpError } = await supabase.functions.invoke('jhakkas-points-system', {
         body: { action: 'leaderboard' }
       });
 
@@ -246,8 +241,11 @@ const LeaderboardManagement = () => {
                       <div className="text-xs text-muted-foreground">Level</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-sm font-medium text-foreground">{student.total_coins}</div>
-                      <div className="text-xs text-muted-foreground">Tests</div>
+                      <div className="text-sm font-medium text-foreground flex items-center gap-1">
+                        <Flame className="h-3 w-3 text-orange-500" />
+                        {student.current_streak_days}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Streak</div>
                     </div>
                   </div>
                 </div>

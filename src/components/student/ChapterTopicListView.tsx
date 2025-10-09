@@ -17,7 +17,6 @@ interface Topic {
   progress_percentage: number;
   book_page_reference?: string;
   xp_reward?: number;
-  coin_reward?: number;
 }
 
 interface ChapterTopicListViewProps {
@@ -210,7 +209,7 @@ export const ChapterTopicListView = ({
                       </div>
 
                       {/* Rewards */}
-                      {(topic.xp_reward || topic.coin_reward) && (
+                      {topic.xp_reward && (
                         <div className="flex gap-2 flex-shrink-0">
                           {isClickable && (
                             <Badge variant="default" className="bg-gradient-to-r from-blue-500 to-purple-500">
@@ -218,16 +217,9 @@ export const ChapterTopicListView = ({
                               Play
                             </Badge>
                           )}
-                          {topic.xp_reward && (
-                            <Badge variant="outline" className="bg-primary/5">
-                              +{topic.xp_reward} XP
-                            </Badge>
-                          )}
-                          {topic.coin_reward && (
-                            <Badge variant="outline" className="bg-warning/5">
-                              +{topic.coin_reward} 🪙
-                            </Badge>
-                          )}
+                          <Badge variant="outline" className="bg-primary/5">
+                            +{topic.xp_reward} XP
+                          </Badge>
                         </div>
                       )}
                     </div>

@@ -89,7 +89,6 @@ function SortableLesson({ lesson, onEdit, onDelete }: { lesson: Lesson; onEdit: 
           
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{lesson.xp_reward} XP</span>
-            <span>{lesson.coin_reward} Coins</span>
             {lesson.human_reviewed ? (
               <Badge variant="default" className="bg-green-500">
                 <Check className="h-3 w-3 mr-1" /> Approved
@@ -386,13 +385,12 @@ export function LessonContentBuilder() {
       setIsAddDialogOpen(false);
       fetchLessons();
       setNewLesson({
-        lesson_type: 'theory',
-        estimated_time_minutes: 5,
-        xp_reward: 10,
-        coin_reward: 2,
-        generated_by: 'manual',
-        human_reviewed: false,
-      });
+    lesson_type: 'theory',
+    estimated_time_minutes: 5,
+    xp_reward: 10,
+    generated_by: 'manual',
+    human_reviewed: false,
+  });
     }
   };
 
@@ -467,7 +465,6 @@ export function LessonContentBuilder() {
           game_data: lesson.game_data,
           estimated_time_minutes: lesson.estimated_time_minutes || 5,
           xp_reward: lesson.xp_reward || 20,
-          coin_reward: lesson.coin_reward || 5,
           generated_by: 'ai',
           created_by: user?.user?.id,
           human_reviewed: false,

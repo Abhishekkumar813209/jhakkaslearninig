@@ -254,6 +254,9 @@ const Navbar = () => {
                     </Button>
                   </Link>
                   <div className="flex flex-col space-y-2 px-3 pt-4">
+                    <div className="mb-2">
+                      <XPDisplay studentId={user.id} compact={false} />
+                    </div>
                     <Button variant="outline" className="w-full" onClick={signOut}>
                       <LogOut className="h-4 w-4 mr-2" />
                       Logout

@@ -231,7 +231,6 @@ export const ManualTopicEditor = () => {
         topic_name: "",
         day_number: topics.length + 1,
         xp_reward: 50,
-        coin_reward: 10,
         difficulty: "medium",
         animation_type: "interactive_svg"
       }
@@ -316,8 +315,7 @@ export const ManualTopicEditor = () => {
             day_number: parseInt(parts[1]) || (parsed.length + 1),
             book_page_reference: parts[2] || undefined,
             xp_reward: parseInt(parts[3]) || 50,
-            coin_reward: parseInt(parts[4]) || 10,
-            difficulty: parts[5] || "medium",
+            difficulty: parts[4] || "medium",
             animation_type: parts[6] || "interactive_svg"
           });
         }
@@ -359,7 +357,6 @@ export const ManualTopicEditor = () => {
         day_number: topic.day_number || (index + 1),
         order_num: index + 1,
         xp_reward: topic.xp_reward || 50,
-        coin_reward: topic.coin_reward || 10,
         unlock_condition: index === 0 ? "always" : "previous_complete"
       }));
 

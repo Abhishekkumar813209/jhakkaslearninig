@@ -13,7 +13,6 @@ interface Lesson {
   content_order: number;
   estimated_time_minutes: number;
   xp_reward: number;
-  coin_reward: number;
   game_type?: string;
   svg_type?: string;
 }

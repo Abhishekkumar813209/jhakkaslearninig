@@ -28,7 +28,6 @@ interface TopicContent {
     correct_answer: any;
     explanation: string;
     xp_reward: number;
-    coin_reward: number;
   }>;
 }
 
@@ -136,16 +135,15 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     setCurrentExerciseIndex(0);
   };
 
-  const handleExerciseComplete = async (exerciseId: string, xpReward: number, coinReward: number) => {
+  const handleExerciseComplete = async (exerciseId: string, xpReward: number) => {
     setCompletedExercises(prev => new Set(prev).add(exerciseId));
 
-    // Award XP and coins
+    // Award XP
     try {
-      await supabase.functions.invoke("xp-coin-reward-system", {
+      await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add",
           xp_amount: xpReward,
-          coin_amount: coinReward,
           activity_type: "exercise_completed"
         }
       });
@@ -241,8 +239,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           exercise={content.exercises[currentExerciseIndex]}
           onComplete={() => handleExerciseComplete(
             content.exercises[currentExerciseIndex].id,
-            content.exercises[currentExerciseIndex].xp_reward,
-            content.exercises[currentExerciseIndex].coin_reward
+            content.exercises[currentExerciseIndex].xp_reward
           )}
         />
       </div>

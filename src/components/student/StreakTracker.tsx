@@ -7,9 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 
 interface StreakData {
-  current_streak_days: number;
+  streak_days: number;
   total_xp: number;
-  total_coins: number;
 }
 
 export const StreakTracker = () => {
@@ -24,8 +23,8 @@ export const StreakTracker = () => {
         if (!user) return;
 
         const { data, error } = await supabase
-          .from("student_xp_coins")
-          .select("current_streak_days, total_xp, total_coins")
+          .from("student_gamification")
+          .select("streak_days, total_xp")
           .eq("student_id", user.id)
           .single();
 
@@ -41,7 +40,7 @@ export const StreakTracker = () => {
     const channel = supabase
       .channel('streak-updates')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'student_xp_coins' },
+        { event: '*', schema: 'public', table: 'student_gamification' },
         () => fetchStreak()
       )
       .subscribe();
@@ -53,10 +52,10 @@ export const StreakTracker = () => {
 
   const buyStreakFreeze = async () => {
     const cost = 100;
-    if (!streakData || streakData.total_coins < cost) {
+    if (!streakData || streakData.total_xp < cost) {
       toast({
-        title: "Not enough coins",
-        description: `You need ${cost} coins to buy a streak freeze.`,
+        title: "Not enough Jhakkas Points",
+        description: `You need ${cost} Jhakkas Points to buy a streak freeze.`,
         variant: "destructive"
       });
       return;
@@ -66,10 +65,10 @@ export const StreakTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase.functions.invoke("xp-coin-reward-system", {
+      const { error } = await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add",
-          coin_amount: -cost,
+          xp_amount: -cost,
           activity_type: "streak_freeze_purchase"
         }
       });
@@ -94,9 +93,9 @@ export const StreakTracker = () => {
   if (!streakData) return null;
 
   const dailyGoalProgress = 50; // Example: 50% towards daily goal
-  const streakMilestone = Math.floor(streakData.current_streak_days / 7) * 7;
+  const streakMilestone = Math.floor(streakData.streak_days / 7) * 7;
   const nextMilestone = streakMilestone + 7;
-  const milestoneProgress = ((streakData.current_streak_days - streakMilestone) / 7) * 100;
+  const milestoneProgress = ((streakData.streak_days - streakMilestone) / 7) * 100;
 
   return (
     <Card>
@@ -116,12 +115,12 @@ export const StreakTracker = () => {
             <Flame className="h-20 w-20 text-orange-500 animate-pulse" />
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-2xl font-bold text-white drop-shadow-lg">
-                {streakData.current_streak_days}
+                {streakData.streak_days}
               </span>
             </div>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            {streakData.current_streak_days === 1 ? 'day' : 'days'} streak
+            {streakData.streak_days === 1 ? 'day' : 'days'} streak
           </p>
         </div>
 
@@ -163,10 +162,10 @@ export const StreakTracker = () => {
                 onClick={buyStreakFreeze}
                 size="sm"
                 variant="outline"
-                disabled={!streakData || streakData.total_coins < 100}
+                disabled={!streakData || streakData.total_xp < 100}
               >
                 <Coins className="h-4 w-4 mr-1" />
-                100
+                100 XP
               </Button>
             )}
           </div>

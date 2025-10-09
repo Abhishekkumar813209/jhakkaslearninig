@@ -37,7 +37,7 @@ export const WeeklyLeague = () => {
 
         // Get user's XP
         const { data: xpData } = await supabase
-          .from("student_xp_coins")
+          .from("student_gamification")
           .select("total_xp")
           .eq("student_id", user.id)
           .single();

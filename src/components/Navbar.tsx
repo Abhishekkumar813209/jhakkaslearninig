@@ -144,13 +144,17 @@ const Navbar = () => {
             ) : (
               // Authenticated Actions
               <>
-                {isStudent && <XPDisplay compact />}
+                {isStudent && (
+                  <div className="flex items-center gap-2">
+                    <XPDisplay compact />
+                  </div>
+                )}
                 <Link to="/profile">
                   <Button variant="ghost" size="icon">
                     <User className="h-5 w-5" />
                   </Button>
                 </Link>
-                <Button variant="outline" onClick={signOut}>
+                <Button variant="outline" onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </Button>

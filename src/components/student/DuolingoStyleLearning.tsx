@@ -76,7 +76,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
 
     // Fetch XP and streak
     const { data: xpData } = await supabase
-      .from('student_xp_coins')
+      .from('student_gamification')
       .select('total_xp')
       .eq('student_id', user.user.id)
       .single();
@@ -170,27 +170,25 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
 
-    // Award XP and coins
+    // Award XP (Jhakkas Points)
     const { data: xpData } = await supabase
-      .from('student_xp_coins')
+      .from('student_gamification')
       .select('*')
       .eq('student_id', user.user.id)
       .single();
 
     if (xpData) {
       const newXP = xpData.total_xp + lesson.xp_reward;
-      const newCoins = xpData.total_coins + lesson.coin_reward;
 
       await supabase
-        .from('student_xp_coins')
+        .from('student_gamification')
         .update({
           total_xp: newXP,
-          total_coins: newCoins,
         })
         .eq('student_id', user.user.id);
 
       setEarnedXP(lesson.xp_reward);
-      setEarnedCoins(lesson.coin_reward);
+      setEarnedCoins(lesson.xp_reward); // Using XP for display
 
       // Check for level up
       const oldLevel = Math.floor(xpData.total_xp / 100);

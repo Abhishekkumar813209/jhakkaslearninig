@@ -2006,6 +2006,51 @@ export type Database = {
           },
         ]
       }
+      student_gamification: {
+        Row: {
+          created_at: string | null
+          current_streak_days: number | null
+          daily_attendance_xp: number | null
+          id: string
+          last_activity_date: string | null
+          level: number | null
+          longest_streak_days: number | null
+          referral_xp: number | null
+          social_share_xp: number | null
+          student_id: string
+          total_xp: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_streak_days?: number | null
+          daily_attendance_xp?: number | null
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          longest_streak_days?: number | null
+          referral_xp?: number | null
+          social_share_xp?: number | null
+          student_id: string
+          total_xp?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_streak_days?: number | null
+          daily_attendance_xp?: number | null
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          longest_streak_days?: number | null
+          referral_xp?: number | null
+          social_share_xp?: number | null
+          student_id?: string
+          total_xp?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       student_guided_paths: {
         Row: {
           completed_at: string | null
@@ -2498,45 +2543,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      student_xp_coins: {
-        Row: {
-          created_at: string | null
-          current_streak_days: number | null
-          id: string
-          last_activity_date: string | null
-          level: number | null
-          longest_streak_days: number | null
-          student_id: string
-          total_coins: number | null
-          total_xp: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          current_streak_days?: number | null
-          id?: string
-          last_activity_date?: string | null
-          level?: number | null
-          longest_streak_days?: number | null
-          student_id: string
-          total_coins?: number | null
-          total_xp?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          current_streak_days?: number | null
-          id?: string
-          last_activity_date?: string | null
-          level?: number | null
-          longest_streak_days?: number | null
-          student_id?: string
-          total_coins?: number | null
-          total_xp?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
       }
       study_configurations: {
         Row: {

@@ -17,7 +17,7 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
   useEffect(() => {
     const fetchXP = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("xp-coin-reward-system", {
+        const { data, error } = await supabase.functions.invoke("jhakkas-points-system", {
           body: { action: "get" }
         });
 
@@ -26,7 +26,7 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
           setXpData(data.data);
         }
       } catch (error) {
-        console.error("Error fetching XP:", error);
+        console.error("Error fetching Jhakkas Points:", error);
       }
     };
 
@@ -34,9 +34,9 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
 
     // Subscribe to realtime updates
     const channel = supabase
-      .channel('xp-updates')
+      .channel('jhakkas-updates')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'student_xp_coins' },
+        { event: '*', schema: 'public', table: 'student_gamification' },
         () => fetchXP()
       )
       .subscribe();
@@ -51,13 +51,13 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
   if (compact) {
     return (
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-md">
+        <div className="flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-lg">
           <Trophy className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">Lv {xpData.level}</span>
+          <span className="text-sm font-semibold">Lv {xpData.level}</span>
         </div>
-        <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded-md">
-          <Coins className="h-4 w-4 text-yellow-500" />
-          <span className="text-sm font-medium">{xpData.coins}</span>
+        <div className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-3 py-1.5 rounded-lg border border-yellow-500/20">
+          <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">{xpData.xp}</span>
         </div>
       </div>
     );
@@ -74,9 +74,9 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
           <Trophy className="h-5 w-5 text-primary" />
           <span className="font-semibold">Level {xpData.level}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Coins className="h-5 w-5 text-yellow-500" />
-          <span className="font-semibold text-yellow-600 dark:text-yellow-400">{xpData.coins} Coins</span>
+        <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-3 py-1 rounded-lg border border-yellow-500/20">
+          <Coins className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+          <span className="font-semibold text-yellow-700 dark:text-yellow-300">🪙 {xpData.xp} Jhakkas Points</span>
         </div>
       </div>
       

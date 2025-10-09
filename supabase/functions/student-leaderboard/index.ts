@@ -20,21 +20,32 @@ serve(async (req: Request) => {
     const url = new URL(req.url);
     const type = url.searchParams.get('type') || 'overall'; // overall, subject, streak, batch
     const limit = parseInt(url.searchParams.get('limit') || '10');
+    const examDomain = url.searchParams.get('exam_domain'); // Filter by exam domain
+    const studentClass = url.searchParams.get('student_class'); // Filter by class
 
     let leaderboardData = {};
 
     switch (type) {
       case 'overall':
-        // Overall XP-based leaderboard
-        const { data: xpStudents, error: xpError } = await supabase
+        // Overall XP-based leaderboard with exam_domain filtering
+        let xpQuery = supabase
           .from('student_gamification')
           .select(`
             student_id,
             total_xp,
             level,
             streak_days,
-            profiles!inner (full_name, avatar_url, student_class)
-          `)
+            profiles!inner (full_name, avatar_url, student_class, exam_domain)
+          `);
+        
+        if (examDomain) {
+          xpQuery = xpQuery.eq('profiles.exam_domain', examDomain);
+        }
+        if (studentClass) {
+          xpQuery = xpQuery.eq('profiles.student_class', studentClass);
+        }
+        
+        const { data: xpStudents, error: xpError } = await xpQuery
           .order('total_xp', { ascending: false })
           .limit(limit);
 
@@ -56,15 +67,24 @@ serve(async (req: Request) => {
         break;
 
       case 'streak':
-        // Fetch students sorted by streak
-        const { data: streakStudents, error: streakError } = await supabase
+        // Fetch students sorted by streak with exam_domain filtering
+        let streakQuery = supabase
           .from('student_analytics')
           .select(`
             student_id,
             streak_days,
-            profiles (full_name, avatar_url)
+            profiles!inner (full_name, avatar_url, exam_domain, student_class)
           `)
-          .gt('streak_days', 0)
+          .gt('streak_days', 0);
+        
+        if (examDomain) {
+          streakQuery = streakQuery.eq('profiles.exam_domain', examDomain);
+        }
+        if (studentClass) {
+          streakQuery = streakQuery.eq('profiles.student_class', studentClass);
+        }
+        
+        const { data: streakStudents, error: streakError } = await streakQuery
           .order('streak_days', { ascending: false })
           .limit(limit);
 
@@ -83,15 +103,24 @@ serve(async (req: Request) => {
         break;
 
       case 'batch':
-        // Fetch batch-wise statistics
-        const { data: batchData, error: batchError } = await supabase
+        // Fetch batch-wise statistics with exam_domain filtering
+        let batchQuery = supabase
           .from('student_analytics')
           .select(`
             student_id,
             average_score,
-            profiles!inner (batch_id, batches (name))
+            profiles!inner (batch_id, exam_domain, student_class, batches (name))
           `)
           .not('profiles.batch_id', 'is', null);
+        
+        if (examDomain) {
+          batchQuery = batchQuery.eq('profiles.exam_domain', examDomain);
+        }
+        if (studentClass) {
+          batchQuery = batchQuery.eq('profiles.student_class', studentClass);
+        }
+        
+        const { data: batchData, error: batchError } = await batchQuery;
 
         if (batchError) throw batchError;
 

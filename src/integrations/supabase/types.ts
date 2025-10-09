@@ -1848,6 +1848,8 @@ export type Database = {
         Row: {
           average_score: number | null
           batch_rank: number | null
+          exam_domain: string | null
+          exam_name: string | null
           id: string
           last_active_date: string | null
           overall_percentile: number | null
@@ -1855,6 +1857,7 @@ export type Database = {
           school_percentile: number | null
           school_rank: number | null
           streak_days: number | null
+          student_class: string | null
           student_id: string
           tests_attempted: number | null
           total_study_time_minutes: number | null
@@ -1865,6 +1868,8 @@ export type Database = {
         Insert: {
           average_score?: number | null
           batch_rank?: number | null
+          exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           last_active_date?: string | null
           overall_percentile?: number | null
@@ -1872,6 +1877,7 @@ export type Database = {
           school_percentile?: number | null
           school_rank?: number | null
           streak_days?: number | null
+          student_class?: string | null
           student_id: string
           tests_attempted?: number | null
           total_study_time_minutes?: number | null
@@ -1882,6 +1888,8 @@ export type Database = {
         Update: {
           average_score?: number | null
           batch_rank?: number | null
+          exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           last_active_date?: string | null
           overall_percentile?: number | null
@@ -1889,6 +1897,7 @@ export type Database = {
           school_percentile?: number | null
           school_rank?: number | null
           streak_days?: number | null
+          student_class?: string | null
           student_id?: string
           tests_attempted?: number | null
           total_study_time_minutes?: number | null

@@ -31,7 +31,6 @@ interface Lesson {
   playground_config?: any;
   estimated_time_minutes: number;
   xp_reward: number;
-  coin_reward: number;
 }
 
 interface DuolingoStyleLearningProps {

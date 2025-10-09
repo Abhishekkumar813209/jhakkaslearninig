@@ -37,7 +37,6 @@ interface Lesson {
   game_data?: any;
   estimated_time_minutes: number;
   xp_reward: number;
-  coin_reward: number;
   generated_by: string;
   human_reviewed: boolean;
   approved_at?: string;
@@ -138,7 +137,6 @@ export function LessonContentBuilder() {
     lesson_type: 'theory',
     estimated_time_minutes: 5,
     xp_reward: 10,
-    coin_reward: 2,
     generated_by: 'manual',
     human_reviewed: false,
   });
@@ -853,19 +851,11 @@ export function LessonContentBuilder() {
 
                         <TabsContent value="rewards" className="space-y-4">
                           <div>
-                            <Label>XP Reward</Label>
+                            <Label>Jhakkas Coins Reward</Label>
                             <Input
                               type="number"
                               value={newLesson.xp_reward}
                               onChange={(e) => setNewLesson({ ...newLesson, xp_reward: parseInt(e.target.value) })}
-                            />
-                          </div>
-                          <div>
-                            <Label>Coin Reward</Label>
-                            <Input
-                              type="number"
-                              value={newLesson.coin_reward}
-                              onChange={(e) => setNewLesson({ ...newLesson, coin_reward: parseInt(e.target.value) })}
                             />
                           </div>
                         </TabsContent>

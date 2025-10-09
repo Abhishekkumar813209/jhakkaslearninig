@@ -20,7 +20,6 @@ interface Topic {
   day_number: number;
   book_page_reference?: string;
   xp_reward?: number;
-  coin_reward?: number;
   difficulty?: string;
   animation_type?: string;
 }
@@ -636,13 +635,6 @@ export const ManualTopicEditor = () => {
                           type="number"
                           value={topic.xp_reward}
                           onChange={(e) => updateTopic(index, "xp_reward", parseInt(e.target.value))}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={topic.coin_reward}
-                          onChange={(e) => updateTopic(index, "coin_reward", parseInt(e.target.value))}
                         />
                       </TableCell>
                       <TableCell>

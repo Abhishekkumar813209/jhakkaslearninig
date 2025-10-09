@@ -1996,12 +1996,14 @@ export type Database = {
           created_at: string | null
           current_streak_days: number | null
           daily_attendance_xp: number | null
+          exam_domain: string | null
           id: string
           last_activity_date: string | null
           level: number | null
           longest_streak_days: number | null
           referral_xp: number | null
           social_share_xp: number | null
+          student_class: string | null
           student_id: string
           total_xp: number | null
           updated_at: string | null
@@ -2010,12 +2012,14 @@ export type Database = {
           created_at?: string | null
           current_streak_days?: number | null
           daily_attendance_xp?: number | null
+          exam_domain?: string | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
           longest_streak_days?: number | null
           referral_xp?: number | null
           social_share_xp?: number | null
+          student_class?: string | null
           student_id: string
           total_xp?: number | null
           updated_at?: string | null
@@ -2024,12 +2028,14 @@ export type Database = {
           created_at?: string | null
           current_streak_days?: number | null
           daily_attendance_xp?: number | null
+          exam_domain?: string | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
           longest_streak_days?: number | null
           referral_xp?: number | null
           social_share_xp?: number | null
+          student_class?: string | null
           student_id?: string
           total_xp?: number | null
           updated_at?: string | null
@@ -2129,12 +2135,15 @@ export type Database = {
         Row: {
           created_at: string | null
           demoted: boolean | null
+          exam_domain: string | null
+          exam_name: string | null
           id: string
           league_tier: string | null
           league_week_end: string | null
           league_week_start: string | null
           promoted: boolean | null
           rank_in_league: number | null
+          student_class: string | null
           student_id: string | null
           updated_at: string | null
           weekly_xp: number | null
@@ -2142,12 +2151,15 @@ export type Database = {
         Insert: {
           created_at?: string | null
           demoted?: boolean | null
+          exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           league_tier?: string | null
           league_week_end?: string | null
           league_week_start?: string | null
           promoted?: boolean | null
           rank_in_league?: number | null
+          student_class?: string | null
           student_id?: string | null
           updated_at?: string | null
           weekly_xp?: number | null
@@ -2155,12 +2167,15 @@ export type Database = {
         Update: {
           created_at?: string | null
           demoted?: boolean | null
+          exam_domain?: string | null
+          exam_name?: string | null
           id?: string
           league_tier?: string | null
           league_week_end?: string | null
           league_week_start?: string | null
           promoted?: boolean | null
           rank_in_league?: number | null
+          student_class?: string | null
           student_id?: string | null
           updated_at?: string | null
           weekly_xp?: number | null
@@ -2651,9 +2666,11 @@ export type Database = {
           average_score: number | null
           best_score: number | null
           created_at: string | null
+          exam_domain: string | null
           id: string
           last_test_date: string | null
           mastery_level: string | null
+          student_class: string | null
           student_id: string
           subject: string
           subject_percentile: number | null
@@ -2667,9 +2684,11 @@ export type Database = {
           average_score?: number | null
           best_score?: number | null
           created_at?: string | null
+          exam_domain?: string | null
           id?: string
           last_test_date?: string | null
           mastery_level?: string | null
+          student_class?: string | null
           student_id: string
           subject: string
           subject_percentile?: number | null
@@ -2683,9 +2702,11 @@ export type Database = {
           average_score?: number | null
           best_score?: number | null
           created_at?: string | null
+          exam_domain?: string | null
           id?: string
           last_test_date?: string | null
           mastery_level?: string | null
+          student_class?: string | null
           student_id?: string
           subject?: string
           subject_percentile?: number | null

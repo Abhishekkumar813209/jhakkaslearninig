@@ -20,11 +20,17 @@ import {
   Star,
   CheckCircle,
   AlertTriangle,
-  Zap
+  Zap,
+  Coins,
+  X,
+  Home,
+  BookMarked,
+  BarChart3
 } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface PostTestAnalyticsProps {
   analyticsData: any;
@@ -40,6 +46,13 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
   loading = false 
 }) => {
   const navigate = useNavigate();
+  const [showAchievements, setShowAchievements] = useState(false);
+
+  useEffect(() => {
+    if (analyticsData?.achievements?.length > 0) {
+      setTimeout(() => setShowAchievements(true), 1500);
+    }
+  }, [analyticsData]);
 
   if (loading) {
     return (
@@ -79,7 +92,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
     );
   }
 
-  const { testInfo, rankings, performance, insights, improvementSuggestions } = analyticsData;
+  const { testInfo, rankings, performance, insights, improvementSuggestions, xpRewards, achievements } = analyticsData;
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
@@ -148,6 +161,47 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
           </p>
         </motion.div>
 
+        {/* XP Rewards & Achievements Popup */}
+        <AnimatePresence>
+          {showAchievements && achievements && achievements.length > 0 && (
+            <Dialog open={showAchievements} onOpenChange={setShowAchievements}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-center text-2xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+                    🎉 Achievements Unlocked!
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {achievements.map((achievement: any, index: number) => (
+                    <motion.div
+                      key={index}
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ delay: index * 0.2, type: "spring" }}
+                      className="p-4 rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-4xl">{achievement.icon}</div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-lg">{achievement.title}</h4>
+                          <p className="text-sm text-muted-foreground">{achievement.description}</p>
+                          <Badge className="mt-2 bg-yellow-500 text-white">
+                            <Coins className="w-3 h-3 mr-1" />
+                            +{achievement.xpBonus} XP
+                          </Badge>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+                <Button onClick={() => setShowAchievements(false)} className="w-full">
+                  Awesome!
+                </Button>
+              </DialogContent>
+            </Dialog>
+          )}
+        </AnimatePresence>
+
         {/* Score Overview */}
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
@@ -204,6 +258,89 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* XP Rewards Card */}
+        {xpRewards && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="border-yellow-500/50 bg-gradient-to-br from-yellow-50 to-orange-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-yellow-600">
+                  <Coins className="h-6 w-6" />
+                  Jhakkas Coins Earned
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center mb-6">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+                    className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white mb-4 shadow-lg"
+                  >
+                    <div className="text-3xl font-bold">{xpRewards.totalXP}</div>
+                  </motion.div>
+                  <p className="text-sm text-muted-foreground">Total XP Earned</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-medium">Test Completion</span>
+                    </div>
+                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                      +{xpRewards.baseXP} XP
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium">Performance ({testInfo.percentage}%)</span>
+                    </div>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      +{xpRewards.performanceBonus} XP
+                    </Badge>
+                  </div>
+
+                  {xpRewards.speedBonus > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-orange-500" />
+                        <span className="text-sm font-medium">Speed Bonus</span>
+                      </div>
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                        +{xpRewards.speedBonus} XP
+                      </Badge>
+                    </div>
+                  )}
+
+                  {xpRewards.perfectScoreBonus > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-purple-500" />
+                        <span className="text-sm font-medium">Perfect Score!</span>
+                      </div>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                        +{xpRewards.perfectScoreBonus} XP
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 p-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg border-2 border-yellow-300">
+                  <p className="text-xs text-center font-medium text-yellow-800">
+                    💰 XP can be used to unlock premium features and compete on leaderboards!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* "What If" Scenarios Calculator */}
         <motion.div 
@@ -478,6 +615,61 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                     <p className="text-sm">{insight}</p>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Next Actions */}
+        <motion.div 
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ArrowRight className="h-5 w-5" />
+                What's Next?
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-auto p-6 flex flex-col items-center gap-3 hover:bg-blue-50 hover:border-blue-300"
+                  onClick={() => navigate('/student')}
+                >
+                  <Home className="w-8 h-8 text-blue-500" />
+                  <div className="text-center">
+                    <div className="font-semibold">Dashboard</div>
+                    <p className="text-xs text-muted-foreground">View your progress</p>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-6 flex flex-col items-center gap-3 hover:bg-green-50 hover:border-green-300"
+                  onClick={() => navigate('/tests')}
+                >
+                  <BookMarked className="w-8 h-8 text-green-500" />
+                  <div className="text-center">
+                    <div className="font-semibold">Take Another Test</div>
+                    <p className="text-xs text-muted-foreground">Keep practicing</p>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-6 flex flex-col items-center gap-3 hover:bg-purple-50 hover:border-purple-300"
+                  onClick={() => navigate('/leaderboard')}
+                >
+                  <BarChart3 className="w-8 h-8 text-purple-500" />
+                  <div className="text-center">
+                    <div className="font-semibold">View Leaderboard</div>
+                    <p className="text-xs text-muted-foreground">See your ranking</p>
+                  </div>
+                </Button>
               </div>
             </CardContent>
           </Card>

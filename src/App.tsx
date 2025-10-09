@@ -29,6 +29,7 @@ import TakeTest from "@/components/student/TakeTest";
 import TestResults from "./pages/TestResults";
 import Student from "./pages/Student";
 import StudentGuidedPaths from "./pages/StudentGuidedPaths";
+import LiveRacing from "./pages/LiveRacing";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import UIGuide from "./pages/UIGuide";
 
@@ -73,6 +74,11 @@ const App = () => (
             <Route path="/student/guided-paths" element={
               <ProtectedRoute>
                 <StudentGuidedPaths />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/racing" element={
+              <ProtectedRoute>
+                <LiveRacing />
               </ProtectedRoute>
             } />
             <Route path="/student/tests" element={

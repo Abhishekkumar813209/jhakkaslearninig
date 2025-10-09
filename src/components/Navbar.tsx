@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass } from "lucide-react";
+import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass, Flag } from "lucide-react";
 import { XPDisplay } from "@/components/student/XPDisplay";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,6 +96,11 @@ const Navbar = () => {
                 <Link to="/leaderboard">
                   <Button variant="nav" size="sm">
                     Leaderboard
+                  </Button>
+                </Link>
+                <Link to="/student/racing">
+                  <Button variant="nav" size="sm">
+                    🏁 Live Racing
                   </Button>
                 </Link>
               </>
@@ -245,6 +250,12 @@ const Navbar = () => {
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Trophy className="h-4 w-4 mr-2" />
                       Leaderboard
+                    </Button>
+                  </Link>
+                  <Link to="/student/racing" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <Flag className="h-4 w-4 mr-2" />
+                      🏁 Live Racing
                     </Button>
                   </Link>
                   <Link to="/profile" onClick={() => setIsMenuOpen(false)}>

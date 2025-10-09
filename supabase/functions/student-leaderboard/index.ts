@@ -21,6 +21,7 @@ serve(async (req: Request) => {
     const type = url.searchParams.get('type') || 'overall'; // overall, subject, streak, batch
     const limit = parseInt(url.searchParams.get('limit') || '10');
     const examDomain = url.searchParams.get('exam_domain'); // Filter by exam domain
+    const examName = url.searchParams.get('exam_name'); // Filter by exam name
     const studentClass = url.searchParams.get('student_class'); // Filter by class
 
     let leaderboardData = {};
@@ -35,14 +36,20 @@ serve(async (req: Request) => {
             total_xp,
             level,
             streak_days,
-            profiles!inner (full_name, avatar_url, student_class, exam_domain)
+            exam_domain,
+            exam_name,
+            student_class,
+            profiles!inner (full_name, avatar_url, student_class, exam_domain, target_exam)
           `);
         
         if (examDomain) {
-          xpQuery = xpQuery.eq('profiles.exam_domain', examDomain);
+          xpQuery = xpQuery.eq('exam_domain', examDomain);
+        }
+        if (examName) {
+          xpQuery = xpQuery.eq('exam_name', examName);
         }
         if (studentClass) {
-          xpQuery = xpQuery.eq('profiles.student_class', studentClass);
+          xpQuery = xpQuery.eq('student_class', studentClass);
         }
         
         const { data: xpStudents, error: xpError } = await xpQuery
@@ -73,12 +80,15 @@ serve(async (req: Request) => {
           .select(`
             student_id,
             streak_days,
-            profiles!inner (full_name, avatar_url, exam_domain, student_class)
+            profiles!inner (full_name, avatar_url, exam_domain, student_class, target_exam)
           `)
           .gt('streak_days', 0);
         
         if (examDomain) {
           streakQuery = streakQuery.eq('profiles.exam_domain', examDomain);
+        }
+        if (examName) {
+          streakQuery = streakQuery.eq('profiles.target_exam', examName);
         }
         if (studentClass) {
           streakQuery = streakQuery.eq('profiles.student_class', studentClass);
@@ -109,12 +119,15 @@ serve(async (req: Request) => {
           .select(`
             student_id,
             average_score,
-            profiles!inner (batch_id, exam_domain, student_class, batches (name))
+            profiles!inner (batch_id, exam_domain, student_class, target_exam, batches (name))
           `)
           .not('profiles.batch_id', 'is', null);
         
         if (examDomain) {
           batchQuery = batchQuery.eq('profiles.exam_domain', examDomain);
+        }
+        if (examName) {
+          batchQuery = batchQuery.eq('profiles.target_exam', examName);
         }
         if (studentClass) {
           batchQuery = batchQuery.eq('profiles.student_class', studentClass);

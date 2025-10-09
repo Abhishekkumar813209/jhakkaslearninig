@@ -35,15 +35,15 @@ export const WeeklyLeague = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Get user's profile with exam domain and class
+        // Get user's profile with exam domain, exam name, and class
         const { data: profile } = await supabase
           .from('profiles')
-          .select('exam_domain, student_class')
+          .select('exam_domain, student_class, target_exam')
           .eq('id', user.id)
           .single();
 
-        if (!profile?.exam_domain || !profile?.student_class) {
-          console.log('Profile incomplete - exam domain and class required');
+        if (!profile?.exam_domain) {
+          console.log('Profile incomplete - exam domain required');
           return;
         }
 
@@ -79,20 +79,31 @@ export const WeeklyLeague = () => {
         weekStart.setDate(now.getDate() - diff);
         weekStart.setHours(0, 0, 0, 0);
 
-        // Get leaderboard (domain and class specific)
-        const { data: leagueData } = await supabase
+        // Get leaderboard (domain, exam_name, and class specific)
+        let leagueQuery = supabase
           .from("student_leagues")
           .select(`
             student_id,
             weekly_xp,
             rank_in_league,
-            profiles!inner(full_name)
+            exam_domain,
+            exam_name,
+            student_class,
+            profiles!inner(full_name, exam_domain, target_exam, student_class)
           `)
           .eq("league_week_start", weekStart.toISOString().split('T')[0])
           .eq("exam_domain", profile.exam_domain)
-          .eq("student_class", profile.student_class)
           .order("rank_in_league", { ascending: true })
           .limit(10);
+
+        if (profile.target_exam) {
+          leagueQuery = leagueQuery.eq("exam_name", profile.target_exam);
+        }
+        if (profile.student_class) {
+          leagueQuery = leagueQuery.eq("student_class", profile.student_class);
+        }
+
+        const { data: leagueData } = await leagueQuery;
 
         if (leagueData) {
           const formattedData = leagueData.map(entry => ({

@@ -163,17 +163,24 @@ serve(async (req) => {
           level,
           streak_days,
           exam_domain,
+          exam_name,
           student_class,
           profiles!inner (
             full_name,
-            avatar_url
+            avatar_url,
+            exam_domain,
+            target_exam,
+            student_class
           )
         `)
         .order('total_xp', { ascending: false });
 
-      // Filter by domain and class if profile has them
+      // Filter by domain, exam_name, and class if profile has them
       if (profile?.exam_domain) {
         query = query.eq('exam_domain', profile.exam_domain);
+      }
+      if (profile?.target_exam) {
+        query = query.eq('exam_name', profile.target_exam);
       }
       if (profile?.student_class) {
         query = query.eq('student_class', profile.student_class);

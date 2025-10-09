@@ -41,32 +41,45 @@ serve(async (req: Request) => {
 
     switch (raceType) {
       case 'class':
-        // Class racing: Same class + exam_domain
-        const { data: classRacers, error: classError } = await supabase
+        // Class racing: Same exam_domain + exam_name + class
+        let classQuery = supabase
           .from('student_gamification')
           .select(`
             student_id,
             total_xp,
             level,
+            exam_domain,
+            exam_name,
+            student_class,
             profiles!inner (
               full_name,
               avatar_url,
               student_class,
               exam_domain,
+              target_exam,
               batch_id,
               batches (name)
             )
           `)
-          .eq('profiles.student_class', userProfile.student_class)
-          .eq('profiles.exam_domain', userProfile.exam_domain)
+          .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100); // Get more for context
+
+        if (userProfile.target_exam) {
+          classQuery = classQuery.eq('exam_name', userProfile.target_exam);
+        }
+        if (userProfile.student_class) {
+          classQuery = classQuery.eq('student_class', userProfile.student_class);
+        }
+
+        const { data: classRacers, error: classError } = await classQuery;
 
         if (classError) throw classError;
 
         racingData = processRacingData(classRacers || [], userId, limit);
-        racingData.title = `Class ${userProfile.student_class} Racing`;
-        racingData.description = `${userProfile.exam_domain?.toUpperCase()} students competing`;
+        const classTitle = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
+        racingData.title = `${classTitle} Racing`;
+        racingData.description = `${userProfile.exam_domain?.toUpperCase()} - ${userProfile.target_exam || 'All Students'}`;
         break;
 
       case 'batch':
@@ -82,11 +95,15 @@ serve(async (req: Request) => {
             student_id,
             total_xp,
             level,
+            exam_domain,
+            exam_name,
+            student_class,
             profiles!inner (
               full_name,
               avatar_url,
               student_class,
               exam_domain,
+              target_exam,
               batch_id,
               batches (name)
             )
@@ -109,31 +126,44 @@ serve(async (req: Request) => {
           break;
         }
 
-        const { data: schoolRacers, error: schoolError } = await supabase
+        let schoolQuery = supabase
           .from('student_gamification')
           .select(`
             student_id,
             total_xp,
             level,
+            exam_domain,
+            exam_name,
+            student_class,
             profiles!inner (
               full_name,
               avatar_url,
               student_class,
               exam_domain,
+              target_exam,
               school_id
             )
           `)
           .eq('profiles.school_id', userProfile.school_id)
-          .eq('profiles.student_class', userProfile.student_class)
-          .eq('profiles.exam_domain', userProfile.exam_domain)
+          .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100);
+
+        if (userProfile.target_exam) {
+          schoolQuery = schoolQuery.eq('exam_name', userProfile.target_exam);
+        }
+        if (userProfile.student_class) {
+          schoolQuery = schoolQuery.eq('student_class', userProfile.student_class);
+        }
+
+        const { data: schoolRacers, error: schoolError } = await schoolQuery;
 
         if (schoolError) throw schoolError;
 
         racingData = processRacingData(schoolRacers || [], userId, limit);
         racingData.title = 'School Racing';
-        racingData.description = `Class ${userProfile.student_class} at your school`;
+        const schoolDesc = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
+        racingData.description = `${schoolDesc} at your school - ${userProfile.exam_domain?.toUpperCase()}`;
         break;
 
       case 'zone':
@@ -143,58 +173,84 @@ serve(async (req: Request) => {
           break;
         }
 
-        const { data: zoneRacers, error: zoneError } = await supabase
+        let zoneQuery = supabase
           .from('student_gamification')
           .select(`
             student_id,
             total_xp,
             level,
+            exam_domain,
+            exam_name,
+            student_class,
             profiles!inner (
               full_name,
               avatar_url,
               student_class,
               exam_domain,
+              target_exam,
               zone_id
             )
           `)
           .eq('profiles.zone_id', userProfile.zone_id)
-          .eq('profiles.student_class', userProfile.student_class)
-          .eq('profiles.exam_domain', userProfile.exam_domain)
+          .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100);
+
+        if (userProfile.target_exam) {
+          zoneQuery = zoneQuery.eq('exam_name', userProfile.target_exam);
+        }
+        if (userProfile.student_class) {
+          zoneQuery = zoneQuery.eq('student_class', userProfile.student_class);
+        }
+
+        const { data: zoneRacers, error: zoneError } = await zoneQuery;
 
         if (zoneError) throw zoneError;
 
         racingData = processRacingData(zoneRacers || [], userId, limit);
         racingData.title = 'Zone Racing';
-        racingData.description = `Class ${userProfile.student_class} in your zone`;
+        const zoneDesc = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
+        racingData.description = `${zoneDesc} in your zone - ${userProfile.exam_domain?.toUpperCase()}`;
         break;
 
       case 'overall':
-        // Overall racing: Same class + exam_domain (nationwide)
-        const { data: overallRacers, error: overallError } = await supabase
+        // Overall racing: Same exam_domain + exam_name + class (nationwide)
+        let overallQuery = supabase
           .from('student_gamification')
           .select(`
             student_id,
             total_xp,
             level,
+            exam_domain,
+            exam_name,
+            student_class,
             profiles!inner (
               full_name,
               avatar_url,
               student_class,
-              exam_domain
+              exam_domain,
+              target_exam
             )
           `)
-          .eq('profiles.student_class', userProfile.student_class)
-          .eq('profiles.exam_domain', userProfile.exam_domain)
+          .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100);
+
+        if (userProfile.target_exam) {
+          overallQuery = overallQuery.eq('exam_name', userProfile.target_exam);
+        }
+        if (userProfile.student_class) {
+          overallQuery = overallQuery.eq('student_class', userProfile.student_class);
+        }
+
+        const { data: overallRacers, error: overallError } = await overallQuery;
 
         if (overallError) throw overallError;
 
         racingData = processRacingData(overallRacers || [], userId, limit);
         racingData.title = 'Overall Racing';
-        racingData.description = `All Class ${userProfile.student_class} ${userProfile.exam_domain?.toUpperCase()} students`;
+        const overallDesc = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
+        racingData.description = `All ${overallDesc} ${userProfile.exam_domain?.toUpperCase()} students`;
         break;
 
       default:

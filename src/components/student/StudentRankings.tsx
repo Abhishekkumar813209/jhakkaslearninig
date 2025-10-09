@@ -45,7 +45,7 @@ export const StudentRankings = ({ userId, studentClass }: StudentRankingsProps) 
 
       if (rankError) throw rankError;
 
-      // Fetch zone and school names
+      // Fetch zone, school names, and exam context
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select(`

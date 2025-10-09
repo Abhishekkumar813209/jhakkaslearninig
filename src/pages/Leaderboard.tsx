@@ -41,28 +41,48 @@ const Leaderboard = () => {
       
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       let studentClass: any = '';
+      let examDomain: string = '';
+      let examName: string = '';
       
       if (currentUser) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('student_class')
+          .select('student_class, exam_domain, target_exam')
           .eq('id', currentUser.id)
           .maybeSingle();
         
         studentClass = profile?.student_class || '';
+        examDomain = profile?.exam_domain || '';
+        examName = profile?.target_exam || '';
         setUserClass(studentClass);
       }
       
-      const { data: analyticsData, error: analyticsError } = await supabase
+      let gamificationQuery = supabase
         .from('student_gamification')
         .select(`
           student_id,
           total_xp,
           level,
-          current_streak_days
+          current_streak_days,
+          exam_domain,
+          exam_name,
+          student_class
         `)
         .order('total_xp', { ascending: false })
         .limit(50);
+
+      // Filter by exam_domain, exam_name, and student_class
+      if (examDomain) {
+        gamificationQuery = gamificationQuery.eq('exam_domain', examDomain);
+      }
+      if (examName) {
+        gamificationQuery = gamificationQuery.eq('exam_name', examName);
+      }
+      if (studentClass) {
+        gamificationQuery = gamificationQuery.eq('student_class', studentClass);
+      }
+
+      const { data: analyticsData, error: analyticsError } = await gamificationQuery;
 
       if (analyticsError) throw analyticsError;
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Trophy, Coins } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ShareXPButton } from "./ShareXPButton";
 
 interface XPData {
   xp: number;
@@ -58,6 +59,12 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
           <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
           <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">🪙 {xpData.xp}</span>
         </div>
+        <ShareXPButton 
+          xp={xpData.xp} 
+          streak={xpData.streak_days} 
+          level={xpData.level} 
+          compact 
+        />
       </div>
     );
   }
@@ -97,6 +104,13 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
           🔥 {xpData.streak_days} day streak!
         </div>
       )}
+
+      {/* Share Button */}
+      <ShareXPButton 
+        xp={xpData.xp} 
+        streak={xpData.streak_days} 
+        level={xpData.level} 
+      />
     </div>
   );
 };

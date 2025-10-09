@@ -489,7 +489,11 @@ export type Database = {
           created_at: string | null
           date: string
           id: string
+          last_share_date: string | null
           marked_at: string | null
+          share_count: number | null
+          social_share_at: string | null
+          social_share_done: boolean | null
           streak_days: number | null
           student_id: string
           xp_earned: number | null
@@ -498,7 +502,11 @@ export type Database = {
           created_at?: string | null
           date: string
           id?: string
+          last_share_date?: string | null
           marked_at?: string | null
+          share_count?: number | null
+          social_share_at?: string | null
+          social_share_done?: boolean | null
           streak_days?: number | null
           student_id: string
           xp_earned?: number | null
@@ -507,7 +515,11 @@ export type Database = {
           created_at?: string | null
           date?: string
           id?: string
+          last_share_date?: string | null
           marked_at?: string | null
+          share_count?: number | null
+          social_share_at?: string | null
+          social_share_done?: boolean | null
           streak_days?: number | null
           student_id?: string
           xp_earned?: number | null
@@ -1843,6 +1855,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      social_shares: {
+        Row: {
+          clicks_count: number | null
+          created_at: string | null
+          id: string
+          share_code: string
+          shared_at: string | null
+          student_id: string | null
+          verified: boolean | null
+          xp_awarded: boolean | null
+        }
+        Insert: {
+          clicks_count?: number | null
+          created_at?: string | null
+          id?: string
+          share_code: string
+          shared_at?: string | null
+          student_id?: string | null
+          verified?: boolean | null
+          xp_awarded?: boolean | null
+        }
+        Update: {
+          clicks_count?: number | null
+          created_at?: string | null
+          id?: string
+          share_code?: string
+          shared_at?: string | null
+          student_id?: string | null
+          verified?: boolean | null
+          xp_awarded?: boolean | null
+        }
+        Relationships: []
       }
       student_achievements: {
         Row: {

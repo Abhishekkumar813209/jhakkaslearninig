@@ -31,20 +31,32 @@ serve(async (req) => {
     // Build comprehensive prompt
     const systemPrompt = `You are an expert educational content creator. Generate comprehensive, engaging learning content that is pedagogically sound and student-friendly. 
 
+**CRITICAL XP & DIFFICULTY ASSIGNMENT:**
+- Assign difficulty levels (easy/medium/hard) to ALL content
+- Theory difficulty based on concept complexity
+- Exercise difficulty based on question complexity  
+- Game difficulty based on challenge level
+
+**XP Allocation (MUST follow):**
+- Easy: 30 XP (simple concepts, basic recall)
+- Medium: 40 XP (moderate complexity, application)
+- Hard: 50 XP (advanced concepts, analysis)
+
 Guidelines:
 - Theory should be clear, concise, and age-appropriate
 - Use examples and analogies to explain concepts
 - Interactive SVGs should have clear step-by-step animations
 - Games should be engaging and reinforce learning
 - Exercises should progress from easy to challenging
-- Always include detailed explanations for correct answers`;
+- Always include detailed explanations for correct answers
+- EVERY piece of content MUST have a difficulty field`;
 
     const userPrompt = `Generate complete lesson content for:
 
 **Topic**: ${topic_name}
 **Subject**: ${subject || 'General'}
 **Chapter**: ${chapter_name || 'N/A'}
-**Difficulty**: ${difficulty}
+**Target Difficulty**: ${difficulty}
 **Reference**: ${book_page_reference || 'N/A'}
 **Content Types Requested**: ${lesson_types.join(', ')}
 
@@ -53,6 +65,8 @@ Generate the following in JSON format:
 ${lesson_types.includes('theory') ? `
 1. **Theory Section** (theory):
    - html: Rich HTML content with headings, paragraphs, lists
+   - difficulty: "${difficulty}" (easy/medium/hard)
+   - xp_reward: ${difficulty === 'easy' ? 30 : difficulty === 'hard' ? 50 : 40}
    - key_points: Array of 3-5 key takeaways
    - examples: 2-3 real-world examples
 ` : ''}
@@ -67,20 +81,19 @@ ${lesson_types.includes('interactive_svg') ? `
 
 ${lesson_types.includes('game') ? `
 3. **Gamified Learning** (games):
-   Array of 2-3 different game types:
-   - match_pairs: Matching concepts with definitions
-   - drag_drop_sequence: Ordering steps/events
-   - interactive_blanks: Fill in the blanks
-   Each with complete game_data and correct_answer
+   Array of 2-3 games, each with:
+   - title, description, game_type, game_data
+   - difficulty: (easy/medium/hard)
+   - xp_reward: 30 (easy), 40 (medium), or 50 (hard)
 ` : ''}
 
 ${lesson_types.includes('quiz') ? `
 4. **Practice Exercises** (exercises):
-   Array of 5-8 questions:
-   - Mix of MCQ and true/false
-   - Progressive difficulty
-   - Include question_text, options, correct_answer, explanation
-   - Difficulty level for each question
+   Array of 5-8 questions with progressive difficulty:
+   - Questions 1-2: difficulty: "easy", xp_reward: 30
+   - Questions 3-5: difficulty: "medium", xp_reward: 40
+   - Questions 6-8: difficulty: "hard", xp_reward: 50
+   - Include question_text, options, correct_answer, explanation, difficulty, xp_reward
 ` : ''}
 
 Return ONLY valid JSON. No markdown formatting, no code blocks.`;

@@ -3,24 +3,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, Sparkles, Trophy, Gamepad2, Brain } from "lucide-react";
+import { ArrowLeft, BookOpen, Sparkles, Trophy, Gamepad2, Brain, CheckCircle2 } from "lucide-react";
 import { GamifiedExercise } from "./GamifiedExercise";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import confetti from 'canvas-confetti';
+import { calculateXP, getDifficultyColor, getDifficultyBadgeVariant, type Difficulty } from "@/lib/xpConfig";
 
 interface TopicContent {
   id: string;
   content_text?: string;
   content_html?: string;
   content_type: string;
+  difficulty?: Difficulty;
   svg_animation?: string;
   games?: Array<{
     title: string;
     description: string;
     game_type: string;
     game_data: any;
+    difficulty?: Difficulty;
   }>;
   exercises: Array<{
     id: string;
@@ -29,6 +33,7 @@ interface TopicContent {
     correct_answer: any;
     explanation: string;
     xp_reward: number;
+    difficulty?: Difficulty;
   }>;
 }
 
@@ -47,6 +52,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [scrollPercent, setScrollPercent] = useState(0);
   const [theoryCompleted, setTheoryCompleted] = useState(false);
+  const [completedGames, setCompletedGames] = useState<Set<number>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -108,7 +114,11 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
       setContent({
         ...contentData,
-        exercises: exercisesData || []
+        difficulty: contentData.difficulty as Difficulty,
+        exercises: (exercisesData || []).map(ex => ({
+          ...ex,
+          difficulty: ex.difficulty as Difficulty
+        }))
       });
     } catch (error: any) {
       console.error("Error fetching content:", error);
@@ -164,17 +174,26 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     setCurrentExerciseIndex(0);
   };
 
-  const handleExerciseComplete = async (exerciseId: string, xpReward: number) => {
+  const handleExerciseComplete = async (exerciseId: string, xpReward: number, difficulty?: Difficulty) => {
     setCompletedExercises(prev => new Set(prev).add(exerciseId));
+
+    const actualDifficulty = difficulty || 'medium';
+    const xpAmount = calculateXP('exercise', actualDifficulty);
 
     // Award XP
     try {
       await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add",
-          xp_amount: xpReward,
-          activity_type: "exercise_completed"
+          xp_amount: xpAmount,
+          activity_type: "exercise_completed",
+          metadata: { difficulty: actualDifficulty, topic_id: topicId }
         }
+      });
+      
+      toast({
+        title: `✅ Correct! +${xpAmount} XP`,
+        description: `${actualDifficulty.toUpperCase()} exercise completed!`,
       });
     } catch (error) {
       console.error("Error awarding XP:", error);
@@ -236,13 +255,20 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const theoryDifficulty = (content?.difficulty || 'medium') as Difficulty;
+      const xpAmount = calculateXP('theory', theoryDifficulty);
+      
       // Award XP
       await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add", 
-          xp_amount: 20, 
+          xp_amount: xpAmount,
           activity_type: "theory_read",
-          metadata: { topic_id: topicId, topic_name: topicName }
+          metadata: { 
+            topic_id: topicId, 
+            topic_name: topicName,
+            difficulty: theoryDifficulty 
+          }
         }
       });
       
@@ -251,18 +277,82 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         .from("student_roadmap_progress")
         .update({ 
           theory_completed: true,
-          theory_xp_earned: 20,
+          theory_xp_earned: xpAmount,
           theory_completed_at: new Date().toISOString()
         })
         .eq("topic_id", topicId)
         .eq("student_id", user.id);
       
       toast({
-        title: "🎉 Theory Complete!",
-        description: "+20 Jhakkas Points earned!",
+        title: `🎉 Theory Complete! +${xpAmount} XP`,
+        description: `${theoryDifficulty.toUpperCase()} difficulty mastered!`,
       });
     } catch (error) {
       console.error("Error marking theory complete:", error);
+    }
+  };
+
+  // Phase 6: Game completion handler
+  const handleGameComplete = async (gameIndex: number, gameDifficulty: Difficulty = 'medium') => {
+    const xpAmount = calculateXP('game', gameDifficulty);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Award XP
+      await supabase.functions.invoke("jhakkas-points-system", {
+        body: { 
+          action: "add", 
+          xp_amount: xpAmount,
+          activity_type: "game_completed",
+          metadata: { 
+            topic_id: topicId, 
+            topic_name: topicName,
+            difficulty: gameDifficulty,
+            game_index: gameIndex
+          }
+        }
+      });
+      
+      // Update progress
+      const { data: progress } = await supabase
+        .from("student_roadmap_progress")
+        .select("games_completed, total_games_xp")
+        .eq("topic_id", topicId)
+        .eq("student_id", user.id)
+        .maybeSingle();
+      
+      const completedGamesArray = Array.isArray(progress?.games_completed) 
+        ? [...progress.games_completed, gameIndex]
+        : [gameIndex];
+      
+      await supabase
+        .from("student_roadmap_progress")
+        .update({ 
+          games_completed: completedGamesArray,
+          total_games_xp: (progress?.total_games_xp || 0) + xpAmount,
+          games_completed_at: new Date().toISOString()
+        })
+        .eq("topic_id", topicId)
+        .eq("student_id", user.id);
+      
+      setCompletedGames(prev => new Set(prev).add(gameIndex));
+      
+      // Confetti animation
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      
+      toast({ 
+        title: `🎮 Game Complete! +${xpAmount} XP`,
+        description: `${gameDifficulty.toUpperCase()} difficulty conquered!`
+      });
+    } catch (error) {
+      console.error("Error completing game:", error);
+      toast({
+        title: "Error",
+        description: "Failed to record game completion",
+        variant: "destructive"
+      });
     }
   };
 
@@ -327,7 +417,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           exercise={content.exercises[currentExerciseIndex]}
           onComplete={() => handleExerciseComplete(
             content.exercises[currentExerciseIndex].id,
-            content.exercises[currentExerciseIndex].xp_reward
+            content.exercises[currentExerciseIndex].xp_reward,
+            content.exercises[currentExerciseIndex].difficulty
           )}
         />
       </div>
@@ -375,10 +466,15 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
               {/* Progress Indicator */}
               {scrollPercent < 80 && !theoryCompleted && (
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-primary font-medium">
-                      📖 Read {scrollPercent}% to earn +20 XP
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={getDifficultyColor(content?.difficulty || 'medium')}>
+                        {(content?.difficulty || 'medium').toUpperCase()}
+                      </Badge>
+                      <span className="text-primary font-medium text-sm">
+                        📖 Read {scrollPercent}% to earn +{calculateXP('theory', content?.difficulty || 'medium')} XP
+                      </span>
+                    </div>
                     <Badge variant="outline">{80 - scrollPercent}% remaining</Badge>
                   </div>
                   <Progress value={scrollPercent} max={80} className="h-2" />
@@ -388,7 +484,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
               {theoryCompleted && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-green-700 font-medium flex items-center gap-2">
-                    ✅ Theory Completed! +20 XP Earned
+                    ✅ Theory Completed! +{calculateXP('theory', content?.difficulty || 'medium')} XP Earned
                   </p>
                 </div>
               )}
@@ -427,23 +523,50 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
             <TabsContent value="games" className="space-y-4">
               {content?.games && content.games.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {content.games.map((game, idx) => (
-                    <Card key={idx} className="hover:border-primary/50 transition-colors cursor-pointer group">
-                      <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors">
-                          <Gamepad2 className="h-5 w-5" />
-                          {game.title}
-                        </CardTitle>
-                        <CardDescription>{game.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <Button className="w-full">
-                          <Trophy className="h-4 w-4 mr-2" />
-                          Play Game
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {content.games.map((game, idx) => {
+                    const isCompleted = completedGames.has(idx);
+                    const gameDifficulty = (game.difficulty || 'medium') as Difficulty;
+                    const xpReward = calculateXP('game', gameDifficulty);
+                    
+                    return (
+                      <Card 
+                        key={idx} 
+                        className={`hover:border-primary/50 transition-colors ${isCompleted ? 'bg-green-50 border-green-200' : ''}`}
+                      >
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <Gamepad2 className="h-5 w-5" />
+                              {game.title}
+                            </CardTitle>
+                            <Badge variant={getDifficultyBadgeVariant(gameDifficulty)}>
+                              {gameDifficulty.toUpperCase()} • {xpReward} XP
+                            </Badge>
+                          </div>
+                          <CardDescription>{game.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Button 
+                            className="w-full" 
+                            disabled={isCompleted}
+                            onClick={() => handleGameComplete(idx, gameDifficulty)}
+                          >
+                            {isCompleted ? (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                                Completed ✓
+                              </>
+                            ) : (
+                              <>
+                                <Trophy className="h-4 w-4 mr-2" />
+                                Play Game
+                              </>
+                            )}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center p-12 rounded-md border border-dashed">
@@ -475,16 +598,31 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-3 gap-4 mb-4">
                         <div className="text-center p-3 rounded-lg bg-card">
                           <p className="text-2xl font-bold text-primary">{content.exercises.length}</p>
                           <p className="text-xs text-muted-foreground">Questions</p>
                         </div>
                         <div className="text-center p-3 rounded-lg bg-card">
                           <p className="text-2xl font-bold text-primary">
-                            {content.exercises.reduce((acc, ex) => acc + (ex.xp_reward || 0), 0)} XP
+                            {content.exercises.reduce((acc, ex) => 
+                              acc + calculateXP('exercise', (ex.difficulty || 'medium') as Difficulty), 0
+                            )} XP
                           </p>
                           <p className="text-xs text-muted-foreground">Total Rewards</p>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-card border-2 border-primary/20">
+                          <p className="text-sm font-semibold text-muted-foreground mb-1">Difficulty Mix</p>
+                          <div className="flex gap-1 justify-center flex-wrap">
+                            {['easy', 'medium', 'hard'].map(diff => {
+                              const count = content.exercises.filter(ex => ex.difficulty === diff).length;
+                              return count > 0 && (
+                                <Badge key={diff} variant="outline" className="text-xs">
+                                  {count} {diff}
+                                </Badge>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                       <Button onClick={handleStartExercises} size="lg" className="w-full">

@@ -2415,6 +2415,8 @@ export type Database = {
         Row: {
           completed_at: string | null
           completed_exercises: number | null
+          games_completed: Json | null
+          games_completed_at: string | null
           id: string
           last_accessed_at: string | null
           progress_percentage: number | null
@@ -2428,10 +2430,13 @@ export type Database = {
           time_spent_minutes: number | null
           topic_id: string
           total_exercises: number | null
+          total_games_xp: number | null
         }
         Insert: {
           completed_at?: string | null
           completed_exercises?: number | null
+          games_completed?: Json | null
+          games_completed_at?: string | null
           id?: string
           last_accessed_at?: string | null
           progress_percentage?: number | null
@@ -2445,10 +2450,13 @@ export type Database = {
           time_spent_minutes?: number | null
           topic_id: string
           total_exercises?: number | null
+          total_games_xp?: number | null
         }
         Update: {
           completed_at?: string | null
           completed_exercises?: number | null
+          games_completed?: Json | null
+          games_completed_at?: string | null
           id?: string
           last_accessed_at?: string | null
           progress_percentage?: number | null
@@ -2462,6 +2470,7 @@ export type Database = {
           time_spent_minutes?: number | null
           topic_id?: string
           total_exercises?: number | null
+          total_games_xp?: number | null
         }
         Relationships: [
           {
@@ -3050,6 +3059,7 @@ export type Database = {
           content_id: string | null
           content_type: Database["public"]["Enums"]["exercise_type"]
           created_at: string | null
+          difficulty: string | null
           id: string
           is_required: boolean | null
           order_num: number
@@ -3062,6 +3072,7 @@ export type Database = {
           content_id?: string | null
           content_type: Database["public"]["Enums"]["exercise_type"]
           created_at?: string | null
+          difficulty?: string | null
           id?: string
           is_required?: boolean | null
           order_num: number
@@ -3074,6 +3085,7 @@ export type Database = {
           content_id?: string | null
           content_type?: Database["public"]["Enums"]["exercise_type"]
           created_at?: string | null
+          difficulty?: string | null
           id?: string
           is_required?: boolean | null
           order_num?: number

@@ -10,6 +10,7 @@ import { AIContentRefinement } from "./AIContentRefinement";
 import { CheckCircle2, Loader2, Youtube, FileText, Sparkles, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { calculateXP, type Difficulty } from "@/lib/xpConfig";
 
 interface ExtractedTopic {
   topic_name: string;
@@ -59,6 +60,7 @@ export function EnhancedLessonWorkflow({ chapterId, chapterName, subject }: Enha
   const [generatedContent, setGeneratedContent] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<ExtractedTopic | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
 
   const handlePDFExtracted = (data: ExtractedData, fileName: string) => {
     setPdfData(data);
@@ -83,11 +85,11 @@ export function EnhancedLessonWorkflow({ chapterId, chapterName, subject }: Enha
     // Select first topic for now (you can add topic selection UI)
     if (pdfData?.chapters[0]?.topics[0]) {
       setSelectedTopic(pdfData.chapters[0].topics[0]);
-      await generateLessonsForTopic(pdfData.chapters[0].topics[0], summary, language);
+      await generateLessonsForTopic(pdfData.chapters[0].topics[0], summary, language, selectedDifficulty);
     }
   };
 
-  const generateLessonsForTopic = async (topic: ExtractedTopic, summary: string, language: string) => {
+  const generateLessonsForTopic = async (topic: ExtractedTopic, summary: string, language: string, difficulty: Difficulty) => {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-lesson-from-youtube', {
@@ -97,9 +99,10 @@ export function EnhancedLessonWorkflow({ chapterId, chapterName, subject }: Enha
           videoTitle: selectedVideo?.title || '',
           topicName: topic.topic_name,
           subject,
+          difficulty,
           pdfContext: {
             key_concepts: topic.key_concepts,
-            difficulty: topic.difficulty,
+            difficulty: difficulty,
             animation_type: topic.animation_type,
             game_suggestions: topic.game_suggestions
           }
@@ -206,6 +209,30 @@ export function EnhancedLessonWorkflow({ chapterId, chapterName, subject }: Enha
               </CardContent>
             </Card>
           )}
+          
+          {/* Difficulty Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Difficulty Level</CardTitle>
+              <CardDescription>Choose the difficulty for generated content (affects XP rewards)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                {(['easy', 'medium', 'hard'] as Difficulty[]).map(diff => (
+                  <Button
+                    key={diff}
+                    variant={selectedDifficulty === diff ? 'default' : 'outline'}
+                    onClick={() => setSelectedDifficulty(diff)}
+                    className="h-20 flex-col gap-2"
+                  >
+                    <span className="text-lg font-bold">{diff.toUpperCase()}</span>
+                    <span className="text-xs">{calculateXP('theory', diff)} XP per activity</span>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          
           <YouTubeContentFetcher onVideoSelect={handleVideoSelect} />
         </div>
       )}

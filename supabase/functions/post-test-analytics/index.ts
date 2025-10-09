@@ -194,6 +194,105 @@ serve(async (req) => {
       insights.push("You're performing better than 90% of all students!");
     }
 
+    // Calculate XP rewards
+    const baseXP = 50;
+    const performanceBonus = Math.floor((testAttempt?.percentage || 0) / 10) * 10;
+    const testDuration = (testAttempt?.tests as any)?.duration_minutes || 60;
+    const timeTaken = testAttempt?.time_taken_minutes || 0;
+    const speedBonus = (timeTaken > 0 && timeTaken < testDuration * 0.5) ? 20 : 0;
+    const perfectScoreBonus = (testAttempt?.percentage === 100) ? 50 : 0;
+    const totalXP = baseXP + performanceBonus + speedBonus + perfectScoreBonus;
+
+    // Award XP through jhakkas-points-system
+    try {
+      const { error: xpError } = await supabase.functions.invoke('jhakkas-points-system', {
+        body: {
+          studentId,
+          action: 'complete_test',
+          xpAmount: totalXP,
+          metadata: {
+            testId,
+            score: testAttempt?.score,
+            percentage: testAttempt?.percentage,
+            attemptId: testAttempt?.id
+          }
+        }
+      });
+
+      if (xpError) {
+        console.error('Error awarding XP:', xpError);
+      }
+
+      // Update test attempt with XP earned
+      await supabase
+        .from('test_attempts')
+        .update({ xp_earned: totalXP })
+        .eq('id', testAttempt?.id);
+    } catch (xpErr) {
+      console.error('Failed to award XP:', xpErr);
+    }
+
+    // Check and award achievements
+    const achievementsAwarded = [];
+    
+    // First test achievement
+    const { count: testCount } = await supabase
+      .from('test_attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', studentId)
+      .eq('status', 'submitted');
+    
+    if (testCount === 1) {
+      achievementsAwarded.push({
+        type: 'first_test',
+        title: 'First Steps',
+        description: 'Completed your first test!',
+        icon: '🎯',
+        xpBonus: 25
+      });
+    }
+
+    // Perfect score achievement
+    if (testAttempt?.percentage === 100) {
+      achievementsAwarded.push({
+        type: 'perfect_score',
+        title: 'Perfect Score!',
+        description: '100% on this test!',
+        icon: '💯',
+        xpBonus: 50
+      });
+    }
+
+    // Top 10 rank achievement
+    if (analytics?.zone_rank && analytics.zone_rank <= 10) {
+      achievementsAwarded.push({
+        type: 'top_10_zone',
+        title: 'Zone Champion',
+        description: 'Top 10 in your zone!',
+        icon: '🏆',
+        xpBonus: 30
+      });
+    }
+
+    // High scorer achievement
+    if (testAttempt?.percentage >= 90) {
+      achievementsAwarded.push({
+        type: 'high_scorer',
+        title: 'Brilliant!',
+        description: 'Scored 90% or above!',
+        icon: '⭐',
+        xpBonus: 20
+      });
+    }
+
+    // Store achievements in test attempt
+    if (achievementsAwarded.length > 0) {
+      await supabase
+        .from('test_attempts')
+        .update({ achievements_awarded: achievementsAwarded })
+        .eq('id', testAttempt?.id);
+    }
+
     const responseData = {
       testInfo: {
         title: (testAttempt?.tests as any)?.title || '',
@@ -227,6 +326,20 @@ serve(async (req) => {
       },
       insights,
       improvementSuggestions,
+      xpRewards: {
+        baseXP,
+        performanceBonus,
+        speedBonus,
+        perfectScoreBonus,
+        totalXP,
+        breakdown: {
+          base: `${baseXP} XP for completing test`,
+          performance: `${performanceBonus} XP for ${testAttempt?.percentage}% score`,
+          speed: speedBonus > 0 ? `${speedBonus} XP for quick completion` : null,
+          perfect: perfectScoreBonus > 0 ? `${perfectScoreBonus} XP for perfect score` : null
+        }
+      },
+      achievements: achievementsAwarded,
       nextSteps: {
         subscriptionRecommended: true,
         freeTestsRemaining: 0

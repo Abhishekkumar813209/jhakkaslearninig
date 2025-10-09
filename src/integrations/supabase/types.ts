@@ -2782,6 +2782,7 @@ export type Database = {
       }
       test_attempts: {
         Row: {
+          achievements_awarded: Json | null
           attempt_number: number
           created_at: string | null
           feedback: string | null
@@ -2800,8 +2801,10 @@ export type Database = {
           time_taken_minutes: number | null
           time_taken_seconds: number | null
           total_marks: number
+          xp_earned: number | null
         }
         Insert: {
+          achievements_awarded?: Json | null
           attempt_number?: number
           created_at?: string | null
           feedback?: string | null
@@ -2820,8 +2823,10 @@ export type Database = {
           time_taken_minutes?: number | null
           time_taken_seconds?: number | null
           total_marks: number
+          xp_earned?: number | null
         }
         Update: {
+          achievements_awarded?: Json | null
           attempt_number?: number
           created_at?: string | null
           feedback?: string | null
@@ -2840,6 +2845,7 @@ export type Database = {
           time_taken_minutes?: number | null
           time_taken_seconds?: number | null
           total_marks?: number
+          xp_earned?: number | null
         }
         Relationships: [
           {

@@ -14,6 +14,7 @@ import { StreakTracker } from './StreakTracker';
 import { WeeklyLeague } from './WeeklyLeague';
 import { DailyQuests } from './DailyQuests';
 import { AchievementPopup } from './AchievementPopup';
+import { AttendanceButton } from './AttendanceButton';
 
 const StudentDashboard: React.FC = () => {
   const { 
@@ -76,6 +77,9 @@ const StudentDashboard: React.FC = () => {
       
       {/* Expiry Notice */}
       <SubscriptionExpiryNotice />
+      
+      {/* Daily Attendance - Top Banner */}
+      <AttendanceButton />
       
       {/* Header with XP & Hearts */}
       <div className="flex items-center justify-between">

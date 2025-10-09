@@ -484,6 +484,51 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_attendance: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          marked_at: string | null
+          streak_days: number | null
+          student_id: string
+          xp_earned: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          marked_at?: string | null
+          streak_days?: number | null
+          student_id: string
+          xp_earned?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          marked_at?: string | null
+          streak_days?: number | null
+          student_id?: string
+          xp_earned?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_quests: {
         Row: {
           coin_reward: number

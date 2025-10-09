@@ -117,6 +117,9 @@ serve(async (req) => {
         updateData.social_share_xp = (existingData?.social_share_xp || 0) + xp_amount;
       } else if (activity_type === 'referral') {
         updateData.referral_xp = (existingData?.referral_xp || 0) + xp_amount;
+      } else if (activity_type === 'theory_read') {
+        // Phase 5: Track theory reading XP
+        console.log('Theory read XP awarded:', xp_amount);
       }
 
       const { data, error } = await supabase

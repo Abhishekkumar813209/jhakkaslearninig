@@ -7,6 +7,7 @@ import { ArrowLeft, BookOpen, Sparkles, Trophy, Gamepad2, Brain } from "lucide-r
 import { GamifiedExercise } from "./GamifiedExercise";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TopicContent {
@@ -44,10 +45,38 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [showExercises, setShowExercises] = useState(false);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
+  const [scrollPercent, setScrollPercent] = useState(0);
+  const [theoryCompleted, setTheoryCompleted] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchContent();
+  }, [topicId]);
+
+  // Phase 4: Real-time content availability
+  useEffect(() => {
+    const channel = supabase
+      .channel(`topic-content-${topicId}`)
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'topic_content_mapping', 
+          filter: `topic_id=eq.${topicId}` 
+        },
+        (payload) => {
+          toast({
+            title: "✨ New Content Available!",
+            description: "Admin has added new learning materials"
+          });
+          fetchContent();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [topicId]);
 
   const fetchContent = async () => {
@@ -183,6 +212,60 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     }
   };
 
+  // Phase 5: Theory reading XP tracking
+  const handleTheoryScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const scrollHeight = target.scrollHeight;
+    const clientHeight = target.clientHeight;
+    const scrollTop = target.scrollTop;
+    
+    if (scrollHeight > clientHeight) {
+      const percent = Math.round((scrollTop / (scrollHeight - clientHeight)) * 100);
+      setScrollPercent(percent);
+      
+      if (percent >= 80 && !theoryCompleted) {
+        markTheoryComplete();
+      }
+    }
+  };
+
+  const markTheoryComplete = async () => {
+    setTheoryCompleted(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Award XP
+      await supabase.functions.invoke("jhakkas-points-system", {
+        body: { 
+          action: "add", 
+          xp_amount: 20, 
+          activity_type: "theory_read",
+          metadata: { topic_id: topicId, topic_name: topicName }
+        }
+      });
+      
+      // Update progress
+      await supabase
+        .from("student_roadmap_progress")
+        .update({ 
+          theory_completed: true,
+          theory_xp_earned: 20,
+          theory_completed_at: new Date().toISOString()
+        })
+        .eq("topic_id", topicId)
+        .eq("student_id", user.id);
+      
+      toast({
+        title: "🎉 Theory Complete!",
+        description: "+20 Jhakkas Points earned!",
+      });
+    } catch (error) {
+      console.error("Error marking theory complete:", error);
+    }
+  };
+
   if (loading || generatingContent) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -201,15 +284,20 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       <Card>
         <CardContent className="py-12">
           <div className="text-center space-y-4">
-            <Sparkles className="h-12 w-12 mx-auto text-primary" />
+            <div className="animate-pulse">
+              <Sparkles className="h-12 w-12 mx-auto text-primary" />
+            </div>
             <div>
-              <h3 className="font-semibold mb-2">No Content Available</h3>
+              <h3 className="font-semibold mb-2">⏳ Admin is preparing content for you...</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Let AI generate study material for {topicName}
+                Study material will appear here once it's ready
               </p>
-              <Button onClick={generateContent}>
+              <p className="text-xs text-muted-foreground">
+                Or generate it yourself with AI
+              </p>
+              <Button onClick={generateContent} className="mt-4">
                 <Sparkles className="h-4 w-4 mr-2" />
-                Generate Content
+                Generate Content Now
               </Button>
             </div>
           </div>
@@ -284,7 +372,31 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
             {/* Theory Tab */}
             <TabsContent value="theory" className="space-y-4">
-              <ScrollArea className="h-[500px] rounded-md border p-4">
+              {/* Progress Indicator */}
+              {scrollPercent < 80 && !theoryCompleted && (
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-primary font-medium">
+                      📖 Read {scrollPercent}% to earn +20 XP
+                    </span>
+                    <Badge variant="outline">{80 - scrollPercent}% remaining</Badge>
+                  </div>
+                  <Progress value={scrollPercent} max={80} className="h-2" />
+                </div>
+              )}
+              
+              {theoryCompleted && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-green-700 font-medium flex items-center gap-2">
+                    ✅ Theory Completed! +20 XP Earned
+                  </p>
+                </div>
+              )}
+              
+              <ScrollArea 
+                className="h-[500px] rounded-md border p-4"
+                onScrollCapture={handleTheoryScroll}
+              >
                 <div 
                   className="prose prose-sm dark:prose-invert max-w-none"
                   dangerouslySetInnerHTML={{ __html: content?.content_html || content?.content_text || "" }}

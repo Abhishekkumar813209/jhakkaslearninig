@@ -2422,6 +2422,9 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["topic_status"] | null
           student_id: string
+          theory_completed: boolean | null
+          theory_completed_at: string | null
+          theory_xp_earned: number | null
           time_spent_minutes: number | null
           topic_id: string
           total_exercises: number | null
@@ -2436,6 +2439,9 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["topic_status"] | null
           student_id: string
+          theory_completed?: boolean | null
+          theory_completed_at?: string | null
+          theory_xp_earned?: number | null
           time_spent_minutes?: number | null
           topic_id: string
           total_exercises?: number | null
@@ -2450,6 +2456,9 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["topic_status"] | null
           student_id?: string
+          theory_completed?: boolean | null
+          theory_completed_at?: string | null
+          theory_xp_earned?: number | null
           time_spent_minutes?: number | null
           topic_id?: string
           total_exercises?: number | null

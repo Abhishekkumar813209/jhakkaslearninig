@@ -192,6 +192,7 @@ export const StudentBatchRoadmap = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string; topics: any[] } | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<{ id: string; chapterName: string; name: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -367,12 +368,30 @@ export const StudentBatchRoadmap = () => {
           <h2 className="text-2xl font-bold">{roadmap.title}</h2>
           <p className="text-muted-foreground">{roadmap.description}</p>
         </div>
-        {roadmap.subject_order && (
-          <Button variant="outline" size="sm" onClick={handleResetOrder}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset Order
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {roadmap.subject_order && (
+            <Button variant="outline" size="sm" onClick={handleResetOrder}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset Order
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              📋 List View
+            </Button>
+            <Button 
+              variant={viewMode === 'calendar' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setViewMode('calendar')}
+            >
+              📅 Calendar View
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-2 text-sm">
@@ -386,28 +405,46 @@ export const StudentBatchRoadmap = () => {
         </div>
       </div>
 
-      <div className="bg-muted/50 border rounded-lg p-3 text-sm space-y-1">
-        <p className="font-medium">💡 Tips:</p>
-        <p className="text-muted-foreground">• Drag subjects to prioritize what you want to study first</p>
-        <p className="text-muted-foreground">• Drag chapters within each subject to reorder them</p>
-      </div>
-
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={roadmap.subjects.map(s => s.name)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-4">
-            {roadmap.subjects.map((subject) => (
-              <SortableSubjectCard 
-                key={subject.name} 
-                subject={subject}
-                onChapterClick={(chapterId, chapterName, topics) => {
-                  setSelectedChapter({ id: chapterId, name: chapterName, topics });
-                }}
-                onChapterReorder={handleChapterReorder}
-              />
-            ))}
+      {viewMode === 'calendar' ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center space-y-4">
+              <Calendar className="h-12 w-12 mx-auto text-primary" />
+              <div>
+                <h3 className="font-semibold mb-2">📅 Calendar View Coming Soon</h3>
+                <p className="text-muted-foreground text-sm">
+                  Visual calendar view with topics distributed across days
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="bg-muted/50 border rounded-lg p-3 text-sm space-y-1">
+            <p className="font-medium">💡 Tips:</p>
+            <p className="text-muted-foreground">• Drag subjects to prioritize what you want to study first</p>
+            <p className="text-muted-foreground">• Drag chapters within each subject to reorder them</p>
           </div>
-        </SortableContext>
-      </DndContext>
+
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={roadmap.subjects.map(s => s.name)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-4">
+                {roadmap.subjects.map((subject) => (
+                  <SortableSubjectCard 
+                    key={subject.name} 
+                    subject={subject}
+                    onChapterClick={(chapterId, chapterName, topics) => {
+                      setSelectedChapter({ id: chapterId, name: chapterName, topics });
+                    }}
+                    onChapterReorder={handleChapterReorder}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </>
+      )}
     </div>
   );
 };

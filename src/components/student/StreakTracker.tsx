@@ -11,6 +11,14 @@ interface StreakData {
   total_xp: number;
 }
 
+interface StudentAnalytics {
+  streak_days: number;
+}
+
+interface StudentGamification {
+  total_xp: number;
+}
+
 export const StreakTracker = () => {
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [hasStreakFreeze, setHasStreakFreeze] = useState(false);
@@ -22,14 +30,30 @@ export const StreakTracker = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
-          .from("student_gamification")
-          .select("streak_days, total_xp")
+        // Fetch streak_days from student_analytics
+        const { data: analyticsData, error: analyticsError } = await supabase
+          .from("student_analytics")
+          .select("streak_days")
           .eq("student_id", user.id)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
-        if (data) setStreakData(data);
+        if (analyticsError) throw analyticsError;
+
+        // Fetch total_xp from student_gamification
+        const { data: gamificationData, error: gamificationError } = await supabase
+          .from("student_gamification")
+          .select("total_xp")
+          .eq("student_id", user.id)
+          .maybeSingle();
+
+        if (gamificationError) throw gamificationError;
+
+        if (analyticsData || gamificationData) {
+          setStreakData({
+            streak_days: analyticsData?.streak_days || 0,
+            total_xp: gamificationData?.total_xp || 0
+          });
+        }
       } catch (error) {
         console.error("Error fetching streak:", error);
       }
@@ -39,6 +63,10 @@ export const StreakTracker = () => {
 
     const channel = supabase
       .channel('streak-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'student_analytics' },
+        () => fetchStreak()
+      )
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'student_gamification' },
         () => fetchStreak()

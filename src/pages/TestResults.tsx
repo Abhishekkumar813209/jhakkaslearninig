@@ -27,7 +27,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import PostTestAnalytics from '@/components/student/PostTestAnalytics';
+import { PostTestAnalytics } from '@/components/student/PostTestAnalytics';
 import PaywallModal from '@/components/PaywallModal';
 import { useSubscription } from '@/hooks/useSubscription';
 

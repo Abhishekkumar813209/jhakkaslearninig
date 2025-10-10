@@ -14,8 +14,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
-import StudentDashboardPage from "./pages/StudentDashboard";
-import StudentDashboard from "./components/student/StudentDashboard";
+import StudentDashboardPage from "./pages/StudentDashboardPage";
 import Tests from "./pages/Tests";
 import Leaderboard from "./pages/Leaderboard";
 import Analytics from "./pages/Analytics";
@@ -66,11 +65,11 @@ const App = () => (
                 <Student />
               </ProtectedRoute>
             } />
-            <Route path="/student/dashboard" element={
-              <ProtectedRoute>
-                <StudentDashboard />
-              </ProtectedRoute>
-            } />
+        <Route path="/student/dashboard" element={
+          <ProtectedRoute>
+            <StudentDashboardPage />
+          </ProtectedRoute>
+        } />
             <Route path="/student/guided-paths" element={
               <ProtectedRoute>
                 <StudentGuidedPaths />

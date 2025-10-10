@@ -568,10 +568,10 @@ export const ManualTopicEditor = () => {
           <div className="space-y-2">
             <Label>Bulk CSV Input</Label>
             <p className="text-xs text-muted-foreground">
-              Format: Topic Name, Day#, Page, XP, Coins, Difficulty, AnimationType
+              Format: Topic Name, Day#, Page, XP, Difficulty, AnimationType
             </p>
             <Textarea
-              placeholder="Introduction to Algebra, 1, 45, 50, 10, medium, interactive_svg"
+              placeholder="Introduction to Algebra, 1, 45, 50, medium, interactive_svg"
               value={csvInput}
               onChange={(e) => setCsvInput(e.target.value)}
               rows={4}
@@ -598,9 +598,8 @@ export const ManualTopicEditor = () => {
                     <TableHead>Topic Name</TableHead>
                     <TableHead className="w-24">Day#</TableHead>
                     <TableHead className="w-32">Page</TableHead>
-                    <TableHead className="w-20">XP</TableHead>
-                    <TableHead className="w-20">Coins</TableHead>
-                    <TableHead className="w-32">Difficulty</TableHead>
+                <TableHead className="w-20">XP</TableHead>
+                <TableHead className="w-32">Difficulty</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>

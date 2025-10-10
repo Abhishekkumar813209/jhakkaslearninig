@@ -14,6 +14,7 @@ import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import * as LucideIcons from "lucide-react";
+import { calculateXP, Difficulty } from "@/lib/xpConfig";
 
 interface Topic {
   topic_name: string;
@@ -43,6 +44,12 @@ interface Chapter {
   subject: string;
   estimated_days?: number;
 }
+
+// Helper to normalize difficulty values
+const normalizeDifficulty = (val?: string): Difficulty => {
+  const d = (val || 'medium').toLowerCase();
+  return d === 'easy' || d === 'hard' ? d as Difficulty : 'medium';
+};
 
 export const ManualTopicEditor = () => {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
@@ -224,13 +231,14 @@ export const ManualTopicEditor = () => {
   };
 
   const addEmptyTopic = () => {
+    const diff: Difficulty = 'medium';
     setTopics([
       ...topics,
       {
         topic_name: "",
         day_number: topics.length + 1,
-        xp_reward: 50,
-        difficulty: "medium",
+        xp_reward: calculateXP('theory', diff),
+        difficulty: diff,
         animation_type: "interactive_svg"
       }
     ]);
@@ -238,7 +246,19 @@ export const ManualTopicEditor = () => {
 
   const updateTopic = (index: number, field: keyof Topic, value: any) => {
     const updated = [...topics];
-    updated[index] = { ...updated[index], [field]: value };
+    
+    // Auto-update XP when difficulty changes
+    if (field === 'difficulty') {
+      const diff = normalizeDifficulty(value);
+      updated[index] = {
+        ...updated[index],
+        difficulty: diff,
+        xp_reward: calculateXP('theory', diff),
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    
     setTopics(updated);
   };
 
@@ -281,7 +301,17 @@ export const ManualTopicEditor = () => {
       if (error) throw error;
 
       if (data?.success && data?.topics) {
-        setTopics([...topics, ...data.topics]);
+        // Normalize XP based on difficulty
+        const normalized = data.topics.map((t: any) => {
+          const diff = normalizeDifficulty(t.difficulty);
+          return {
+            ...t,
+            difficulty: diff,
+            xp_reward: calculateXP('theory', diff)
+          };
+        });
+        
+        setTopics([...topics, ...normalized]);
         toast({
           title: "✨ AI Generated Topics",
           description: `Added ${data.topics.length} budget-aware topics for ${selectedChapterData.chapter_name}`
@@ -309,13 +339,16 @@ export const ManualTopicEditor = () => {
       for (const line of lines) {
         const parts = line.split(",").map(p => p.trim());
         if (parts.length >= 2) {
+          const rawDifficulty = parts[4] || 'medium';
+          const diff = normalizeDifficulty(rawDifficulty);
+          
           parsed.push({
             topic_name: parts[0],
             day_number: parseInt(parts[1]) || (parsed.length + 1),
             book_page_reference: parts[2] || undefined,
-            xp_reward: parseInt(parts[3]) || 50,
-            difficulty: parts[4] || "medium",
-            animation_type: parts[6] || "interactive_svg"
+            xp_reward: calculateXP('theory', diff), // Derive from difficulty
+            difficulty: diff,
+            animation_type: parts[5] || "interactive_svg" // Fixed index
           });
         }
       }
@@ -349,15 +382,18 @@ export const ManualTopicEditor = () => {
 
     setLoading(true);
     try {
-      const topicsToInsert = topics.map((topic, index) => ({
-        chapter_id: selectedChapter,
-        topic_name: topic.topic_name,
-        estimated_hours: 1,
-        day_number: topic.day_number || (index + 1),
-        order_num: index + 1,
-        xp_reward: topic.xp_reward || 50,
-        unlock_condition: index === 0 ? "always" : "previous_complete"
-      }));
+      const topicsToInsert = topics.map((topic, index) => {
+        const diff = normalizeDifficulty(topic.difficulty);
+        return {
+          chapter_id: selectedChapter,
+          topic_name: topic.topic_name,
+          estimated_hours: 1,
+          day_number: topic.day_number || (index + 1),
+          order_num: index + 1,
+          xp_reward: calculateXP('theory', diff), // Always derive from difficulty
+          unlock_condition: index === 0 ? "always" : "previous_complete"
+        };
+      });
 
       const { error } = await supabase
         .from("roadmap_topics")
@@ -633,7 +669,10 @@ export const ManualTopicEditor = () => {
                         <Input
                           type="number"
                           value={topic.xp_reward}
-                          onChange={(e) => updateTopic(index, "xp_reward", parseInt(e.target.value))}
+                          readOnly
+                          disabled
+                          className="bg-muted cursor-not-allowed"
+                          title="XP is automatically calculated from difficulty"
                         />
                       </TableCell>
                       <TableCell>

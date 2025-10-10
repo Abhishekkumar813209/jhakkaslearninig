@@ -40,33 +40,55 @@ const AdminAIChat = () => {
     setIsStreaming(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('admin-ai-assistant', {
-        body: { 
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })) 
-        }
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
 
-      if (error) {
-        if (error.message?.includes('429')) {
+      const response = await fetch(
+        `https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/admin-ai-assistant`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFham10ZmNwaHBuY3F3Y3J6cGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMDM3MTEsImV4cCI6MjA3MzU3OTcxMX0.VzMpGU85jw4OQZmKVYfH3M5NquhV5YMuFGzlzOU6v6s'
+          },
+          body: JSON.stringify({ 
+            messages: newMessages.map(m => ({ role: m.role, content: m.content })) 
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('AI Assistant error:', response.status, errorText);
+        
+        if (response.status === 429) {
           toast({
             title: "Rate Limit Reached",
             description: "Too many requests. Please wait 30 seconds and try again.",
             variant: "destructive",
           });
-        } else if (error.message?.includes('402')) {
+          setIsStreaming(false);
+          return;
+        }
+        
+        if (response.status === 402) {
           toast({
             title: "Usage Limit Reached",
             description: "Free Gemini usage exhausted. Add credits to Lovable workspace.",
             variant: "destructive",
           });
-        } else {
-          throw error;
+          setIsStreaming(false);
+          return;
         }
-        setIsStreaming(false);
-        return;
+        
+        throw new Error('Failed to get AI response');
       }
 
-      const reader = data.getReader();
+      const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";

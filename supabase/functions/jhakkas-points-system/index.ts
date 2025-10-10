@@ -55,7 +55,7 @@ serve(async (req) => {
         );
       }
 
-      const xpData = data || { total_xp: 0, level: 1, streak_days: 0 };
+      const xpData = data || { total_xp: 0, level: 1, current_streak_days: 0 };
       
       return new Response(
         JSON.stringify({ 
@@ -63,7 +63,7 @@ serve(async (req) => {
           data: {
             xp: xpData.total_xp || 0,
             level: xpData.level || 1,
-            streak_days: xpData.streak_days || 0
+            streak_days: xpData.current_streak_days || 0
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -86,8 +86,8 @@ serve(async (req) => {
 
       let currentXP = existingData?.total_xp || 0;
       let currentLevel = existingData?.level || 1;
-      let streakDays = existingData?.streak_days || 0;
-      let lastActiveDate = existingData?.last_active_date;
+      let streakDays = existingData?.current_streak_days || 0;
+      let lastActiveDate = existingData?.last_activity_date;
 
       const newXP = currentXP + xp_amount;
 
@@ -107,8 +107,8 @@ serve(async (req) => {
       const updateData: any = {
         total_xp: newXP,
         level: currentLevel,
-        streak_days: streakDays,
-        last_active_date: today,
+        current_streak_days: streakDays,
+        last_activity_date: today,
       };
 
       if (activity_type === 'attendance') {
@@ -148,7 +148,7 @@ serve(async (req) => {
           data: {
             xp: data.total_xp,
             level: data.level,
-            streak_days: data.streak_days,
+            streak_days: data.current_streak_days,
             xp_earned: xp_amount
           },
           message: `Earned ${xp_amount} Jhakkas Points!`
@@ -164,7 +164,7 @@ serve(async (req) => {
           student_id,
           total_xp,
           level,
-          streak_days,
+          current_streak_days,
           exam_domain,
           exam_name,
           student_class,

@@ -26,12 +26,27 @@ interface CalendarChapter {
   progress: number;
 }
 
+interface SubjectData {
+  name: string;
+  chapters: Array<{
+    id: string;
+    chapter_name: string;
+    day_start: number;
+    day_end: number;
+    progress: number;
+    topics: Array<{
+      id: string;
+      topic_name: string;
+      status: string;
+      progress_percentage: number;
+    }>;
+  }>;
+}
+
 interface StudentRoadmapCalendarProps {
-  roadmapId: string;
-  batchId: string;
   startDate: Date;
   totalDays: number;
-  subjects: string[];
+  subjectsData: SubjectData[];
   onTopicClick?: (topicId: string, chapterName: string, subject: string) => void;
 }
 
@@ -140,88 +155,43 @@ const ChapterPill = ({
 };
 
 export const StudentRoadmapCalendar = ({
-  roadmapId,
-  batchId,
   startDate,
   totalDays,
-  subjects,
+  subjectsData,
   onTopicClick
 }: StudentRoadmapCalendarProps) => {
   const isMobile = useIsMobile();
-  const [chapters, setChapters] = useState<CalendarChapter[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string>(subjects[0] || '');
+  const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
 
-  useEffect(() => {
-    fetchRoadmapData();
-  }, [roadmapId]);
+  // Transform subjectsData to calendar chapters
+  const chapters: CalendarChapter[] = subjectsData.flatMap(subject =>
+    subject.chapters.map(chapter => {
+      const topics: RoadmapTopic[] = (chapter.topics || []).map(topic => ({
+        id: topic.id,
+        topic_name: topic.topic_name,
+        day_number: 1,
+        is_completed: topic.status === 'completed',
+        theory_completed: topic.status === 'in_progress' || topic.status === 'unlocked'
+      }));
 
-  const fetchRoadmapData = async () => {
-    try {
-      setLoading(true);
+      // Calculate date from day_start
+      const chapterDate = chapter.day_start 
+        ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
+        : format(startDate, 'yyyy-MM-dd');
 
-      // Fetch chapters with topics and progress
-      const { data: chaptersData, error: chaptersError } = await supabase
-        .from('roadmap_chapters')
-        .select(`
-          id,
-          chapter_name,
-          subject,
-          day_start,
-          day_end,
-          estimated_days,
-          roadmap_topics (
-            id,
-            topic_name,
-            day_number,
-            student_roadmap_progress (
-              status,
-              theory_completed
-            )
-          )
-        `)
-        .eq('roadmap_id', roadmapId)
-        .order('order_num', { ascending: true });
+      return {
+        id: chapter.id,
+        date: chapterDate,
+        subject: subject.name,
+        chapterName: chapter.chapter_name,
+        estimatedDays: (chapter.day_end - chapter.day_start + 1) || 1,
+        topics,
+        progress: chapter.progress || 0
+      };
+    })
+  );
 
-      if (chaptersError) throw chaptersError;
-
-      // Transform data
-      const transformedChapters: CalendarChapter[] = (chaptersData || []).map(chapter => {
-        const topics: RoadmapTopic[] = (chapter.roadmap_topics || []).map(topic => ({
-          id: topic.id,
-          topic_name: topic.topic_name,
-          day_number: topic.day_number || 1,
-          is_completed: topic.student_roadmap_progress?.[0]?.status === 'completed',
-          theory_completed: topic.student_roadmap_progress?.[0]?.theory_completed || false
-        }));
-
-        const completedCount = topics.filter(t => t.is_completed).length;
-        const progress = topics.length > 0 ? (completedCount / topics.length) * 100 : 0;
-
-        // Calculate actual date from day_start
-        const chapterDate = chapter.day_start 
-          ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
-          : format(startDate, 'yyyy-MM-dd');
-
-        return {
-          id: chapter.id,
-          date: chapterDate,
-          subject: chapter.subject,
-          chapterName: chapter.chapter_name,
-          estimatedDays: chapter.estimated_days || 1,
-          topics,
-          progress
-        };
-      });
-
-      setChapters(transformedChapters);
-    } catch (error) {
-      console.error('Error fetching roadmap data:', error);
-      toast.error('Failed to load roadmap calendar');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const subjects = subjectsData.map(s => s.name);
 
   const generateDateRange = (start: Date, days: number): string[] => {
     const dates: string[] = [];
@@ -242,17 +212,6 @@ export const StudentRoadmapCalendar = ({
     });
     return acc;
   }, {} as Record<string, Record<string, CalendarChapter[]>>);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-sm text-muted-foreground">Loading calendar...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">

@@ -310,10 +310,24 @@ const SubjectCard = ({
     const oldIndex = localChapters.findIndex(c => c.id === active.id);
     const newIndex = localChapters.findIndex(c => c.id === over.id);
 
-    const newChapters = arrayMove(localChapters, oldIndex, newIndex);
-    setLocalChapters(newChapters);
+    const reordered = arrayMove(localChapters, oldIndex, newIndex);
     
-    const reorderedIds = newChapters.map(c => c.id);
+    // Optimistic UI: Recalculate day_start and day_end based on estimated_days
+    let currentDay = 1;
+    const updated = reordered.map(ch => {
+      const days = Math.max(1, (ch.day_end - ch.day_start + 1));
+      const newChapter = {
+        ...ch,
+        day_start: currentDay,
+        day_end: currentDay + days - 1
+      };
+      currentDay += days;
+      return newChapter;
+    });
+    
+    setLocalChapters(updated);
+    
+    const reorderedIds = reordered.map(c => c.id);
     onChapterReorder(subject.name, reorderedIds);
   };
 

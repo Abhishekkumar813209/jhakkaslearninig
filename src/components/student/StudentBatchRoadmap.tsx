@@ -132,7 +132,21 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
     const newIndex = localChapters.findIndex(ch => ch.id === over.id);
 
     const reordered = arrayMove(localChapters, oldIndex, newIndex);
-    setLocalChapters(reordered);
+    
+    // Optimistic UI: Recalculate day_start and day_end based on estimated_days
+    let currentDay = 1;
+    const updated = reordered.map(ch => {
+      const days = Math.max(1, (ch.day_end - ch.day_start + 1));
+      const newChapter = {
+        ...ch,
+        day_start: currentDay,
+        day_end: currentDay + days - 1
+      };
+      currentDay += days;
+      return newChapter;
+    });
+    
+    setLocalChapters(updated);
     onChapterReorder(subject.name, reordered.map(ch => ch.id));
   };
 
@@ -308,6 +322,9 @@ export const StudentBatchRoadmap = () => {
         title: "Chapter Order Updated",
         description: `Chapters reordered for ${subjectName}`
       });
+      
+      // Refetch to get authoritative day ranges from backend
+      await fetchRoadmap();
     } catch (error) {
       console.error("Error updating chapter order:", error);
       toast({
@@ -446,11 +463,9 @@ export const StudentBatchRoadmap = () => {
 
       {viewMode === 'calendar' ? (
         <StudentRoadmapCalendar
-          roadmapId={roadmap.id}
-          batchId={roadmap.batch_id || ''}
           startDate={new Date(roadmap.start_date)}
           totalDays={roadmap.total_days}
-          subjects={roadmap.subjects.map(s => s.name)}
+          subjectsData={roadmap.subjects}
           onTopicClick={(topicId, chapterName) => {
             setSelectedTopic({ id: topicId, chapterName, name: '' });
           }}

@@ -142,14 +142,28 @@ EXAM CONTEXT:
       throw new Error('AI generated invalid topics format');
     }
 
-    const validatedTopics = topics.map((topic, index) => ({
-      topic_name: topic.topic_name || `Topic ${existing_topics_count + index + 1}`,
-      day_number: Math.min(Math.max(topic.day_number || (index + 1), 1), estimated_days),
-      xp_reward: Math.min(Math.max(topic.xp_reward || 50, 30), 100),
-      coin_reward: Math.min(Math.max(topic.coin_reward || 10, 5), 20),
-      difficulty: ['easy', 'medium', 'hard'].includes(topic.difficulty) ? topic.difficulty : 'medium',
-      animation_type: topic.animation_type || 'interactive_svg'
-    }));
+    // XP mapping based on difficulty (matching xpConfig.ts)
+    const XP_BY_DIFFICULTY = {
+      easy: 30,
+      medium: 40,
+      hard: 50
+    };
+
+    const validatedTopics = topics.map((topic, index) => {
+      // Validate difficulty first
+      const difficulty = ['easy', 'medium', 'hard'].includes(topic.difficulty) 
+        ? topic.difficulty 
+        : 'medium';
+      
+      return {
+        topic_name: topic.topic_name || `Topic ${existing_topics_count + index + 1}`,
+        day_number: Math.min(Math.max(topic.day_number || (index + 1), 1), estimated_days),
+        xp_reward: XP_BY_DIFFICULTY[difficulty],
+        coin_reward: Math.min(Math.max(topic.coin_reward || 10, 5), 20),
+        difficulty: difficulty,
+        animation_type: topic.animation_type || 'interactive_svg'
+      };
+    });
 
     console.log(`Generated ${validatedTopics.length} topics successfully`);
 

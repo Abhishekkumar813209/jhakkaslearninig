@@ -94,7 +94,7 @@ const Register = () => {
 
     try {
       // Try using edge function first
-      const { data } = await supabase.functions.invoke('auth-register', {
+      const { data, error: invokeError } = await supabase.functions.invoke('auth-register', {
         body: { 
           email, 
           password, 
@@ -107,43 +107,62 @@ const Register = () => {
         }
       });
 
+      // Check for function invocation errors
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+
+      // Check for application errors in response
       if (data?.error) {
+        // Check if it's a duplicate email error
+        const errorMsg = data.error.toLowerCase();
+        if (errorMsg.includes('already') || errorMsg.includes('exists') || errorMsg.includes('duplicate')) {
+          toast({
+            variant: 'destructive',
+            title: 'Email Already Exists',
+            description: 'This email is already registered. Please login instead.',
+            action: (
+              <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
+                Go to Login
+              </Button>
+            )
+          });
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error);
       }
 
+      // Success case
       toast({
         title: 'Registration Successful!',
         description: 'Your account has been created successfully.',
       });
       navigate('/complete-profile');
+      
     } catch (error: any) {
-      // Fallback to direct Supabase auth
-      const { error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            full_name: name,
-            exam_domain: examDomain,
-            student_class: requiresClass ? studentClass : null,
-            education_board: requiresBoard ? educationBoard : null,
-          },
-        },
-      });
-
-      if (authError) {
+      // Handle any other errors
+      const errorMessage = error?.message || 'Registration failed';
+      const errorMsgLower = errorMessage.toLowerCase();
+      
+      // Check if it's a duplicate user error
+      if (errorMsgLower.includes('already') || errorMsgLower.includes('exists') || errorMsgLower.includes('duplicate')) {
         toast({
           variant: 'destructive',
-          title: 'Registration Failed',
-          description: authError.message,
+          title: 'Email Already Exists',
+          description: 'This email is already registered. Please login instead.',
+          action: (
+            <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
+              Go to Login
+            </Button>
+          )
         });
       } else {
         toast({
-          title: 'Registration Successful!',
-          description: 'Please check your email to verify your account.',
+          variant: 'destructive',
+          title: 'Registration Failed',
+          description: errorMessage,
         });
-        navigate('/complete-profile');
       }
     }
 

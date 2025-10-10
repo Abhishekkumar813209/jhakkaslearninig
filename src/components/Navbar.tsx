@@ -135,17 +135,12 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-4">
             {!user ? (
               // Guest Actions
-              <>
-                <Link to="/login">
-                  <Button variant="outline">
-                    <User className="h-4 w-4 mr-2" />
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button variant="hero">Get Started</Button>
-                </Link>
-              </>
+              <Link to="/login">
+                <Button variant="hero">
+                  <User className="h-4 w-4 mr-2" />
+                  Login / Signup
+                </Button>
+              </Link>
             ) : (
               // Authenticated Actions
               <>
@@ -207,14 +202,9 @@ const Navbar = () => {
                   </Link>
                   <div className="flex flex-col space-y-2 px-3 pt-4">
                     <Link to="/login" onClick={() => setIsMenuOpen(false)}>
-                      <Button variant="outline" className="w-full">
-                        <User className="h-4 w-4 mr-2" />
-                        Login
-                      </Button>
-                    </Link>
-                    <Link to="/register" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="hero" className="w-full">
-                        Get Started
+                        <User className="h-4 w-4 mr-2" />
+                        Login / Signup
                       </Button>
                     </Link>
                   </div>

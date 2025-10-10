@@ -133,7 +133,26 @@ const Register = () => {
         throw new Error(data.error);
       }
 
-      // Success case
+      // Success case - Auto-login with session tokens
+      if (data?.session) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token
+        });
+        
+        if (sessionError) {
+          console.error('Session setup failed:', sessionError);
+          toast({
+            variant: 'destructive',
+            title: 'Login Required',
+            description: 'Please log in with your credentials.',
+          });
+          navigate('/login');
+          setLoading(false);
+          return;
+        }
+      }
+
       toast({
         title: 'Registration Successful!',
         description: 'Your account has been created successfully.',

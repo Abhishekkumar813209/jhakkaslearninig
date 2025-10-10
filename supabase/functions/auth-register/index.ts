@@ -41,6 +41,20 @@ serve(async (req: Request) => {
       )
     }
 
+    // Generate session tokens for auto-login
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+      options: {
+        data: { full_name, role }
+      }
+    })
+
+    if (linkError) {
+      console.error('Failed to generate session:', linkError)
+    }
+
     // Profile is automatically created via trigger
     // Set role
     await supabase.from('user_roles').insert({
@@ -137,7 +151,11 @@ serve(async (req: Request) => {
           id: authData.user.id,
           email: authData.user.email,
           full_name
-        }
+        },
+        session: linkData ? {
+          access_token: linkData.properties.access_token,
+          refresh_token: linkData.properties.refresh_token
+        } : null
       }),
       { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

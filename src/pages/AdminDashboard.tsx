@@ -18,7 +18,8 @@ import {
   Map,
   Building,
   BookText,
-  UserCog
+  UserCog,
+  Bot
 } from "lucide-react";
 
 // Import dashboard components
@@ -39,6 +40,7 @@ import RoadmapManagement from "@/components/admin/RoadmapManagement";
 import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
 import UserRoleManagement from "@/components/admin/UserRoleManagement";
+import AdminAIChat from "@/components/admin/AdminAIChat";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -158,6 +160,12 @@ const AdminDashboard = () => {
       label: "Settings",
       icon: Settings,
       component: AdminSettings
+    },
+    {
+      value: "ai-assistant",
+      label: "AI Assistant",
+      icon: Bot,
+      component: AdminAIChat
     }
   ];
 

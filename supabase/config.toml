@@ -59,6 +59,9 @@ verify_jwt = true
 [functions.student-management]
 verify_jwt = true
 
+[functions.admin-ai-assistant]
+verify_jwt = true
+
 [functions.admin-analytics]
 verify_jwt = true
 

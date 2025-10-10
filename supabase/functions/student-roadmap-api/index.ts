@@ -86,6 +86,16 @@ serve(async (req) => {
 
       if (progressError) throw progressError;
 
+      // Get student's custom chapter days
+      const { data: customDays } = await supabaseClient
+        .from("student_chapter_custom_days")
+        .select("chapter_id, custom_days")
+        .eq("student_id", user.id);
+
+      const customDaysMap = new Map(
+        (customDays || []).map(cd => [cd.chapter_id, cd.custom_days])
+      );
+
       // Organize data by subject
       const subjectMap = new Map();
       
@@ -111,7 +121,8 @@ serve(async (req) => {
         subjectMap.get(chapter.subject).chapters.push({
           ...chapter,
           topics: topicsWithProgress,
-          progress: Math.round(chapterProgress)
+          progress: Math.round(chapterProgress),
+          custom_days: customDaysMap.get(chapter.id) || null
         });
       });
 
@@ -151,7 +162,8 @@ serve(async (req) => {
             customOrder.chapter_order.forEach((chapterId: string) => {
               const chapter = subject.chapters.find((c: any) => c.id === chapterId);
               if (chapter) {
-                const days = chapter.estimated_days || 3;
+                // Use custom days if available, otherwise estimated_days
+                const days = chapter.custom_days || chapter.estimated_days || 3;
                 // Recalculate day_start and day_end for student's custom order
                 orderedChapters.push({
                   ...chapter,
@@ -165,7 +177,7 @@ serve(async (req) => {
             // Add any chapters not in custom order (shouldn't happen, but safety check)
             subject.chapters.forEach((c: any) => {
               if (!customOrder.chapter_order.includes(c.id)) {
-                const days = c.estimated_days || 3;
+                const days = c.custom_days || c.estimated_days || 3;
                 orderedChapters.push({
                   ...c,
                   day_start: currentDay,
@@ -255,6 +267,36 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: "Chapter order updated (your personalized order)"
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // UPDATE CHAPTER DAYS
+    if (action === "update_chapter_days") {
+      const { chapter_id, custom_days } = body;
+      
+      if (!chapter_id || !custom_days || custom_days <= 0) {
+        throw new Error("Valid chapter_id and custom_days (> 0) are required");
+      }
+
+      // Upsert custom days
+      const { error: upsertError } = await supabaseClient
+        .from("student_chapter_custom_days")
+        .upsert({
+          student_id: user.id,
+          chapter_id,
+          custom_days
+        }, {
+          onConflict: "student_id,chapter_id"
+        });
+
+      if (upsertError) throw upsertError;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Chapter duration updated successfully"
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

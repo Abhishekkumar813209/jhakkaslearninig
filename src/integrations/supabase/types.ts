@@ -2078,6 +2078,55 @@ export type Database = {
         }
         Relationships: []
       }
+      student_chapter_custom_days: {
+        Row: {
+          chapter_id: string
+          created_at: string | null
+          custom_days: number
+          id: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string | null
+          custom_days: number
+          id?: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string | null
+          custom_days?: number
+          id?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_chapter_custom_days_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_chapter_custom_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_chapter_custom_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_chapter_order: {
         Row: {
           chapter_order: Json

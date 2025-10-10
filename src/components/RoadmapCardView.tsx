@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   GripVertical, 
   BookOpen, 
@@ -55,6 +58,8 @@ interface Chapter {
   chapter_name: string;
   day_start: number;
   day_end: number;
+  estimated_days?: number;
+  custom_days?: number | null;
   progress?: number;
   topics?: Topic[];
 }
@@ -403,6 +408,10 @@ export const RoadmapCardView = ({
   onChapterDelete,
   onChapterReorder
 }: RoadmapCardViewProps) => {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
+  const [customDays, setCustomDays] = useState<number>(3);
+
   const totalChapters = subjects.reduce((acc, s) => acc + s.chapters.length, 0);
   const totalTopics = subjects.reduce((acc, s) => 
     acc + s.chapters.reduce((sum, ch) => sum + (ch.topics?.length || 0), 0), 0
@@ -412,6 +421,32 @@ export const RoadmapCardView = ({
         acc + s.chapters.reduce((sum, ch) => sum + (ch.progress || 0), 0), 0
       ) / totalChapters
     : 0;
+
+  const handleEditClick = (chapterId: string) => {
+    // Find the chapter across all subjects
+    let foundChapter: Chapter | null = null;
+    for (const subject of subjects) {
+      const chapter = subject.chapters.find(ch => ch.id === chapterId);
+      if (chapter) {
+        foundChapter = chapter;
+        break;
+      }
+    }
+
+    if (foundChapter) {
+      setEditingChapter(foundChapter);
+      setCustomDays(foundChapter.custom_days || foundChapter.estimated_days || 3);
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (editingChapter && onChapterEdit) {
+      onChapterEdit(editingChapter.id);
+    }
+    setEditDialogOpen(false);
+    setEditingChapter(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -464,12 +499,49 @@ export const RoadmapCardView = ({
             subject={subject}
             isEditable={isEditable}
             onChapterClick={onChapterClick}
-            onChapterEdit={onChapterEdit}
+            onChapterEdit={handleEditClick}
             onChapterDelete={onChapterDelete}
             onChapterReorder={onChapterReorder}
           />
         ))}
       </div>
+
+      {/* Edit Chapter Days Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Chapter Duration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Chapter Name</Label>
+              <p className="text-sm text-muted-foreground">{editingChapter?.chapter_name}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom-days">Days to Complete</Label>
+              <Input
+                id="custom-days"
+                type="number"
+                min="1"
+                value={customDays}
+                onChange={(e) => setCustomDays(parseInt(e.target.value) || 1)}
+                placeholder="Enter number of days"
+              />
+              <p className="text-xs text-muted-foreground">
+                Original duration: {editingChapter?.estimated_days || 3} days
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {subjects.length === 0 && (
         <Card>

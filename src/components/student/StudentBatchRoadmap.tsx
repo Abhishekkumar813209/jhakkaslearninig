@@ -336,6 +336,35 @@ export const StudentBatchRoadmap = () => {
     }
   };
 
+  const handleChapterEdit = async (chapterId: string, newDays: number) => {
+    try {
+      const { error } = await supabase.functions.invoke("student-roadmap-api", {
+        body: {
+          action: "update_chapter_days",
+          chapter_id: chapterId,
+          custom_days: newDays
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Duration Updated",
+        description: "Chapter duration updated successfully"
+      });
+
+      // Refresh all views
+      await fetchRoadmap();
+    } catch (error) {
+      console.error("Error updating chapter days:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update chapter duration",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleResetOrder = async () => {
     try {
       const { error } = await supabase.functions.invoke("student-roadmap-api", {
@@ -477,6 +506,26 @@ export const StudentBatchRoadmap = () => {
           isEditable={true}
           onChapterClick={(chapterId, chapterName, topics) => {
             setSelectedChapter({ id: chapterId, name: chapterName, topics });
+          }}
+          onChapterEdit={(chapterId) => {
+            // Find the chapter to get custom days
+            let chapter: any = null;
+            for (const subject of roadmap.subjects) {
+              const found = subject.chapters.find((ch: any) => ch.id === chapterId);
+              if (found) {
+                chapter = found;
+                break;
+              }
+            }
+            
+            if (chapter) {
+              const currentDays = chapter.custom_days || chapter.estimated_days || 3;
+              const newDays = prompt(`Enter new duration for "${chapter.chapter_name}" (current: ${currentDays} days):`, currentDays.toString());
+              
+              if (newDays && parseInt(newDays) > 0) {
+                handleChapterEdit(chapterId, parseInt(newDays));
+              }
+            }
           }}
           onChapterReorder={handleChapterReorder}
         />

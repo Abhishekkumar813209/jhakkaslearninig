@@ -778,8 +778,12 @@ const RoadmapManagement = () => {
                 )}
               </div>
 
-              <Tabs value={adminViewMode} onValueChange={(v) => setAdminViewMode(v as any)}>
-                <TabsList className="grid w-full grid-cols-2">
+              <Tabs defaultValue="list">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="list">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    List View
+                  </TabsTrigger>
                   <TabsTrigger value="calendar">
                     <CalendarIcon className="h-4 w-4 mr-2" />
                     Calendar View
@@ -790,7 +794,40 @@ const RoadmapManagement = () => {
                   </TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="calendar">
+                <TabsContent value="list" className="space-y-4 mt-4">
+                  <div className="space-y-4">
+                    {organizeChaptersBySubject(roadmapDetails.chapters).map((subject) => (
+                      <Card key={subject.name} className="border-2">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg flex items-center justify-between">
+                            <span>{subject.name}</span>
+                            <Badge variant="secondary">{subject.chapters.length} chapters</Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {subject.chapters.map((chapter: any) => (
+                              <div 
+                                key={chapter.id} 
+                                className="border rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="h-4 w-4 text-primary" />
+                                  <span className="font-medium text-sm">{chapter.chapter_name}</span>
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  Day {chapter.day_start}-{chapter.day_end} ({chapter.estimated_days} days)
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="calendar" className="mt-4">
                   <RoadmapCalendarView
                     mode={(roadmapDetails.mode as 'sequential' | 'parallel') || 'parallel'}
                     startDate={parseISO(roadmapDetails.start_date)}
@@ -809,17 +846,11 @@ const RoadmapManagement = () => {
                   />
                 </TabsContent>
                 
-                <TabsContent value="cards">
+                <TabsContent value="cards" className="mt-4">
                   <RoadmapCardView
                     roadmapId={roadmapDetails.id}
                     subjects={organizeChaptersBySubject(roadmapDetails.chapters)}
-                    isEditable={true}
-                    onChapterEdit={(chapterId) => {
-                      console.log('Edit chapter:', chapterId);
-                    }}
-                    onChapterDelete={(chapterId) => {
-                      console.log('Delete chapter:', chapterId);
-                    }}
+                    isEditable={false}
                     onChapterReorder={handleAdminChapterReorder}
                   />
                 </TabsContent>

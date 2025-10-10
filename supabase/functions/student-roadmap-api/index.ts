@@ -213,8 +213,60 @@ serve(async (req) => {
         throw new Error("No active roadmap found");
       }
 
-      // Upsert chapter order
-      const { error } = await supabaseClient
+      // Step 1: Fetch all chapters for this subject with their estimated_days
+      const { data: chapters, error: chaptersError } = await supabaseClient
+        .from("roadmap_chapters")
+        .select("id, estimated_days, order_num")
+        .eq("roadmap_id", studentRoadmap.batch_roadmap_id)
+        .eq("subject", subject_name);
+
+      if (chaptersError) throw chaptersError;
+      if (!chapters || chapters.length === 0) {
+        throw new Error("No chapters found for this subject");
+      }
+
+      // Step 2: Reorder chapters based on chapter_order array
+      const reorderedChapters = chapter_order.map((chapterId: string) => 
+        chapters.find(ch => ch.id === chapterId)
+      ).filter(Boolean); // Remove any undefined entries
+
+      // Step 3: Recalculate day_start and day_end
+      let currentDay = 1;
+      const updatedChapters = [];
+
+      for (let i = 0; i < reorderedChapters.length; i++) {
+        const chapter = reorderedChapters[i];
+        const days = chapter.estimated_days || 3; // default 3 days if not set
+        updatedChapters.push({
+          id: chapter.id,
+          day_start: currentDay,
+          day_end: currentDay + days - 1,
+          order_num: i + 1
+        });
+        currentDay += days;
+      }
+
+      console.log(`Recalculated days for ${updatedChapters.length} chapters`);
+
+      // Step 4: Update roadmap_chapters table with new days and order
+      for (const ch of updatedChapters) {
+        const { error: updateError } = await supabaseClient
+          .from("roadmap_chapters")
+          .update({ 
+            day_start: ch.day_start, 
+            day_end: ch.day_end,
+            order_num: ch.order_num
+          })
+          .eq("id", ch.id);
+
+        if (updateError) {
+          console.error(`Error updating chapter ${ch.id}:`, updateError);
+          throw updateError;
+        }
+      }
+
+      // Step 5: Save custom order in student_chapter_order
+      const { error: upsertError } = await supabaseClient
         .from("student_chapter_order")
         .upsert({
           student_id: user.id,
@@ -225,10 +277,16 @@ serve(async (req) => {
           onConflict: "student_id,roadmap_id,subject"
         });
 
-      if (error) throw error;
+      if (upsertError) throw upsertError;
+
+      console.log(`Successfully updated chapter order and days for ${subject_name}`);
 
       return new Response(
-        JSON.stringify({ success: true, message: "Chapter order updated" }),
+        JSON.stringify({ 
+          success: true, 
+          message: "Chapter order and days updated",
+          updated_chapters: updatedChapters
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -459,7 +459,7 @@ export const StudentBatchRoadmap = () => {
         <RoadmapCardView
           roadmapId={roadmap.id}
           subjects={roadmap.subjects}
-          isEditable={false}
+          isEditable={true}
           onChapterClick={(chapterId, chapterName, topics) => {
             setSelectedChapter({ id: chapterId, name: chapterName, topics });
           }}

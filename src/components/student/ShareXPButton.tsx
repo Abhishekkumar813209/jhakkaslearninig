@@ -156,18 +156,31 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
         });
       }
 
-      // Award XP and update database
-      await awardShareXP(user.id, code);
-      
-      // Trigger confetti
+      // Show immediate feedback
+      toast({
+        title: "🎉 Sharing in progress...",
+        description: "Your XP will be credited in 2 minutes!"
+      });
+
+      setSharedToday(true); // Disable button immediately
+      setCooldownHours(24);
+
+      // Trigger confetti immediately for engagement
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 }
       });
 
-      setSharedToday(true);
-      setCooldownHours(24);
+      // Award XP after 2 minutes (120,000 ms)
+      setTimeout(async () => {
+        await awardShareXP(user.id, code);
+        
+        toast({
+          title: "🎁 +5 Jhakkas Points Earned!",
+          description: "Thanks for sharing! Your XP has been added."
+        });
+      }, 120000); // 2 minutes = 120,000 milliseconds
       
     } catch (error) {
       console.error("Error sharing:", error);

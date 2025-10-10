@@ -59,12 +59,6 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
           <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
           <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">🪙 {xpData.xp}</span>
         </div>
-        <ShareXPButton 
-          xp={xpData.xp} 
-          streak={xpData.streak_days} 
-          level={xpData.level} 
-          compact 
-        />
       </div>
     );
   }

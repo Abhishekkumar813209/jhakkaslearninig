@@ -51,26 +51,30 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
-      
+      // Get the last share record (not just today's)
       const { data } = await supabase
         .from("daily_attendance")
-        .select("social_share_done, social_share_at")
+        .select("social_share_done, social_share_at, last_share_date")
         .eq("student_id", user.id)
-        .eq("date", today)
+        .order("last_share_date", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (data?.social_share_done) {
-        setSharedToday(true);
-        
-        // Calculate cooldown
-        if (data.social_share_at) {
-          const shareTime = new Date(data.social_share_at);
-          const now = new Date();
-          const hoursSinceShare = (now.getTime() - shareTime.getTime()) / (1000 * 60 * 60);
-          const remaining = Math.max(0, 24 - hoursSinceShare);
-          setCooldownHours(Math.ceil(remaining));
+      if (data?.last_share_date) {
+        const lastShareDate = new Date(data.last_share_date);
+        const now = new Date();
+        const hoursSinceShare = (now.getTime() - lastShareDate.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceShare < 24) {
+          setSharedToday(true);
+          setCooldownHours(Math.ceil(24 - hoursSinceShare));
+        } else {
+          setSharedToday(false);
+          setCooldownHours(0);
         }
+      } else {
+        setSharedToday(false);
+        setCooldownHours(0);
       }
     } catch (error) {
       console.error("Error checking share status:", error);
@@ -197,8 +201,16 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
   const awardShareXP = async (userId: string, code: string) => {
     const today = new Date().toISOString().split('T')[0];
     
+    // Get current share count
+    const { data: currentData } = await supabase
+      .from("daily_attendance")
+      .select("share_count")
+      .eq("student_id", userId)
+      .eq("date", today)
+      .maybeSingle();
+
     // Award XP
-    await supabase.functions.invoke("jhakkas-points-system", {
+    const { data: xpResult, error: xpError } = await supabase.functions.invoke("jhakkas-points-system", {
       body: { 
         action: "add", 
         xp_amount: 5, 
@@ -206,33 +218,47 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       }
     });
 
-    // Get current share count
-    const { data: currentData } = await supabase
-      .from("daily_attendance")
-      .select("share_count")
-      .eq("student_id", userId)
-      .eq("date", today)
-      .single();
+    if (xpError) {
+      console.error("Error awarding XP:", xpError);
+      toast({
+        title: "XP award failed",
+        description: xpError.message || "Please try again later",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    // Update daily_attendance
-    await supabase
+    // UPSERT daily_attendance (create if not exists)
+    const { error: attendanceError } = await supabase
       .from("daily_attendance")
-      .update({ 
+      .upsert({ 
+        student_id: userId,
+        date: today,
         social_share_done: true, 
         social_share_at: new Date().toISOString(),
         last_share_date: today,
         share_count: (currentData?.share_count || 0) + 1
-      })
-      .eq("student_id", userId)
-      .eq("date", today);
+      }, {
+        onConflict: 'student_id,date'
+      });
+
+    if (attendanceError) {
+      console.error("Failed to update share status:", attendanceError);
+    }
 
     // Track share code
-    await supabase
+    const { error: shareError } = await supabase
       .from("social_shares")
       .insert({
         student_id: userId,
         share_code: code,
+        platform: "social",
+        shared_at: new Date().toISOString()
       });
+
+    if (shareError) {
+      console.error("Failed to log social share:", shareError);
+    }
   };
 
   if (compact) {

@@ -71,6 +71,35 @@ serve(async (req) => {
     }
 
     if (action === 'add') {
+      // Validate 24-hour cooldown for social shares
+      if (activity_type === 'social_share') {
+        const { data: lastShare } = await supabase
+          .from('daily_attendance')
+          .select('last_share_date')
+          .eq('student_id', user.id)
+          .order('last_share_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastShare?.last_share_date) {
+          const lastShareTime = new Date(lastShare.last_share_date).getTime();
+          const now = new Date().getTime();
+          const hoursSinceLastShare = (now - lastShareTime) / (1000 * 60 * 60);
+
+          if (hoursSinceLastShare < 24) {
+            console.log(`Share cooldown active: ${24 - hoursSinceLastShare} hours remaining`);
+            return new Response(
+              JSON.stringify({ 
+                error: 'Cooldown active',
+                message: `Please wait ${Math.ceil(24 - hoursSinceLastShare)} hours before sharing again`,
+                hours_remaining: Math.ceil(24 - hoursSinceLastShare)
+              }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+
       if (!xp_amount || xp_amount <= 0) {
         return new Response(
           JSON.stringify({ error: 'Invalid XP amount' }),

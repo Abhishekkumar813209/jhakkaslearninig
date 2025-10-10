@@ -633,8 +633,8 @@ export const ManualTopicEditor = () => {
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Topic Name</TableHead>
                     <TableHead className="w-24">Day#</TableHead>
-                    <TableHead className="w-32">Page</TableHead>
-                <TableHead className="w-20">XP</TableHead>
+                    <TableHead className="w-24">Page</TableHead>
+                <TableHead className="w-28">XP</TableHead>
                 <TableHead className="w-32">Difficulty</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>

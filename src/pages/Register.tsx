@@ -138,7 +138,7 @@ const Register = () => {
         title: 'Registration Successful!',
         description: 'Your account has been created successfully.',
       });
-      navigate('/complete-profile');
+      navigate('/student/dashboard');
       
     } catch (error: any) {
       // Handle any other errors
@@ -175,7 +175,7 @@ const Register = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/complete-profile`
+          redirectTo: `${window.location.origin}/student/dashboard`
         }
       });
 

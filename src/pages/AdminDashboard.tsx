@@ -19,8 +19,7 @@ import {
   Building,
   BookText,
   UserCog,
-  Bot,
-  Gamepad2
+  Bot
 } from "lucide-react";
 
 // Import dashboard components
@@ -42,7 +41,6 @@ import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
 import UserRoleManagement from "@/components/admin/UserRoleManagement";
 import AdminAIChat from "@/components/admin/AdminAIChat";
-import { QuestionToGameConverter } from "@/components/admin/QuestionToGameConverter";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -168,12 +166,6 @@ const AdminDashboard = () => {
       label: "AI Assistant",
       icon: Bot,
       component: AdminAIChat
-    },
-    {
-      value: "question-to-game",
-      label: "AI Game Maker",
-      icon: Gamepad2,
-      component: QuestionToGameConverter
     }
   ];
 

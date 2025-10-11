@@ -15,26 +15,44 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: {
+          'Authorization': req.headers.get('Authorization') || ''
+        }
+      }
+    });
 
     const url = new URL(req.url);
-    let raceType = url.searchParams.get('race_type');
-    let userId = url.searchParams.get('user_id');
+    let raceType = url.searchParams.get('race_type') || undefined;
+    let userId = url.searchParams.get('user_id') || undefined;
 
-    // Fallback to body if not in URL params
-    if (!raceType || !userId) {
-      try {
-        const body = await req.json();
-        raceType = body.race_type || raceType || 'class';
-        userId = body.user_id || userId;
-      } catch (e) {
-        console.log('No body data, using URL params only');
-        raceType = raceType || 'class';
+    // Try to parse JSON body (ignore errors and empty bodies)
+    try {
+      const body = await req.json();
+      if (body && typeof body === 'object') {
+        raceType = (body.race_type as string) ?? raceType;
+        userId = (body.user_id as string) ?? userId;
       }
+    } catch (_e) {
+      // No JSON body provided
     }
 
+    // Fallback to JWT if user_id still missing
     if (!userId) {
-      throw new Error('user_id is required');
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr) console.log('auth.getUser error', authErr.message);
+      userId = authData?.user?.id || userId;
+    }
+
+    // Defaults
+    raceType = (raceType as string) || 'class';
+
+    if (!userId) {
+      return new Response(JSON.stringify({ success: false, error: 'user_id is required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const limit = 15; // Top 15 racers

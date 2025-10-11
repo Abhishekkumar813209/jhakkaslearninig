@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Eye, Sparkles, GripVertical, Check, X } from "lucide-react";
+import { Plus, Trash2, Eye, Sparkles, GripVertical, Check, X, Upload, FileText, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -210,6 +211,46 @@ export function LessonContentBuilder() {
     }
   }, [selectedTopic]);
 
+  // Form persistence to prevent data loss
+  useEffect(() => {
+    if (!isAddDialogOpen) return;
+    
+    const storageKey = `lesson-builder-form-${selectedBatch}-${selectedSubject}-${selectedChapter}-${selectedTopic}`;
+    const formData = {
+      newLesson,
+      uploadedFiles: uploadedFiles.map(f => ({ name: f.name, size: f.size, type: f.type })),
+      additionalText,
+      useJsonFormat,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(storageKey, JSON.stringify(formData));
+  }, [newLesson, uploadedFiles, additionalText, useJsonFormat, isAddDialogOpen, selectedBatch, selectedSubject, selectedChapter, selectedTopic]);
+
+  // Restore form data on dialog open
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      const storageKey = `lesson-builder-form-${selectedBatch}-${selectedSubject}-${selectedChapter}-${selectedTopic}`;
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Only restore if saved within last 24 hours
+          if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+            setNewLesson(parsed.newLesson);
+            setAdditionalText(parsed.additionalText || '');
+            setUseJsonFormat(parsed.useJsonFormat || false);
+            toast({
+              title: "Form data restored",
+              description: "Your previous work was recovered"
+            });
+          }
+        } catch (e) {
+          console.error('Failed to restore form:', e);
+        }
+      }
+    }
+  }, [isAddDialogOpen]);
+
   const fetchBatches = async () => {
     if (!selectedDomain) return;
 
@@ -381,6 +422,12 @@ export function LessonContentBuilder() {
     setUseJsonFormat(false);
     setAiSuggestions(null);
     setGeneratedGames(null);
+    
+    // Clear localStorage
+    if (selectedBatch && selectedSubject && selectedChapter && selectedTopic) {
+      const storageKey = `lesson-builder-form-${selectedBatch}-${selectedSubject}-${selectedChapter}-${selectedTopic}`;
+      localStorage.removeItem(storageKey);
+    }
   };
 
   const handleMultipleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -396,6 +443,35 @@ export function LessonContentBuilder() {
     setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
   };
 
+  const handleProcessContent = async () => {
+    setAiProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+        body: {
+          mode: 'bulk_mixed',
+          files: uploadedFiles,
+          text: additionalText,
+          useJson: useJsonFormat,
+          lessonType: newLesson.lesson_type
+        }
+      });
+
+      if (error) throw error;
+
+      if (newLesson.lesson_type === 'theory') {
+        setNewLesson({ ...newLesson, theory_text: data.content || additionalText });
+      } else if (newLesson.lesson_type === 'game') {
+        setAiSuggestions(data.suggestions);
+        setGeneratedGames(data.games);
+      }
+
+      toast({ title: "Success", description: "Content processed with AI" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setAiProcessing(false);
+    }
+  };
 
   const handleAddLesson = async () => {
     if (!selectedTopic) {
@@ -750,6 +826,273 @@ export function LessonContentBuilder() {
                                 Add Lesson
                               </Button>
                             </DialogTrigger>
+                            
+                            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle>Add New Lesson</DialogTitle>
+                                <DialogDescription>
+                                  Creating lesson for: {topics.find(t => t.id === selectedTopic)?.topic_name || 'Selected Topic'}
+                                </DialogDescription>
+                              </DialogHeader>
+
+                              <div className="space-y-6">
+                                {/* Lesson Type Selector */}
+                                <div>
+                                  <Label>Lesson Type</Label>
+                                  <Select
+                                    value={newLesson.lesson_type}
+                                    onValueChange={(v) => setNewLesson({ ...newLesson, lesson_type: v as LessonType })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select lesson type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="theory">📚 Theory</SelectItem>
+                                      <SelectItem value="interactive_svg">🎨 Interactive SVG</SelectItem>
+                                      <SelectItem value="game">🎮 Game</SelectItem>
+                                      <SelectItem value="quiz">❓ Quiz</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Multi-File Upload Zone */}
+                                <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept=".jpg,.jpeg,.png,.txt,.csv,.pdf"
+                                    onChange={handleMultipleFileUpload}
+                                    className="hidden"
+                                    id="bulk-upload"
+                                  />
+                                  <label htmlFor="bulk-upload" className="cursor-pointer block">
+                                    <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                                    <p className="mt-2 text-sm font-medium">Drop multiple files here or click to browse</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Supports: Images, PDFs, Text, CSV (max 20 files)
+                                    </p>
+                                  </label>
+                                  
+                                  {/* File Preview Grid */}
+                                  {uploadedFiles.length > 0 && (
+                                    <div className="mt-4 grid grid-cols-4 gap-2">
+                                      {uploadedFiles.map((file, idx) => (
+                                        <div key={idx} className="relative border rounded p-2 bg-background">
+                                          {file.type.startsWith('image/') ? (
+                                            <img 
+                                              src={URL.createObjectURL(file)} 
+                                              alt={file.name}
+                                              className="w-full h-20 object-cover rounded" 
+                                            />
+                                          ) : (
+                                            <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                                          )}
+                                          <p className="text-xs truncate mt-1">{file.name}</p>
+                                          <button
+                                            type="button"
+                                            onClick={() => removeFile(idx)}
+                                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Text Input with JSON Toggle */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label>Additional Questions / Context</Label>
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-xs text-muted-foreground">JSON Mode</Label>
+                                      <Switch
+                                        checked={useJsonFormat}
+                                        onCheckedChange={setUseJsonFormat}
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  <Textarea
+                                    placeholder={useJsonFormat 
+                                      ? '{"questions": [{"text": "What is photosynthesis?", "options": ["A", "B", "C", "D"], "correct": "A"}]}'
+                                      : 'Paste questions here or add context for uploaded images...\n\nExample:\n1. What is photosynthesis?\nA) Process of...\nB) Process of...\n\nCorrect: A'
+                                    }
+                                    value={additionalText}
+                                    onChange={(e) => setAdditionalText(e.target.value)}
+                                    rows={8}
+                                    className={useJsonFormat ? "font-mono text-xs" : ""}
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    {uploadedFiles.length > 0 
+                                      ? "✓ Files uploaded. Add extra context or questions that aren't in the files"
+                                      : "Paste questions directly or upload files above"
+                                    }
+                                  </p>
+                                </div>
+
+                                {/* AI Processing Button */}
+                                {(uploadedFiles.length > 0 || additionalText.trim()) && (
+                                  <Button 
+                                    onClick={handleProcessContent} 
+                                    disabled={aiProcessing}
+                                    className="w-full"
+                                    variant="secondary"
+                                  >
+                                    {aiProcessing ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Processing with AI...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Process Content with AI
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+
+                                {/* AI Recommendations (for Games) */}
+                                {newLesson.lesson_type === 'game' && aiSuggestions && (
+                                  <Card>
+                                    <CardHeader>
+                                      <CardTitle className="text-sm flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4 text-yellow-500" />
+                                        AI Recommendations
+                                      </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2">
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Detected Questions:</span>
+                                        <Badge variant="secondary">{aiSuggestions.questionCount}</Badge>
+                                      </div>
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Best Game Type:</span>
+                                        <Badge>{aiSuggestions.bestGameType}</Badge>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground italic">{aiSuggestions.reasoning}</p>
+                                    </CardContent>
+                                  </Card>
+                                )}
+
+                                {/* Generated Games Selector */}
+                                {newLesson.lesson_type === 'game' && generatedGames && Object.keys(generatedGames).length > 0 && (
+                                  <div>
+                                    <Label>Select Game to Add</Label>
+                                    <Select 
+                                      onValueChange={(gameType) => {
+                                        const gameData = generatedGames[gameType];
+                                        setNewLesson({ 
+                                          ...newLesson, 
+                                          game_type: gameType as GameType,
+                                          game_data: gameData 
+                                        });
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Choose generated game" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Object.keys(generatedGames).map(gameType => (
+                                          <SelectItem key={gameType} value={gameType}>
+                                            {gameType.replace(/_/g, ' ').toUpperCase()}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+
+                                {/* Interactive SVG Config */}
+                                {newLesson.lesson_type === 'interactive_svg' && (
+                                  <div className="space-y-2">
+                                    <Label>SVG Type</Label>
+                                    <Select
+                                      value={newLesson.svg_type}
+                                      onValueChange={(v) => setNewLesson({ ...newLesson, svg_type: v as SvgType })}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select SVG type" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="physics_motion">Physics Motion</SelectItem>
+                                        <SelectItem value="chemistry_molecule">Chemistry Molecule</SelectItem>
+                                        <SelectItem value="math_graph">Math Graph</SelectItem>
+                                        <SelectItem value="algorithm_viz">Algorithm Visualization</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    
+                                    <Label className="mt-3">Configuration (JSON)</Label>
+                                    <Textarea
+                                      placeholder='{"title": "Projectile Motion", "config": {...}}'
+                                      value={typeof newLesson.svg_data === 'object' ? JSON.stringify(newLesson.svg_data, null, 2) : newLesson.svg_data || ''}
+                                      onChange={(e) => {
+                                        try {
+                                          const parsed = JSON.parse(e.target.value);
+                                          setNewLesson({ ...newLesson, svg_data: parsed });
+                                        } catch {
+                                          setNewLesson({ ...newLesson, svg_data: e.target.value });
+                                        }
+                                      }}
+                                      rows={6}
+                                      className="font-mono text-xs"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Metadata Section */}
+                                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                                  <div>
+                                    <Label>Time (minutes)</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="120"
+                                      value={newLesson.estimated_time_minutes || 10}
+                                      onChange={(e) => setNewLesson({ ...newLesson, estimated_time_minutes: parseInt(e.target.value) || 10 })}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>XP Reward</Label>
+                                    <Input
+                                      type="number"
+                                      min="5"
+                                      max="100"
+                                      value={newLesson.xp_reward || 10}
+                                      onChange={(e) => setNewLesson({ ...newLesson, xp_reward: parseInt(e.target.value) || 10 })}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-end gap-2 pt-4 border-t">
+                                  <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                      setIsAddDialogOpen(false);
+                                      resetForm();
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    onClick={handleAddLesson} 
+                                    disabled={loading || !selectedTopic}
+                                  >
+                                    {loading ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Creating...
+                                      </>
+                                    ) : (
+                                      <>Create Lesson</>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
                       </Dialog>
                     </div>
                   </div>

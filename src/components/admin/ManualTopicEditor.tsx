@@ -17,12 +17,14 @@ import * as LucideIcons from "lucide-react";
 import { calculateXP, Difficulty } from "@/lib/xpConfig";
 
 interface Topic {
+  id?: string;
   topic_name: string;
   day_number: number;
   book_page_reference?: string;
   xp_reward?: number;
   difficulty?: string;
   animation_type?: string;
+  isSaved?: boolean;
 }
 
 interface Batch {
@@ -62,7 +64,9 @@ export const ManualTopicEditor = () => {
   const [selectedChapter, setSelectedChapter] = useState<string>("");
   
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [existingTopics, setExistingTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingExistingTopics, setLoadingExistingTopics] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [roadmapCounts, setRoadmapCounts] = useState<any>({ byBoard: {}, byClass: {} });
   
@@ -113,6 +117,15 @@ export const ManualTopicEditor = () => {
       setSelectedChapter("");
     }
   }, [selectedSubject]);
+
+  useEffect(() => {
+    if (selectedChapter) {
+      fetchExistingTopics(selectedChapter);
+    } else {
+      setTopics([]);
+      setExistingTopics([]);
+    }
+  }, [selectedChapter]);
 
   const fetchBatches = async () => {
     if (!selectedDomain) return;
@@ -236,6 +249,44 @@ export const ManualTopicEditor = () => {
     setChapters(data || []);
   };
 
+  const fetchExistingTopics = async (chapterId: string) => {
+    setLoadingExistingTopics(true);
+    try {
+      const { data, error } = await supabase
+        .from('roadmap_topics')
+        .select('*')
+        .eq('chapter_id', chapterId)
+        .order('day_number', { ascending: true });
+
+      if (error) throw error;
+
+      const formattedTopics: Topic[] = (data || []).map(t => ({
+        id: t.id,
+        topic_name: t.topic_name,
+        day_number: t.day_number,
+        book_page_reference: '',
+        xp_reward: t.xp_reward || 30,
+        difficulty: 'medium',
+        animation_type: 'interactive_svg',
+        isSaved: true
+      }));
+
+      setExistingTopics(formattedTopics);
+      setTopics(formattedTopics);
+      
+      console.log(`Loaded ${formattedTopics.length} existing topics for chapter ${chapterId}`);
+    } catch (error: any) {
+      console.error("Error fetching existing topics:", error);
+      toast({
+        title: "Failed to Load Topics",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingExistingTopics(false);
+    }
+  };
+
   const addEmptyTopic = () => {
     const diff: Difficulty = 'medium';
     setTopics([
@@ -268,7 +319,33 @@ export const ManualTopicEditor = () => {
     setTopics(updated);
   };
 
-  const removeTopic = (index: number) => {
+  const removeTopic = async (index: number) => {
+    const topicToRemove = topics[index];
+    
+    if (topicToRemove.isSaved && topicToRemove.id) {
+      try {
+        const { error } = await supabase
+          .from('roadmap_topics')
+          .delete()
+          .eq('id', topicToRemove.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Topic Deleted",
+          description: `"${topicToRemove.topic_name}" removed from database`
+        });
+      } catch (error: any) {
+        console.error("Delete error:", error);
+        toast({
+          title: "Delete Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     setTopics(topics.filter((_, i) => i !== index));
   };
 
@@ -468,31 +545,52 @@ export const ManualTopicEditor = () => {
 
     setLoading(true);
     try {
-      const topicsToInsert = topics.map((topic, index) => {
-        const diff = normalizeDifficulty(topic.difficulty);
-        return {
-          chapter_id: selectedChapter,
-          topic_name: topic.topic_name,
-          estimated_hours: 1,
-          day_number: topic.day_number || (index + 1),
-          order_num: index + 1,
-          xp_reward: calculateXP('theory', diff), // Always derive from difficulty
-          unlock_condition: index === 0 ? "always" : "previous_complete"
-        };
-      });
+      const newTopics = topics.filter(t => !t.isSaved);
+      const updatedTopics = topics.filter(t => t.isSaved && t.id);
 
-      const { error } = await supabase
-        .from("roadmap_topics")
-        .insert(topicsToInsert);
+      if (newTopics.length > 0) {
+        const topicsToInsert = newTopics.map((topic, index) => {
+          const diff = normalizeDifficulty(topic.difficulty);
+          return {
+            chapter_id: selectedChapter,
+            topic_name: topic.topic_name,
+            estimated_hours: 1,
+            day_number: topic.day_number || (index + 1),
+            order_num: index + 1,
+            xp_reward: calculateXP('theory', diff),
+            unlock_condition: index === 0 ? "always" : "previous_complete"
+          };
+        });
 
-      if (error) throw error;
+        const { error: insertError } = await supabase
+          .from("roadmap_topics")
+          .insert(topicsToInsert);
+
+        if (insertError) throw insertError;
+      }
+
+      if (updatedTopics.length > 0) {
+        for (const topic of updatedTopics) {
+          const diff = normalizeDifficulty(topic.difficulty);
+          const { error: updateError } = await supabase
+            .from("roadmap_topics")
+            .update({
+              topic_name: topic.topic_name,
+              day_number: topic.day_number,
+              xp_reward: calculateXP('theory', diff)
+            })
+            .eq('id', topic.id);
+
+          if (updateError) throw updateError;
+        }
+      }
 
       toast({
-        title: "Success",
-        description: `Added ${topics.length} topics successfully`
+        title: "Topics Saved Successfully",
+        description: `${newTopics.length} new, ${updatedTopics.length} updated`
       });
 
-      setTopics([]);
+      await fetchExistingTopics(selectedChapter);
       setSyllabusText("");
       setUploadedImage(null);
       setImageFile(null);
@@ -685,6 +783,18 @@ export const ManualTopicEditor = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedChapter && (
+                <div className="flex items-center gap-2 text-sm mt-2">
+                  <Badge variant="secondary">
+                    {existingTopics.length} Existing Topics
+                  </Badge>
+                  {topics.length > existingTopics.length && (
+                    <Badge variant="default">
+                      {topics.length - existingTopics.length} New Topics
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -826,8 +936,17 @@ AI will extract topics and allocate day budgets automatically."
                 </TableHeader>
                 <TableBody>
                   {topics.map((topic, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{index + 1}</TableCell>
+                    <TableRow key={index} className={topic.isSaved ? 'bg-green-50/30 dark:bg-green-950/20' : 'bg-blue-50/30 dark:bg-blue-950/20'}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {index + 1}
+                          {topic.isSaved && (
+                            <Badge variant="outline" className="text-xs">
+                              Saved
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Input
                           value={topic.topic_name}
@@ -905,6 +1024,15 @@ AI will extract topics and allocate day budgets automatically."
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {aiGenerating ? "Generating..." : "Generate with AI"}
+            </Button>
+
+            <Button 
+              onClick={() => setTopics(existingTopics)} 
+              variant="outline"
+              disabled={topics.length === existingTopics.length}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear New Topics
             </Button>
             
             <Button

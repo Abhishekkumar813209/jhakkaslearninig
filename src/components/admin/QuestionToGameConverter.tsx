@@ -5,9 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Sparkles, CheckCircle, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle, Wand2, Upload, FileSpreadsheet, Image as ImageIcon, Trash2, Eye } from "lucide-react";
 import { GamifiedExercise } from "@/components/student/GamifiedExercise";
 
 type GameType = "mcq" | "fill_blank" | "true_false" | "match_pairs" | "drag_drop";
@@ -18,7 +20,24 @@ interface GameSuggestion {
   confidence: number;
 }
 
+interface BulkQuestion {
+  id: string;
+  question_text: string;
+  options?: string[];
+  question_type: string;
+  subject?: string;
+  chapter_name?: string;
+  topic_name?: string;
+  suggested_game?: GameType;
+  game_data?: any;
+  status: 'pending' | 'processing' | 'generated' | 'error';
+  error?: string;
+}
+
 export const QuestionToGameConverter = () => {
+  const [mode, setMode] = useState<"single" | "bulk">("single");
+  
+  // Single mode states
   const [questionText, setQuestionText] = useState("");
   const [options, setOptions] = useState("");
   const [questionType, setQuestionType] = useState("");
@@ -30,6 +49,11 @@ export const QuestionToGameConverter = () => {
   const [generatedExercise, setGeneratedExercise] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Bulk mode states
+  const [bulkQuestions, setBulkQuestions] = useState<BulkQuestion[]>([]);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const handleAISuggest = async () => {
     if (!questionText.trim()) {
@@ -157,8 +181,200 @@ export const QuestionToGameConverter = () => {
     }
   };
 
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFile(file);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const rows = text.split('\n').filter(row => row.trim());
+      const headers = rows[0].split(',').map(h => h.trim());
+
+      const questions: BulkQuestion[] = rows.slice(1).map((row, index) => {
+        const values = row.split(',').map(v => v.trim());
+        const questionData: any = {};
+        headers.forEach((header, i) => {
+          questionData[header] = values[i];
+        });
+
+        return {
+          id: `bulk-${Date.now()}-${index}`,
+          question_text: questionData.question || questionData.question_text || '',
+          options: questionData.options ? questionData.options.split('|') : undefined,
+          question_type: questionData.question_type || questionData.type || 'mcq',
+          subject: questionData.subject || '',
+          chapter_name: questionData.chapter || questionData.chapter_name || '',
+          topic_name: questionData.topic || questionData.topic_name || '',
+          status: 'pending'
+        };
+      });
+
+      setBulkQuestions(questions);
+      toast.success(`Uploaded ${questions.length} questions from CSV`);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFile(file);
+    setLoading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Image = event.target?.result as string;
+
+        const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+          body: {
+            image_data: base64Image,
+            extract_mode: 'ocr'
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.extracted_questions) {
+          const questions: BulkQuestion[] = data.extracted_questions.map((q: any, index: number) => ({
+            id: `img-${Date.now()}-${index}`,
+            question_text: q.question_text,
+            options: q.options,
+            question_type: q.question_type || 'mcq',
+            subject: subject || '',
+            chapter_name: chapterName || '',
+            topic_name: topicName || '',
+            status: 'pending'
+          }));
+
+          setBulkQuestions(questions);
+          toast.success(`Extracted ${questions.length} questions from image`);
+        }
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      console.error('Image OCR error:', error);
+      toast.error(error.message || "Failed to extract questions from image");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkGenerate = async () => {
+    setBulkProcessing(true);
+
+    for (let i = 0; i < bulkQuestions.length; i++) {
+      const question = bulkQuestions[i];
+      
+      setBulkQuestions(prev => prev.map(q => 
+        q.id === question.id ? { ...q, status: 'processing' } : q
+      ));
+
+      try {
+        // Get AI suggestion
+        const { data: suggestionData, error: suggestionError } = await supabase.functions.invoke('ai-question-to-game', {
+          body: {
+            question_text: question.question_text,
+            options: question.options,
+            question_type: question.question_type,
+            subject: question.subject,
+            chapter_name: question.chapter_name,
+            topic_name: question.topic_name,
+          }
+        });
+
+        if (suggestionError) throw suggestionError;
+
+        const gameType = suggestionData.suggestion.suggested_game;
+
+        // Generate game data
+        const { data: gameData, error: gameError } = await supabase.functions.invoke('ai-question-to-game', {
+          body: {
+            question_text: question.question_text,
+            options: question.options,
+            question_type: question.question_type,
+            subject: question.subject,
+            chapter_name: question.chapter_name,
+            topic_name: question.topic_name,
+            game_type: gameType,
+          }
+        });
+
+        if (gameError) throw gameError;
+
+        setBulkQuestions(prev => prev.map(q => 
+          q.id === question.id ? {
+            ...q,
+            status: 'generated',
+            suggested_game: gameType,
+            game_data: gameData.exercise_data
+          } : q
+        ));
+
+      } catch (error: any) {
+        console.error(`Error processing question ${i}:`, error);
+        setBulkQuestions(prev => prev.map(q => 
+          q.id === question.id ? {
+            ...q,
+            status: 'error',
+            error: error.message
+          } : q
+        ));
+      }
+    }
+
+    setBulkProcessing(false);
+    toast.success("Bulk generation complete!");
+  };
+
+  const handleBulkSave = async () => {
+    setSaving(true);
+
+    try {
+      const generatedQuestions = bulkQuestions.filter(q => q.status === 'generated');
+      
+      for (const question of generatedQuestions) {
+        await supabase
+          .from('generated_questions')
+          .insert({
+            question_text: question.question_text,
+            question_type: question.suggested_game || 'mcq',
+            options: question.options,
+            correct_answer: "N/A",
+            subject: question.subject,
+            chapter_name: question.chapter_name,
+            topic_name: question.topic_name,
+            is_approved: false,
+          });
+      }
+
+      toast.success(`✅ Saved ${generatedQuestions.length} games to database!`);
+      setBulkQuestions([]);
+      setUploadedFile(null);
+
+    } catch (error: any) {
+      console.error('Bulk save error:', error);
+      toast.error(error.message || "Failed to save bulk games");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "bulk")}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="single">Single Question</TabsTrigger>
+          <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="single">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -362,6 +578,138 @@ export const QuestionToGameConverter = () => {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="bulk">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Bulk Upload Questions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="csv-upload">Upload CSV File</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="csv-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleCSVUpload}
+                      disabled={loading || bulkProcessing}
+                    />
+                    <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    CSV format: question, options (pipe-separated), type, subject, chapter, topic
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="image-upload">Upload Image (OCR)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="image-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={loading || bulkProcessing}
+                    />
+                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    AI will extract questions from scanned images
+                  </p>
+                </div>
+              </div>
+
+              {uploadedFile && (
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span className="text-sm font-medium">{uploadedFile.name}</span>
+                  <Badge variant="secondary">{bulkQuestions.length} questions</Badge>
+                </div>
+              )}
+
+              {bulkQuestions.length > 0 && (
+                <>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {bulkQuestions.map((q) => (
+                      <Card key={q.id} className="p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium line-clamp-2">{q.question_text}</p>
+                            <div className="flex gap-2 mt-1">
+                              {q.subject && <Badge variant="outline">{q.subject}</Badge>}
+                              {q.suggested_game && <Badge>{q.suggested_game}</Badge>}
+                              <Badge variant={
+                                q.status === 'generated' ? 'default' :
+                                q.status === 'processing' ? 'secondary' :
+                                q.status === 'error' ? 'destructive' : 'outline'
+                              }>
+                                {q.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setBulkQuestions(prev => prev.filter(x => x.id !== q.id))}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={handleBulkGenerate}
+                      disabled={bulkProcessing || bulkQuestions.length === 0}
+                      className="flex-1"
+                    >
+                      {bulkProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing {bulkQuestions.filter(q => q.status === 'processing').length}/{bulkQuestions.length}
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Generate All Games
+                        </>
+                      )}
+                    </Button>
+
+                    {bulkQuestions.some(q => q.status === 'generated') && (
+                      <Button
+                        onClick={handleBulkSave}
+                        disabled={saving}
+                        variant="default"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Save All ({bulkQuestions.filter(q => q.status === 'generated').length})
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

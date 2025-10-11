@@ -28,13 +28,59 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { question_text, options, question_type, subject, chapter_name, topic_name, game_type } = await req.json();
+    const { question_text, options, question_type, subject, chapter_name, topic_name, game_type, image_data, extract_mode } = await req.json();
 
-    console.log('Processing question for game:', { question_type, game_type });
+    console.log('Processing question for game:', { question_type, game_type, extract_mode });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
+    }
+
+    // Handle OCR extraction from image
+    if (extract_mode === 'ocr' && image_data) {
+      systemPrompt = `You are an OCR expert for educational content. Extract questions from the image and return ONLY valid JSON:
+{
+  "extracted_questions": [
+    {
+      "question_text": "the question",
+      "options": ["opt1", "opt2", "opt3", "opt4"],
+      "question_type": "mcq" | "match_column" | "fill_blank" | "true_false"
+    }
+  ]
+}`;
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { 
+              role: 'user', 
+              content: [
+                { type: 'text', text: systemPrompt },
+                { type: 'image_url', image_url: { url: image_data } }
+              ]
+            }
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OCR extraction failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let content = data.choices[0].message.content;
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      return new Response(JSON.stringify(JSON.parse(content)), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let systemPrompt = '';

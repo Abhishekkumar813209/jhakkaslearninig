@@ -28,7 +28,7 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { question_text, options, question_type, subject, chapter_name, topic_name, game_type, image_data, extract_mode } = await req.json();
+    const { question_text, options, question_type, subject, chapter_name, topic_name, game_type, image_data, extract_mode, convert_to } = await req.json();
 
     console.log('Processing question for game:', { question_type, game_type, extract_mode });
 
@@ -87,21 +87,80 @@ serve(async (req) => {
     let userPrompt = '';
     let gameData: any = {};
 
+    // Handle MCQ to other format conversion
+    if (convert_to) {
+      systemPrompt = `Convert this MCQ question to ${convert_to} format.
+${convert_to === 'fill_blank' ? 'Replace ONE key word/phrase in the question with "_____". Make it challenging but fair.' : ''}
+${convert_to === 'true_false' ? 'Convert to a true/false statement. Use the correct answer to form a true statement.' : ''}
+
+Return ONLY valid JSON based on the target format.`;
+
+      userPrompt = `MCQ Question: ${question_text}
+Correct Option: ${options ? options[0] : 'Not specified'}
+Options: ${options ? JSON.stringify(options) : 'None'}
+
+Convert to: ${convert_to}`;
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Conversion failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      let content = data.choices[0].message.content;
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      return new Response(JSON.stringify({
+        success: true,
+        game_type: convert_to,
+        exercise_data: JSON.parse(content),
+        conversion_performed: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Auto-suggest game type if not provided
     if (!game_type) {
       systemPrompt = `You are a gamification expert. Analyze the question and suggest the BEST game type.
+
+ANALYSIS CRITERIA:
+- MCQ: Questions with clear options
+- Fill Blank: Questions testing specific terms/formulas
+- True/False: Single statement verification
+- Match Pairs: Questions with relationships/mappings (laws↔formulas, terms↔definitions)
+- Drag Drop: Questions about sequences/processes/order
+
 Return ONLY a JSON object with this structure:
 {
   "suggested_game": "mcq" | "fill_blank" | "true_false" | "match_pairs" | "drag_drop",
-  "reason": "why this game type is best",
-  "confidence": 0.0 to 1.0
+  "reason": "detailed explanation why this game type is best",
+  "confidence": 0.0 to 1.0,
+  "alternative_options": ["other_game_type1", "other_game_type2"],
+  "difficulty_estimate": "easy" | "medium" | "hard"
 }`;
 
       userPrompt = `Question Type: ${question_type}
 Question: ${question_text}
 ${options ? `Options: ${JSON.stringify(options)}` : ''}
+Subject: ${subject || 'General'}
+Chapter: ${chapter_name || 'N/A'}
 
-Suggest the best game type for this question.`;
+Analyze and suggest the BEST game type for maximum learning engagement.`;
 
       const suggestionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -159,14 +218,22 @@ Suggest the best game type for this question.`;
         break;
 
       case 'match_pairs':
-        systemPrompt = `Generate match-the-column pairs. If the question already has pairs, use them. Otherwise, create 4 related pairs based on the question topic. Return ONLY valid JSON:
+        systemPrompt = `Generate match-the-column pairs. 
+CRITICAL RULES:
+1. If the question already has pairs, extract them and EXPAND to exactly 4 pairs
+2. If fewer than 4 pairs exist, generate similar additional pairs from the same topic
+3. If no pairs exist, create 4 related pairs based on the question topic
+4. Ensure all pairs are factually correct and related
+
+Return ONLY valid JSON:
 {
   "pairs": [
     {"id": "1", "left": "item1", "right": "match1"},
     {"id": "2", "left": "item2", "right": "match2"},
     {"id": "3", "left": "item3", "right": "match3"},
     {"id": "4", "left": "item4", "right": "match4"}
-  ]
+  ],
+  "auto_expanded": true/false
 }`;
         break;
 

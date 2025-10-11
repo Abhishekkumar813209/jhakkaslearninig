@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Sparkles, CheckCircle, Wand2, Upload, FileSpreadsheet, Image as ImageIcon, Trash2, Eye } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle, Wand2, Upload, FileSpreadsheet, Image as ImageIcon, Trash2 } from "lucide-react";
 import { GamifiedExercise } from "@/components/student/GamifiedExercise";
 
 type GameType = "mcq" | "fill_blank" | "true_false" | "match_pairs" | "drag_drop";
@@ -18,6 +18,8 @@ interface GameSuggestion {
   suggested_game: GameType;
   reason: string;
   confidence: number;
+  alternative_options?: GameType[];
+  difficulty_estimate?: string;
 }
 
 interface BulkQuestion {
@@ -54,6 +56,10 @@ export const QuestionToGameConverter = () => {
   const [bulkQuestions, setBulkQuestions] = useState<BulkQuestion[]>([]);
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Advanced features
+  const [showConversion, setShowConversion] = useState(false);
+  const [conversionTarget, setConversionTarget] = useState<GameType | "">("");
 
   const handleAISuggest = async () => {
     if (!questionText.trim()) {
@@ -123,7 +129,7 @@ export const QuestionToGameConverter = () => {
         setGeneratedExercise({
           exercise_type: selectedGameType,
           exercise_data: data.exercise_data,
-          correct_answer: data.exercise_data.answer || "true", // For preview
+          correct_answer: data.exercise_data.answer || "true",
           explanation: `Generated game for: ${questionText.substring(0, 50)}...`,
           xp_reward: 10,
         });
@@ -132,6 +138,48 @@ export const QuestionToGameConverter = () => {
     } catch (error: any) {
       console.error('Game generation error:', error);
       toast.error(error.message || "Failed to generate game");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConvertMCQ = async () => {
+    if (!conversionTarget || !questionText.trim()) {
+      toast.error("Please select a conversion target!");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+        body: {
+          question_text: questionText,
+          options: options ? options.split('\n').filter(o => o.trim()) : null,
+          question_type: questionType,
+          subject,
+          chapter_name: chapterName,
+          topic_name: topicName,
+          convert_to: conversionTarget,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.exercise_data) {
+        setGeneratedExercise({
+          exercise_type: conversionTarget,
+          exercise_data: data.exercise_data,
+          correct_answer: data.exercise_data.answer || "true",
+          explanation: `Converted from MCQ to ${conversionTarget}`,
+          xp_reward: 10,
+        });
+        toast.success(`✨ Converted to ${conversionTarget.toUpperCase()}!`);
+        setShowConversion(false);
+      }
+    } catch (error: any) {
+      console.error('Conversion error:', error);
+      toast.error(error.message || "Failed to convert question");
     } finally {
       setLoading(false);
     }
@@ -146,8 +194,7 @@ export const QuestionToGameConverter = () => {
     setSaving(true);
 
     try {
-      // First, insert the question to generated_questions
-      const { data: questionData, error: questionError } = await supabase
+      const { error: questionError } = await supabase
         .from('generated_questions')
         .insert({
           question_text: questionText,
@@ -158,9 +205,7 @@ export const QuestionToGameConverter = () => {
           chapter_name: chapterName,
           topic_name: topicName,
           is_approved: false,
-        })
-        .select()
-        .single();
+        });
 
       if (questionError) throw questionError;
 
@@ -219,53 +264,6 @@ export const QuestionToGameConverter = () => {
     reader.readAsText(file);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadedFile(file);
-    setLoading(true);
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64Image = event.target?.result as string;
-
-        const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
-          body: {
-            image_data: base64Image,
-            extract_mode: 'ocr'
-          }
-        });
-
-        if (error) throw error;
-
-        if (data.extracted_questions) {
-          const questions: BulkQuestion[] = data.extracted_questions.map((q: any, index: number) => ({
-            id: `img-${Date.now()}-${index}`,
-            question_text: q.question_text,
-            options: q.options,
-            question_type: q.question_type || 'mcq',
-            subject: subject || '',
-            chapter_name: chapterName || '',
-            topic_name: topicName || '',
-            status: 'pending'
-          }));
-
-          setBulkQuestions(questions);
-          toast.success(`Extracted ${questions.length} questions from image`);
-        }
-      };
-
-      reader.readAsDataURL(file);
-    } catch (error: any) {
-      console.error('Image OCR error:', error);
-      toast.error(error.message || "Failed to extract questions from image");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleBulkGenerate = async () => {
     setBulkProcessing(true);
 
@@ -277,7 +275,6 @@ export const QuestionToGameConverter = () => {
       ));
 
       try {
-        // Get AI suggestion
         const { data: suggestionData, error: suggestionError } = await supabase.functions.invoke('ai-question-to-game', {
           body: {
             question_text: question.question_text,
@@ -293,7 +290,6 @@ export const QuestionToGameConverter = () => {
 
         const gameType = suggestionData.suggestion.suggested_game;
 
-        // Generate game data
         const { data: gameData, error: gameError } = await supabase.functions.invoke('ai-question-to-game', {
           body: {
             question_text: question.question_text,
@@ -375,209 +371,281 @@ export const QuestionToGameConverter = () => {
         </TabsList>
 
         <TabsContent value="single">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5" />
-            AI Question to Game Converter
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="question">Question Text *</Label>
-            <Textarea
-              id="question"
-              placeholder="Enter your question here..."
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              rows={4}
-            />
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5" />
+                AI Question to Game Converter
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="question">Question Text *</Label>
+                <Textarea
+                  id="question"
+                  placeholder="Enter your question here..."
+                  value={questionText}
+                  onChange={(e) => setQuestionText(e.target.value)}
+                  rows={4}
+                />
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
-              <Input
-                id="subject"
-                placeholder="e.g., Physics, Math"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="questionType">Question Type</Label>
-              <Input
-                id="questionType"
-                placeholder="e.g., MCQ, Match Column"
-                value={questionType}
-                onChange={(e) => setQuestionType(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="chapter">Chapter Name</Label>
-              <Input
-                id="chapter"
-                placeholder="Optional"
-                value={chapterName}
-                onChange={(e) => setChapterName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="topic">Topic Name</Label>
-              <Input
-                id="topic"
-                placeholder="Optional"
-                value={topicName}
-                onChange={(e) => setTopicName(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="options">Options (one per line, optional for MCQ)</Label>
-            <Textarea
-              id="options"
-              placeholder="Option 1&#10;Option 2&#10;Option 3&#10;Option 4"
-              value={options}
-              onChange={(e) => setOptions(e.target.value)}
-              rows={4}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              onClick={handleAISuggest}
-              disabled={loading || !questionText.trim()}
-              variant="outline"
-              className="flex-1"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  AI Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Get AI Suggestion
-                </>
-              )}
-            </Button>
-          </div>
-
-          {suggestion && (
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <span className="font-semibold">AI Suggestion:</span>
-                    <span className="uppercase font-bold text-primary">{suggestion.suggested_game}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({Math.round(suggestion.confidence * 100)}% confident)
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{suggestion.reason}</p>
+                  <Label htmlFor="subject">Subject</Label>
+                  <Input
+                    id="subject"
+                    placeholder="e.g., Physics, Math"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="questionType">Question Type</Label>
+                  <Input
+                    id="questionType"
+                    placeholder="e.g., MCQ, Match Column"
+                    value={questionType}
+                    onChange={(e) => setQuestionType(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="chapter">Chapter Name</Label>
+                  <Input
+                    id="chapter"
+                    placeholder="Optional"
+                    value={chapterName}
+                    onChange={(e) => setChapterName(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="topic">Topic Name</Label>
+                  <Input
+                    id="topic"
+                    placeholder="Optional"
+                    value={topicName}
+                    onChange={(e) => setTopicName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="options">Options (one per line, optional for MCQ)</Label>
+                <Textarea
+                  id="options"
+                  placeholder="Option 1&#10;Option 2&#10;Option 3&#10;Option 4"
+                  value={options}
+                  onChange={(e) => setOptions(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleAISuggest}
+                  disabled={loading || !questionText.trim()}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      AI Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Get AI Suggestion
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {suggestion && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="pt-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="font-semibold">AI Suggestion:</span>
+                        <span className="uppercase font-bold text-primary">{suggestion.suggested_game}</span>
+                        <span className="text-sm text-muted-foreground">
+                          ({Math.round(suggestion.confidence * 100)}% confident)
+                        </span>
+                        {suggestion.difficulty_estimate && (
+                          <Badge variant="outline">{suggestion.difficulty_estimate}</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{suggestion.reason}</p>
+                      {suggestion.alternative_options && suggestion.alternative_options.length > 0 && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-muted-foreground">Alternatives:</span>
+                          {suggestion.alternative_options.map(alt => (
+                            <Badge key={alt} variant="secondary" className="uppercase">{alt}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setSelectedGameType(suggestion.suggested_game)}
+                          variant="outline"
+                        >
+                          Use This Suggestion
+                        </Button>
+                        {questionType === 'mcq' && (
+                          <Button
+                            size="sm"
+                            onClick={() => setShowConversion(true)}
+                            variant="ghost"
+                          >
+                            <Sparkles className="mr-1 h-3 w-3" />
+                            Convert to Other Format
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {showConversion && (
+                <Card className="bg-accent/5 border-accent/20">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-accent" />
+                      <span className="font-semibold">Smart Conversion</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Convert your MCQ to other game formats</p>
+                    
+                    <Select value={conversionTarget} onValueChange={(value: GameType) => setConversionTarget(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select conversion target" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
+                        <SelectItem value="true_false">True/False</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleConvertMCQ}
+                        disabled={loading || !conversionTarget}
+                        size="sm"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Converting...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Convert Now
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => setShowConversion(false)}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="gameType">Game Type *</Label>
+                <Select value={selectedGameType} onValueChange={(value: GameType) => setSelectedGameType(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select or use AI suggestion" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
+                    <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
+                    <SelectItem value="true_false">True/False</SelectItem>
+                    <SelectItem value="match_pairs">Match the Pairs ✨ Auto-expands to 4 pairs</SelectItem>
+                    <SelectItem value="drag_drop">Drag & Drop Sequence</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleGenerateGame}
+                  disabled={loading || !selectedGameType || !questionText.trim()}
+                  className="flex-1"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate Game
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {generatedExercise && (
+            <Card className="border-primary">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                  Preview Generated Game
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <GamifiedExercise
+                    exercise={generatedExercise}
+                    onComplete={() => toast.info("Preview mode - completion not saved")}
+                  />
+                </div>
+
+                <div className="flex gap-3">
                   <Button
-                    size="sm"
-                    onClick={() => setSelectedGameType(suggestion.suggested_game)}
-                    variant="outline"
+                    onClick={handleSaveToDatabase}
+                    disabled={saving}
+                    className="flex-1"
                   >
-                    Use This Suggestion
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Save to Database
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setGeneratedExercise(null);
+                      setSelectedGameType("");
+                    }}
+                  >
+                    Reset
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="gameType">Game Type *</Label>
-            <Select value={selectedGameType} onValueChange={(value: GameType) => setSelectedGameType(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select or use AI suggestion" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
-                <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
-                <SelectItem value="true_false">True/False</SelectItem>
-                <SelectItem value="match_pairs">Match the Pairs</SelectItem>
-                <SelectItem value="drag_drop">Drag & Drop Sequence</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              onClick={handleGenerateGame}
-              disabled={loading || !selectedGameType || !questionText.trim()}
-              className="flex-1"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Generate Game
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {generatedExercise && (
-        <Card className="border-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-primary" />
-              Preview Generated Game
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <GamifiedExercise
-                exercise={generatedExercise}
-                onComplete={() => toast.info("Preview mode - completion not saved")}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                onClick={handleSaveToDatabase}
-                disabled={saving}
-                className="flex-1"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Save to Database
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setGeneratedExercise(null);
-                  setSelectedGameType("");
-                }}
-              >
-                Reset
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
         </TabsContent>
 
         <TabsContent value="bulk">
@@ -604,23 +672,6 @@ export const QuestionToGameConverter = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     CSV format: question, options (pipe-separated), type, subject, chapter, topic
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="image-upload">Upload Image (OCR)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="image-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={loading || bulkProcessing}
-                    />
-                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    AI will extract questions from scanned images
                   </p>
                 </div>
               </div>

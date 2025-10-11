@@ -416,6 +416,10 @@ export function LessonContentBuilder() {
       xp_reward: 10,
       generated_by: 'manual',
       human_reviewed: false,
+      game_type: undefined,
+      game_data: undefined,
+      svg_type: undefined,
+      svg_data: undefined,
     });
     setUploadedFiles([]);
     setAdditionalText('');
@@ -547,6 +551,27 @@ export function LessonContentBuilder() {
       content_order: lessons.length + 1,
       created_by: user.user.id,
     } as any;
+
+    // Clean data based on lesson type to avoid constraint violations
+    if (lessonData.lesson_type !== 'game') {
+      delete lessonData.game_type;
+      delete lessonData.game_data;
+    } else {
+      // Validate game lessons have required fields
+      if (!lessonData.game_type || !lessonData.game_data) {
+        toast({ 
+          title: "Error", 
+          description: "Game lessons require game_type and game_data", 
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
+    if (lessonData.lesson_type !== 'interactive_svg') {
+      delete lessonData.svg_type;
+      delete lessonData.svg_data;
+    }
 
     const { error } = await supabase.from('topic_learning_content').insert([lessonData]);
 

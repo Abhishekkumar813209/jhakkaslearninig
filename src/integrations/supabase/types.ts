@@ -668,30 +668,36 @@ export type Database = {
       }
       exam_templates: {
         Row: {
+          board: string | null
           created_at: string | null
           exam_name: string
           exam_type: string
           id: string
           is_active: boolean | null
           standard_subjects: Json
+          student_class: string | null
           updated_at: string | null
         }
         Insert: {
+          board?: string | null
           created_at?: string | null
           exam_name: string
           exam_type: string
           id?: string
           is_active?: boolean | null
           standard_subjects: Json
+          student_class?: string | null
           updated_at?: string | null
         }
         Update: {
+          board?: string | null
           created_at?: string | null
           exam_name?: string
           exam_type?: string
           id?: string
           is_active?: boolean | null
           standard_subjects?: Json
+          student_class?: string | null
           updated_at?: string | null
         }
         Relationships: []

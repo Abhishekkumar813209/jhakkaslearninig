@@ -220,8 +220,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         body: {
           exam_type: examType,
           exam_name: finalExamName,
-          board: isSchool ? conditionalBoard : undefined,
-          student_class: isSchool ? conditionalClass : undefined,
+          student_class: conditionalClass,
+          board: conditionalBoard
         }
       });
 
@@ -311,9 +311,10 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       const { data, error } = await supabase.functions.invoke('fetch-subject-chapters', {
         body: {
           exam_type: examType,
+          exam_name: examName,
           subject: subjectName,
-          student_class: examType?.toLowerCase() === 'school' ? conditionalClass : undefined,
-          board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
+          student_class: conditionalClass,
+          board: conditionalBoard,
           fetch_mode: fetchMode,
           already_fetched: alreadyFetched,
         }

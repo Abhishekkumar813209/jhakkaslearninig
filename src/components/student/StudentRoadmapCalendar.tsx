@@ -64,18 +64,21 @@ const SUBJECT_COLORS: Record<string, string> = {
 const ChapterPill = ({ 
   chapter, 
   isToday, 
-  isPast, 
+  isPast,
+  isFirstChapter,
   onTopicClick 
 }: { 
   chapter: CalendarChapter; 
   isToday: boolean; 
   isPast: boolean;
+  isFirstChapter: boolean;
   onTopicClick?: (topicId: string, chapterName: string, subject: string) => void;
 }) => {
   const [showTopics, setShowTopics] = useState(false);
   const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
   
-  const isLocked = !isPast && !isToday;
+  // First chapter is always unlocked, otherwise lock future dates
+  const isLocked = !isFirstChapter && !isPast && !isToday;
   const completedTopics = chapter.topics.filter(t => t.is_completed).length;
   const totalTopics = chapter.topics.length;
 
@@ -123,31 +126,36 @@ const ChapterPill = ({
       {/* Topics list */}
       {showTopics && totalTopics > 0 && (
         <div className="mt-2 space-y-1 border-t pt-2">
-          {chapter.topics.map((topic) => (
-            <button
-              key={topic.id}
-              onClick={() => !isLocked && onTopicClick?.(topic.id, chapter.chapterName, chapter.subject)}
-              disabled={isLocked}
-              className={`w-full text-left text-xs p-1.5 rounded flex items-center gap-2 transition-colors ${
-                isLocked 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : 'hover:bg-white/50 cursor-pointer'
-              }`}
-            >
-              {topic.is_completed ? (
-                <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
-              ) : topic.theory_completed ? (
-                <FileText className="h-3 w-3 text-blue-600 flex-shrink-0" />
-              ) : isLocked ? (
-                <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-              ) : (
-                <div className="h-3 w-3 border border-muted-foreground rounded-full flex-shrink-0" />
-              )}
-              <span className={topic.is_completed ? 'line-through text-muted-foreground' : ''}>
-                {topic.topic_name}
-              </span>
-            </button>
-          ))}
+          {chapter.topics.map((topic, topicIndex) => {
+            // First topic is always unlocked if chapter is unlocked
+            const isTopicLocked = isLocked && topicIndex !== 0;
+            
+            return (
+              <button
+                key={topic.id}
+                onClick={() => !isTopicLocked && onTopicClick?.(topic.id, chapter.chapterName, chapter.subject)}
+                disabled={isTopicLocked}
+                className={`w-full text-left text-xs p-1.5 rounded flex items-center gap-2 transition-colors ${
+                  isTopicLocked 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:bg-white/50 cursor-pointer'
+                }`}
+              >
+                {topic.is_completed ? (
+                  <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
+                ) : topic.theory_completed ? (
+                  <FileText className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                ) : isTopicLocked ? (
+                  <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                ) : (
+                  <div className="h-3 w-3 border border-muted-foreground rounded-full flex-shrink-0" />
+                )}
+                <span className={topic.is_completed ? 'line-through text-muted-foreground' : ''}>
+                  {topic.topic_name}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -203,6 +211,11 @@ export const StudentRoadmapCalendar = ({
 
   const allDates = generateDateRange(startDate, totalDays);
   const today = format(new Date(), 'yyyy-MM-dd');
+
+  // Find the first chapter overall (earliest date)
+  const firstChapterId = chapters.sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  )[0]?.id;
 
   // Group chapters by date AND subject
   const groupedByDateSubject = allDates.reduce((acc, date) => {
@@ -295,6 +308,7 @@ export const StudentRoadmapCalendar = ({
                               chapter={chapter}
                               isToday={isToday}
                               isPast={isPast}
+                              isFirstChapter={chapter.id === firstChapterId}
                               onTopicClick={onTopicClick}
                             />
                           ))}
@@ -313,6 +327,7 @@ export const StudentRoadmapCalendar = ({
                                 chapter={chapter}
                                 isToday={isToday}
                                 isPast={isPast}
+                                isFirstChapter={chapter.id === firstChapterId}
                                 onTopicClick={onTopicClick}
                               />
                             ))}

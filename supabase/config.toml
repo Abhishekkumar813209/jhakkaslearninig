@@ -136,3 +136,6 @@ verify_jwt = true
 
 [functions.ai-question-to-game]
 verify_jwt = true
+
+[functions.parent-portal]
+verify_jwt = true

@@ -3899,7 +3899,7 @@ export type Database = {
         | "abandoned"
       test_difficulty: "easy" | "medium" | "hard"
       topic_status: "locked" | "unlocked" | "in_progress" | "completed"
-      user_role: "admin" | "student"
+      user_role: "admin" | "student" | "parent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4087,7 +4087,7 @@ export const Constants = {
       ],
       test_difficulty: ["easy", "medium", "hard"],
       topic_status: ["locked", "unlocked", "in_progress", "completed"],
-      user_role: ["admin", "student"],
+      user_role: ["admin", "student", "parent"],
     },
   },
 } as const

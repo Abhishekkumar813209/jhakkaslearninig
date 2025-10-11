@@ -31,6 +31,7 @@ import StudentGuidedPaths from "./pages/StudentGuidedPaths";
 import LiveRacing from "./pages/LiveRacing";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import UIGuide from "./pages/UIGuide";
+import ParentDashboard from "./pages/ParentDashboard";
 
 const queryClient = new QueryClient();
 
@@ -145,6 +146,13 @@ const App = () => (
             <Route path="/quiz" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <Quiz />
+              </ProtectedRoute>
+            } />
+            
+            {/* Parent routes - require parent access */}
+            <Route path="/parent" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <ParentDashboard />
               </ProtectedRoute>
             } />
             

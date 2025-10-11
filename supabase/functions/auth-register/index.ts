@@ -35,11 +35,15 @@ serve(async (req: Request) => {
     })
 
     if (authError) {
+      console.error('❌ User creation failed:', authError.message)
+      const status = authError.message.includes('already been registered') ? 409 : 400
       return new Response(
         JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('✅ User created successfully:', authData.user.id)
 
     // Generate session tokens for auto-login
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -51,16 +55,31 @@ serve(async (req: Request) => {
       }
     })
 
-    if (linkError) {
-      console.error('Failed to generate session:', linkError)
+    if (linkError || !linkData) {
+      console.error('❌ Failed to generate session:', linkError?.message)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to generate login session',
+          details: linkError?.message 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+
+    console.log('✅ Session generated successfully')
 
     // Profile is automatically created via trigger
     // Set role
-    await supabase.from('user_roles').insert({
+    const { error: roleError } = await supabase.from('user_roles').insert({
       user_id: authData.user.id,
       role: role as any
     })
+
+    if (roleError) {
+      console.error('❌ Failed to assign role:', roleError.message)
+    } else {
+      console.log('✅ Role assigned:', role)
+    }
 
     // Auto-assign to batch if exam domain and name are provided
     let assignedBatchId = null;
@@ -72,9 +91,13 @@ serve(async (req: Request) => {
         p_signup_date: new Date().toISOString().split('T')[0]
       });
 
-      if (!batchError && batchId) {
+      if (batchError) {
+        console.error('❌ Failed to find batch:', batchError.message)
+      } else if (batchId) {
         assignedBatchId = batchId;
-        console.log(`Auto-assigned student ${authData.user.id} to batch ${batchId}`);
+        console.log(`✅ Auto-assigned student to batch ${batchId}`);
+      } else {
+        console.log('ℹ️ No matching batch found for auto-assignment')
       }
     }
 
@@ -89,7 +112,13 @@ serve(async (req: Request) => {
     if (target_exam) profileUpdates.target_exam = target_exam;
     if (assignedBatchId) profileUpdates.batch_id = assignedBatchId;
 
-    await supabase.from('profiles').update(profileUpdates).eq('id', authData.user.id);
+    const { error: profileError } = await supabase.from('profiles').update(profileUpdates).eq('id', authData.user.id);
+    
+    if (profileError) {
+      console.error('❌ Failed to update profile:', profileError.message)
+    } else {
+      console.log('✅ Profile updated successfully')
+    }
 
     // Handle referral code if provided
     if (referral_code) {
@@ -101,7 +130,7 @@ serve(async (req: Request) => {
 
       if (referrer) {
         // Create referral record
-        await supabase.from('referrals').insert({
+        const { error: referralError } = await supabase.from('referrals').insert({
           referrer_id: referrer.referrer_id,
           referred_id: authData.user.id,
           referral_code: referral_code,
@@ -110,6 +139,12 @@ serve(async (req: Request) => {
           status: 'joined',
           joined_at: new Date().toISOString()
         });
+
+        if (referralError) {
+          console.error('❌ Failed to create referral record:', referralError.message)
+        } else {
+          console.log(`✅ Referral recorded: ${referrer.referrer_id} → ${authData.user.id}`)
+        }
 
         // Award +10 XP to referrer
         await supabase.functions.invoke('xp-coin-reward-system', {
@@ -122,8 +157,8 @@ serve(async (req: Request) => {
             }
           }
         });
-
-        console.log(`Referral: ${referrer.referrer_id} referred ${authData.user.id} using code ${referral_code}`);
+      } else {
+        console.log('ℹ️ Invalid referral code provided')
       }
     }
 
@@ -136,14 +171,21 @@ serve(async (req: Request) => {
         .maybeSingle();
 
       if (batch?.auto_assign_roadmap && batch.linked_roadmap_id) {
-        await supabase.from('student_roadmaps').insert({
+        const { error: roadmapError } = await supabase.from('student_roadmaps').insert({
           student_id: authData.user.id,
           batch_roadmap_id: batch.linked_roadmap_id
         });
-        console.log(`Auto-assigned roadmap ${batch.linked_roadmap_id} to student ${authData.user.id}`);
+        
+        if (roadmapError) {
+          console.error('❌ Failed to assign roadmap:', roadmapError.message)
+        } else {
+          console.log(`✅ Auto-assigned roadmap ${batch.linked_roadmap_id}`)
+        }
       }
     }
 
+    console.log('✅ Registration completed successfully for:', email)
+    
     return new Response(
       JSON.stringify({ 
         message: 'User registered successfully',
@@ -152,18 +194,21 @@ serve(async (req: Request) => {
           email: authData.user.email,
           full_name
         },
-        session: linkData ? {
+        session: {
           access_token: linkData.properties.access_token,
           refresh_token: linkData.properties.refresh_token
-        } : null
+        }
       }),
       { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Registration error:', error)
+    console.error('❌ Registration error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

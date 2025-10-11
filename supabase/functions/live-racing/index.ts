@@ -73,28 +73,13 @@ serve(async (req: Request) => {
     switch (raceType) {
       case 'class':
         // Class racing: Same exam_domain + exam_name + class
+        // Step 1: Query student_gamification
         let classQuery = supabase
           .from('student_gamification')
-          .select(`
-            student_id,
-            total_xp,
-            level,
-            exam_domain,
-            exam_name,
-            student_class,
-            profiles!inner (
-              full_name,
-              avatar_url,
-              student_class,
-              exam_domain,
-              target_exam,
-              batch_id,
-              batches (name)
-            )
-          `)
+          .select('student_id, total_xp, level, exam_domain, exam_name, student_class')
           .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
-          .limit(100); // Get more for context
+          .limit(100);
 
         if (userProfile.target_exam) {
           classQuery = classQuery.eq('exam_name', userProfile.target_exam);
@@ -103,11 +88,37 @@ serve(async (req: Request) => {
           classQuery = classQuery.eq('student_class', userProfile.student_class);
         }
 
-        const { data: classRacers, error: classError } = await classQuery;
-
+        const { data: classGamification, error: classError } = await classQuery;
         if (classError) throw classError;
 
-        racingData = processRacingData(classRacers || [], userId, limit);
+        // Step 2: Get student IDs and fetch profiles
+        const classStudentIds = (classGamification || []).map(g => g.student_id);
+        console.log(`[class] Fetched ${classStudentIds.length} gamification records`);
+
+        const { data: classProfiles, error: classProfileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .in('id', classStudentIds);
+
+        if (classProfileError) throw classProfileError;
+        console.log(`[class] Fetched ${classProfiles?.length || 0} profiles`);
+
+        // Step 3: Optionally fetch batch names
+        const classBatchIds = [...new Set((classProfiles || []).map(p => p.batch_id).filter(Boolean))];
+        let classBatchMap: Record<string, string> = {};
+        if (classBatchIds.length > 0) {
+          const { data: classBatches } = await supabase
+            .from('batches')
+            .select('id, name')
+            .in('id', classBatchIds);
+          if (classBatches) {
+            classBatchMap = Object.fromEntries(classBatches.map(b => [b.id, b.name]));
+          }
+        }
+
+        // Step 4: Merge and process
+        const classProfileMap = Object.fromEntries((classProfiles || []).map(p => [p.id, p]));
+        racingData = processRacingDataV2(classGamification || [], userId, limit, classProfileMap, classBatchMap);
         const classTitle = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
         racingData.title = `${classTitle} Racing`;
         racingData.description = `${userProfile.exam_domain?.toUpperCase()} - ${userProfile.target_exam || 'All Students'}`;
@@ -116,82 +127,112 @@ serve(async (req: Request) => {
       case 'batch':
         // Batch racing: Same batch
         if (!userProfile.batch_id) {
-          racingData = { title: 'Batch Racing', description: 'No batch assigned', racers: [], userPosition: null };
+          racingData = { title: 'Batch Racing', description: 'No batch assigned', topRacers: [], userPosition: null, totalRacers: 0 };
           break;
         }
 
-        const { data: batchRacers, error: batchError } = await supabase
+        // Step 1: Get all student IDs in this batch
+        const { data: batchProfiles, error: batchProfileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('batch_id', userProfile.batch_id);
+
+        if (batchProfileError) throw batchProfileError;
+        const batchStudentIds = (batchProfiles || []).map(p => p.id);
+        console.log(`[batch] Found ${batchStudentIds.length} students in batch`);
+
+        if (batchStudentIds.length === 0) {
+          racingData = { title: 'Batch Racing', description: 'No students in batch', topRacers: [], userPosition: null, totalRacers: 0 };
+          break;
+        }
+
+        // Step 2: Query student_gamification for these IDs
+        const { data: batchGamification, error: batchGamError } = await supabase
           .from('student_gamification')
-          .select(`
-            student_id,
-            total_xp,
-            level,
-            exam_domain,
-            exam_name,
-            student_class,
-            profiles!inner (
-              full_name,
-              avatar_url,
-              student_class,
-              exam_domain,
-              target_exam,
-              batch_id,
-              batches (name)
-            )
-          `)
-          .eq('profiles.batch_id', userProfile.batch_id)
+          .select('student_id, total_xp, level, exam_domain, exam_name, student_class')
+          .in('student_id', batchStudentIds)
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        if (batchError) throw batchError;
+        if (batchGamError) throw batchGamError;
+        console.log(`[batch] Fetched ${batchGamification?.length || 0} gamification records`);
 
-        racingData = processRacingData(batchRacers || [], userId, limit);
-        racingData.title = `${userProfile.batches?.name || 'Batch'} Racing`;
+        // Step 3: Fetch full profiles for the gamification records
+        const batchGamStudentIds = (batchGamification || []).map(g => g.student_id);
+        const { data: batchFullProfiles, error: batchFullProfileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .in('id', batchGamStudentIds);
+
+        if (batchFullProfileError) throw batchFullProfileError;
+
+        // Fetch batch name
+        const { data: batchData } = await supabase
+          .from('batches')
+          .select('name')
+          .eq('id', userProfile.batch_id)
+          .maybeSingle();
+
+        const batchProfileMap = Object.fromEntries((batchFullProfiles || []).map(p => [p.id, p]));
+        const batchMap = batchData ? { [userProfile.batch_id]: batchData.name } : {};
+        racingData = processRacingDataV2(batchGamification || [], userId, limit, batchProfileMap, batchMap);
+        racingData.title = `${batchData?.name || 'Batch'} Racing`;
         racingData.description = 'Batch members competing';
         break;
 
       case 'school':
         // School racing: Same school + class + exam_domain
         if (!userProfile.school_id) {
-          racingData = { title: 'School Racing', description: 'No school assigned', racers: [], userPosition: null };
+          racingData = { title: 'School Racing', description: 'No school assigned', topRacers: [], userPosition: null, totalRacers: 0 };
           break;
         }
 
-        let schoolQuery = supabase
+        // Step 1: Get all student IDs in this school
+        const { data: schoolProfiles, error: schoolProfileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('school_id', userProfile.school_id);
+
+        if (schoolProfileError) throw schoolProfileError;
+        const schoolStudentIds = (schoolProfiles || []).map(p => p.id);
+        console.log(`[school] Found ${schoolStudentIds.length} students in school`);
+
+        if (schoolStudentIds.length === 0) {
+          racingData = { title: 'School Racing', description: 'No students in school', topRacers: [], userPosition: null, totalRacers: 0 };
+          break;
+        }
+
+        // Step 2: Query student_gamification for these IDs with filters
+        let schoolGamQuery = supabase
           .from('student_gamification')
-          .select(`
-            student_id,
-            total_xp,
-            level,
-            exam_domain,
-            exam_name,
-            student_class,
-            profiles!inner (
-              full_name,
-              avatar_url,
-              student_class,
-              exam_domain,
-              target_exam,
-              school_id
-            )
-          `)
-          .eq('profiles.school_id', userProfile.school_id)
+          .select('student_id, total_xp, level, exam_domain, exam_name, student_class')
+          .in('student_id', schoolStudentIds)
           .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100);
 
         if (userProfile.target_exam) {
-          schoolQuery = schoolQuery.eq('exam_name', userProfile.target_exam);
+          schoolGamQuery = schoolGamQuery.eq('exam_name', userProfile.target_exam);
         }
         if (userProfile.student_class) {
-          schoolQuery = schoolQuery.eq('student_class', userProfile.student_class);
+          schoolGamQuery = schoolGamQuery.eq('student_class', userProfile.student_class);
         }
 
-        const { data: schoolRacers, error: schoolError } = await schoolQuery;
+        const { data: schoolGamification, error: schoolGamError } = await schoolGamQuery;
+        if (schoolGamError) throw schoolGamError;
+        console.log(`[school] Fetched ${schoolGamification?.length || 0} gamification records`);
 
-        if (schoolError) throw schoolError;
+        // Step 3: Fetch full profiles
+        const schoolGamStudentIds = (schoolGamification || []).map(g => g.student_id);
+        const { data: schoolFullProfiles, error: schoolFullProfileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .in('id', schoolGamStudentIds);
 
-        racingData = processRacingData(schoolRacers || [], userId, limit);
+        if (schoolFullProfileError) throw schoolFullProfileError;
+
+        const schoolProfileMap = Object.fromEntries((schoolFullProfiles || []).map(p => [p.id, p]));
+        racingData = processRacingDataV2(schoolGamification || [], userId, limit, schoolProfileMap, {});
         racingData.title = 'School Racing';
         const schoolDesc = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
         racingData.description = `${schoolDesc} at your school - ${userProfile.exam_domain?.toUpperCase()}`;
@@ -200,45 +241,56 @@ serve(async (req: Request) => {
       case 'zone':
         // Zone racing: Same zone + class + exam_domain
         if (!userProfile.zone_id) {
-          racingData = { title: 'Zone Racing', description: 'No zone assigned', racers: [], userPosition: null };
+          racingData = { title: 'Zone Racing', description: 'No zone assigned', topRacers: [], userPosition: null, totalRacers: 0 };
           break;
         }
 
-        let zoneQuery = supabase
+        // Step 1: Get all student IDs in this zone
+        const { data: zoneProfiles, error: zoneProfileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('zone_id', userProfile.zone_id);
+
+        if (zoneProfileError) throw zoneProfileError;
+        const zoneStudentIds = (zoneProfiles || []).map(p => p.id);
+        console.log(`[zone] Found ${zoneStudentIds.length} students in zone`);
+
+        if (zoneStudentIds.length === 0) {
+          racingData = { title: 'Zone Racing', description: 'No students in zone', topRacers: [], userPosition: null, totalRacers: 0 };
+          break;
+        }
+
+        // Step 2: Query student_gamification for these IDs with filters
+        let zoneGamQuery = supabase
           .from('student_gamification')
-          .select(`
-            student_id,
-            total_xp,
-            level,
-            exam_domain,
-            exam_name,
-            student_class,
-            profiles!inner (
-              full_name,
-              avatar_url,
-              student_class,
-              exam_domain,
-              target_exam,
-              zone_id
-            )
-          `)
-          .eq('profiles.zone_id', userProfile.zone_id)
+          .select('student_id, total_xp, level, exam_domain, exam_name, student_class')
+          .in('student_id', zoneStudentIds)
           .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100);
 
         if (userProfile.target_exam) {
-          zoneQuery = zoneQuery.eq('exam_name', userProfile.target_exam);
+          zoneGamQuery = zoneGamQuery.eq('exam_name', userProfile.target_exam);
         }
         if (userProfile.student_class) {
-          zoneQuery = zoneQuery.eq('student_class', userProfile.student_class);
+          zoneGamQuery = zoneGamQuery.eq('student_class', userProfile.student_class);
         }
 
-        const { data: zoneRacers, error: zoneError } = await zoneQuery;
+        const { data: zoneGamification, error: zoneGamError } = await zoneGamQuery;
+        if (zoneGamError) throw zoneGamError;
+        console.log(`[zone] Fetched ${zoneGamification?.length || 0} gamification records`);
 
-        if (zoneError) throw zoneError;
+        // Step 3: Fetch full profiles
+        const zoneGamStudentIds = (zoneGamification || []).map(g => g.student_id);
+        const { data: zoneFullProfiles, error: zoneFullProfileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .in('id', zoneGamStudentIds);
 
-        racingData = processRacingData(zoneRacers || [], userId, limit);
+        if (zoneFullProfileError) throw zoneFullProfileError;
+
+        const zoneProfileMap = Object.fromEntries((zoneFullProfiles || []).map(p => [p.id, p]));
+        racingData = processRacingDataV2(zoneGamification || [], userId, limit, zoneProfileMap, {});
         racingData.title = 'Zone Racing';
         const zoneDesc = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
         racingData.description = `${zoneDesc} in your zone - ${userProfile.exam_domain?.toUpperCase()}`;
@@ -248,21 +300,7 @@ serve(async (req: Request) => {
         // Overall racing: Same exam_domain + exam_name + class (nationwide)
         let overallQuery = supabase
           .from('student_gamification')
-          .select(`
-            student_id,
-            total_xp,
-            level,
-            exam_domain,
-            exam_name,
-            student_class,
-            profiles!inner (
-              full_name,
-              avatar_url,
-              student_class,
-              exam_domain,
-              target_exam
-            )
-          `)
+          .select('student_id, total_xp, level, exam_domain, exam_name, student_class')
           .eq('exam_domain', userProfile.exam_domain)
           .order('total_xp', { ascending: false })
           .limit(100);
@@ -274,11 +312,22 @@ serve(async (req: Request) => {
           overallQuery = overallQuery.eq('student_class', userProfile.student_class);
         }
 
-        const { data: overallRacers, error: overallError } = await overallQuery;
-
+        const { data: overallGamification, error: overallError } = await overallQuery;
         if (overallError) throw overallError;
 
-        racingData = processRacingData(overallRacers || [], userId, limit);
+        const overallStudentIds = (overallGamification || []).map(g => g.student_id);
+        console.log(`[overall] Fetched ${overallStudentIds.length} gamification records`);
+
+        const { data: overallProfiles, error: overallProfileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .in('id', overallStudentIds);
+
+        if (overallProfileError) throw overallProfileError;
+        console.log(`[overall] Fetched ${overallProfiles?.length || 0} profiles`);
+
+        const overallProfileMap = Object.fromEntries((overallProfiles || []).map(p => [p.id, p]));
+        racingData = processRacingDataV2(overallGamification || [], userId, limit, overallProfileMap, {});
         racingData.title = 'Overall Racing';
         const overallDesc = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
         racingData.description = `All ${overallDesc} ${userProfile.exam_domain?.toUpperCase()} students`;
@@ -309,22 +358,27 @@ serve(async (req: Request) => {
   }
 });
 
-function processRacingData(racers: any[], userId: string, topLimit: number) {
-  // Add positions and extract profile data properly
-  const racersWithPositions = racers.map((racer, index) => {
-    // Handle nested profiles structure - could be array or object
-    const profileData = Array.isArray(racer.profiles) ? racer.profiles[0] : racer.profiles;
-    const batchData = profileData?.batches ? (Array.isArray(profileData.batches) ? profileData.batches[0] : profileData.batches) : null;
-    
+function processRacingDataV2(
+  gamificationRecords: any[],
+  userId: string,
+  topLimit: number,
+  profileMap: Record<string, any>,
+  batchMap: Record<string, string>
+) {
+  // Merge gamification data with profile data
+  const racersWithPositions = gamificationRecords.map((gam, index) => {
+    const profile = profileMap[gam.student_id] || {};
+    const batchName = profile.batch_id ? batchMap[profile.batch_id] : null;
+
     return {
       position: index + 1,
-      student_id: racer.student_id,
-      name: profileData?.full_name || 'Unknown Student',
-      avatar: profileData?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${racer.student_id}`,
-      total_xp: racer.total_xp || 0,
-      level: racer.level || 1,
-      class: profileData?.student_class,
-      batch: batchData?.name || null,
+      student_id: gam.student_id,
+      name: profile.full_name || 'Unknown Student',
+      avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${gam.student_id}`,
+      total_xp: gam.total_xp || 0,
+      level: gam.level || 1,
+      class: profile.student_class,
+      batch: batchName || null,
     };
   });
 

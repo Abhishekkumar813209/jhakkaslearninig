@@ -279,17 +279,23 @@ serve(async (req: Request) => {
 });
 
 function processRacingData(racers: any[], userId: string, topLimit: number) {
-  // Add positions
-  const racersWithPositions = racers.map((racer, index) => ({
-    position: index + 1,
-    student_id: racer.student_id,
-    name: racer.profiles?.full_name || 'Student',
-    avatar: racer.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${racer.student_id}`,
-    total_xp: racer.total_xp || 0,
-    level: racer.level || 1,
-    class: racer.profiles?.student_class,
-    batch: racer.profiles?.batches?.name,
-  }));
+  // Add positions and extract profile data properly
+  const racersWithPositions = racers.map((racer, index) => {
+    // Handle nested profiles structure - could be array or object
+    const profileData = Array.isArray(racer.profiles) ? racer.profiles[0] : racer.profiles;
+    const batchData = profileData?.batches ? (Array.isArray(profileData.batches) ? profileData.batches[0] : profileData.batches) : null;
+    
+    return {
+      position: index + 1,
+      student_id: racer.student_id,
+      name: profileData?.full_name || 'Unknown Student',
+      avatar: profileData?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${racer.student_id}`,
+      total_xp: racer.total_xp || 0,
+      level: racer.level || 1,
+      class: profileData?.student_class,
+      batch: batchData?.name || null,
+    };
+  });
 
   // Get top racers
   const topRacers = racersWithPositions.slice(0, topLimit);

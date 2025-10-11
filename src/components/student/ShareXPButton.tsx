@@ -111,6 +111,15 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
   };
 
   const handleShare = async () => {
+    if (sharedToday) {
+      toast({
+        title: "Already shared today!",
+        description: `You can share again in ${cooldownHours} hours`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setIsGenerating(true);
       
@@ -118,6 +127,34 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       if (!user) {
         toast({ title: "Please login to share", variant: "destructive" });
         return;
+      }
+
+      // Server-side cooldown check
+      const { data: cooldownCheck } = await supabase
+        .from("daily_attendance")
+        .select("last_share_date, social_share_at")
+        .eq("student_id", user.id)
+        .order("last_share_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cooldownCheck?.last_share_date) {
+        const lastShareDate = new Date(cooldownCheck.last_share_date);
+        const now = new Date();
+        const hoursSinceShare = (now.getTime() - lastShareDate.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceShare < 24) {
+          const remaining = Math.ceil(24 - hoursSinceShare);
+          setSharedToday(true);
+          setCooldownHours(remaining);
+          toast({
+            title: "Already shared recently!",
+            description: `Wait ${remaining} hours before sharing again`,
+            variant: "destructive"
+          });
+          setIsGenerating(false);
+          return;
+        }
       }
 
       // Generate unique share code
@@ -160,9 +197,34 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
         });
       }
 
+      // Mark as shared IMMEDIATELY in database to prevent double-click
+      const today = new Date().toISOString().split('T')[0];
+      const { error: immediateMarkError } = await supabase
+        .from("daily_attendance")
+        .upsert({ 
+          student_id: user.id,
+          date: today,
+          last_share_date: today,
+          social_share_done: true,
+          social_share_at: new Date().toISOString()
+        }, {
+          onConflict: 'student_id,date'
+        });
+
+      if (immediateMarkError) {
+        console.error("Failed to mark share:", immediateMarkError);
+        toast({
+          title: "Error",
+          description: "Failed to process share. Please try again.",
+          variant: "destructive"
+        });
+        setIsGenerating(false);
+        return;
+      }
+
       // Show immediate feedback
       toast({
-        title: "🎉 Sharing in progress...",
+        title: "🎉 Share successful!",
         description: "Your XP will be credited in 2 minutes!"
       });
 
@@ -201,13 +263,26 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
   const awardShareXP = async (userId: string, code: string) => {
     const today = new Date().toISOString().split('T')[0];
     
-    // Get current share count
-    const { data: currentData } = await supabase
+    // Double-check cooldown before awarding XP
+    const { data: finalCheck } = await supabase
       .from("daily_attendance")
-      .select("share_count")
+      .select("last_share_date")
       .eq("student_id", userId)
-      .eq("date", today)
+      .order("last_share_date", { ascending: false })
+      .limit(1)
       .maybeSingle();
+
+    if (finalCheck?.last_share_date) {
+      const lastShareDate = new Date(finalCheck.last_share_date);
+      const now = new Date();
+      const hoursSinceShare = (now.getTime() - lastShareDate.getTime()) / (1000 * 60 * 60);
+
+      // If less than 24 hours since last share, don't award XP
+      if (hoursSinceShare < 24) {
+        console.log("Cooldown active, XP not awarded");
+        return;
+      }
+    }
 
     // Award XP
     const { data: xpResult, error: xpError } = await supabase.functions.invoke("jhakkas-points-system", {
@@ -228,7 +303,15 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       return;
     }
 
-    // UPSERT daily_attendance (create if not exists)
+    // Get current share count
+    const { data: currentData } = await supabase
+      .from("daily_attendance")
+      .select("share_count")
+      .eq("student_id", userId)
+      .eq("date", today)
+      .maybeSingle();
+
+    // Update daily_attendance
     const { error: attendanceError } = await supabase
       .from("daily_attendance")
       .upsert({ 

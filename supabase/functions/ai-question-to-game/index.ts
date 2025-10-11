@@ -28,7 +28,117 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { question_text, options, question_type, subject, chapter_name, topic_name, game_type, image_data, extract_mode, convert_to } = await req.json();
+    const requestBody = await req.json();
+    const { mode, files, text, useJson, lessonType, question_text, options, question_type, subject, chapter_name, topic_name, game_type, image_data, extract_mode, convert_to } = requestBody;
+
+    console.log('Request mode:', mode, 'Lesson type:', lessonType);
+
+    // Handle bulk_mixed mode for lesson content builder
+    if (mode === 'bulk_mixed') {
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) {
+        throw new Error('LOVABLE_API_KEY not configured');
+      }
+
+      let systemPrompt = '';
+      let userPrompt = text || '';
+
+      if (lessonType === 'theory') {
+        systemPrompt = `You are an educational content expert. Process the provided text/questions and create comprehensive theory content.
+Format the content in a structured, easy-to-understand manner suitable for students.`;
+        
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('AI API error:', response.status, errorText);
+          throw new Error(`AI generation failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+
+        return new Response(JSON.stringify({ 
+          success: true,
+          content: content
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (lessonType === 'game') {
+        systemPrompt = `You are a gamification expert. Analyze the questions and suggest game types.
+Return JSON with this structure:
+{
+  "questionCount": number,
+  "bestGameType": "match_pairs" | "drag_drop" | "fill_blank",
+  "reasoning": "why this game type",
+  "suggestions": {
+    "match_pairs": {game data if applicable},
+    "drag_drop": {game data if applicable},
+    "fill_blank": {game data if applicable}
+  }
+}`;
+
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('AI API error:', response.status, errorText);
+          throw new Error(`AI generation failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        let content = data.choices[0].message.content;
+        content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(content);
+
+        return new Response(JSON.stringify({ 
+          success: true,
+          suggestions: {
+            questionCount: parsed.questionCount,
+            bestGameType: parsed.bestGameType,
+            reasoning: parsed.reasoning
+          },
+          games: parsed.suggestions
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        message: 'Content processed'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     console.log('Processing question for game:', { question_type, game_type, extract_mode });
 

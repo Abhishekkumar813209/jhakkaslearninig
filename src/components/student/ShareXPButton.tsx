@@ -126,6 +126,19 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({ title: "Please login to share", variant: "destructive" });
+        setIsGenerating(false);
+        return;
+      }
+
+      // Get session for authorization headers
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please refresh the page and login again",
+          variant: "destructive"
+        });
+        setIsGenerating(false);
         return;
       }
 
@@ -197,6 +210,8 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
         });
       }
 
+      console.log('Share completed, marking in database...');
+
       // Mark as shared IMMEDIATELY in database to prevent double-click
       const today = new Date().toISOString().split('T')[0];
       const { error: immediateMarkError } = await supabase
@@ -218,9 +233,15 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
           description: "Failed to process share. Please try again.",
           variant: "destructive"
         });
+        
+        // Reset UI state
+        setSharedToday(false);
+        setCooldownHours(0);
         setIsGenerating(false);
         return;
       }
+
+      console.log('Share marked successfully, scheduling XP award...');
 
       // Show immediate feedback
       toast({
@@ -263,6 +284,19 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
   const awardShareXP = async (userId: string, code: string) => {
     const today = new Date().toISOString().split('T')[0];
     
+    // Get fresh session for XP award
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error("Session expired, XP award skipped");
+      toast({
+        title: "Session expired",
+        description: "Please refresh the page to claim XP",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Double-check cooldown before awarding XP
     const { data: finalCheck } = await supabase
       .from("daily_attendance")
@@ -284,12 +318,17 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       }
     }
 
-    // Award XP
+    console.log('Awarding share XP to user:', userId);
+
+    // Award XP with Authorization header
     const { data: xpResult, error: xpError } = await supabase.functions.invoke("jhakkas-points-system", {
       body: { 
         action: "add", 
         xp_amount: 5, 
         activity_type: "social_share" 
+      },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
       }
     });
 
@@ -297,11 +336,14 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       console.error("Error awarding XP:", xpError);
       toast({
         title: "XP award failed",
-        description: xpError.message || "Please try again later",
+        description: xpError.message || "Please refresh the page to retry",
         variant: "destructive"
       });
       return;
     }
+
+    // Trigger XP display update
+    window.dispatchEvent(new CustomEvent('xp-updated'));
 
     // Get current share count
     const { data: currentData } = await supabase

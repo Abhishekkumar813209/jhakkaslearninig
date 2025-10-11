@@ -38,12 +38,14 @@ serve(async (req) => {
       console.log(`Fetching roadmap for user: ${user.id}`);
       
       // Get student's active roadmap
-      const { data: studentRoadmap, error: srError } = await supabaseClient
-        .from("student_roadmaps")
-        .select("*, batch_roadmap:batch_roadmaps(*)")
-        .eq("student_id", user.id)
-        .eq("is_active", true)
-        .maybeSingle();
+    const { data: studentRoadmap, error: srError } = await supabaseClient
+      .from("student_roadmaps")
+      .select("*, batch_roadmap:batch_roadmaps(*)")
+      .eq("student_id", user.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
       if (srError) {
         console.error("Error fetching student roadmap:", srError);
@@ -240,7 +242,9 @@ serve(async (req) => {
         .select("batch_roadmap_id")
         .eq("student_id", user.id)
         .eq("is_active", true)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (!studentRoadmap) {
         throw new Error("No active roadmap found");

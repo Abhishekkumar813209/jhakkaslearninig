@@ -75,47 +75,67 @@ serve(async (req) => {
 
 CRITICAL INSTRUCTIONS:
 1. Use LATEST 2025-26 academic year official syllabus ONLY
-2. Chapter names MUST match official textbook/board curriculum EXACTLY
-3. For ICSE, include ALL sections (compulsory + optional)
+2. Chapter names MUST be CLEAN and CRISP - NO section prefixes like "Section A:", "Part B:" etc.
+3. Include ALL chapters from official syllabus (compulsory + optional for ICSE)
 4. For CBSE, follow NCERT textbook chapter sequence
-5. For Classes 11-12, use subject-specific textbooks
+5. Return 15-40 chapters in ONE response (complete syllabus)
+
+CHAPTER NAMING RULES:
+✅ CORRECT: "Matrices", "Trigonometry", "Coordinate Geometry", "Electric Charges and Fields"
+❌ WRONG: "Section A: Matrices", "Part B: Trigonometry", "Unit 3: Coordinate Geometry"
 
 BOARD-SPECIFIC RULES:
 
 **CBSE (Classes 9-12):**
-- Strictly follow NCERT textbook chapter names and sequence
-- Do NOT add extra chapters not in NCERT
-- Example: CBSE Class 12 Physics has exactly 15 chapters
+- Strictly follow NCERT textbook chapter names
+- Example: CBSE Class 12 Physics has 15 chapters
+- Example chapters: "Electric Charges and Fields", "Current Electricity", "Moving Charges and Magnetism"
 
 **ICSE (Classes 9-12):**
-- Include COMPULSORY chapters (Section A)
-- Include OPTIONAL chapters with clear section labels (Section B, Section C)
-- Example: ICSE Class 10 Math has Sections A, B, C with different geometry/algebra options
+- Include ALL chapters (compulsory + optional)
+- Mark optional chapters with is_optional: true
+- Example: ICSE Class 10 Math has ~25-30 chapters including optional ones
+- Example chapters: "Matrices", "Algebra", "Coordinate Geometry", "Trigonometry", "Statistics", "Probability"
 
-SUBJECT-SPECIFIC EXAMPLES:
-
-**ICSE Mathematics (Class 10):**
-Section A (Compulsory): Commercial Mathematics, Algebra, Geometry
-Section B (Choose One): Coordinate Geometry OR Trigonometry
-Section C (Choose One): Statistics OR Probability
-
-**CBSE Physics (Class 12):**
-1. Electric Charges and Fields
-2. Electrostatic Potential and Capacitance
-3. Current Electricity
-... (15 chapters total as per NCERT)
+**ICSE Mathematics Specific:**
+- Section A (Compulsory): Commercial Mathematics, Algebra, Geometry, Mensuration
+- Section B (Optional): Coordinate Geometry, Trigonometry
+- Section C (Optional): Statistics, Probability
+- ALL chapters should be returned, just mark optional ones with is_optional: true
 
 **CBSE Economics (Class 12):**
-Part A - Microeconomics (6 chapters)
-Part B - Macroeconomics (6 chapters)
+- Part A: Microeconomics (6 chapters)
+- Part B: Macroeconomics (6 chapters)
+- Chapter names should be clean: "Introduction to Microeconomics", "Theory of Consumer Behaviour", etc.
 
 Output MUST be JSON array:
 [
   {
-    "chapter_name": "Official Chapter Name (with section if ICSE)",
+    "chapter_name": "Clean Chapter Name",
     "suggested_days": 3,
-    "difficulty": "easy/medium/hard"
+    "difficulty": "easy/medium/hard",
+    "is_optional": false,
+    "section": "A"
   }
+]
+
+EXAMPLES:
+
+ICSE Class 10 Mathematics:
+[
+  {"chapter_name": "Commercial Mathematics", "suggested_days": 5, "difficulty": "medium", "is_optional": false, "section": "A"},
+  {"chapter_name": "Algebra", "suggested_days": 6, "difficulty": "hard", "is_optional": false, "section": "A"},
+  {"chapter_name": "Coordinate Geometry", "suggested_days": 7, "difficulty": "hard", "is_optional": true, "section": "B"},
+  {"chapter_name": "Trigonometry", "suggested_days": 7, "difficulty": "hard", "is_optional": true, "section": "B"},
+  {"chapter_name": "Statistics", "suggested_days": 5, "difficulty": "medium", "is_optional": true, "section": "C"},
+  {"chapter_name": "Probability", "suggested_days": 4, "difficulty": "medium", "is_optional": true, "section": "C"}
+]
+
+CBSE Class 12 Physics:
+[
+  {"chapter_name": "Electric Charges and Fields", "suggested_days": 6, "difficulty": "medium", "is_optional": false},
+  {"chapter_name": "Electrostatic Potential and Capacitance", "suggested_days": 5, "difficulty": "medium", "is_optional": false},
+  {"chapter_name": "Current Electricity", "suggested_days": 7, "difficulty": "hard", "is_optional": false}
 ]
 
 NO explanations, NO markdown, ONLY JSON.`;
@@ -130,16 +150,18 @@ Academic Year: 2025-26
 
 STRICT RULES:
 1. Use OFFICIAL ${board === 'ICSE' ? 'ICSE CISCE' : 'CBSE NCERT'} syllabus for ${student_class ? `Class ${student_class}` : 'this level'}
-2. Chapter names MUST be EXACTLY as in official textbook
-3. Include ALL chapters (compulsory + optional for ICSE)
-4. For ICSE Math: Include Sections A, B, C with clear labels
-5. For CBSE: Follow NCERT chapter sequence
-6. Return 15-30 chapters (complete syllabus)
+2. Chapter names MUST be CLEAN - NO prefixes like "Section A:", "Part B:", "Unit 3:"
+3. Return ALL chapters in ONE response (15-40 chapters for complete syllabus)
+4. For ICSE optional chapters, set is_optional: true but keep chapter_name clean
+5. For CBSE, follow exact NCERT chapter sequence
 
-Examples of correct chapter names:
-- CBSE Class 12 Physics: "Electric Charges and Fields" (not just "Electricity")
-- ICSE Class 10 Math: "Section A: Commercial Mathematics - Banking" (with section label)
-- CBSE Class 12 Economics: "Part A: Introduction to Microeconomics"`;
+Examples of CORRECT chapter names:
+✅ "Matrices" (not "Section A: Matrices")
+✅ "Coordinate Geometry" (not "Section B: Coordinate Geometry")
+✅ "Electric Charges and Fields" (not "Chapter 1: Electric Charges")
+✅ "Introduction to Microeconomics" (not "Part A: Introduction to Microeconomics")
+
+Return COMPLETE syllabus in ONE response.`;
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -154,7 +176,7 @@ Examples of correct chapter names:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.3,
-        max_tokens: 3000
+        max_tokens: 4000
       }),
     });
 

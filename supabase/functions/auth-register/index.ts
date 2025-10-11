@@ -45,24 +45,26 @@ serve(async (req: Request) => {
 
     console.log('✅ User created successfully:', authData.user.id)
 
-    // Generate session tokens for auto-login
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'signup',
+    // Sign in immediately to get session tokens
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
-      password,
-      options: {
-        data: { full_name, role }
-      }
+      password
     })
 
-    if (linkError || !linkData) {
-      console.error('❌ Failed to generate session:', linkError?.message)
+    if (signInError || !signInData.session) {
+      console.error('❌ Auto-login failed:', signInError?.message)
+      // User created but auto-login failed - return success and ask them to login
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to generate login session',
-          details: linkError?.message 
+          message: 'User registered successfully. Please login with your credentials.',
+          user: {
+            id: authData.user.id,
+            email: authData.user.email,
+            full_name
+          },
+          requiresLogin: true
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -195,8 +197,8 @@ serve(async (req: Request) => {
           full_name
         },
         session: {
-          access_token: linkData.properties.access_token,
-          refresh_token: linkData.properties.refresh_token
+          access_token: signInData.session.access_token,
+          refresh_token: signInData.session.refresh_token
         }
       }),
       { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

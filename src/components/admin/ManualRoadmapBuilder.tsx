@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 import { RoadmapCalendarView, CalendarChapter } from './RoadmapCalendarView';
 import { addDays } from 'date-fns';
+import { useFormPersistence } from "@/hooks/useFormPersistence";
 
 interface ManualRoadmapBuilderProps {
   open: boolean;
@@ -144,16 +146,67 @@ const SortableChapter = ({
 };
 
 export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillData }: ManualRoadmapBuilderProps) => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [batchId, setBatchId] = useState("");
-  const [startDate, setStartDate] = useState<Date>();
-  const [subjects, setSubjects] = useState<SubjectColumn[]>([]);
+  const {
+    data: builderData,
+    setData: setBuilderData,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    showResumeDialog,
+    setShowResumeDialog,
+    showExitConfirmation,
+    setShowExitConfirmation,
+    savedProgress,
+    clearProgress,
+    resumeProgress,
+    startFresh,
+  } = useFormPersistence(
+    'manual-roadmap-builder-progress',
+    {
+      roadmapTitle: '',
+      description: '',
+      selectedBatchId: '',
+      startDate: null as Date | null,
+      subjects: [] as SubjectColumn[],
+    },
+    24,
+    open
+  );
+
   const [batches, setBatches] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [showCalendarView, setShowCalendarView] = useState(false);
   const [calendarChapters, setCalendarChapters] = useState<CalendarChapter[]>([]);
+
+  // Derived state from builderData
+  const title = builderData.roadmapTitle;
+  const description = builderData.description;
+  const batchId = builderData.selectedBatchId;
+  const startDate = builderData.startDate;
+  const subjects = builderData.subjects;
+
+  // Setters that update builderData
+  const setTitle = (val: string) => {
+    setBuilderData({ ...builderData, roadmapTitle: val });
+    setHasUnsavedChanges(true);
+  };
+  const setDescription = (val: string) => {
+    setBuilderData({ ...builderData, description: val });
+    setHasUnsavedChanges(true);
+  };
+  const setBatchId = (val: string) => {
+    setBuilderData({ ...builderData, selectedBatchId: val });
+    setHasUnsavedChanges(true);
+  };
+  const setStartDate = (val: Date | undefined) => {
+    setBuilderData({ ...builderData, startDate: val || null });
+    setHasUnsavedChanges(true);
+  };
+  const setSubjects = (val: SubjectColumn[] | ((prev: SubjectColumn[]) => SubjectColumn[])) => {
+    const newSubjects = typeof val === 'function' ? val(builderData.subjects) : val;
+    setBuilderData({ ...builderData, subjects: newSubjects });
+    setHasUnsavedChanges(true);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -166,13 +219,16 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
     if (open) {
       fetchBatches();
       
-      // Prefill data from AI wizard if available
+      // Prioritize prefill data over saved progress
       if (prefillData) {
-        if (prefillData.batchId) setBatchId(prefillData.batchId);
-        if (prefillData.roadmapTitle) setTitle(prefillData.roadmapTitle);
-        if (prefillData.subjects && prefillData.subjects.length > 0) {
-          setSubjects(prefillData.subjects);
-        }
+        setBuilderData({
+          roadmapTitle: prefillData.roadmapTitle || '',
+          description: '',
+          selectedBatchId: prefillData.batchId || '',
+          startDate: null,
+          subjects: prefillData.subjects || [],
+        });
+        setHasUnsavedChanges(true);
       }
     }
   }, [open, prefillData]);
@@ -413,6 +469,8 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
       }
 
       toast.success(`Roadmap ${status === 'active' ? 'created and activated' : 'saved as draft'}!`);
+      clearProgress();
+      setHasUnsavedChanges(false);
       handleReset();
       onOpenChange(false);
       onSuccess?.();
@@ -425,11 +483,13 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
   };
 
   const handleReset = () => {
-    setTitle("");
-    setDescription("");
-    setBatchId("");
-    setStartDate(undefined);
-    setSubjects([]);
+    setBuilderData({
+      roadmapTitle: '',
+      description: '',
+      selectedBatchId: '',
+      startDate: null,
+      subjects: [],
+    });
     setNewSubjectName("");
     setShowCalendarView(false);
     setCalendarChapters([]);
@@ -475,8 +535,63 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+    <>
+      {/* Resume & Exit Confirmation Dialogs */}
+      <AlertDialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resume Previous Draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unsaved manual roadmap draft with {savedProgress?.subjects?.length || 0} subjects.
+              Would you like to resume, or start fresh?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={startFresh}>
+              Start Fresh
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={resumeProgress}>
+              Resume Draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your roadmap has {subjects.length} subjects and will be automatically saved. 
+              You can resume later. Are you sure you want to exit?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowExitConfirmation(false)}>
+              Continue Editing
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowExitConfirmation(false);
+              setHasUnsavedChanges(false);
+              onOpenChange(false);
+            }}>
+              Exit Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog 
+        open={open} 
+        onOpenChange={(isOpen) => {
+          if (!isOpen && hasUnsavedChanges) {
+            setShowExitConfirmation(true);
+          } else {
+            onOpenChange(isOpen);
+          }
+        }}
+      >
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Manual Roadmap Builder</DialogTitle>
         </DialogHeader>
@@ -682,7 +797,17 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
 
           {/* Save Buttons */}
           <div className="flex gap-2 justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (hasUnsavedChanges) {
+                  setShowExitConfirmation(true);
+                } else {
+                  onOpenChange(false);
+                }
+              }} 
+              disabled={isSaving}
+            >
               Cancel
             </Button>
             <Button
@@ -702,5 +827,6 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 };

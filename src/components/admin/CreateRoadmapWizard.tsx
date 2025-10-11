@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
@@ -65,6 +66,45 @@ interface CreateRoadmapWizardProps {
   initialClass?: string;
 }
 
+// localStorage helpers
+const WIZARD_STORAGE_KEY = 'roadmap-wizard-progress';
+const WIZARD_EXPIRY_HOURS = 24;
+
+const saveWizardProgress = (data: any) => {
+  try {
+    localStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify({
+      ...data,
+      timestamp: new Date().toISOString(),
+    }));
+  } catch (error) {
+    console.error('Failed to save wizard progress:', error);
+  }
+};
+
+const loadWizardProgress = () => {
+  try {
+    const stored = localStorage.getItem(WIZARD_STORAGE_KEY);
+    if (!stored) return null;
+    
+    const data = JSON.parse(stored);
+    const savedTime = new Date(data.timestamp).getTime();
+    const hoursDiff = (Date.now() - savedTime) / (1000 * 60 * 60);
+    
+    if (hoursDiff > WIZARD_EXPIRY_HOURS) {
+      localStorage.removeItem(WIZARD_STORAGE_KEY);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    return null;
+  }
+};
+
+const clearWizardProgress = () => {
+  localStorage.removeItem(WIZARD_STORAGE_KEY);
+};
+
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain, initialBoard, initialClass }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 6; // ExamType, Subject, Time Budget, Chapters, Intensity, Preview
@@ -99,6 +139,12 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   
   // Step 6: Preview state
   const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // Protection state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [savedProgress, setSavedProgress] = useState<any>(null);
 
   // Timeline will be set manually - no auto-calculation
 
@@ -510,6 +556,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       toast.success("Roadmap generated successfully!", {
         description: "Chapters organized. Now set the timeline manually in calendar view.",
       });
+      clearWizardProgress();
+      setHasUnsavedChanges(false);
       handleReset();
       onOpenChange(false);
       onSuccess();
@@ -579,9 +627,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setIntensity('balanced');
   };
 
+  // Check for saved progress on open
   useEffect(() => {
-    if (!open) {
-      handleReset();
+    if (open) {
+      const saved = loadWizardProgress();
+      if (saved && saved.currentStep > 0) {
+        setSavedProgress(saved);
+        setShowResumeDialog(true);
+      }
     }
   }, [open]);
 
@@ -604,6 +657,34 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       handleFetchSubjects();
     }
   }, [currentStep]);
+
+  // Auto-save progress whenever critical state changes
+  useEffect(() => {
+    if (!open || currentStep === 0) return;
+    
+    setHasUnsavedChanges(true);
+    
+    const progressData = {
+      currentStep,
+      examType,
+      examName,
+      conditionalClass,
+      conditionalBoard,
+      batchId,
+      roadmapTitle,
+      roadmapType,
+      roadmapMode,
+      fetchedSubjects,
+      fetchedChapters,
+      timeBudget,
+      intensity,
+      selectedBatch,
+    };
+    
+    saveWizardProgress(progressData);
+  }, [currentStep, examType, examName, conditionalClass, conditionalBoard, 
+      batchId, roadmapTitle, roadmapType, fetchedSubjects, fetchedChapters, 
+      timeBudget, intensity, open]);
 
   // Compute budget-aware suggested days when chapters or time budget changes
   useEffect(() => {
@@ -756,12 +837,106 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setCurrentStep(prev => Math.max(prev - 1, 0));
   };
 
+  const handleResumeProgress = () => {
+    if (!savedProgress) return;
+    
+    setCurrentStep(savedProgress.currentStep || 0);
+    setExamType(savedProgress.examType || initialDomain || "");
+    setExamName(savedProgress.examName || "");
+    setConditionalClass(savedProgress.conditionalClass || initialClass || "");
+    setConditionalBoard(savedProgress.conditionalBoard || initialBoard || "");
+    setBatchId(savedProgress.batchId || "");
+    setRoadmapTitle(savedProgress.roadmapTitle || "");
+    setRoadmapType(savedProgress.roadmapType || 'single_year');
+    setRoadmapMode(savedProgress.roadmapMode || 'parallel');
+    setFetchedSubjects(savedProgress.fetchedSubjects || []);
+    setFetchedChapters(savedProgress.fetchedChapters || {});
+    setTimeBudget(savedProgress.timeBudget || {});
+    setIntensity(savedProgress.intensity || 'balanced');
+    setSelectedBatch(savedProgress.selectedBatch || null);
+    
+    setShowResumeDialog(false);
+    setHasUnsavedChanges(true);
+    
+    toast.success(`Resumed from Step ${savedProgress.currentStep}/${totalSteps}`);
+  };
+
+  const handleStartFresh = () => {
+    clearWizardProgress();
+    setSavedProgress(null);
+    setShowResumeDialog(false);
+    handleReset();
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirmation(false);
+    setHasUnsavedChanges(false);
+    onOpenChange(false);
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmation(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) handleReset();
-      onOpenChange(isOpen);
-    }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+    <>
+      {/* Resume Progress Dialog */}
+      <AlertDialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resume Previous Progress?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unsaved roadmap creation in progress (Step {savedProgress?.currentStep}/{totalSteps}).
+              Would you like to resume where you left off, or start fresh?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleStartFresh}>
+              Start Fresh
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleResumeProgress}>
+              Resume Progress
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit Without Saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved progress in Step {currentStep}/{totalSteps}. 
+              Your progress will be automatically saved and you can resume later.
+              Are you sure you want to exit?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelExit}>
+              Continue Editing
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit}>
+              Exit Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog 
+        open={open} 
+        onOpenChange={(isOpen) => {
+          if (!isOpen && hasUnsavedChanges) {
+            setShowExitConfirmation(true);
+          } else if (!isOpen) {
+            handleReset();
+            onOpenChange(false);
+          } else {
+            onOpenChange(true);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Create AI Roadmap - Step {currentStep}/{totalSteps}</DialogTitle>
           <Progress value={progress} className="mt-2" />
@@ -919,10 +1094,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
           <div className="flex gap-2">
             <Button 
-              variant="outline" 
+              variant="outline"
               onClick={() => {
-                handleReset();
-                onOpenChange(false);
+                if (hasUnsavedChanges) {
+                  setShowExitConfirmation(true);
+                } else {
+                  handleReset();
+                  onOpenChange(false);
+                }
               }}
             >
               Cancel
@@ -952,5 +1131,6 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 };

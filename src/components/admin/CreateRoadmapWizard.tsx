@@ -284,14 +284,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     }
   };
 
-  const handleUploadPdf = async (file: File) => {
-    setUploadedPdf(file);
-    toast.loading("Extracting syllabus from PDF...");
-    
+  const handleUploadPdf = async (file: File, subjectName: string) => {
     try {
+      setIsFetchingChapters(true);
+      toast.loading(`Processing PDF for ${subjectName}...`);
+
       const formData = new FormData();
-      formData.append('pdf_file', file);
+      formData.append('file', file);
       formData.append('exam_type', examType);
+      formData.append('subject', subjectName);
 
       const { data, error } = await supabase.functions.invoke('extract-syllabus-structure', {
         body: formData
@@ -305,44 +306,44 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         return;
       }
 
-      // Merge extracted data
-      if (data.subjects && data.subjects.length > 0) {
-        const extractedSubjects: Subject[] = data.subjects.map((s: any) => ({
-          id: crypto.randomUUID(),
-          name: s.subject_name || s.name,
-          isSelected: true,
-          isCustom: false
-        }));
-
-        setFetchedSubjects(prev => {
-          const existing = prev.map(s => s.name.toLowerCase());
-          const newSubjects = extractedSubjects.filter(s => !existing.includes(s.name.toLowerCase()));
-          return [...prev, ...newSubjects];
-        });
-
-        // Also add chapters
-        const chaptersData: ChaptersBySubject = {};
-        data.subjects.forEach((s: any) => {
-          if (s.chapters && s.chapters.length > 0) {
-            chaptersData[s.subject_name || s.name] = s.chapters.map((c: any) => ({
-              id: crypto.randomUUID(),
-              chapter_name: c.chapter_name || c.name,
-              suggested_days: c.suggested_days || 3,
-              isSelected: true,
-              isCustom: false
-            }));
-          }
-        });
-
-        setFetchedChapters(prev => ({ ...prev, ...chaptersData }));
+      // Filter chapters for this specific subject only
+      const subjectChapters = data.chapters_by_subject?.[subjectName] || [];
+      
+      if (subjectChapters.length === 0) {
+        toast.dismiss();
+        toast.error(`No chapters found for ${subjectName} in the PDF.`);
+        return;
       }
 
+      // Convert to our chapter format with importance metadata
+      const newChapters: Chapter[] = subjectChapters.map((ch: any, idx: number) => ({
+        id: `pdf-${subjectName}-${idx}`,
+        chapter_name: ch.chapter_name,
+        suggested_days: ch.suggested_days || 3,
+        difficulty: ch.difficulty || 'medium',
+        exam_relevance: ch.exam_relevance || 'important',
+        importance_score: ch.importance_score || 7,
+        can_skip: ch.can_skip || false,
+        isSelected: true, // Auto-select PDF extracted chapters
+        isCustom: false,
+      }));
+
+      // Add to existing chapters for this subject
+      setFetchedChapters(prev => ({
+        ...prev,
+        [subjectName]: [...(prev[subjectName] || []), ...newChapters],
+      }));
+
+      setUploadedPdf(file);
+      
       toast.dismiss();
-      toast.success("PDF processed successfully!");
+      toast.success(`Added ${newChapters.length} chapters for ${subjectName}`);
     } catch (error: any) {
       toast.dismiss();
-      console.error('Error processing PDF:', error);
-      toast.error("Failed to extract from PDF");
+      console.error('PDF upload error:', error);
+      toast.error(error.message || "Failed to extract chapters from PDF");
+    } finally {
+      setIsFetchingChapters(false);
     }
   };
 

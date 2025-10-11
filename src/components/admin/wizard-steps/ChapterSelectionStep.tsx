@@ -45,7 +45,7 @@ interface ChapterSelectionStepProps {
   onAddChapter: (subjectName: string, chapterName: string, suggestedDays: number) => void;
   onDeleteChapter: (subjectName: string, chapterId: string) => void;
   onUpdateDays: (subjectName: string, chapterId: string, days: number) => void;
-  onUploadPdf: (file: File) => void;
+  onUploadPdf: (file: File, subjectName: string) => void;
   uploadedPdf: File | null;
 }
 
@@ -78,12 +78,12 @@ export const ChapterSelectionStep = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSubjectPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>, subjectName: string) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      onUploadPdf(file);
-      setPdfDialogOpen(false);
-    }
+    if (!file || file.type !== 'application/pdf') return;
+    
+    onUploadPdf(file, subjectName);
+    e.target.value = ''; // Reset input
   };
 
   const totalSelected = Object.values(chapters).flat().filter(c => c.isSelected).length;
@@ -98,42 +98,6 @@ export const ChapterSelectionStep = ({
             {totalSelected}/{totalChapters} chapters selected across {subjects.length} subjects
           </p>
         </div>
-        <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Upload className="h-4 w-4" />
-              Upload Syllabus PDF
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Upload Syllabus PDF</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Upload a PDF syllabus to automatically extract subjects and chapters using AI
-              </p>
-              <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <Label htmlFor="pdf-upload" className="cursor-pointer">
-                  <span className="text-primary underline">Choose a PDF file</span>
-                  <Input
-                    id="pdf-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </Label>
-                {uploadedPdf && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Uploaded: {uploadedPdf.name}
-                  </p>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {subjects.length === 0 ? (
@@ -225,6 +189,41 @@ export const ChapterSelectionStep = ({
                           )}
                         </Button>
                       )}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-2"
+                          >
+                            <Upload className="h-3 w-3" />
+                            Upload Syllabus PDF
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Upload {subject.name} Syllabus</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Upload PDF syllabus for {subject.name}. AI will extract chapters with importance scores.
+                            </p>
+                            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                              <Label htmlFor={`pdf-upload-${subject.name}`} className="cursor-pointer">
+                                <span className="text-primary underline">Choose PDF file</span>
+                                <Input
+                                  id={`pdf-upload-${subject.name}`}
+                                  type="file"
+                                  accept=".pdf"
+                                  onChange={(e) => handleSubjectPdfUpload(e, subject.name)}
+                                  className="hidden"
+                                />
+                              </Label>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                       {allSubjectChapters.length > 0 && (
                         <>
                           <Select 

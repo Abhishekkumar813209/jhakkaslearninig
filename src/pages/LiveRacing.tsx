@@ -91,10 +91,19 @@ const LiveRacing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Racing Track Background */}
+      <div 
+        className="fixed inset-0 opacity-5 pointer-events-none"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 40px, hsl(var(--primary)) 40px, hsl(var(--primary)) 60px)',
+          animation: 'track-move 2s linear infinite'
+        }}
+      />
+      
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

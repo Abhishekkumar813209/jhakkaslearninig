@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { RacingCar } from './RacingCar';
 import { Trophy } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 
 interface TopRacersSectionProps {
   racers: any[];
@@ -18,20 +19,22 @@ export const TopRacersSection = ({ racers }: TopRacersSectionProps) => {
         <h3 className="text-lg font-bold">Top 15 Racers</h3>
       </div>
 
-      <div className="space-y-3">
-        {racers.map((racer) => (
-          <RacingCar
-            key={racer.student_id}
-            position={racer.position}
-            name={racer.name}
-            avatar={racer.avatar}
-            totalXP={racer.total_xp}
-            level={racer.level}
-            maxXP={maxXP}
-            batch={racer.batch}
-          />
-        ))}
-      </div>
+      <AnimatePresence mode="popLayout">
+        <div className="space-y-3">
+          {racers.map((racer) => (
+            <RacingCar
+              key={racer.student_id}
+              position={racer.position}
+              name={racer.name}
+              avatar={racer.avatar}
+              totalXP={racer.total_xp}
+              level={racer.level}
+              maxXP={maxXP}
+              batch={racer.batch}
+            />
+          ))}
+        </div>
+      </AnimatePresence>
     </Card>
   );
 };

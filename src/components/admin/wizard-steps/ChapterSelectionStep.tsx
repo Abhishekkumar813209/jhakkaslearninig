@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Plus, Trash2, Upload, Loader2, FileText, Filter, X } from "lucide-react";
+import { Sparkles, Plus, Trash2, Upload, Loader2, FileText, Filter, X, Pencil, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +52,7 @@ interface ChapterSelectionStepProps {
   uploadedPdf: File | null;
   examType?: string;
   examName?: string;
+  onUpdateChapter?: (subjectName: string, chapterId: string, newName: string, newDays: number) => void;
 }
 
 export const ChapterSelectionStep = ({
@@ -68,6 +69,7 @@ export const ChapterSelectionStep = ({
   uploadedPdf,
   examType,
   examName,
+  onUpdateChapter,
 }: ChapterSelectionStepProps) => {
   const { toast } = useToast();
   const [customChapterInputs, setCustomChapterInputs] = useState<{ [key: string]: { name: string; days: number } }>({});
@@ -81,6 +83,11 @@ export const ChapterSelectionStep = ({
   const [bulkUploadedFiles, setBulkUploadedFiles] = useState<{ [subject: string]: File | null }>({});
   const [bulkFilePreview, setBulkFilePreview] = useState<{ [subject: string]: string | null }>({});
   const [bulkGenerating, setBulkGenerating] = useState(false);
+  
+  // Edit mode states
+  const [editingChapter, setEditingChapter] = useState<string | null>(null);
+  const [editChapterName, setEditChapterName] = useState("");
+  const [editChapterDays, setEditChapterDays] = useState(3);
 
   const handleAddCustomChapter = (subjectName: string) => {
     const input = customChapterInputs[subjectName];
@@ -132,6 +139,29 @@ export const ChapterSelectionStep = ({
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
     });
+  };
+
+  const startEdit = (chapter: Chapter) => {
+    setEditingChapter(chapter.id);
+    setEditChapterName(chapter.chapter_name);
+    setEditChapterDays(chapter.suggested_days || 3);
+  };
+
+  const saveChapterEdit = (subjectName: string, chapterId: string) => {
+    if (!editChapterName.trim()) {
+      toast({ title: "Chapter name cannot be empty", variant: "destructive" });
+      return;
+    }
+    
+    if (onUpdateChapter) {
+      onUpdateChapter(subjectName, chapterId, editChapterName, editChapterDays);
+      setEditingChapter(null);
+      toast({ title: "Chapter updated successfully" });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingChapter(null);
   };
 
   const handleBulkGenerate = async (subjectName: string) => {
@@ -506,38 +536,95 @@ export const ChapterSelectionStep = ({
                                 checked={chapter.isSelected}
                                 onCheckedChange={() => onToggleChapter(subject.name, chapter.id)}
                               />
-                              <div className="flex-1 flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium">{chapter.chapter_name}</span>
-                                  {getImportanceBadge(chapter.exam_relevance, chapter.importance_score)}
-                                  {chapter.can_skip && (
-                                    <Badge variant="secondary" className="text-xs">Skippable</Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {chapter.suggested_days && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {chapter.suggested_days} days
-                                    </Badge>
-                                  )}
-                                  {chapter.difficulty && (
-                                    <Badge variant="outline" className="text-xs capitalize">
-                                      {chapter.difficulty}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              {chapter.isCustom && (
-                                <Badge variant="secondary" className="text-xs">Custom</Badge>
+                              
+                              {editingChapter === chapter.id ? (
+                                /* Edit Mode */
+                                <>
+                                  <div className="flex-1 flex flex-col gap-2">
+                                    <Input
+                                      value={editChapterName}
+                                      onChange={(e) => setEditChapterName(e.target.value)}
+                                      className="h-8 text-sm"
+                                      placeholder="Chapter name"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        type="number"
+                                        value={editChapterDays}
+                                        onChange={(e) => setEditChapterDays(parseInt(e.target.value) || 3)}
+                                        min={1}
+                                        max={30}
+                                        className="h-8 w-20 text-sm"
+                                      />
+                                      <span className="text-xs text-muted-foreground">days</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => saveChapterEdit(subject.name, chapter.id)}
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => cancelEdit()}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                /* View Mode */
+                                <>
+                                  <div className="flex-1 flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium">{chapter.chapter_name}</span>
+                                      {getImportanceBadge(chapter.exam_relevance, chapter.importance_score)}
+                                      {chapter.can_skip && (
+                                        <Badge variant="secondary" className="text-xs">Skippable</Badge>
+                                      )}
+                                      {chapter.isCustom && (
+                                        <Badge variant="secondary" className="text-xs">Custom</Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {chapter.suggested_days && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {chapter.suggested_days} days
+                                        </Badge>
+                                      )}
+                                      {chapter.difficulty && (
+                                        <Badge variant="outline" className="text-xs capitalize">
+                                          {chapter.difficulty}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => startEdit(chapter)}
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => onDeleteChapter(subject.name, chapter.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => onDeleteChapter(subject.name, chapter.id)}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
                             </CardContent>
                           </Card>
                         ))}

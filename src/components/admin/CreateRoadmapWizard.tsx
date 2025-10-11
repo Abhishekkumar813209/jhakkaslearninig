@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
-import { SubjectSelectionStep } from "./wizard-steps/SubjectSelectionStep";
+import { SubjectDaysStep } from "./wizard-steps/SubjectDaysStep";
 import { ChapterSelectionStep } from "./wizard-steps/ChapterSelectionStep";
 import { IntensitySelectionStep } from "./wizard-steps/IntensitySelectionStep";
 import { RoadmapPreviewStep } from "./wizard-steps/RoadmapPreviewStep";
@@ -107,7 +107,7 @@ const clearWizardProgress = () => {
 
 export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain, initialBoard, initialClass }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 6; // ExamType, Subject, Time Budget, Chapters, Intensity, Preview
+  const totalSteps = 5; // ExamType, Subject+Days, Chapters, Intensity, Preview
 
   // Batch selection state - no longer used for fetching
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
@@ -131,7 +131,10 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [isFetchingChapters, setIsFetchingChapters] = useState(false);
   const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
   
-  // Step 3: Time Budget
+  // Step 1: Days Budget (merged with subjects)
+  const [daysBudget, setDaysBudget] = useState<Record<string, number>>({});
+  
+  // Step 3: Time Budget (kept for backward compatibility)
   const [timeBudget, setTimeBudget] = useState<Record<string, number>>({});
   
   // Step 5: Intensity Selection
@@ -198,6 +201,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
           isCustom: false
         }));
         setFetchedSubjects(subjects);
+        
+        // Auto-assign default days budget
+        const initialDays = subjects.reduce((acc, s) => ({
+          ...acc,
+          [s.name]: 15
+        }), {});
+        setDaysBudget(initialDays);
+        setTimeBudget(initialDays);
+        
         toast.success(`Loaded ${subjects.length} subjects for ${finalExamName}`);
         setIsFetchingSubjects(false);
         return;
@@ -228,6 +240,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       }));
 
       setFetchedSubjects(subjects);
+      
+      // Auto-assign default days budget
+      const initialDays = subjects.reduce((acc, s) => ({
+        ...acc,
+        [s.name]: 15
+      }), {});
+      setDaysBudget(initialDays);
+      setTimeBudget(initialDays);
+      
       toast.success(`Fetched ${subjects.length} subjects`);
     } catch (error: any) {
       console.error('Error fetching subjects:', error);
@@ -432,6 +453,15 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     setFetchedChapters(prev => ({
       ...prev,
       [subjectName]: prev[subjectName].filter(c => c.id !== chapterId)
+    }));
+  };
+
+  const handleUpdateChapter = (subjectName: string, chapterId: string, newName: string, newDays: number) => {
+    setFetchedChapters(prev => ({
+      ...prev,
+      [subjectName]: prev[subjectName].map(c =>
+        c.id === chapterId ? { ...c, chapter_name: newName, suggested_days: newDays } : c
+      )
     }));
   };
 
@@ -800,26 +830,21 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
     }
 
     if (currentStep === 1) {
-      // Validate Step 1: Subject Selection
+      // Validate Step 1: Subject + Days Selection
       const selectedSubjects = fetchedSubjects.filter(s => s.isSelected);
       if (selectedSubjects.length === 0) {
         toast.error("Please select at least one subject");
         return;
       }
-    }
-
-    if (currentStep === 2) {
-      // Validate Step 2: Time Budget
-      const selectedSubjectNames = fetchedSubjects.filter(s => s.isSelected).map(s => s.name);
-      const hasMissingBudget = selectedSubjectNames.some(name => !timeBudget[name] || timeBudget[name] <= 0);
+      const hasMissingBudget = selectedSubjects.some(s => !daysBudget[s.name] || daysBudget[s.name] <= 0);
       if (hasMissingBudget) {
-        toast.error("Please set time budget for all selected subjects");
+        toast.error("Please set days budget for all selected subjects");
         return;
       }
     }
 
-    if (currentStep === 3) {
-      // Validate Step 3: Chapter Selection
+    if (currentStep === 2) {
+      // Validate Step 2: Chapter Selection
       const selectedChaptersCount = Object.values(fetchedChapters)
         .flat()
         .filter(c => c.isSelected).length;
@@ -964,7 +989,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             />
           )}
 
-          {/* Step 1: Subject Selection */}
+          {/* Step 1: Subject + Days Selection (Merged) */}
           {currentStep === 1 && (
             <div className="space-y-4">
               {selectedBatch && (
@@ -983,62 +1008,24 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                 </div>
               )}
               
-              <SubjectSelectionStep
+              <SubjectDaysStep
                 subjects={fetchedSubjects}
                 isFetching={isFetchingSubjects}
                 onFetch={handleFetchSubjects}
                 onToggle={handleToggleSubject}
                 onAdd={handleAddCustomSubject}
                 onDelete={handleDeleteSubject}
+                daysBudget={daysBudget}
+                onUpdateDays={(subjectName, days) => {
+                  setDaysBudget(prev => ({ ...prev, [subjectName]: days }));
+                  setTimeBudget(prev => ({ ...prev, [subjectName]: days }));
+                }}
               />
             </div>
           )}
 
-          {/* Step 2: Time Budget */}
+          {/* Step 2: Chapter Selection */}
           {currentStep === 2 && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Set Time Budget per Subject</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Assign how many days you want to allocate for each subject. AI will intelligently distribute these days across chapters.
-                </p>
-              </div>
-
-              {fetchedSubjects.filter(s => s.isSelected).map(subject => (
-                <div key={subject.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <Label className="flex-1 font-medium">{subject.name}</Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Days"
-                      value={timeBudget[subject.name] || ''}
-                      onChange={(e) => setTimeBudget({
-                        ...timeBudget,
-                        [subject.name]: parseInt(e.target.value) || 0
-                      })}
-                      className="w-24 px-3 py-2 border rounded-md"
-                    />
-                    <span className="text-sm text-muted-foreground">days</span>
-                  </div>
-                </div>
-              ))}
-
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium">
-                  Total Roadmap Duration: {roadmapMode === 'parallel' 
-                    ? Math.max(...Object.values(timeBudget), 0)
-                    : Object.values(timeBudget).reduce((sum, days) => sum + days, 0)} days
-                  <span className="text-muted-foreground ml-2">
-                    ({roadmapMode === 'parallel' ? 'longest subject duration' : 'cumulative duration'})
-                  </span>
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Chapter Selection */}
-          {currentStep === 3 && (
             <ChapterSelectionStep
               subjects={fetchedSubjects.filter(s => s.isSelected)}
               chapters={fetchedChapters}
@@ -1051,11 +1038,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
               onUpdateDays={handleUpdateChapterDays}
               onUploadPdf={handleUploadPdf}
               uploadedPdf={uploadedPdf}
+              examType={examType}
+              examName={examName}
+              onUpdateChapter={handleUpdateChapter}
             />
           )}
 
-          {/* Step 4: Intensity Selection */}
-          {currentStep === 4 && (
+          {/* Step 3: Intensity Selection */}
+          {currentStep === 3 && (
             <IntensitySelectionStep
               intensity={intensity}
               onIntensityChange={setIntensity}
@@ -1066,8 +1056,8 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             />
           )}
 
-          {/* Step 5: Preview */}
-          {currentStep === 5 && (
+          {/* Step 4: Preview */}
+          {currentStep === 4 && (
             <RoadmapPreviewStep
               chapters={fetchedChapters}
               timeBudget={timeBudget}
@@ -1107,7 +1097,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
               Cancel
             </Button>
 
-            {currentStep < 5 ? (
+            {currentStep < 4 ? (
               <Button onClick={handleNext}>
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />

@@ -72,7 +72,7 @@ serve(async (req) => {
 
 CRITICAL INSTRUCTIONS:
 1. Generate subjects based on EXACT class level and board specifications
-2. Use LATEST 2024-25 academic year official syllabus
+2. Use LATEST 2025-26 academic year official syllabus
 3. For Classes 11-12, subjects are STREAM-SPECIFIC (Science/Commerce/Humanities)
 4. DO NOT include generic subjects like "Science" or "Social Science" for senior classes
 5. Include optional subjects where applicable (ICSE)
@@ -137,7 +137,7 @@ NO explanations, NO markdown, ONLY JSON array.`;
       ? `Generate subjects for ${exam_type} - ${exam_name}, Class ${student_class}, Board: ${board}.
 
 Context:
-- Academic Year: 2024-25
+- Academic Year: 2025-26
 - Board: ${board}
 - Class: ${student_class}
 ${parseInt(student_class) >= 11 ? '- Stream: Specify if Science/Commerce/Humanities (default: Science)' : ''}

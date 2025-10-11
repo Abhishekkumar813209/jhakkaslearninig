@@ -74,7 +74,7 @@ serve(async (req) => {
     const systemPrompt = `You are an expert Indian education syllabus designer with OFFICIAL knowledge of CBSE NCERT and ICSE CISCE syllabi.
 
 CRITICAL INSTRUCTIONS:
-1. Use LATEST 2024-25 academic year official syllabus ONLY
+1. Use LATEST 2025-26 academic year official syllabus ONLY
 2. Chapter names MUST match official textbook/board curriculum EXACTLY
 3. For ICSE, include ALL sections (compulsory + optional)
 4. For CBSE, follow NCERT textbook chapter sequence
@@ -120,30 +120,13 @@ Output MUST be JSON array:
 
 NO explanations, NO markdown, ONLY JSON.`;
 
-    let userPrompt = '';
-    let maxTokens = 3000;
-
-    if (fetch_mode === 'remaining') {
-      userPrompt = `Generate REMAINING chapters for:
-
-Exam Type: ${exam_type}
-Subject: ${subject}
-${student_class ? `Class: ${student_class}` : ''}
-${board ? `Board: ${board}` : ''}
-
-Already fetched: ${already_fetched.join(', ')}
-
-Generate 15-25 ADDITIONAL chapters from official ${board || 'NCERT'} syllabus that are NOT in the above list.
-Ensure chapters are from the ACTUAL official textbook/curriculum.`;
-      maxTokens = 3500;
-    } else {
-      userPrompt = `Generate COMPLETE chapter list for:
+    const userPrompt = `Generate COMPLETE chapter list for:
 
 Subject: ${subject}
 Exam Type: ${exam_type}
 ${student_class ? `Class: ${student_class}` : ''}
 ${board ? `Board: ${board}` : ''}
-Academic Year: 2024-25
+Academic Year: 2025-26
 
 STRICT RULES:
 1. Use OFFICIAL ${board === 'ICSE' ? 'ICSE CISCE' : 'CBSE NCERT'} syllabus for ${student_class ? `Class ${student_class}` : 'this level'}
@@ -157,7 +140,6 @@ Examples of correct chapter names:
 - CBSE Class 12 Physics: "Electric Charges and Fields" (not just "Electricity")
 - ICSE Class 10 Math: "Section A: Commercial Mathematics - Banking" (with section label)
 - CBSE Class 12 Economics: "Part A: Introduction to Microeconomics"`;
-    }
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -172,7 +154,7 @@ Examples of correct chapter names:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.3,
-        max_tokens: maxTokens
+        max_tokens: 3000
       }),
     });
 
@@ -211,13 +193,12 @@ Examples of correct chapter names:
       throw new Error('Failed to parse chapters from AI response');
     }
 
-    console.log(`Generated ${chapters.length} chapters in ${fetch_mode} mode`);
+    console.log(`Generated ${chapters.length} chapters`);
 
     return new Response(
       JSON.stringify({
         chapters,
-        source: 'ai',
-        fetch_mode
+        source: 'ai'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -17,8 +17,15 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
   useEffect(() => {
     const fetchXP = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) return;
+
         const { data, error } = await supabase.functions.invoke("jhakkas-points-system", {
-          body: { action: "get" }
+          body: { action: "get" },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
         });
 
         if (error) throw error;
@@ -32,17 +39,33 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
 
     fetchXP();
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates with user filter
     const channel = supabase
       .channel('jhakkas-updates')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'student_gamification' },
-        () => fetchXP()
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'student_gamification',
+          filter: studentId ? `student_id=eq.${studentId}` : undefined
+        },
+        () => {
+          console.log('Realtime XP update detected');
+          fetchXP();
+        }
       )
       .subscribe();
 
+    // Listen for manual XP update events
+    const handleXPUpdate = () => {
+      console.log('Manual XP update triggered');
+      fetchXP();
+    };
+    window.addEventListener('xp-updated', handleXPUpdate);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('xp-updated', handleXPUpdate);
     };
   }, [studentId]);
 

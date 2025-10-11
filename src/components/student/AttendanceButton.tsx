@@ -107,15 +107,29 @@ export const AttendanceButton = () => {
         return;
       }
 
-      // Award XP
-      await supabase.functions.invoke("jhakkas-points-system", {
-        body: { 
-          action: "add", 
-          xp_amount: 5, 
-          activity_type: "attendance",
-          metadata: { date: today }
+      // Award XP with proper authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        const { error: xpError } = await supabase.functions.invoke("jhakkas-points-system", {
+          body: { 
+            action: "add", 
+            xp_amount: 5, 
+            activity_type: "attendance",
+            metadata: { date: today }
+          },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+
+        if (xpError) {
+          console.error('XP award failed:', xpError);
+        } else {
+          // Trigger immediate XP display update
+          window.dispatchEvent(new CustomEvent('xp-updated'));
         }
-      });
+      }
 
       setMarked(true);
       setStreak(attendanceData.streak_days);

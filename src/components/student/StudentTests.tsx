@@ -58,8 +58,12 @@ const StudentTests: React.FC = () => {
         return;
       }
 
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
-        body: { action: 'create-order' }
+        body: { action: 'create-order' },
+        headers
       });
 
       if (error) throw new Error(error.message || 'Failed to create order');
@@ -73,13 +77,17 @@ const StudentTests: React.FC = () => {
         order_id: data.orderId,
         method: { upi: true, card: true, netbanking: true, wallet: true, emi: false },
         handler: async (response: any) => {
+          const { data: { session } } = await supabase.auth.getSession();
+          const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+          
           const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
             body: {
               action: 'verify-payment',
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
               signature: response.razorpay_signature
-            }
+            },
+            headers
           });
           if (verifyError) {
             throw new Error(verifyError.message || 'Payment verification failed');
@@ -111,8 +119,12 @@ const StudentTests: React.FC = () => {
 
       // Use tests-api which automatically filters by class/board for students
       // Order by creation date (newest first) so oldest test is last in array
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'getAllTests', orderBy: 'created_at', order: 'desc' }
+        body: { action: 'getAllTests', orderBy: 'created_at', order: 'desc' },
+        headers
       })
 
       if (error) throw error;

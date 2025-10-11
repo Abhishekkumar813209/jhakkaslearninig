@@ -117,8 +117,12 @@ const StudentRoadmap: React.FC = () => {
       console.log('Loading learning paths...');
       setLoading(true);
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('learning-paths-api', {
-        body: { action: 'get_learning_paths' }
+        body: { action: 'get_learning_paths' },
+        headers
       });
 
       console.log('Learning paths response:', { data, error });
@@ -153,13 +157,17 @@ const StudentRoadmap: React.FC = () => {
 
   const handleAddTeacher = async (subject: string, teacherName: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('learning-paths-api', {
         body: { 
           action: 'create_learning_path',
           subject,
           teacher_name: teacherName,
           title: `${teacherName} - ${subject}`
-        }
+        },
+        headers
       });
 
       if (error) {
@@ -233,13 +241,17 @@ const StudentRoadmap: React.FC = () => {
 
       // If no matching learning path, create one
       if (!targetLearningPath) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+        
         const { data, error } = await supabase.functions.invoke('learning-paths-api', {
           body: { 
             action: 'create_learning_path',
             subject: 'Physics',
             teacher_name: teacherName,
             title: `${teacherName} - Physics`
-          }
+          },
+          headers
         });
 
         if (error) throw error;
@@ -250,13 +262,17 @@ const StudentRoadmap: React.FC = () => {
       const videos = await fetchPlaylistVideos(playlist.id);
 
       // Add playlist to the learning path
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('learning-paths-api', {
         body: { 
           action: 'add_playlist',
           learning_path_id: targetLearningPath.id,
           playlist_data: playlist,
           videos: videos
-        }
+        },
+        headers
       });
 
       if (error) throw error;
@@ -344,12 +360,16 @@ const StudentRoadmap: React.FC = () => {
 
   const handleWatchLecture = async (playlist: Playlist, lectureId?: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       // Try to fetch lectures from database for this playlist
       const { data, error } = await supabase.functions.invoke('learning-paths-api', {
         body: { 
           action: 'get_playlist_lectures',
           playlist_id: playlist.id
-        }
+        },
+        headers
       });
 
       if (error) {

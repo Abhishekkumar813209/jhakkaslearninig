@@ -182,13 +182,17 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
     // Award XP
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add",
           xp_amount: xpAmount,
           activity_type: "exercise_completed",
           metadata: { difficulty: actualDifficulty, topic_id: topicId }
-        }
+        },
+        headers
       });
       
       toast({
@@ -209,13 +213,17 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
   const markTopicComplete = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { error } = await supabase.functions.invoke("student-roadmap-api", {
         body: { 
           action: "update_progress",
           topic_id: topicId,
           progress_percentage: 100,
           status: "completed"
-        }
+        },
+        headers
       });
 
       if (error) throw error;
@@ -258,6 +266,9 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       const theoryDifficulty = (content?.difficulty || 'medium') as Difficulty;
       const xpAmount = calculateXP('theory', theoryDifficulty);
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       // Award XP
       await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
@@ -269,7 +280,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
             topic_name: topicName,
             difficulty: theoryDifficulty 
           }
-        }
+        },
+        headers
       });
       
       // Update progress
@@ -300,6 +312,9 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       // Award XP
       await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
@@ -312,7 +327,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
             difficulty: gameDifficulty,
             game_index: gameIndex
           }
-        }
+        },
+        headers
       });
       
       // Update progress

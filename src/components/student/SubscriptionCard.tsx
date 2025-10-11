@@ -76,8 +76,12 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
       // Create Razorpay order
       console.log('[SubscriptionCard] Creating order...');
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
-        body: { action: 'create-order' }
+        body: { action: 'create-order' },
+        headers
       });
 
       console.log('[SubscriptionCard] create-order result:', { data, error });
@@ -135,6 +139,10 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         handler: async (response: any) => {
           try {
             console.log('[SubscriptionCard] Payment success, verifying:', response);
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+            
             // Verify one-time payment
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
               body: {
@@ -142,7 +150,8 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
                 orderId: response.razorpay_order_id,
                 paymentId: response.razorpay_payment_id,
                 signature: response.razorpay_signature
-              }
+              },
+              headers
             });
 
             console.log('[SubscriptionCard] verify-payment result:', { verifyData, verifyError });

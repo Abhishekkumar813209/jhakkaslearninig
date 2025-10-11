@@ -93,12 +93,16 @@ export const StreakTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { error } = await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add",
           xp_amount: -cost,
           activity_type: "streak_freeze_purchase"
-        }
+        },
+        headers
       });
 
       if (error) throw error;

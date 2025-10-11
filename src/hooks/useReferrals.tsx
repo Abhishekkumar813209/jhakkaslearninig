@@ -108,8 +108,12 @@ export const useReferrals = () => {
 
   const requestWithdrawal = async (amount: number, upiId: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { error } = await supabase.functions.invoke('request-withdrawal', {
-        body: { amount, upiId }
+        body: { amount, upiId },
+        headers
       });
 
       if (error) throw error;

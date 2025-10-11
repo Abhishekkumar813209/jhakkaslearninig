@@ -96,13 +96,17 @@ export const DailyQuests = () => {
       const questProgress = progress.get(quest.id);
       if (!questProgress?.is_completed) return;
 
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       // Award XP
       const { error } = await supabase.functions.invoke("jhakkas-points-system", {
         body: {
           action: "add",
           xp_amount: quest.xp_reward,
           activity_type: "quest_completion"
-        }
+        },
+        headers
       });
 
       if (error) throw error;

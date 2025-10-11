@@ -250,8 +250,12 @@ export const StudentBatchRoadmap = () => {
   const fetchRoadmap = async () => {
     try {
       setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke("student-roadmap-api", {
-        body: { action: "get" }
+        body: { action: "get" },
+        headers
       });
 
       if (error) throw error;
@@ -284,8 +288,12 @@ export const StudentBatchRoadmap = () => {
       setRoadmap({ ...roadmap, subjects: newSubjects, subject_order: newOrder });
 
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+        
         const { error } = await supabase.functions.invoke("student-roadmap-api", {
-          body: { action: "update_subject_order", subject_order: newOrder }
+          body: { action: "update_subject_order", subject_order: newOrder },
+          headers
         });
 
         if (error) throw error;
@@ -308,12 +316,16 @@ export const StudentBatchRoadmap = () => {
 
   const handleChapterReorder = async (subjectName: string, reorderedChapterIds: string[]) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { error } = await supabase.functions.invoke("student-roadmap-api", {
         body: { 
           action: "update_chapter_order", 
           subject_name: subjectName,
           chapter_order: reorderedChapterIds
-        }
+        },
+        headers
       });
 
       if (error) throw error;
@@ -338,12 +350,16 @@ export const StudentBatchRoadmap = () => {
 
   const handleChapterEdit = async (chapterId: string, newDays: number) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { error } = await supabase.functions.invoke("student-roadmap-api", {
         body: {
           action: "update_chapter_days",
           chapter_id: chapterId,
           custom_days: newDays
-        }
+        },
+        headers
       });
 
       if (error) throw error;
@@ -367,8 +383,12 @@ export const StudentBatchRoadmap = () => {
 
   const handleResetOrder = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { error } = await supabase.functions.invoke("student-roadmap-api", {
-        body: { action: "update_subject_order", subject_order: null }
+        body: { action: "update_subject_order", subject_order: null },
+        headers
       });
 
       if (error) throw error;

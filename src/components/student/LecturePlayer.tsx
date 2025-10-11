@@ -172,6 +172,9 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       setProgress(newProgress);
 
       // Update progress via API
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       await supabase.functions.invoke('learning-paths-api', {
         body: {
           action: 'track_progress',
@@ -179,7 +182,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           watch_time_seconds: newProgress.watch_time_seconds,
           is_completed: newProgress.is_completed,
           playlist_id: playlistId
-        }
+        },
+        headers
       });
 
       if (newProgress.is_completed && !progress.is_completed) {

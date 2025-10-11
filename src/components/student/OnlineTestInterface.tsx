@@ -91,8 +91,12 @@ const OnlineTestInterface: React.FC = () => {
     try {
       setLoading(true);
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'getTestWithQuestions', testId }
+        body: { action: 'getTestWithQuestions', testId },
+        headers
       });
 
       if (error) throw error;
@@ -126,13 +130,17 @@ const OnlineTestInterface: React.FC = () => {
 
   const createTestAttempt = async (testId: string, totalMarks: number) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data, error } = await supabase.functions.invoke('test-attempt-api', {
         body: { 
           action: 'createAttempt',
           testId,
           totalMarks,
           clientStartedAt: new Date().toISOString()
-        }
+        },
+        headers
       });
 
       if (error) throw error;
@@ -187,6 +195,9 @@ const OnlineTestInterface: React.FC = () => {
     if (!attemptId) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       for (const [questionId, answer] of Object.entries(answers)) {
         await supabase.functions.invoke('test-attempt-api', {
           body: {
@@ -195,7 +206,8 @@ const OnlineTestInterface: React.FC = () => {
             questionId,
             selectedOption: answer.selectedOption,
             textAnswer: answer.textAnswer
-          }
+          },
+          headers
         });
       }
     } catch (error) {
@@ -232,6 +244,9 @@ const OnlineTestInterface: React.FC = () => {
       // Save all answers first
       await autoSaveAnswers();
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       // Submit the test
       const { data, error } = await supabase.functions.invoke('test-attempt-api', {
         body: {
@@ -240,7 +255,8 @@ const OnlineTestInterface: React.FC = () => {
           answers: Object.values(answers),
           timeTaken: Math.max(0, (test!.duration_minutes * 60) - timeRemaining),
           autoSubmitted: autoSubmit
-        }
+        },
+        headers
       });
 
       if (error) throw error;

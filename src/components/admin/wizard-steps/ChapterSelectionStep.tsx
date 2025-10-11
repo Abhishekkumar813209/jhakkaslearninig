@@ -14,7 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Plus, Trash2, Upload, Loader2, FileText, Filter } from "lucide-react";
+import { Sparkles, Plus, Trash2, Upload, Loader2, FileText, Filter, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { Subject, Chapter, ChaptersBySubject } from "../CreateRoadmapWizard";
 
 const getImportanceBadge = (relevance?: string, score?: number) => {
@@ -47,6 +50,8 @@ interface ChapterSelectionStepProps {
   onUpdateDays: (subjectName: string, chapterId: string, days: number) => void;
   onUploadPdf: (file: File, subjectName: string) => void;
   uploadedPdf: File | null;
+  examType?: string;
+  examName?: string;
 }
 
 export const ChapterSelectionStep = ({
@@ -61,11 +66,21 @@ export const ChapterSelectionStep = ({
   onUpdateDays,
   onUploadPdf,
   uploadedPdf,
+  examType,
+  examName,
 }: ChapterSelectionStepProps) => {
+  const { toast } = useToast();
   const [customChapterInputs, setCustomChapterInputs] = useState<{ [key: string]: { name: string; days: number } }>({});
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [fetchedInitial, setFetchedInitial] = useState<Set<string>>(new Set());
   const [importanceFilters, setImportanceFilters] = useState<{ [subject: string]: string }>({});
+  
+  // Bulk input states
+  const [bulkInputMode, setBulkInputMode] = useState<{ [subject: string]: 'text' | 'file' }>({});
+  const [bulkChapterText, setBulkChapterText] = useState<{ [subject: string]: string }>({});
+  const [bulkUploadedFiles, setBulkUploadedFiles] = useState<{ [subject: string]: File | null }>({});
+  const [bulkFilePreview, setBulkFilePreview] = useState<{ [subject: string]: string | null }>({});
+  const [bulkGenerating, setBulkGenerating] = useState(false);
 
   const handleAddCustomChapter = (subjectName: string) => {
     const input = customChapterInputs[subjectName];
@@ -84,6 +99,94 @@ export const ChapterSelectionStep = ({
     
     onUploadPdf(file, subjectName);
     e.target.value = ''; // Reset input
+  };
+
+  const handleBulkFileUpload = (e: React.ChangeEvent<HTMLInputElement>, subjectName: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10MB", variant: "destructive" });
+      return;
+    }
+
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!validTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload PDF, JPG, or PNG file", variant: "destructive" });
+      return;
+    }
+
+    setBulkUploadedFiles({ ...bulkUploadedFiles, [subjectName]: file });
+    setBulkFilePreview({ ...bulkFilePreview, [subjectName]: file.name });
+  };
+
+  const clearBulkFile = (subjectName: string) => {
+    setBulkUploadedFiles({ ...bulkUploadedFiles, [subjectName]: null });
+    setBulkFilePreview({ ...bulkFilePreview, [subjectName]: null });
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+  };
+
+  const handleBulkGenerate = async (subjectName: string) => {
+    setBulkGenerating(true);
+    try {
+      const mode = bulkInputMode[subjectName] || 'text';
+      let requestBody: any = {
+        subject: subjectName,
+        exam_type: examType || '',
+        exam_name: examName || '',
+        input_mode: mode
+      };
+
+      if (mode === 'text') {
+        requestBody.chapters_text = bulkChapterText[subjectName];
+      } else {
+        const file = bulkUploadedFiles[subjectName];
+        if (file?.type.startsWith('image/')) {
+          requestBody.syllabus_image = await fileToBase64(file);
+        } else if (file?.type === 'application/pdf') {
+          // For PDFs, we'll still use base64
+          requestBody.syllabus_image = await fileToBase64(file);
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke('extract-chapters-bulk', {
+        body: requestBody
+      });
+
+      if (error) throw error;
+
+      if (data?.chapters && Array.isArray(data.chapters)) {
+        data.chapters.forEach((ch: any) => {
+          onAddChapter(subjectName, ch.chapter_name, ch.suggested_days || 3);
+        });
+
+        setBulkChapterText({ ...bulkChapterText, [subjectName]: '' });
+        setBulkUploadedFiles({ ...bulkUploadedFiles, [subjectName]: null });
+        setBulkFilePreview({ ...bulkFilePreview, [subjectName]: null });
+
+        toast({
+          title: "✨ Chapters Generated",
+          description: `Added ${data.chapters.length} chapters for ${subjectName}`
+        });
+      }
+    } catch (error: any) {
+      console.error('Bulk generation error:', error);
+      toast({ 
+        title: "Generation failed", 
+        description: error.message || "Failed to generate chapters", 
+        variant: "destructive" 
+      });
+    } finally {
+      setBulkGenerating(false);
+    }
   };
 
   const totalSelected = Object.values(chapters).flat().filter(c => c.isSelected).length;
@@ -224,6 +327,7 @@ export const ChapterSelectionStep = ({
                           </div>
                         </DialogContent>
                       </Dialog>
+                      
                       {allSubjectChapters.length > 0 && (
                         <>
                           <Select 
@@ -258,6 +362,129 @@ export const ChapterSelectionStep = ({
                         </>
                       )}
                     </div>
+
+                    {/* NEW: Bulk Chapter Input Section */}
+                    <div className="mt-4 border-t pt-4 space-y-3 bg-muted/30 p-4 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <h4 className="font-semibold text-sm">Bulk Chapter Input</h4>
+                      </div>
+                      
+                      {/* Input Mode Toggle */}
+                      <div className="flex gap-2">
+                        <Button
+                          variant={(!bulkInputMode[subject.name] || bulkInputMode[subject.name] === 'text') ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setBulkInputMode({ ...bulkInputMode, [subject.name]: 'text' })}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Paste Text
+                        </Button>
+                        <Button
+                          variant={bulkInputMode[subject.name] === 'file' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setBulkInputMode({ ...bulkInputMode, [subject.name]: 'file' })}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload File
+                        </Button>
+                      </div>
+
+                      {/* Text Input UI */}
+                      {(!bulkInputMode[subject.name] || bulkInputMode[subject.name] === 'text') && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            Paste chapter names (one per line or comma-separated)
+                          </Label>
+                          <Textarea
+                            placeholder={`Example:\n1. Magnetism and Matter\n2. Electromagnetic Induction\n3. Alternating Current\n\nOr: Motion, Laws of Motion, Work and Energy`}
+                            value={bulkChapterText[subject.name] || ''}
+                            onChange={(e) => setBulkChapterText({
+                              ...bulkChapterText,
+                              [subject.name]: e.target.value
+                            })}
+                            rows={5}
+                            className="font-mono text-sm"
+                          />
+                        </div>
+                      )}
+
+                      {/* File Upload UI */}
+                      {bulkInputMode[subject.name] === 'file' && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            Upload syllabus file (PDF, JPG, PNG - up to 10MB)
+                          </Label>
+                          <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors">
+                            <input
+                              type="file"
+                              accept=".pdf,image/*"
+                              onChange={(e) => handleBulkFileUpload(e, subject.name)}
+                              className="hidden"
+                              id={`bulk-file-${subject.name}`}
+                            />
+                            <label
+                              htmlFor={`bulk-file-${subject.name}`}
+                              className="cursor-pointer flex flex-col items-center gap-2"
+                            >
+                              {bulkFilePreview[subject.name] ? (
+                                <div className="flex items-center gap-2 bg-primary/10 px-4 py-3 rounded-lg w-full">
+                                  <FileText className="h-6 w-6 text-primary" />
+                                  <div className="text-left flex-1">
+                                    <p className="text-sm font-medium truncate">{bulkUploadedFiles[subject.name]?.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {(bulkUploadedFiles[subject.name]?.size! / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      clearBulkFile(subject.name);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <Upload className="h-10 w-10 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-sm font-medium">Click to upload file</p>
+                                    <p className="text-xs text-muted-foreground">PDF, PNG, JPG up to 10MB</p>
+                                  </div>
+                                </>
+                              )}
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Generate Button */}
+                      <Button
+                        onClick={() => handleBulkGenerate(subject.name)}
+                        disabled={
+                          bulkGenerating || 
+                          ((!bulkInputMode[subject.name] || bulkInputMode[subject.name] === 'text') && !bulkChapterText[subject.name]?.trim()) ||
+                          (bulkInputMode[subject.name] === 'file' && !bulkUploadedFiles[subject.name])
+                        }
+                        className="w-full"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {bulkGenerating ? "AI Processing..." : "Generate Chapters with AI"}
+                      </Button>
+
+                      {bulkGenerating && (
+                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                          <p className="text-sm flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            AI is extracting chapters from {bulkInputMode[subject.name] === 'file' ? 'file' : 'text'}...
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     {fetchedInitial.has(subject.name) && subjectChapters.length > 0 && (
                       <p className="text-xs text-muted-foreground">
                         {subjectChapters.length} chapters loaded. Click "Fetch Remaining" for more.

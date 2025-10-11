@@ -130,3 +130,6 @@ verify_jwt = true
 
 [functions.roadmap-reorder]
 verify_jwt = true
+
+[functions.extract-chapters-bulk]
+verify_jwt = true

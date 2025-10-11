@@ -18,14 +18,78 @@ Deno.serve(async (req) => {
       exam_type, 
       exam_name,
       estimated_days,
-      existing_topics_count = 0
+      existing_topics_count = 0,
+      input_mode = 'auto',
+      syllabus_text,
+      syllabus_image
     } = await req.json();
 
-    console.log('Generating topics for:', { chapter_name, subject, exam_type, exam_name, estimated_days });
+    console.log('Generating topics for:', { 
+      chapter_name, 
+      subject, 
+      exam_type, 
+      exam_name, 
+      estimated_days,
+      input_mode,
+      has_text: !!syllabus_text,
+      has_image: !!syllabus_image
+    });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
+    }
+
+    let contentToProcess = syllabus_text || '';
+
+    // If image mode, use Vision API to extract text first
+    if (input_mode === 'image' && syllabus_image) {
+      console.log('Processing image with Vision API...');
+      
+      const visionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Extract ALL text from this syllabus image. Preserve structure, bullets, numbering, and headings. Return only the extracted text, nothing else.`
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: syllabus_image
+                  }
+                }
+              ]
+            }
+          ],
+          temperature: 0.1,
+          max_tokens: 3000
+        }),
+      });
+
+      if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error('Vision API Error:', visionResponse.status, errorText);
+        throw new Error('Failed to process image with Vision API');
+      }
+
+      const visionData = await visionResponse.json();
+      contentToProcess = visionData.choices?.[0]?.message?.content || '';
+      
+      console.log('Extracted text from image:', contentToProcess.substring(0, 200));
+      
+      if (!contentToProcess.trim()) {
+        throw new Error('Could not extract text from image. Please ensure the image contains readable text.');
+      }
     }
 
     // Build budget-aware prompt with clustering logic
@@ -33,7 +97,7 @@ Deno.serve(async (req) => {
     const shouldCluster = estimated_days < 3;
     
     const systemPrompt = `You are an expert educational content creator specializing in ${exam_type} exam preparation.
-Your task is to generate a BUDGET-AWARE list of topics that STRICTLY respects the ${estimated_days}-day time budget.
+Your task is to ${contentToProcess ? 'PARSE the provided syllabus content and extract' : 'generate a'} BUDGET-AWARE list of topics that STRICTLY respects the ${estimated_days}-day time budget.
 
 CRITICAL TIME BUDGET RULES:
 - Chapter has ONLY ${estimated_days} days total
@@ -65,7 +129,20 @@ OUTPUT FORMAT: Return ONLY a valid JSON array, no markdown:
   }
 ]`;
 
-    const userPrompt = `Generate BUDGET-AWARE topics for this chapter:
+    const userPrompt = contentToProcess 
+      ? `Parse this syllabus content and extract BUDGET-AWARE topics:
+
+SYLLABUS CONTENT:
+${contentToProcess}
+
+Chapter: ${chapter_name}
+Subject: ${subject}
+Exam: ${exam_name} (${exam_type})
+TIME BUDGET: ${estimated_days} days (STRICT LIMIT)
+Already Added Topics: ${existing_topics_count}
+
+Extract individual topics/concepts from the syllabus, allocate days based on complexity, and ensure total days ≈ ${estimated_days}.`
+      : `Generate BUDGET-AWARE topics for this chapter:
 Chapter: ${chapter_name}
 Subject: ${subject}
 Exam: ${exam_name} (${exam_type})

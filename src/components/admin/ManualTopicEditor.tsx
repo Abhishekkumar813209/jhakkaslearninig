@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Upload, Sparkles } from "lucide-react";
+import { Plus, Trash2, Save, Upload, Sparkles, FileText, Image, X, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
@@ -62,10 +62,16 @@ export const ManualTopicEditor = () => {
   const [selectedChapter, setSelectedChapter] = useState<string>("");
   
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [csvInput, setCsvInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [roadmapCounts, setRoadmapCounts] = useState<any>({ byBoard: {}, byClass: {} });
+  
+  // Bulk input states
+  const [inputMode, setInputMode] = useState<'text' | 'image'>('text');
+  const [syllabusText, setSyllabusText] = useState("");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [bulkParsing, setBulkParsing] = useState(false);
   
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
@@ -331,42 +337,122 @@ export const ManualTopicEditor = () => {
     }
   };
 
-  const handleCsvParse = () => {
-    try {
-      const lines = csvInput.trim().split("\n");
-      const parsed: Topic[] = [];
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      for (const line of lines) {
-        const parts = line.split(",").map(p => p.trim());
-        if (parts.length >= 2) {
-          const rawDifficulty = parts[4] || 'medium';
-          const diff = normalizeDifficulty(rawDifficulty);
-          
-          parsed.push({
-            topic_name: parts[0],
-            day_number: parseInt(parts[1]) || (parsed.length + 1),
-            book_page_reference: parts[2] || undefined,
-            xp_reward: calculateXP('theory', diff), // Derive from difficulty
-            difficulty: diff,
-            animation_type: parts[5] || "interactive_svg" // Fixed index
-          });
-        }
-      }
-
-      if (parsed.length > 0) {
-        setTopics([...topics, ...parsed]);
-        setCsvInput("");
-        toast({
-          title: "CSV Parsed",
-          description: `Added ${parsed.length} topics from CSV`
-        });
-      }
-    } catch (error) {
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
-        title: "CSV Parse Error",
-        description: "Invalid CSV format",
+        title: "File Too Large",
+        description: "Please upload an image smaller than 10MB",
         variant: "destructive"
       });
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload an image file (PNG, JPG, JPEG)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setImageFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUploadedImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBulkParse = async () => {
+    if (!selectedChapter || !selectedBatch) {
+      toast({
+        title: "Error",
+        description: "Please select a batch and chapter",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setBulkParsing(true);
+    try {
+      const selectedChapterData = chapters.find(c => c.id === selectedChapter);
+      const batch = batches.find(b => b.id === selectedBatch);
+      
+      if (!selectedChapterData || !batch) {
+        throw new Error("Chapter or batch not found");
+      }
+
+      let requestBody: any = {
+        chapter_id: selectedChapter,
+        chapter_name: selectedChapterData.chapter_name,
+        subject: selectedChapterData.subject,
+        exam_type: batch.exam_type,
+        exam_name: batch.exam_name,
+        estimated_days: selectedChapterData.estimated_days || 3,
+        existing_topics_count: topics.length,
+        input_mode: inputMode
+      };
+
+      if (inputMode === 'text') {
+        requestBody.syllabus_text = syllabusText;
+      } else {
+        requestBody.syllabus_image = uploadedImage;
+      }
+
+      console.log(`Parsing syllabus (${inputMode} mode)...`, {
+        chapter: selectedChapterData.chapter_name,
+        estimated_days: selectedChapterData.estimated_days,
+        has_image: !!uploadedImage,
+        text_length: syllabusText.length
+      });
+
+      const { data, error } = await supabase.functions.invoke('ai-generate-chapter-topics', {
+        body: requestBody
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.topics) {
+        const normalized = data.topics.map((t: any) => {
+          const diff = normalizeDifficulty(t.difficulty);
+          return {
+            ...t,
+            difficulty: diff,
+            xp_reward: calculateXP('theory', diff)
+          };
+        });
+        
+        setTopics([...topics, ...normalized]);
+        
+        // Clear inputs
+        setSyllabusText("");
+        setUploadedImage(null);
+        setImageFile(null);
+        
+        toast({
+          title: "✨ Topics Generated Successfully",
+          description: `Extracted ${data.topics.length} topics from ${inputMode === 'image' ? 'image' : 'text'} with day allocations`
+        });
+      } else {
+        throw new Error(data?.error || "Failed to generate topics");
+      }
+    } catch (error: any) {
+      console.error("Bulk Parse Error:", error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate topics with AI",
+        variant: "destructive"
+      });
+    } finally {
+      setBulkParsing(false);
     }
   };
 
@@ -407,7 +493,9 @@ export const ManualTopicEditor = () => {
       });
 
       setTopics([]);
-      setCsvInput("");
+      setSyllabusText("");
+      setUploadedImage(null);
+      setImageFile(null);
     } catch (error: any) {
       console.error("Error saving topics:", error);
       toast({
@@ -600,28 +688,125 @@ export const ManualTopicEditor = () => {
             </div>
           </div>
 
-          {/* CSV Bulk Input */}
-          <div className="space-y-2">
-            <Label>Bulk CSV Input</Label>
-            <p className="text-xs text-muted-foreground">
-              Format: Topic Name, Day#, Page, XP, Difficulty, AnimationType
-            </p>
-            <Textarea
-              placeholder="Introduction to Algebra, 1, 45, 50, medium, interactive_svg"
-              value={csvInput}
-              onChange={(e) => setCsvInput(e.target.value)}
-              rows={4}
-              className="font-mono text-xs"
-            />
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleCsvParse}
-              disabled={!csvInput.trim()}
+          {/* Bulk Input - Text or Image */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Bulk Input Method</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={inputMode === 'text' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setInputMode('text')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Paste Text
+                </Button>
+                <Button
+                  variant={inputMode === 'image' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setInputMode('image')}
+                >
+                  <Image className="h-4 w-4 mr-2" />
+                  Upload Image
+                </Button>
+              </div>
+            </div>
+
+            {inputMode === 'text' && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Paste syllabus text from official site (any format - bullets, paragraphs, numbered lists)
+                </p>
+                <Textarea
+                  placeholder="Example:
+Unit 1: Magnetism
+- Bar magnets and field lines
+- Biot-Savart law
+- Ampere's law applications
+- Earth's magnetic field
+
+AI will extract topics and allocate day budgets automatically."
+                  value={syllabusText}
+                  onChange={(e) => setSyllabusText(e.target.value)}
+                  rows={8}
+                  className="font-mono text-sm"
+                />
+              </div>
+            )}
+
+            {inputMode === 'image' && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Upload image of syllabus page (textbook, PDF screenshot, official document)
+                </p>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="syllabus-image-upload"
+                  />
+                  <label
+                    htmlFor="syllabus-image-upload"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    {uploadedImage ? (
+                      <div className="relative">
+                        <img 
+                          src={uploadedImage} 
+                          alt="Uploaded syllabus" 
+                          className="max-h-48 rounded-lg"
+                        />
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="absolute top-2 right-2"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setUploadedImage(null);
+                            setImageFile(null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="h-12 w-12 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Click to upload image</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG, JPEG up to 10MB</p>
+                        </div>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={handleBulkParse}
+              disabled={
+                !selectedChapter || 
+                bulkParsing || 
+                (inputMode === 'text' && !syllabusText.trim()) ||
+                (inputMode === 'image' && !imageFile)
+              }
+              className="w-full"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Parse CSV
+              <Sparkles className="h-4 w-4 mr-2" />
+              {bulkParsing ? "AI Processing..." : "Generate Topics with AI"}
             </Button>
+
+            {bulkParsing && (
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  AI is {inputMode === 'image' ? 'reading image and' : ''} extracting topics with day budgets...
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Topics Table */}

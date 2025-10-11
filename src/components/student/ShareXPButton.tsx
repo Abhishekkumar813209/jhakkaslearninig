@@ -20,12 +20,46 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
   const [cooldownHours, setCooldownHours] = useState(0);
   const [studentName, setStudentName] = useState("Student");
   const [shareCode, setShareCode] = useState("");
+  const [xpPending, setXpPending] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     checkShareStatus();
     fetchStudentName();
+    checkPendingXP();
   }, []);
+
+  const checkPendingXP = async () => {
+    try {
+      const pending = localStorage.getItem('pendingXP');
+      if (!pending) return;
+
+      const { userId, code, timestamp } = JSON.parse(pending);
+      const age = Date.now() - timestamp;
+
+      // If pending for more than 5 minutes, try to process it
+      if (age > 5 * 60 * 1000 && age < 30 * 60 * 1000) {
+        console.log('Found pending XP award, attempting to process...');
+        setXpPending(true);
+        
+        await awardShareXP(userId, code);
+        localStorage.removeItem('pendingXP');
+        
+        toast({
+          title: "✅ XP Awarded!",
+          description: "Your pending share XP has been credited!"
+        });
+        
+        setXpPending(false);
+      } else if (age > 30 * 60 * 1000) {
+        // Expired, clear it
+        localStorage.removeItem('pendingXP');
+      }
+    } catch (error) {
+      console.error("Error checking pending XP:", error);
+      setXpPending(false);
+    }
+  };
 
   const fetchStudentName = async () => {
     try {
@@ -243,6 +277,13 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
 
       console.log('Share marked successfully, scheduling XP award...');
 
+      // Store pending XP in localStorage as backup
+      localStorage.setItem('pendingXP', JSON.stringify({
+        userId: user.id,
+        code: code,
+        timestamp: Date.now()
+      }));
+
       // Show immediate feedback
       toast({
         title: "🎉 Share successful!",
@@ -251,6 +292,7 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
 
       setSharedToday(true); // Disable button immediately
       setCooldownHours(24);
+      setXpPending(true); // Show pending indicator
 
       // Trigger confetti immediately for engagement
       confetti({
@@ -261,12 +303,24 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
 
       // Award XP after 2 minutes (120,000 ms)
       setTimeout(async () => {
-        await awardShareXP(user.id, code);
-        
-        toast({
-          title: "🎁 +5 Jhakkas Points Earned!",
-          description: "Thanks for sharing! Your XP has been added."
-        });
+        try {
+          await awardShareXP(user.id, code);
+          localStorage.removeItem('pendingXP');
+          setXpPending(false);
+          
+          toast({
+            title: "🎁 +5 Jhakkas Points Earned!",
+            description: "Thanks for sharing! Your XP has been added."
+          });
+        } catch (error) {
+          console.error("XP award error:", error);
+          // Don't remove from localStorage - will retry on next mount
+          toast({
+            title: "XP Pending",
+            description: "Your XP will be credited when you refresh the page.",
+            variant: "default"
+          });
+        }
       }, 120000); // 2 minutes = 120,000 milliseconds
       
     } catch (error) {
@@ -288,13 +342,16 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.error("Session expired, XP award skipped");
+      console.error("❌ Session expired - XP award failed");
+      
+      // Keep in localStorage for retry
       toast({
-        title: "Session expired",
-        description: "Please refresh the page to claim XP",
-        variant: "destructive"
+        title: "Session Expired",
+        description: "Please refresh the page to claim your pending 5 XP",
+        variant: "default"
       });
-      return;
+      
+      throw new Error("Session expired");
     }
     
     // Double-check cooldown before awarding XP
@@ -333,13 +390,26 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
     });
 
     if (xpError) {
-      console.error("Error awarding XP:", xpError);
+      console.error("❌ XP award API error:", xpError);
+      
+      // Check if it's a cooldown error
+      if (xpError.message?.includes('Cooldown active') || xpError.message?.includes('24 hours')) {
+        toast({
+          title: "Already Claimed",
+          description: "You've already earned share XP today. Try again tomorrow!",
+          variant: "default"
+        });
+        return;
+      }
+      
+      // Other errors - keep in localStorage for retry
       toast({
-        title: "XP award failed",
-        description: xpError.message || "Please refresh the page to retry",
-        variant: "destructive"
+        title: "XP Award Pending",
+        description: "Will retry when you refresh the page",
+        variant: "default"
       });
-      return;
+      
+      throw new Error(xpError.message || "Failed to award XP");
     }
 
     // Trigger XP display update
@@ -429,12 +499,17 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
     <>
       <Button
         onClick={handleShare}
-        disabled={sharedToday || isGenerating}
+        disabled={sharedToday || isGenerating || xpPending}
         variant={sharedToday ? "outline" : "default"}
         className="w-full gap-2"
       >
         {isGenerating ? (
           <>🎨 Creating share image...</>
+        ) : xpPending ? (
+          <>
+            <Clock className="h-5 w-5 animate-pulse" />
+            ⏳ XP Pending...
+          </>
         ) : sharedToday ? (
           <>
             <CheckCircle2 className="h-5 w-5" />

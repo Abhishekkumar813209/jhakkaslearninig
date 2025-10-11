@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Eye, Sparkles, GripVertical, Check, X } from "lucide-react";
@@ -141,6 +142,17 @@ export function LessonContentBuilder() {
     generated_by: 'manual',
     human_reviewed: false,
   });
+
+  // Theory content extraction states
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [extractedContent, setExtractedContent] = useState('');
+
+  // Game generation states
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
+  const [generatedGames, setGeneratedGames] = useState<any>(null);
 
 
   const sensors = useSensors(
@@ -359,6 +371,135 @@ export function LessonContentBuilder() {
     toast({ title: "Success", description: "Lessons reordered" });
   };
 
+  const resetForm = () => {
+    setNewLesson({
+      lesson_type: 'theory',
+      estimated_time_minutes: 5,
+      xp_reward: 10,
+      generated_by: 'manual',
+      human_reviewed: false,
+    });
+    setPdfFile(null);
+    setYoutubeUrl('');
+    setExtractedContent('');
+    setUploadedFile(null);
+    setAiSuggestions(null);
+    setGeneratedGames(null);
+  };
+
+  const handleExtractContent = async () => {
+    try {
+      setLoading(true);
+      let content = '';
+      
+      if (pdfFile) {
+        const formData = new FormData();
+        formData.append('pdf', pdfFile);
+        formData.append('subject', selectedSubject || '');
+        formData.append('target_class', selectedClass || '');
+        formData.append('target_board', selectedBoard || '');
+        
+        const { data, error } = await supabase.functions.invoke('pdf-content-extractor', {
+          body: formData
+        });
+        
+        if (error) throw error;
+        content = data.extracted_text || '';
+      } else if (youtubeUrl) {
+        const videoId = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
+        if (!videoId) {
+          toast({ title: "Error", description: "Invalid YouTube URL", variant: "destructive" });
+          return;
+        }
+        
+        const { data, error } = await supabase.functions.invoke('youtube-transcript-fetcher', {
+          body: { videoId }
+        });
+        
+        if (error) throw error;
+        content = data.transcript || '';
+      }
+      
+      setExtractedContent(content);
+      setNewLesson({ ...newLesson, theory_text: content });
+      toast({ title: "Success", description: "Content extracted successfully!" });
+    } catch (error: any) {
+      console.error(error);
+      toast({ title: "Error", description: error.message || "Failed to extract content", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAIGameGeneration = async () => {
+    if (!uploadedFile) return;
+    
+    try {
+      setAiProcessing(true);
+      
+      const reader = new FileReader();
+      const fileContent = await new Promise<string>((resolve) => {
+        reader.onload = (e) => resolve(e.target?.result as string);
+        if (uploadedFile.type.includes('image')) {
+          reader.readAsDataURL(uploadedFile);
+        } else {
+          reader.readAsText(uploadedFile);
+        }
+      });
+      
+      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+        body: {
+          mode: 'analyze',
+          content: fileContent,
+          fileType: uploadedFile.type,
+          subject: selectedSubject || '',
+          chapter: chapters.find(c => c.id === selectedChapter)?.chapter_name || '',
+          topic: topics.find(t => t.id === selectedTopic)?.topic_name || ''
+        }
+      });
+      
+      if (error) throw error;
+      
+      setAiSuggestions({
+        questionCount: data.questionCount || 1,
+        bestGameType: data.recommended_type || 'match_pairs',
+        reasoning: data.reasoning || 'Based on question analysis',
+        alternatives: data.alternative_options || []
+      });
+      
+      const games: any = {};
+      const gameTypes = [data.recommended_type, ...(data.alternative_options || [])].filter(Boolean);
+      
+      for (const gameType of gameTypes) {
+        const { data: gameData, error: gameError } = await supabase.functions.invoke('ai-question-to-game', {
+          body: {
+            mode: 'convert',
+            content: fileContent,
+            fileType: uploadedFile.type,
+            gameType: gameType,
+            subject: selectedSubject || ''
+          }
+        });
+        
+        if (!gameError && gameData) {
+          games[gameType] = gameData.gameData || gameData.exercise_data;
+        }
+      }
+      
+      setGeneratedGames(games);
+      toast({ 
+        title: "Success", 
+        description: `${Object.keys(games).length} game option${Object.keys(games).length > 1 ? 's' : ''} generated!` 
+      });
+      
+    } catch (error: any) {
+      console.error(error);
+      toast({ title: "Error", description: error.message || "Failed to generate games", variant: "destructive" });
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
   const handleAddLesson = async () => {
     if (!selectedTopic) {
       toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
@@ -383,13 +524,7 @@ export function LessonContentBuilder() {
       toast({ title: "Success", description: "Lesson added successfully" });
       setIsAddDialogOpen(false);
       fetchLessons();
-      setNewLesson({
-    lesson_type: 'theory',
-    estimated_time_minutes: 5,
-    xp_reward: 10,
-    generated_by: 'manual',
-    human_reviewed: false,
-  });
+      resetForm();
     }
   };
 
@@ -762,14 +897,47 @@ export function LessonContentBuilder() {
 
                             <TabsContent value="content" className="space-y-4">
                               {newLesson.lesson_type === 'theory' && (
-                                <div>
-                                  <Label>Theory Content</Label>
-                                  <Textarea
-                                    placeholder="Enter theory content..."
-                                    value={newLesson.theory_text || ''}
-                                    onChange={(e) => setNewLesson({ ...newLesson, theory_text: e.target.value })}
-                                    rows={8}
-                                  />
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <Label>Upload PDF/Book</Label>
+                                      <Input 
+                                        type="file" 
+                                        accept=".pdf" 
+                                        onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label>YouTube Video URL</Label>
+                                      <Input 
+                                        placeholder="https://youtube.com/watch?v=..."
+                                        value={youtubeUrl}
+                                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                                      />
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    onClick={handleExtractContent} 
+                                    disabled={(!pdfFile && !youtubeUrl) || loading}
+                                    className="w-full"
+                                  >
+                                    <Sparkles className="mr-2 h-4 w-4" /> Extract Content with AI
+                                  </Button>
+                                  {extractedContent && (
+                                    <div className="border rounded-lg p-4 bg-muted/30">
+                                      <p className="text-sm font-medium mb-2">Extracted Content Preview:</p>
+                                      <p className="text-sm line-clamp-4">{extractedContent.substring(0, 300)}...</p>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <Label>Theory Content (Edit if needed)</Label>
+                                    <Textarea
+                                      placeholder="Enter theory content or extract from PDF/YouTube..."
+                                      value={newLesson.theory_text || ''}
+                                      onChange={(e) => setNewLesson({ ...newLesson, theory_text: e.target.value })}
+                                      rows={8}
+                                    />
+                                  </div>
                                 </div>
                               )}
 
@@ -818,45 +986,139 @@ export function LessonContentBuilder() {
 
                               {newLesson.lesson_type === 'game' && (
                                 <div className="space-y-4">
+                                  <Alert>
+                                    <Sparkles className="h-4 w-4" />
+                                    <AlertDescription>
+                                      Upload questions in any format - AI will detect and convert them to games!
+                                    </AlertDescription>
+                                  </Alert>
+                                  
                                   <div>
-                                    <Label>Game Type</Label>
-                                    <Select
-                                      value={newLesson.game_type}
-                                      onValueChange={(v) => setNewLesson({ ...newLesson, game_type: v as GameType })}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select game type" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="match_pairs">Match Pairs</SelectItem>
-                                        <SelectItem value="drag_drop">Drag & Drop</SelectItem>
-                                        <SelectItem value="typing_race">Typing Race</SelectItem>
-                                        <SelectItem value="word_puzzle">Word Puzzle</SelectItem>
-                                        <SelectItem value="fill_blanks">Fill in Blanks</SelectItem>
-                                        <SelectItem value="physics_simulator">Physics Simulator</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div>
-                                    <Label>Game Data (JSON)</Label>
-                                    <Textarea
-                                      placeholder={'{"pairs": [{"id": "1", "left": "F = ma", "right": "Newtons Law"}], ...}'}
-                                      value={typeof newLesson.game_data === 'object' ? JSON.stringify(newLesson.game_data, null, 2) : newLesson.game_data || ''}
-                                      onChange={(e) => {
-                                        try {
-                                          const parsed = JSON.parse(e.target.value);
-                                          setNewLesson({ ...newLesson, game_data: parsed });
-                                        } catch {
-                                          setNewLesson({ ...newLesson, game_data: e.target.value });
-                                        }
-                                      }}
-                                      rows={10}
-                                      className="font-mono text-xs"
+                                    <Label>Upload Question File</Label>
+                                    <Input 
+                                      type="file" 
+                                      accept=".jpg,.jpeg,.png,.txt,.csv,.pdf"
+                                      onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      Enter valid JSON data for the selected game type
+                                      Supports: Images, Text files, CSV, or PDF
                                     </p>
                                   </div>
+
+                                  {uploadedFile && (
+                                    <>
+                                      <Button 
+                                        onClick={handleAIGameGeneration} 
+                                        disabled={aiProcessing}
+                                        className="w-full"
+                                      >
+                                        {aiProcessing ? (
+                                          <>Processing with AI...</>
+                                        ) : (
+                                          <><Sparkles className="mr-2 h-4 w-4" /> Analyze & Generate Games</>
+                                        )}
+                                      </Button>
+
+                                      {aiSuggestions && (
+                                        <Card>
+                                          <CardHeader>
+                                            <CardTitle className="text-sm">AI Recommendations</CardTitle>
+                                          </CardHeader>
+                                          <CardContent className="space-y-2">
+                                            <p className="text-sm"><strong>Detected Questions:</strong> {aiSuggestions.questionCount}</p>
+                                            <p className="text-sm"><strong>Recommended Game:</strong> {aiSuggestions.bestGameType}</p>
+                                            <p className="text-sm text-muted-foreground">{aiSuggestions.reasoning}</p>
+                                            
+                                            {aiSuggestions.alternatives?.length > 0 && (
+                                              <div>
+                                                <p className="text-xs font-medium mt-2">Alternative Options:</p>
+                                                <div className="flex gap-2 mt-1 flex-wrap">
+                                                  {aiSuggestions.alternatives.map((alt: string) => (
+                                                    <Badge key={alt} variant="outline">{alt}</Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </CardContent>
+                                        </Card>
+                                      )}
+
+                                      {generatedGames && Object.keys(generatedGames).length > 0 && (
+                                        <div>
+                                          <Label>Select Game to Add</Label>
+                                          <Select 
+                                            onValueChange={(gameType) => {
+                                              const gameData = generatedGames[gameType];
+                                              setNewLesson({ 
+                                                ...newLesson, 
+                                                game_type: gameType as GameType,
+                                                game_data: gameData 
+                                              });
+                                            }}
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue placeholder="Choose generated game" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {Object.keys(generatedGames).map(gameType => (
+                                                <SelectItem key={gameType} value={gameType}>
+                                                  {gameType.replace(/_/g, ' ').toUpperCase()}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {/* Fallback manual entry */}
+                                  <details className="border rounded p-3">
+                                    <summary className="cursor-pointer text-sm font-medium">
+                                      Advanced: Manual Game Data Entry
+                                    </summary>
+                                    <div className="mt-3 space-y-3">
+                                      <div>
+                                        <Label>Game Type</Label>
+                                        <Select
+                                          value={newLesson.game_type}
+                                          onValueChange={(v) => setNewLesson({ ...newLesson, game_type: v as GameType })}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select game type" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="match_pairs">Match Pairs</SelectItem>
+                                            <SelectItem value="drag_drop">Drag & Drop</SelectItem>
+                                            <SelectItem value="typing_race">Typing Race</SelectItem>
+                                            <SelectItem value="word_puzzle">Word Puzzle</SelectItem>
+                                            <SelectItem value="fill_blanks">Fill in Blanks</SelectItem>
+                                            <SelectItem value="physics_simulator">Physics Simulator</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div>
+                                        <Label>Game Data (JSON)</Label>
+                                        <Textarea
+                                          placeholder={'{"pairs": [{"id": "1", "left": "F = ma", "right": "Newtons Law"}], ...}'}
+                                          value={typeof newLesson.game_data === 'object' ? JSON.stringify(newLesson.game_data, null, 2) : newLesson.game_data || ''}
+                                          onChange={(e) => {
+                                            try {
+                                              const parsed = JSON.parse(e.target.value);
+                                              setNewLesson({ ...newLesson, game_data: parsed });
+                                            } catch {
+                                              setNewLesson({ ...newLesson, game_data: e.target.value });
+                                            }
+                                          }}
+                                          rows={6}
+                                          className="font-mono text-xs"
+                                        />
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          Enter valid JSON data for the selected game type
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </details>
                                 </div>
                               )}
                             </TabsContent>

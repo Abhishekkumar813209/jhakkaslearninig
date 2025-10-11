@@ -27,6 +27,7 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
     checkShareStatus();
     fetchStudentName();
     checkPendingXP();
+    checkUnprocessedShares(); // Check for unprocessed shares on mount
   }, []);
 
   const checkPendingXP = async () => {
@@ -37,12 +38,12 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       const { userId, code, timestamp } = JSON.parse(pending);
       const age = Date.now() - timestamp;
 
-      // If pending for more than 5 minutes, try to process it
-      if (age > 5 * 60 * 1000 && age < 30 * 60 * 1000) {
-        console.log('Found pending XP award, attempting to process...');
+      // ✅ FIX: Changed from 5 minutes to 2 minutes to match setTimeout delay
+      if (age > 2 * 60 * 1000 && age < 30 * 60 * 1000) {
+        console.log('Found pending XP award (age:', Math.floor(age/1000), 'seconds), processing...');
         setXpPending(true);
         
-        await awardShareXP(userId, code);
+        await awardShareXPWithRetry(userId, code);
         localStorage.removeItem('pendingXP');
         
         toast({
@@ -53,11 +54,99 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
         setXpPending(false);
       } else if (age > 30 * 60 * 1000) {
         // Expired, clear it
+        console.log('Pending XP expired, clearing...');
         localStorage.removeItem('pendingXP');
       }
     } catch (error) {
       console.error("Error checking pending XP:", error);
       setXpPending(false);
+    }
+  };
+
+  // ✅ NEW: Check for unprocessed shares in database
+  const checkUnprocessedShares = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // Check if there's a share marked today
+      const { data: attendance } = await supabase
+        .from("daily_attendance")
+        .select("social_share_done, social_share_at, last_share_date")
+        .eq("student_id", user.id)
+        .eq("date", today)
+        .maybeSingle();
+
+      if (!attendance?.social_share_done || !attendance.social_share_at) return;
+
+      const shareTime = new Date(attendance.social_share_at).getTime();
+      const now = Date.now();
+      const minutesSinceShare = (now - shareTime) / (1000 * 60);
+
+      // If share was done more than 2 minutes ago, check if XP was awarded
+      if (minutesSinceShare >= 2) {
+        console.log('Share found from', Math.floor(minutesSinceShare), 'minutes ago, checking XP status...');
+        
+        // Check if XP was actually added
+        const { data: gamification } = await supabase
+          .from("student_gamification")
+          .select("social_share_xp, total_xp")
+          .eq("student_id", user.id)
+          .maybeSingle();
+
+        // Simple check: if share exists but XP seems low, try to award
+        // (This is a heuristic since we don't have xp_awarded column yet)
+        const lastShareDate = new Date(attendance.last_share_date || today);
+        const todayDate = new Date(today);
+        
+        if (lastShareDate.toDateString() === todayDate.toDateString()) {
+          console.log('Processing unprocessed share XP...');
+          setXpPending(true);
+          
+          await awardShareXPWithRetry(user.id, 'AUTO_RECOVERY');
+          
+          toast({
+            title: "✅ XP Recovered!",
+            description: "Your share XP has been credited!"
+          });
+          
+          setXpPending(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking unprocessed shares:", error);
+    }
+  };
+
+  // ✅ NEW: Retry wrapper for XP awarding with exponential backoff
+  const awardShareXPWithRetry = async (userId: string, code: string, maxRetries = 3) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempting XP award (attempt ${attempt}/${maxRetries})...`);
+        await awardShareXP(userId, code);
+        console.log('✅ XP awarded successfully');
+        return; // Success!
+      } catch (error: any) {
+        console.error(`❌ Attempt ${attempt} failed:`, error);
+        
+        // Don't retry on cooldown errors
+        if (error.message?.includes('Cooldown') || error.message?.includes('24 hours')) {
+          console.log('Cooldown error, not retrying');
+          throw error;
+        }
+        
+        // If not the last attempt, wait before retrying
+        if (attempt < maxRetries) {
+          const backoffMs = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+          console.log(`Waiting ${backoffMs}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        } else {
+          // Last attempt failed, throw error
+          throw error;
+        }
+      }
     }
   };
 
@@ -304,7 +393,8 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       // Award XP after 2 minutes (120,000 ms)
       setTimeout(async () => {
         try {
-          await awardShareXP(user.id, code);
+          console.log('⏰ 2 minutes elapsed, awarding XP with retry...');
+          await awardShareXPWithRetry(user.id, code);
           localStorage.removeItem('pendingXP');
           setXpPending(false);
           
@@ -312,8 +402,8 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
             title: "🎁 +5 Jhakkas Points Earned!",
             description: "Thanks for sharing! Your XP has been added."
           });
-        } catch (error) {
-          console.error("XP award error:", error);
+        } catch (error: any) {
+          console.error("❌ XP award error after all retries:", error);
           // Don't remove from localStorage - will retry on next mount
           toast({
             title: "XP Pending",

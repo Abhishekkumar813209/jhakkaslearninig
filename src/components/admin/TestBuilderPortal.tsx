@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -155,8 +156,11 @@ const TestBuilderPortal: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [hasUnsavedQuestion, setHasUnsavedQuestion] = useState(false);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const ocrInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const questionStorageKey = `test-builder-portal-question-${testId}`;
   
   // Crop dialog state
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
@@ -191,6 +195,32 @@ const TestBuilderPortal: React.FC = () => {
     tags: [],
     allow_multiple_correct: false
   });
+
+  // Load saved question on dialog open
+  useEffect(() => {
+    const saved = localStorage.getItem(questionStorageKey);
+    if (saved && showQuestionDialog) {
+      try {
+        const parsed = JSON.parse(saved);
+        setNewQuestion(parsed);
+        setHasUnsavedQuestion(true);
+      } catch (error) {
+        console.error('Failed to load saved question:', error);
+      }
+    }
+  }, [questionStorageKey, showQuestionDialog]);
+
+  // Auto-save question when editing
+  useEffect(() => {
+    if (showQuestionDialog && (newQuestion.question_text || newQuestion.marks)) {
+      setHasUnsavedQuestion(true);
+      try {
+        localStorage.setItem(questionStorageKey, JSON.stringify(newQuestion));
+      } catch (error) {
+        console.error('Failed to save question:', error);
+      }
+    }
+  }, [newQuestion, showQuestionDialog, questionStorageKey]);
 
   useEffect(() => {
     if (testId) {
@@ -268,6 +298,8 @@ const TestBuilderPortal: React.FC = () => {
         };
         setQuestions(prev => [...prev, transformedQuestion]);
         setShowQuestionDialog(false);
+        localStorage.removeItem(questionStorageKey);
+        setHasUnsavedQuestion(false);
         resetQuestionForm();
 
         toast({
@@ -1395,8 +1427,45 @@ const TestBuilderPortal: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Exit Confirmation for Question Dialog */}
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unsaved question. Your progress will be automatically saved and you can continue later.
+              Are you sure you want to exit?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowExitConfirmation(false);
+              setShowQuestionDialog(false);
+              setHasUnsavedQuestion(false);
+            }}>
+              Exit Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Add/Edit Question Dialog */}
-      <Dialog open={showQuestionDialog} onOpenChange={setShowQuestionDialog}>
+      <Dialog 
+        open={showQuestionDialog} 
+        onOpenChange={(open) => {
+          if (!open && hasUnsavedQuestion) {
+            setShowExitConfirmation(true);
+          } else {
+            setShowQuestionDialog(open);
+            if (!open) {
+              localStorage.removeItem(questionStorageKey);
+              setHasUnsavedQuestion(false);
+              resetQuestionForm();
+            }
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -1708,7 +1777,17 @@ const TestBuilderPortal: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuestionDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (hasUnsavedQuestion) {
+                  setShowExitConfirmation(true);
+                } else {
+                  setShowQuestionDialog(false);
+                  resetQuestionForm();
+                }
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}>

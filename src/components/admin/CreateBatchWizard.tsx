@@ -1,9 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { BatchExamConfigStep } from "./wizard-steps/BatchExamConfigStep";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useFormPersistence } from "@/hooks/useFormPersistence";
 
 interface CreateBatchWizardProps {
   open: boolean;
@@ -26,7 +28,7 @@ export function CreateBatchWizard({
 }: CreateBatchWizardProps) {
   const { toast } = useToast();
   
-  const [formData, setFormData] = useState<any>({
+  const initialFormData = {
     exam_name: preselectedBoard || "",
     target_board: preselectedBoard || null,
     level: preselectedClass ? `Class ${preselectedClass}` : "",
@@ -36,11 +38,27 @@ export function CreateBatchWizard({
     intake_start_date: "",
     intake_end_date: "",
     auto_assign_enabled: true,
-  });
+  };
+
+  const storageKey = `batch-wizard-${initialDomain}-${preselectedBoard}-${preselectedClass}`;
+  
+  const {
+    data: formData,
+    setData: setFormData,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    showResumeDialog,
+    setShowResumeDialog,
+    showExitConfirmation,
+    setShowExitConfirmation,
+    clearProgress,
+    resumeProgress,
+    startFresh,
+  } = useFormPersistence(storageKey, initialFormData, 24, open);
   
   const [generatedBatchName, setGeneratedBatchName] = useState<string>("");
 
-  // Step 1: Update formData when preselected values change
+  // Update formData when preselected values change
   useEffect(() => {
     if (preselectedBoard) {
       setFormData(prev => ({ ...prev, target_board: preselectedBoard, exam_name: preselectedBoard }));
@@ -49,6 +67,13 @@ export function CreateBatchWizard({
       setFormData(prev => ({ ...prev, target_class: preselectedClass }));
     }
   }, [preselectedBoard, preselectedClass]);
+
+  // Mark as unsaved when user makes changes
+  useEffect(() => {
+    if (open && (formData.start_date || formData.intake_start_date || formData.intake_end_date)) {
+      setHasUnsavedChanges(true);
+    }
+  }, [formData, open]);
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
@@ -142,6 +167,7 @@ export function CreateBatchWizard({
         description: `Batch "${createdBatchName}" created successfully!`,
       });
 
+      clearProgress();
       handleReset();
       onSuccess(result.batch || result);
     } catch (error: any) {
@@ -166,11 +192,61 @@ export function CreateBatchWizard({
       auto_assign_enabled: true,
     });
     setGeneratedBatchName("");
+    setHasUnsavedChanges(false);
+  };
+
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen && hasUnsavedChanges) {
+      setShowExitConfirmation(true);
+    } else {
+      onOpenChange(isOpen);
+      if (!isOpen) handleReset();
+    }
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirmation(false);
+    setHasUnsavedChanges(false);
     onOpenChange(false);
+    handleReset();
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleReset}>
+    <>
+      {/* Resume Progress Dialog */}
+      <AlertDialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resume Previous Progress?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unsaved batch creation in progress. Would you like to resume where you left off, or start fresh?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={startFresh}>Start Fresh</AlertDialogCancel>
+            <AlertDialogAction onClick={resumeProgress}>Resume Progress</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved progress. Your changes will be automatically saved and you can resume later.
+              Are you sure you want to exit?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit}>Exit Anyway</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Batch</DialogTitle>
@@ -189,7 +265,17 @@ export function CreateBatchWizard({
         </div>
 
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="ghost" onClick={handleReset}>
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              if (hasUnsavedChanges) {
+                setShowExitConfirmation(true);
+              } else {
+                handleReset();
+                onOpenChange(false);
+              }
+            }}
+          >
             Cancel
           </Button>
           <Button onClick={handleSubmit}>
@@ -198,5 +284,6 @@ export function CreateBatchWizard({
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

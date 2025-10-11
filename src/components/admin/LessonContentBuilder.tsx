@@ -452,7 +452,12 @@ export function LessonContentBuilder() {
           files: uploadedFiles,
           text: additionalText,
           useJson: useJsonFormat,
-          lessonType: newLesson.lesson_type
+          lessonType: newLesson.lesson_type,
+          context: {
+            subject: selectedSubject,
+            chapter: chapters.find(c => c.id === selectedChapter)?.chapter_name,
+            topic: topics.find(t => t.id === selectedTopic)?.topic_name
+          }
         }
       });
 
@@ -460,12 +465,30 @@ export function LessonContentBuilder() {
 
       if (newLesson.lesson_type === 'theory') {
         setNewLesson({ ...newLesson, theory_text: data.content || additionalText });
+        toast({ title: "Success", description: "Theory content processed" });
       } else if (newLesson.lesson_type === 'game') {
         setAiSuggestions(data.suggestions);
         setGeneratedGames(data.games);
+        
+        // AUTO-SELECT BEST GAME
+        const bestGameType = data.suggestions.bestGameType;
+        const bestGameData = data.games[bestGameType];
+        
+        if (bestGameType && bestGameData) {
+          setNewLesson({
+            ...newLesson,
+            game_type: bestGameType as GameType,
+            game_data: bestGameData
+          });
+          
+          toast({ 
+            title: "Game Auto-Selected", 
+            description: `${bestGameType.replace(/_/g, ' ')} game ready to save`
+          });
+        } else {
+          toast({ title: "Success", description: "Content processed - select a game type" });
+        }
       }
-
-      toast({ title: "Success", description: "Content processed with AI" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -477,6 +500,30 @@ export function LessonContentBuilder() {
     if (!selectedTopic) {
       toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
       return;
+    }
+
+    // VALIDATION: Game lessons must have game_type and game_data
+    if (newLesson.lesson_type === 'game') {
+      if (!newLesson.game_type || !newLesson.game_data) {
+        toast({ 
+          title: "Game Data Required", 
+          description: "Please process content with AI to generate game data",
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
+    // VALIDATION: Interactive SVG must have svg_type and svg_data
+    if (newLesson.lesson_type === 'interactive_svg') {
+      if (!newLesson.svg_type || !newLesson.svg_data) {
+        toast({ 
+          title: "SVG Configuration Required", 
+          description: "Please configure SVG type and settings",
+          variant: "destructive" 
+        });
+        return;
+      }
     }
 
     const { data: user } = await supabase.auth.getUser();
@@ -956,32 +1003,69 @@ export function LessonContentBuilder() {
 
                                 {/* AI Recommendations (for Games) */}
                                 {newLesson.lesson_type === 'game' && aiSuggestions && (
-                                  <Card>
+                                  <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
                                     <CardHeader>
                                       <CardTitle className="text-sm flex items-center gap-2">
-                                        <Sparkles className="h-4 w-4 text-yellow-500" />
+                                        <Sparkles className="h-4 w-4 text-yellow-600" />
                                         AI Recommendations
                                       </CardTitle>
                                     </CardHeader>
-                                    <CardContent className="space-y-2">
-                                      <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">Detected Questions:</span>
-                                        <Badge variant="secondary">{aiSuggestions.questionCount}</Badge>
+                                    <CardContent className="space-y-3">
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="text-sm">
+                                          <span className="text-muted-foreground">Questions:</span>
+                                          <Badge variant="secondary" className="ml-2">{aiSuggestions.questionCount}</Badge>
+                                        </div>
+                                        <div className="text-sm">
+                                          <span className="text-muted-foreground">Best Game:</span>
+                                          <Badge className="ml-2 bg-yellow-600">{aiSuggestions.bestGameType?.replace(/_/g, ' ')}</Badge>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">Best Game Type:</span>
-                                        <Badge>{aiSuggestions.bestGameType}</Badge>
-                                      </div>
+                                      
+                                      {/* Difficulty Distribution */}
+                                      {aiSuggestions.difficultyDistribution && (
+                                        <div className="space-y-1">
+                                          <p className="text-xs font-medium text-muted-foreground">Progressive Difficulty:</p>
+                                          <div className="flex gap-2 flex-wrap">
+                                            <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                                              🟢 Easy: {aiSuggestions.difficultyDistribution.easy}
+                                            </Badge>
+                                            <Badge variant="outline" className="bg-yellow-50 border-yellow-200 text-yellow-700">
+                                              🟡 Medium: {aiSuggestions.difficultyDistribution.medium}
+                                            </Badge>
+                                            <Badge variant="outline" className="bg-red-50 border-red-200 text-red-700">
+                                              🔴 Hard: {aiSuggestions.difficultyDistribution.hard}
+                                            </Badge>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
                                       <p className="text-xs text-muted-foreground italic">{aiSuggestions.reasoning}</p>
+                                      
+                                      {/* Auto-selected indicator */}
+                                      {newLesson.game_type && (
+                                        <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 p-2 rounded">
+                                          <Check className="h-3 w-3" />
+                                          <span className="font-medium">{newLesson.game_type.replace(/_/g, ' ').toUpperCase()} auto-selected and ready to save</span>
+                                        </div>
+                                      )}
                                     </CardContent>
                                   </Card>
                                 )}
 
-                                {/* Generated Games Selector */}
-                                {newLesson.lesson_type === 'game' && generatedGames && Object.keys(generatedGames).length > 0 && (
-                                  <div>
-                                    <Label>Select Game to Add</Label>
+                                {/* Manual Game Type Override (Optional) */}
+                                {newLesson.lesson_type === 'game' && generatedGames && Object.keys(generatedGames).length > 1 && (
+                                  <div className="space-y-2">
+                                    <Label className="text-sm text-muted-foreground flex items-center gap-2">
+                                      Override Game Type (Optional)
+                                      {newLesson.game_type && (
+                                        <Badge variant="outline" className="text-xs">
+                                          Current: {newLesson.game_type.replace(/_/g, ' ')}
+                                        </Badge>
+                                      )}
+                                    </Label>
                                     <Select 
+                                      value={newLesson.game_type || ''}
                                       onValueChange={(gameType) => {
                                         const gameData = generatedGames[gameType];
                                         setNewLesson({ 
@@ -989,15 +1073,20 @@ export function LessonContentBuilder() {
                                           game_type: gameType as GameType,
                                           game_data: gameData 
                                         });
+                                        toast({ 
+                                          title: "Game type changed", 
+                                          description: `Switched to ${gameType.replace(/_/g, ' ')}`
+                                        });
                                       }}
                                     >
                                       <SelectTrigger>
-                                        <SelectValue placeholder="Choose generated game" />
+                                        <SelectValue placeholder="Choose different game type" />
                                       </SelectTrigger>
                                       <SelectContent>
                                         {Object.keys(generatedGames).map(gameType => (
                                           <SelectItem key={gameType} value={gameType}>
                                             {gameType.replace(/_/g, ' ').toUpperCase()}
+                                            {gameType === aiSuggestions?.bestGameType && " ⭐ (AI Recommended)"}
                                           </SelectItem>
                                         ))}
                                       </SelectContent>

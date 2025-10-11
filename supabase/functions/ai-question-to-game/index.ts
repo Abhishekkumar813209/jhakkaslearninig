@@ -80,18 +80,69 @@ Format the content in a structured, easy-to-understand manner suitable for stude
       }
 
       if (lessonType === 'game') {
-        systemPrompt = `You are a gamification expert. Analyze the questions and suggest game types.
-Return JSON with this structure:
+        systemPrompt = `You are an expert gamification designer for educational content aimed at children.
+
+ANALYZE the provided questions/text and:
+1. Extract all questions with proper difficulty classification
+2. Recommend the BEST game type based on content
+3. Generate progressive game data (easy → medium → hard)
+
+DIFFICULTY CRITERIA:
+- Easy: Direct recall, simple matching, basic concepts (suitable for beginners)
+- Medium: Application, understanding relationships (requires thinking)
+- Hard: Analysis, complex problem-solving (challenging)
+
+Return JSON with this EXACT structure:
 {
-  "questionCount": number,
-  "bestGameType": "match_pairs" | "drag_drop" | "fill_blank",
-  "reasoning": "why this game type",
+  "questionCount": <number>,
+  "difficultyDistribution": {
+    "easy": <count of easy questions>,
+    "medium": <count of medium questions>,
+    "hard": <count of hard questions>
+  },
+  "bestGameType": "match_pairs" | "drag_drop" | "fill_blank" | "typing_race",
+  "reasoning": "<why this game type suits the content>",
   "suggestions": {
-    "match_pairs": {game data if applicable},
-    "drag_drop": {game data if applicable},
-    "fill_blank": {game data if applicable}
+    "match_pairs": {
+      "pairs": [
+        {"id": "1", "left": "...", "right": "...", "difficulty": "easy"},
+        {"id": "2", "left": "...", "right": "...", "difficulty": "medium"},
+        {"id": "3", "left": "...", "right": "...", "difficulty": "hard"}
+      ]
+    },
+    "fill_blank": {
+      "questions": [
+        {"question": "The ____ is the powerhouse of the cell", "answer": "mitochondria", "difficulty": "easy", "hint": "organelle that produces energy"},
+        {"question": "Photosynthesis converts ____ into glucose", "answer": "carbon dioxide", "difficulty": "medium", "hint": "gas from atmosphere"}
+      ]
+    },
+    "drag_drop": {
+      "items": ["step1", "step2", "step3"],
+      "correctOrder": [0, 1, 2],
+      "difficulty": "medium",
+      "title": "Order the steps"
+    },
+    "typing_race": {
+      "questions": [
+        {"question": "What is H2O?", "answer": "water", "difficulty": "easy"}
+      ]
+    }
   }
-}`;
+}
+
+IMPORTANT RULES:
+- Generate at least 5-8 items per game type when possible
+- Ensure clear progression: start with 2-3 easy, then medium, then hard
+- Include helpful hints for medium/hard questions
+- Make content child-friendly and engaging
+- For match_pairs: create clear, unambiguous pairs
+- For fill_blank: use underscores (____) to mark blanks
+- For drag_drop: create logical sequences (steps, timelines, processes)`;
+
+        const contextInfo = requestBody.context ? 
+          `\n\nCONTEXT:\nSubject: ${requestBody.context.subject}\nChapter: ${requestBody.context.chapter}\nTopic: ${requestBody.context.topic}` : '';
+
+        userPrompt = `${userPrompt}${contextInfo}\n\nPlease analyze and create progressive difficulty games from this content.`;
 
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',

@@ -18,13 +18,26 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const url = new URL(req.url);
-    const raceType = url.searchParams.get('race_type') || 'class';
-    const userId = url.searchParams.get('user_id');
-    const limit = 15; // Top 15 racers
+    let raceType = url.searchParams.get('race_type');
+    let userId = url.searchParams.get('user_id');
+
+    // Fallback to body if not in URL params
+    if (!raceType || !userId) {
+      try {
+        const body = await req.json();
+        raceType = body.race_type || raceType || 'class';
+        userId = body.user_id || userId;
+      } catch (e) {
+        console.log('No body data, using URL params only');
+        raceType = raceType || 'class';
+      }
+    }
 
     if (!userId) {
       throw new Error('user_id is required');
     }
+
+    const limit = 15; // Top 15 racers
 
     // Get user's profile to determine their context
     const { data: userProfile, error: profileError } = await supabase

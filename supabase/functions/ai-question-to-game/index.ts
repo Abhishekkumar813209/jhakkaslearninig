@@ -13,25 +13,39 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    console.log('Authorization header present:', !!authHeader);
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: authHeader ? { Authorization: authHeader } : {},
         },
       }
     );
-
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      throw new Error('Unauthorized');
-    }
 
     const requestBody = await req.json();
     const { mode, files, text, useJson, lessonType, question_text, options, question_type, subject, chapter_name, topic_name, game_type, image_data, extract_mode, convert_to } = requestBody;
 
     console.log('Request mode:', mode, 'Lesson type:', lessonType);
+
+    // For bulk_mixed mode, auth is optional (no DB access)
+    let user = null;
+    if (mode !== 'bulk_mixed') {
+      const { data: { user: authUser } } = await supabaseClient.auth.getUser();
+      user = authUser;
+      if (!user) {
+        return new Response(JSON.stringify({ 
+          success: false,
+          error: 'Unauthorized - please log in'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     // Handle bulk_mixed mode for lesson content builder
     if (mode === 'bulk_mixed') {

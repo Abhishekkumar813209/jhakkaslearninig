@@ -446,6 +446,8 @@ export function LessonContentBuilder() {
   const handleProcessContent = async () => {
     setAiProcessing(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
         body: {
           mode: 'bulk_mixed',
@@ -458,10 +460,15 @@ export function LessonContentBuilder() {
             chapter: chapters.find(c => c.id === selectedChapter)?.chapter_name,
             topic: topics.find(t => t.id === selectedTopic)?.topic_name
           }
-        }
+        },
+        headers: session?.access_token ? {
+          Authorization: `Bearer ${session.access_token}`
+        } : {}
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message || 'Failed to process content');
+      }
 
       if (newLesson.lesson_type === 'theory') {
         setNewLesson({ ...newLesson, theory_text: data.content || additionalText });
@@ -490,7 +497,12 @@ export function LessonContentBuilder() {
         }
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error('Process content error:', error);
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to process content with AI", 
+        variant: "destructive" 
+      });
     } finally {
       setAiProcessing(false);
     }

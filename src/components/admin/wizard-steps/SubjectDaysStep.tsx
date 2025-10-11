@@ -158,25 +158,6 @@ export const SubjectDaysStep = ({
           ⚠️ Please select at least one subject to continue
         </p>
       )}
-
-      {/* Total Days Summary */}
-      {selectedCount > 0 && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold">Total Study Timeline</p>
-                <p className="text-sm text-muted-foreground">
-                  {selectedCount} subjects • {totalDays} days total
-                </p>
-              </div>
-              <Badge variant="default" className="text-lg px-4 py-2">
-                ~{Math.ceil(totalDays / 7)} weeks
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

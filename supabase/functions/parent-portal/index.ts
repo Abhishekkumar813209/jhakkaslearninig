@@ -59,6 +59,160 @@ serve(async (req) => {
         );
       }
 
+      case 'getTopicWiseAnalysis': {
+        const { studentId } = await req.json();
+        
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Fetch topic analytics grouped by subject
+        const { data: topicAnalytics } = await supabase
+          .from('student_topic_analytics')
+          .select('*')
+          .eq('student_id', studentId)
+          .order('subject', { ascending: true })
+          .order('average_score', { ascending: false });
+
+        // Group by subject
+        const subjectGroups = (topicAnalytics || []).reduce((acc: any, topic: any) => {
+          if (!acc[topic.subject]) {
+            acc[topic.subject] = [];
+          }
+          acc[topic.subject].push(topic);
+          return acc;
+        }, {});
+
+        return new Response(
+          JSON.stringify({ topicAnalytics: subjectGroups }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'getWeeklyProgressReport': {
+        const { studentId } = await req.json();
+        
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Get last 4 weeks of daily targets
+        const fourWeeksAgo = new Date();
+        fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+        const { data: weeklyData } = await supabase
+          .from('student_daily_targets')
+          .select('*')
+          .eq('student_id', studentId)
+          .gte('date', fourWeeksAgo.toISOString().split('T')[0])
+          .order('date', { ascending: true });
+
+        // Get test attempts for same period
+        const { data: testsData } = await supabase
+          .from('test_attempts')
+          .select('*')
+          .eq('student_id', studentId)
+          .gte('submitted_at', fourWeeksAgo.toISOString())
+          .in('status', ['submitted', 'auto_submitted'])
+          .order('submitted_at', { ascending: true });
+
+        return new Response(
+          JSON.stringify({ weeklyData, testsData }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'getDailyTargetsStatus': {
+        const { studentId } = await req.json();
+        
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Get last 30 days of targets
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const { data: dailyTargets } = await supabase
+          .from('student_daily_targets')
+          .select('*')
+          .eq('student_id', studentId)
+          .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
+          .order('date', { ascending: false });
+
+        return new Response(
+          JSON.stringify({ dailyTargets }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'getZoneStatus': {
+        const { studentId } = await req.json();
+        
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Calculate zone if not exists or outdated (> 1 hour)
+        const { data: existingZone } = await supabase
+          .from('student_zone_status')
+          .select('*')
+          .eq('student_id', studentId)
+          .single();
+
+        const now = new Date();
+        const shouldRecalculate = !existingZone || 
+          (new Date(now.getTime() - new Date(existingZone.calculated_at).getTime()).getTime() > 3600000);
+
+        if (shouldRecalculate) {
+          // Recalculate zone
+          const { data: zoneColor } = await supabase.rpc('calculate_student_zone', {
+            p_student_id: studentId
+          });
+
+          // Fetch updated zone
+          const { data: zoneStatus } = await supabase
+            .from('student_zone_status')
+            .select('*')
+            .eq('student_id', studentId)
+            .single();
+
+          return new Response(
+            JSON.stringify({ zoneStatus }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ zoneStatus: existingZone }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'getStudentProgress': {
         const { studentId } = await req.json();
         

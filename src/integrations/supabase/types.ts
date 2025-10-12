@@ -2226,6 +2226,51 @@ export type Database = {
           },
         ]
       }
+      student_daily_targets: {
+        Row: {
+          completed_tests: string[] | null
+          completed_topics: string[] | null
+          completion_percentage: number | null
+          created_at: string | null
+          date: string
+          earned_xp: number | null
+          id: string
+          student_id: string
+          target_tests: string[] | null
+          target_topics: string[] | null
+          target_xp: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_tests?: string[] | null
+          completed_topics?: string[] | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          date: string
+          earned_xp?: number | null
+          id?: string
+          student_id: string
+          target_tests?: string[] | null
+          target_topics?: string[] | null
+          target_xp?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_tests?: string[] | null
+          completed_topics?: string[] | null
+          completion_percentage?: number | null
+          created_at?: string | null
+          date?: string
+          earned_xp?: number | null
+          id?: string
+          student_id?: string
+          target_tests?: string[] | null
+          target_topics?: string[] | null
+          target_xp?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       student_gamification: {
         Row: {
           created_at: string | null
@@ -2759,6 +2804,62 @@ export type Database = {
           },
         ]
       }
+      student_topic_analytics: {
+        Row: {
+          average_score: number | null
+          created_at: string | null
+          id: string
+          last_practiced_at: string | null
+          mastery_level: string | null
+          student_id: string
+          subject: string
+          time_spent_minutes: number | null
+          times_practiced: number | null
+          topic_id: string | null
+          topic_name: string
+          total_xp_earned: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          average_score?: number | null
+          created_at?: string | null
+          id?: string
+          last_practiced_at?: string | null
+          mastery_level?: string | null
+          student_id: string
+          subject: string
+          time_spent_minutes?: number | null
+          times_practiced?: number | null
+          topic_id?: string | null
+          topic_name: string
+          total_xp_earned?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          average_score?: number | null
+          created_at?: string | null
+          id?: string
+          last_practiced_at?: string | null
+          mastery_level?: string | null
+          student_id?: string
+          subject?: string
+          time_spent_minutes?: number | null
+          times_practiced?: number | null
+          topic_id?: string | null
+          topic_name?: string
+          total_xp_earned?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_topic_analytics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_topic_progress: {
         Row: {
           completed_at: string | null
@@ -2799,6 +2900,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      student_zone_status: {
+        Row: {
+          calculated_at: string | null
+          created_at: string | null
+          factors: Json | null
+          id: string
+          recommendation: string | null
+          student_id: string
+          updated_at: string | null
+          zone_color: string
+        }
+        Insert: {
+          calculated_at?: string | null
+          created_at?: string | null
+          factors?: Json | null
+          id?: string
+          recommendation?: string | null
+          student_id: string
+          updated_at?: string | null
+          zone_color?: string
+        }
+        Update: {
+          calculated_at?: string | null
+          created_at?: string | null
+          factors?: Json | null
+          id?: string
+          recommendation?: string | null
+          student_id?: string
+          updated_at?: string | null
+          zone_color?: string
+        }
+        Relationships: []
       }
       study_configurations: {
         Row: {
@@ -3637,6 +3771,10 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_student_zone: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       calculate_zone_rankings: {
         Args: Record<PropertyKey, never>
         Returns: undefined

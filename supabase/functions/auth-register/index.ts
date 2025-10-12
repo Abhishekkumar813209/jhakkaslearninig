@@ -72,15 +72,17 @@ serve(async (req: Request) => {
 
     // Profile is automatically created via trigger
     // Set role using UPSERT to override default 'student' role from trigger
+    console.log(`🔐 Attempting role assignment: ${role} for user ${authData.user.id} (${email})`);
+    
     const { error: roleError } = await supabase.from('user_roles').upsert({
       user_id: authData.user.id,
       role: role as any
     }, { onConflict: 'user_id' })
 
     if (roleError) {
-      console.error('❌ Failed to assign role:', roleError.message)
+      console.error('❌ Failed to assign role:', roleError.message, '| User:', authData.user.id, '| Email:', email, '| Role:', role)
     } else {
-      console.log('✅ Role assigned:', role)
+      console.log(`✅ Role assigned successfully: ${role} for ${email}`)
     }
 
     // Auto-assign to batch if exam domain and name are provided

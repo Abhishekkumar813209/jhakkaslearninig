@@ -9,7 +9,6 @@ import { Map, Plus, Edit, Trash2, Play, Eye, GraduationCap, BookOpen, Building2,
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
-import { EditRoadmapDialog } from "./EditRoadmapDialog";
 import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
 import { AdminRoadmapViewDialog } from "./AdminRoadmapViewDialog";
 import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
@@ -46,6 +45,7 @@ const RoadmapManagement = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRoadmap, setSelectedRoadmap] = useState<any>(null);
+  const [editRoadmapId, setEditRoadmapId] = useState<string | null>(null);
   const [roadmapDetails, setRoadmapDetails] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [adminViewMode, setAdminViewMode] = useState<'calendar' | 'cards'>('calendar');
@@ -684,8 +684,8 @@ const RoadmapManagement = () => {
                   className="flex-1 gap-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSelectedRoadmap(roadmap);
-                    setEditDialogOpen(true);
+                    setEditRoadmapId(roadmap.id);
+                    setIsCreating(true);
                   }}
                 >
                   <Edit className="h-3 w-3" />
@@ -736,12 +736,29 @@ const RoadmapManagement = () => {
         </Card>
       )}
 
-      {/* Edit Roadmap Dialog */}
-      <EditRoadmapDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        roadmapId={selectedRoadmap?.id}
-        onSuccess={fetchRoadmaps}
+      {/* Create/Edit Roadmap Wizard */}
+      <CreateRoadmapWizard
+        open={isCreating}
+        onOpenChange={(open) => {
+          setIsCreating(open);
+          if (!open) {
+            setEditRoadmapId(null);
+          }
+        }}
+        onSuccess={() => {
+          setIsCreating(false);
+          setEditRoadmapId(null);
+          fetchRoadmaps();
+        }}
+        onSwitchToManual={(prefillData) => {
+          setIsCreating(false);
+          setManualBuilderPrefillData(prefillData);
+          setIsManualBuilding(true);
+        }}
+        initialDomain={selectedDomain || undefined}
+        initialBoard={selectedBoard || undefined}
+        initialClass={selectedClass || undefined}
+        editRoadmapId={editRoadmapId}
       />
 
       {/* View Details Dialog */}
@@ -832,6 +849,7 @@ const RoadmapManagement = () => {
                 <TabsContent value="calendar" className="mt-4">
                   <RoadmapCalendarView
                     mode={(roadmapDetails.mode as 'sequential' | 'parallel') || 'parallel'}
+                    roadmapId={roadmapDetails.id}
                     startDate={parseISO(roadmapDetails.start_date)}
                     totalDays={roadmapDetails.total_days}
                     subjects={[...new Set(roadmapDetails.chapters.map((c: any) => c.subject))] as string[]}
@@ -842,7 +860,8 @@ const RoadmapManagement = () => {
                       chapterName: ch.chapter_name,
                       videoLink: (ch as any).video_link,
                       isBufferTime: false,
-                      isLive: false
+                      isLive: false,
+                      topics: ch.topics || []
                     }))}
                     isEditable={false}
                   />

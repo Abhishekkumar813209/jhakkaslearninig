@@ -64,6 +64,7 @@ interface CreateRoadmapWizardProps {
   initialDomain?: string;
   initialBoard?: string;
   initialClass?: string;
+  editRoadmapId?: string | null;
 }
 
 // localStorage helpers
@@ -105,7 +106,7 @@ const clearWizardProgress = () => {
   localStorage.removeItem(WIZARD_STORAGE_KEY);
 };
 
-export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain, initialBoard, initialClass }: CreateRoadmapWizardProps) => {
+export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToManual, initialDomain, initialBoard, initialClass, editRoadmapId }: CreateRoadmapWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 5; // ExamType, Subject+Days, Chapters, Intensity, Preview
 
@@ -148,10 +149,96 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [savedProgress, setSavedProgress] = useState<any>(null);
+  const [isLoadingExistingRoadmap, setIsLoadingExistingRoadmap] = useState(false);
 
   // Timeline will be set manually - no auto-calculation
 
   const progress = (currentStep / totalSteps) * 100;
+
+  // Load existing roadmap for edit mode
+  const loadExistingRoadmap = async (roadmapId: string) => {
+    setIsLoadingExistingRoadmap(true);
+    try {
+      // Fetch roadmap metadata
+      const { data: roadmap, error: roadmapError } = await supabase
+        .from('batch_roadmaps')
+        .select('*')
+        .eq('id', roadmapId)
+        .single();
+
+      if (roadmapError) throw roadmapError;
+
+      // Fetch chapters with topics
+      const { data: chapters, error: chaptersError } = await supabase
+        .from('roadmap_chapters')
+        .select('*, roadmap_topics(*)')
+        .eq('roadmap_id', roadmapId)
+        .order('order_num', { ascending: true });
+
+      if (chaptersError) throw chaptersError;
+
+      // Populate wizard state
+      setExamType(roadmap.exam_type || '');
+      setExamName(roadmap.exam_name || '');
+      setBatchId(roadmap.batch_id || '');
+      setRoadmapTitle(roadmap.title || '');
+      setRoadmapMode((roadmap.mode as 'sequential' | 'parallel') || 'parallel');
+      
+      if (roadmap.exam_type === 'school') {
+        setConditionalBoard(roadmap.board || roadmap.target_board || '');
+        setConditionalClass(roadmap.target_class || '');
+      }
+
+      // Group chapters by subject
+      const subjectMap: Record<string, Chapter[]> = {};
+      const subjectDaysMap: Record<string, number> = {};
+      
+      (chapters || []).forEach((ch: any) => {
+        if (!subjectMap[ch.subject]) {
+          subjectMap[ch.subject] = [];
+          subjectDaysMap[ch.subject] = 0;
+        }
+        
+        subjectMap[ch.subject].push({
+          id: ch.id,
+          chapter_name: ch.chapter_name,
+          suggested_days: ch.estimated_days || 1,
+          isSelected: true,
+          isCustom: false,
+          difficulty: ch.difficulty || 'medium',
+        });
+        
+        subjectDaysMap[ch.subject] += (ch.estimated_days || 1);
+      });
+
+      // Set subjects
+      const subjects: Subject[] = Object.keys(subjectMap).map(name => ({
+        id: crypto.randomUUID(),
+        name,
+        isSelected: true,
+        isCustom: false
+      }));
+      
+      setFetchedSubjects(subjects);
+      setFetchedChapters(subjectMap);
+      setDaysBudget(subjectDaysMap);
+      setTimeBudget(subjectDaysMap);
+
+      toast.success('Roadmap loaded for editing');
+    } catch (error: any) {
+      console.error('Error loading roadmap:', error);
+      toast.error('Failed to load roadmap for editing');
+    } finally {
+      setIsLoadingExistingRoadmap(false);
+    }
+  };
+
+  // Load roadmap when editRoadmapId changes
+  useEffect(() => {
+    if (editRoadmapId && open) {
+      loadExistingRoadmap(editRoadmapId);
+    }
+  }, [editRoadmapId, open]);
 
   const handleFetchSubjects = async () => {
     const isSchool = examType?.toLowerCase() === 'school';
@@ -550,43 +637,99 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         }
       }
 
-      const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
-        body: {
-          batch_id: batchId,
-          exam_type: examType,
-          exam_name: isSchool ? `${conditionalBoard} Class ${conditionalClass}` : examName,
-          board: isSchool ? conditionalBoard : undefined,
-          target_class: conditionalClass,
-          target_board: conditionalBoard,
-          conditional_class: conditionalClass,
-          conditional_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
-          roadmap_type: (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') ? roadmapType : undefined,
-          selected_subjects,
-          title: roadmapTitle,
-          mode: roadmapMode,
-          time_budget: timeBudget,
-          intensity: intensity // Pass intensity mode
+      // If in edit mode, update existing roadmap, else create new one
+      if (editRoadmapId) {
+        // Update existing roadmap
+        const { error: updateError } = await supabase
+          .from('batch_roadmaps')
+          .update({
+            title: roadmapTitle,
+            mode: roadmapMode,
+            exam_type: examType,
+            exam_name: isSchool ? `${conditionalBoard} Class ${conditionalClass}` : examName,
+            board: isSchool ? conditionalBoard : undefined,
+            target_board: conditionalBoard,
+            target_class: conditionalClass,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editRoadmapId);
+
+        if (updateError) throw updateError;
+
+        // Delete existing chapters for this roadmap
+        const { data: existingChapters } = await supabase
+          .from('roadmap_chapters')
+          .select('id')
+          .eq('roadmap_id', editRoadmapId);
+
+        if (existingChapters && existingChapters.length > 0) {
+          const chapterIds = existingChapters.map(c => c.id);
+          await supabase.from('roadmap_topics').delete().in('chapter_id', chapterIds);
+          await supabase.from('roadmap_chapters').delete().eq('roadmap_id', editRoadmapId);
         }
-      });
 
-      if (error) throw error;
+        // Re-generate with AI
+        const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
+          body: {
+            roadmap_id: editRoadmapId,
+            batch_id: batchId,
+            exam_type: examType,
+            exam_name: isSchool ? `${conditionalBoard} Class ${conditionalClass}` : examName,
+            board: isSchool ? conditionalBoard : undefined,
+            target_class: conditionalClass,
+            target_board: conditionalBoard,
+            conditional_class: conditionalClass,
+            conditional_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
+            roadmap_type: (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') ? roadmapType : undefined,
+            selected_subjects,
+            title: roadmapTitle,
+            mode: roadmapMode,
+            time_budget: timeBudget,
+            intensity: intensity
+          }
+        });
 
-      if (data?.error) {
-        toast.dismiss(loadingToastId);
-        if (data.error.includes('Rate limit')) {
-          toast.error('Rate limit exceeded. Please try again later.');
-        } else if (data.error.includes('Payment required')) {
-          toast.error('Payment required. Please add credits to your workspace.');
-        } else {
+        if (error) throw error;
+        if (data?.error) {
+          toast.dismiss(loadingToastId);
           toast.error(data.error);
+          return;
         }
-        return;
+
+        toast.dismiss(loadingToastId);
+        toast.success("Roadmap updated successfully!");
+      } else {
+        // Create new roadmap
+        const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
+          body: {
+            batch_id: batchId,
+            exam_type: examType,
+            exam_name: isSchool ? `${conditionalBoard} Class ${conditionalClass}` : examName,
+            board: isSchool ? conditionalBoard : undefined,
+            target_class: conditionalClass,
+            target_board: conditionalBoard,
+            conditional_class: conditionalClass,
+            conditional_board: examType?.toLowerCase() === 'school' ? conditionalBoard : undefined,
+            roadmap_type: (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') ? roadmapType : undefined,
+            selected_subjects,
+            title: roadmapTitle,
+            mode: roadmapMode,
+            time_budget: timeBudget,
+            intensity: intensity
+          }
+        });
+
+        if (error) throw error;
+        if (data?.error) {
+          toast.dismiss(loadingToastId);
+          toast.error(data.error);
+          return;
+        }
+
+        toast.dismiss(loadingToastId);
+        toast.success("Roadmap updated successfully!");
       }
 
-      toast.dismiss(loadingToastId);
-      toast.success("Roadmap generated successfully!", {
-        description: "Chapters organized. Now set the timeline manually in calendar view.",
-      });
       clearWizardProgress();
       setHasUnsavedChanges(false);
       handleReset();
@@ -964,10 +1107,19 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Create AI Roadmap - Step {currentStep}/{totalSteps}</DialogTitle>
+          <DialogTitle className="text-2xl">
+            {editRoadmapId ? 'Edit' : 'Create'} AI Roadmap - Step {currentStep}/{totalSteps}
+          </DialogTitle>
           <Progress value={progress} className="mt-2" />
         </DialogHeader>
 
+        {isLoadingExistingRoadmap ? (
+          <div className="text-center py-12">
+            <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-muted-foreground">Loading roadmap for editing...</p>
+          </div>
+        ) : (
+        <>
         <div className="space-y-6 py-4">
           {/* Step 0: Exam Type Selection */}
           {currentStep === 0 && (
@@ -1114,12 +1266,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                   </Button>
                 )}
                 <Button onClick={handleGenerateRoadmap}>
-                  Generate AI Roadmap
+                  {editRoadmapId ? 'Update Roadmap' : 'Generate AI Roadmap'}
                 </Button>
               </>
             )}
           </div>
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
     </>

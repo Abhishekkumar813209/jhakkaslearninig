@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface CalendarChapter {
   id: string;
@@ -20,6 +21,11 @@ export interface CalendarChapter {
   isBufferTime?: boolean;
   isLive?: boolean;
   estimatedDays?: number;
+  topics?: Array<{
+    id: string;
+    topic_name: string;
+    order_num: number;
+  }>;
 }
 
 interface RoadmapCalendarViewProps {
@@ -139,6 +145,18 @@ const SortableChapterPill = ({ chapter, isEditable, onUpdate, onDelete }: Sortab
           {chapter.isLive && (
             <span className="ml-1 text-xs bg-red-500 text-white px-1.5 py-0.5 rounded">LIVE</span>
           )}
+        </div>
+      )}
+
+      {/* Topics list */}
+      {chapter.topics && chapter.topics.length > 0 && (
+        <div className="mt-1 pl-2 border-l-2 border-muted space-y-0.5">
+          {chapter.topics.map((topic) => (
+            <div key={topic.id} className="text-xs text-muted-foreground flex items-start gap-1">
+              <span className="text-[10px] mt-0.5">•</span>
+              <span>{topic.topic_name}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -290,6 +308,7 @@ const CalendarCell = ({
 
 export const RoadmapCalendarView = ({
   mode,
+  roadmapId,
   startDate,
   totalDays,
   subjects,
@@ -300,6 +319,45 @@ export const RoadmapCalendarView = ({
 }: RoadmapCalendarViewProps) => {
   const [chapters, setChapters] = useState<CalendarChapter[]>(initialChapters);
   const [dragOverInfo, setDragOverInfo] = useState<{ date: string; subject: string; willShift: number; shiftDays: number } | null>(null);
+  
+  // Fetch topics for chapters if roadmapId is provided
+  useEffect(() => {
+    const fetchTopics = async () => {
+      if (!roadmapId) return;
+      
+      try {
+        const chapterIds = chapters.map(ch => ch.id).filter(id => !id.startsWith('new-'));
+        if (chapterIds.length === 0) return;
+
+        const { data: topics, error } = await supabase
+          .from('roadmap_topics')
+          .select('id, topic_name, order_num, chapter_id')
+          .in('chapter_id', chapterIds)
+          .order('order_num', { ascending: true });
+
+        if (error) throw error;
+
+        // Group topics by chapter_id
+        const topicsByChapter: Record<string, any[]> = {};
+        (topics || []).forEach((topic) => {
+          if (!topicsByChapter[topic.chapter_id]) {
+            topicsByChapter[topic.chapter_id] = [];
+          }
+          topicsByChapter[topic.chapter_id].push(topic);
+        });
+
+        // Update chapters with topics
+        setChapters(prev => prev.map(ch => ({
+          ...ch,
+          topics: topicsByChapter[ch.id] || []
+        })));
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    };
+
+    fetchTopics();
+  }, [roadmapId]);
   
   // Sync with initialChapters when they change (prevent snap-back after drag)
   useEffect(() => {

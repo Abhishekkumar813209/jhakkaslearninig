@@ -9,20 +9,79 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Link as LinkIcon, Trash2, Search, Users } from 'lucide-react';
+import { Link as LinkIcon, Trash2, Search, Users, UserCheck, UserX, TrendingUp, Phone, Mail } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ParentManagement() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState<string>('');
-  const [studentEmail, setStudentEmail] = useState<string>('');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
+  const [parentPhoneSearch, setParentPhoneSearch] = useState('');
   const [relationship, setRelationship] = useState('father');
+  const [parentFilter, setParentFilter] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [selectedStudentForLink, setSelectedStudentForLink] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch students with their parent links (Student-centric view)
+  const { data: studentsWithParents, isLoading: studentsLoading } = useQuery({
+    queryKey: ['students-with-parents', studentSearchQuery],
+    queryFn: async () => {
+      const { data: studentRoles, error: roleError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'student');
+
+      if (roleError) throw roleError;
+      const studentIds = studentRoles?.map(r => r.user_id) || [];
+
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name, email, student_class, phone_number')
+        .in('id', studentIds);
+
+      if (studentSearchQuery.length >= 2) {
+        query = query.or(`full_name.ilike.%${studentSearchQuery}%,email.ilike.%${studentSearchQuery}%`);
+      }
+
+      const { data: students, error: studentError } = await query.order('full_name').limit(20);
+      if (studentError) throw studentError;
+
+      // Fetch parent links for these students
+      const { data: links, error: linkError } = await supabase
+        .from('parent_student_links')
+        .select(`
+          id,
+          parent_id,
+          student_id,
+          relationship,
+          is_primary_contact
+        `)
+        .in('student_id', students?.map(s => s.id) || []);
+
+      if (linkError) throw linkError;
+
+      // Fetch parent profiles
+      const parentIds = [...new Set(links?.map(l => l.parent_id) || [])];
+      const { data: parentProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone_number, email')
+        .in('id', parentIds);
+
+      return students?.map(student => ({
+        ...student,
+        parent_links: links?.filter(l => l.student_id === student.id).map(link => ({
+          ...link,
+          parent: parentProfiles?.find(p => p.id === link.parent_id)
+        })) || []
+      }));
+    },
+    enabled: studentSearchQuery.length >= 2,
+  });
+
   // Fetch all parents with their profile data
   const { data: parents, isLoading: parentsLoading } = useQuery({
-    queryKey: ['parents'],
+    queryKey: ['parents', parentSearchQuery],
     queryFn: async () => {
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
@@ -30,133 +89,124 @@ export default function ParentManagement() {
         .eq('role', 'parent');
 
       if (roleError) throw roleError;
-
       if (!roleData || roleData.length === 0) return [];
 
       const userIds = roleData.map(r => r.user_id);
-      const { data: profileData, error: profileError } = await supabase
+      let profileQuery = supabase
         .from('profiles')
         .select('id, full_name, email, phone_number')
         .in('id', userIds);
 
+      if (parentSearchQuery) {
+        profileQuery = profileQuery.or(`full_name.ilike.%${parentSearchQuery}%,phone_number.ilike.%${parentSearchQuery}%`);
+      }
+
+      const { data: profileData, error: profileError } = await profileQuery.order('full_name');
       if (profileError) throw profileError;
 
-      return roleData.map(role => ({
-        user_id: role.user_id,
-        role: role.role,
-        profiles: profileData?.find(p => p.id === role.user_id)
+      return profileData.map(profile => ({
+        user_id: profile.id,
+        profiles: profile
       }));
     },
   });
 
-  // Fetch all users for assignment
-  const { data: allUsers } = useQuery({
-    queryKey: ['all-users'],
+  // Fetch all parent-student links
+  const { data: allLinks } = useQuery({
+    queryKey: ['all-parent-links'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name');
+        .from('parent_student_links')
+        .select('id, parent_id, student_id, relationship');
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch parent-student links with student profiles
-  const { data: links } = useQuery({
-    queryKey: ['parent-links'],
+  // Search parent by phone number
+  const { data: foundParents, isLoading: searchingParent } = useQuery({
+    queryKey: ['search-parent-by-phone', parentPhoneSearch],
     queryFn: async () => {
-      const { data: linkData, error: linkError } = await supabase
-        .from('parent_student_links')
-        .select('id, parent_id, student_id, relationship, is_primary_contact');
+      if (parentPhoneSearch.length < 10) return [];
 
-      if (linkError) throw linkError;
-
-      if (!linkData || linkData.length === 0) return [];
-
-      const studentIds = [...new Set(linkData.map(l => l.student_id))];
-      const { data: studentProfiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, student_class')
-        .in('id', studentIds);
-
-      if (profileError) throw profileError;
-
-      return linkData.map(link => ({
-        ...link,
-        student: studentProfiles?.find(p => p.id === link.student_id)
-      }));
-    },
-  });
-
-  // Assign parent role
-  const assignParentRole = useMutation({
-    mutationFn: async (userId: string) => {
-      const { error } = await supabase
+      const { data: roleData } = await supabase
         .from('user_roles')
-        .insert({ user_id: userId, role: 'parent' })
-        .select()
-        .single();
+        .select('user_id')
+        .eq('role', 'parent');
+
+      const parentIds = roleData?.map(r => r.user_id) || [];
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone_number, email')
+        .in('id', parentIds)
+        .ilike('phone_number', `%${parentPhoneSearch}%`);
+
       if (error) throw error;
+      return data || [];
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['parents'] });
-      toast({ title: 'Success', description: 'Parent role assigned successfully' });
-      setSelectedUser('');
-    },
-    onError: (error: any) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message,
-      });
+    enabled: parentPhoneSearch.length >= 10,
+  });
+
+  // Stats query
+  const { data: stats } = useQuery({
+    queryKey: ['parent-stats'],
+    queryFn: async () => {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'parent');
+
+      const totalParents = roleData?.length || 0;
+
+      const { data: links } = await supabase
+        .from('parent_student_links')
+        .select('parent_id');
+
+      const linkedParentIds = new Set(links?.map(l => l.parent_id) || []);
+      const linkedCount = linkedParentIds.size;
+      const unlinkedCount = totalParents - linkedCount;
+
+      // Get new parents this week
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+
+      const { data: newParents } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('id', roleData?.map(r => r.user_id) || [])
+        .gte('created_at', weekAgo.toISOString());
+
+      return {
+        total: totalParents,
+        linked: linkedCount,
+        unlinked: unlinkedCount,
+        newThisWeek: newParents?.length || 0
+      };
     },
   });
 
-  // Link student to parent by email
-  const linkStudent = useMutation({
-    mutationFn: async ({ parentId, studentEmail, rel }: { parentId: string; studentEmail: string; rel: string }) => {
-      // First, find student by email
-      const { data: student, error: findError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('email', studentEmail)
-        .single();
-      
-      if (findError || !student) {
-        throw new Error('Student not found with this email');
-      }
-
-      // Verify student role
-      const { data: role } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', student.id)
-        .eq('role', 'student')
-        .single();
-      
-      if (!role) {
-        throw new Error('User is not a student');
-      }
-
-      // Link parent-student
+  // Link parent to student
+  const linkParentToStudent = useMutation({
+    mutationFn: async ({ parentId, studentId, rel }: { parentId: string; studentId: string; rel: string }) => {
       const { error } = await supabase
         .from('parent_student_links')
         .insert({
           parent_id: parentId,
-          student_id: student.id,
+          student_id: studentId,
           relationship: rel,
           is_primary_contact: true,
         });
-      
       if (error) throw error;
-      return student.full_name;
     },
-    onSuccess: (studentName) => {
-      queryClient.invalidateQueries({ queryKey: ['parent-links'] });
-      toast({ title: 'Success', description: `Successfully linked to ${studentName}!` });
-      setStudentEmail('');
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students-with-parents'] });
+      queryClient.invalidateQueries({ queryKey: ['all-parent-links'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-stats'] });
+      toast({ title: 'Success', description: 'Parent linked successfully!' });
+      setParentPhoneSearch('');
       setRelationship('father');
+      setSelectedStudentForLink(null);
     },
     onError: (error: any) => {
       toast({
@@ -177,156 +227,235 @@ export default function ParentManagement() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['parent-links'] });
+      queryClient.invalidateQueries({ queryKey: ['students-with-parents'] });
+      queryClient.invalidateQueries({ queryKey: ['all-parent-links'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-stats'] });
       toast({ title: 'Success', description: 'Link removed successfully' });
     },
   });
 
   const filteredParents = parents?.filter((p) => {
-    const phone = p.profiles?.phone_number || p.profiles?.email?.replace('@parent.app', '') || '';
-    return (
-      p.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      phone.includes(searchQuery)
-    );
+    if (parentFilter === 'linked') {
+      const hasLinks = allLinks?.some(l => l.parent_id === p.user_id);
+      return hasLinks;
+    }
+    if (parentFilter === 'unlinked') {
+      const hasLinks = allLinks?.some(l => l.parent_id === p.user_id);
+      return !hasLinks;
+    }
+    return true;
   });
 
-  const getLinkedStudents = (parentId: string) => {
-    return links?.filter((link) => link.parent_id === parentId) || [];
+  const getLinkedStudentsCount = (parentId: string) => {
+    return allLinks?.filter(l => l.parent_id === parentId).length || 0;
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Parent Management</h2>
-          <p className="text-muted-foreground">Manage parent accounts and student links</p>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Assign Parent Role
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Assign Parent Role to User</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allUsers?.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name} ({user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={() => selectedUser && assignParentRole.mutate(selectedUser)}
-                disabled={!selectedUser || assignParentRole.isPending}
-                className="w-full"
-              >
-                {assignParentRole.isPending ? 'Assigning...' : 'Assign Role'}
-              </Button>
+      {/* Header */}
+      <div>
+        <h2 className="text-3xl font-bold">Parent Management</h2>
+        <p className="text-muted-foreground">Student-centric parent linking and management</p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Parents</p>
+                <p className="text-2xl font-bold">{stats?.total || 0}</p>
+              </div>
+              <Users className="h-8 w-8 text-primary" />
             </div>
-          </DialogContent>
-        </Dialog>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Linked</p>
+                <p className="text-2xl font-bold text-green-600">{stats?.linked || 0}</p>
+              </div>
+              <UserCheck className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Unlinked</p>
+                <p className="text-2xl font-bold text-orange-600">{stats?.unlinked || 0}</p>
+              </div>
+              <UserX className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">New This Week</p>
+                <p className="text-2xl font-bold text-blue-600">{stats?.newThisWeek || 0}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search parents by name or phone number..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Tabs */}
+      <Tabs defaultValue="students" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="students">Search Students</TabsTrigger>
+          <TabsTrigger value="parents">All Parents</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            All Parents ({filteredParents?.length || 0})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Linked Students</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parentsLoading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">Loading...</TableCell>
-                </TableRow>
-              ) : filteredParents?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center">No parents found</TableCell>
-                </TableRow>
-              ) : (
-                filteredParents?.map((parent) => {
-                  const linkedStudents = getLinkedStudents(parent.user_id);
-                  const phone = parent.profiles?.phone_number || parent.profiles?.email?.replace('@parent.app', '') || 'N/A';
-                  
-                  return (
-                    <TableRow key={parent.user_id}>
-                      <TableCell className="font-medium">{parent.profiles?.full_name}</TableCell>
-                      <TableCell>{phone}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {linkedStudents.length === 0 ? (
-                            <Badge variant="secondary">No students linked</Badge>
+        {/* Student Search Tab */}
+        <TabsContent value="students" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Find Student</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search student by name or email (min 2 characters)..."
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Student Results */}
+              {studentsLoading && <p className="text-center text-muted-foreground">Loading...</p>}
+              
+              {studentSearchQuery.length < 2 && (
+                <p className="text-center text-muted-foreground py-8">
+                  Type at least 2 characters to search students
+                </p>
+              )}
+
+              {studentSearchQuery.length >= 2 && !studentsLoading && studentsWithParents?.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No students found</p>
+              )}
+
+              <div className="space-y-3">
+                {studentsWithParents?.map((student) => (
+                  <Card key={student.id}>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        {/* Student Info */}
+                        <div>
+                          <h4 className="font-semibold text-lg">{student.full_name}</h4>
+                          <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {student.email}
+                            </span>
+                            {student.student_class && (
+                              <Badge variant="outline">Class {student.student_class}</Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Linked Parents */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Linked Parents:</Label>
+                          {student.parent_links.length === 0 ? (
+                            <Badge variant="secondary">No parents linked</Badge>
                           ) : (
-                            linkedStudents.map((link) => (
-                              <div key={link.id} className="flex items-center gap-2">
-                                <Badge>{link.student?.full_name} ({link.relationship})</Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeLink.mutate(link.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))
+                            <div className="space-y-2">
+                              {student.parent_links.map((link) => (
+                                <div key={link.id} className="flex items-center justify-between bg-muted p-2 rounded">
+                                  <div className="flex items-center gap-2">
+                                    <div>
+                                      <p className="font-medium">{link.parent?.full_name}</p>
+                                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                        <Phone className="h-3 w-3" />
+                                        {link.parent?.phone_number || 'N/A'}
+                                      </p>
+                                    </div>
+                                    <Badge variant="outline">{link.relationship}</Badge>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeLink.mutate(link.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Dialog>
+
+                        {/* Add Parent Button */}
+                        <Dialog open={selectedStudentForLink === student.id} onOpenChange={(open) => !open && setSelectedStudentForLink(null)}>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <LinkIcon className="mr-2 h-3 w-3" />
-                              Link Student
+                            <Button variant="outline" size="sm" onClick={() => setSelectedStudentForLink(student.id)}>
+                              <LinkIcon className="mr-2 h-4 w-4" />
+                              Add Parent
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Link Student to {parent.profiles?.full_name}</DialogTitle>
+                              <DialogTitle>Link Parent to {student.full_name}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
                               <div>
-                                <Label>Student Email ID</Label>
+                                <Label>Search Parent by Phone Number</Label>
                                 <Input
-                                  placeholder="Enter student's email (e.g., student@school.com)"
-                                  value={studentEmail}
-                                  onChange={(e) => setStudentEmail(e.target.value)}
-                                  type="email"
+                                  placeholder="Enter parent's phone number (10 digits)"
+                                  value={parentPhoneSearch}
+                                  onChange={(e) => setParentPhoneSearch(e.target.value)}
+                                  maxLength={10}
                                 />
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  Search and link by entering the student's registered email
-                                </p>
                               </div>
+
+                              {/* Search Results */}
+                              {searchingParent && <p className="text-sm text-muted-foreground">Searching...</p>}
+                              
+                              {foundParents && foundParents.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label>Found Parents:</Label>
+                                  {foundParents.map((parent) => (
+                                    <Card key={parent.id} className="p-3">
+                                      <div className="flex justify-between items-center">
+                                        <div>
+                                          <p className="font-medium">{parent.full_name}</p>
+                                          <p className="text-sm text-muted-foreground">{parent.phone_number}</p>
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => linkParentToStudent.mutate({
+                                            parentId: parent.id,
+                                            studentId: student.id,
+                                            rel: relationship
+                                          })}
+                                          disabled={linkParentToStudent.isPending}
+                                        >
+                                          Link
+                                        </Button>
+                                      </div>
+                                    </Card>
+                                  ))}
+                                </div>
+                              )}
+
+                              {parentPhoneSearch.length >= 10 && !searchingParent && foundParents?.length === 0 && (
+                                <div className="p-4 bg-muted rounded space-y-2">
+                                  <p className="text-sm font-medium">Parent not registered</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Ask the parent to register via the Parent Registration page
+                                  </p>
+                                </div>
+                              )}
+
                               <div>
                                 <Label>Relationship</Label>
                                 <Select value={relationship} onValueChange={setRelationship}>
@@ -341,32 +470,111 @@ export default function ParentManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <Button
-                                onClick={() =>
-                                  studentEmail &&
-                                  linkStudent.mutate({
-                                    parentId: parent.user_id,
-                                    studentEmail: studentEmail,
-                                    rel: relationship,
-                                  })
-                                }
-                                disabled={!studentEmail || linkStudent.isPending}
-                                className="w-full"
-                              >
-                                {linkStudent.isPending ? 'Linking...' : 'Search & Link Student'}
-                              </Button>
                             </div>
                           </DialogContent>
                         </Dialog>
-                      </TableCell>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* All Parents Tab */}
+        <TabsContent value="parents" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>All Parents</CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant={parentFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setParentFilter('all')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={parentFilter === 'linked' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setParentFilter('linked')}
+                  >
+                    Linked
+                  </Button>
+                  <Button
+                    variant={parentFilter === 'unlinked' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setParentFilter('unlinked')}
+                  >
+                    Unlinked
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search parents by name or phone..."
+                    value={parentSearchQuery}
+                    onChange={(e) => setParentSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Students Linked</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {parentsLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center">Loading...</TableCell>
+                      </TableRow>
+                    ) : filteredParents?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center">No parents found</TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredParents?.map((parent) => {
+                        const linkedCount = getLinkedStudentsCount(parent.user_id);
+                        const isLinked = linkedCount > 0;
+
+                        return (
+                          <TableRow key={parent.user_id}>
+                            <TableCell className="font-medium">{parent.profiles?.full_name}</TableCell>
+                            <TableCell>{parent.profiles?.phone_number || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge variant={isLinked ? 'default' : 'secondary'}>
+                                {linkedCount} {linkedCount === 1 ? 'student' : 'students'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {isLinked ? (
+                                <Badge className="bg-green-600">Active</Badge>
+                              ) : (
+                                <Badge variant="destructive">No Link</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

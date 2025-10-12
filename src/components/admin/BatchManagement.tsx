@@ -4,14 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter, Link2, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter, Link2, X, Eye, CalendarIcon } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 import { CreateBatchWizard } from "./CreateBatchWizard";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
+import { AdminRoadmapViewDialog } from "./AdminRoadmapViewDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { format, parseISO, differenceInDays } from "date-fns";
 import * as LucideIcons from "lucide-react";
 
 const BatchManagement = () => {
@@ -21,6 +25,8 @@ const BatchManagement = () => {
   const [examFilter, setExamFilter] = useState<string>("all");
   const [availableRoadmaps, setAvailableRoadmaps] = useState<any[]>([]);
   const [linkingBatch, setLinkingBatch] = useState<string | null>(null);
+  const [editingBatchDate, setEditingBatchDate] = useState<string | null>(null);
+  const [viewingRoadmapId, setViewingRoadmapId] = useState<string | null>(null);
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
@@ -236,6 +242,78 @@ const BatchManagement = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to link roadmap",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleStartDateChange = async (batchId: string, newDate: Date) => {
+    const batch = batches.find(b => b.id === batchId);
+    if (!batch) return;
+
+    const oldDate = parseISO(batch.start_date);
+    const daysDifference = differenceInDays(newDate, oldDate);
+
+    try {
+      // Step 1: Update batch start_date
+      await updateBatch(batchId, { 
+        start_date: format(newDate, 'yyyy-MM-dd') 
+      });
+
+      // Step 2: If roadmap linked, shift dates with proper auth
+      if (batch.linked_roadmap_id && daysDifference !== 0) {
+        // Get session for authorization
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          toast({
+            title: "Warning",
+            description: "Batch updated but couldn't authenticate for roadmap shift",
+            variant: "destructive"
+          });
+          setEditingBatchDate(null);
+          fetchBatches();
+          return;
+        }
+
+        // Call edge function with authorization
+        const { error } = await supabase.functions.invoke('shift-roadmap-dates', {
+          body: {
+            roadmap_id: batch.linked_roadmap_id,
+            days_shift: daysDifference
+          },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+
+        if (error) {
+          console.error('Roadmap shift error:', error);
+          toast({
+            title: "Warning",
+            description: "Batch date updated but roadmap shift failed",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: `Batch and roadmap shifted by ${Math.abs(daysDifference)} days`,
+          });
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Batch start date updated",
+        });
+      }
+
+      setEditingBatchDate(null);
+      fetchBatches();
+    } catch (error: any) {
+      console.error('Error updating batch date:', error);
+      toast({
+        title: "Error",
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -552,6 +630,14 @@ const BatchManagement = () => {
                             <Button
                               size="sm"
                               variant="ghost"
+                              onClick={() => setViewingRoadmapId(batch.linked_roadmap_id)}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => {
                                 setLinkingBatch(batch.id);
                                 fetchAvailableRoadmaps(batch.id);
@@ -598,9 +684,34 @@ const BatchManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          {new Date(batch.start_date).toLocaleDateString()}
-                        </div>
+                        {editingBatchDate === batch.id ? (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="gap-2">
+                                <CalendarIcon className="h-4 w-4" />
+                                {format(parseISO(batch.start_date), 'MMM dd, yyyy')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={parseISO(batch.start_date)}
+                                onSelect={(date) => {
+                                  if (date) handleStartDateChange(batch.id, date);
+                                }}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <div 
+                            onClick={() => setEditingBatchDate(batch.id)}
+                            className="cursor-pointer hover:bg-accent p-2 rounded transition-colors text-sm"
+                            title="Click to edit date"
+                          >
+                            {format(parseISO(batch.start_date), 'MMM dd, yyyy')}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>{getStatusBadge(batch)}</TableCell>
                       <TableCell>
@@ -641,6 +752,12 @@ const BatchManagement = () => {
         preselectedBoard={selectedBoard}
         preselectedClass={selectedClass}
         existingBatches={batches}
+      />
+
+      <AdminRoadmapViewDialog
+        open={!!viewingRoadmapId}
+        onOpenChange={(open) => !open && setViewingRoadmapId(null)}
+        roadmapId={viewingRoadmapId}
       />
     </div>
   );

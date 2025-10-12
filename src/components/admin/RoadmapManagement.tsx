@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
 import { EditRoadmapDialog } from "./EditRoadmapDialog";
 import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
+import { AdminRoadmapViewDialog } from "./AdminRoadmapViewDialog";
 import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
 import { RoadmapCardView } from "../RoadmapCardView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,6 +49,7 @@ const RoadmapManagement = () => {
   const [roadmapDetails, setRoadmapDetails] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [adminViewMode, setAdminViewMode] = useState<'calendar' | 'cards'>('calendar');
+  const [viewRoadmapId, setViewRoadmapId] = useState<string | null>(null);
 
   const fetchRoadmaps = async () => {
     try {
@@ -670,7 +672,7 @@ const RoadmapManagement = () => {
                   className="flex-1 gap-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleViewDetails(roadmap);
+                    setViewRoadmapId(roadmap.id);
                   }}
                 >
                   <Eye className="h-3 w-3" />
@@ -882,6 +884,12 @@ const RoadmapManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AdminRoadmapViewDialog
+        open={!!viewRoadmapId}
+        onOpenChange={(open) => !open && setViewRoadmapId(null)}
+        roadmapId={viewRoadmapId}
+      />
     </div>
   );
 };

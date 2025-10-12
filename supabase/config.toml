@@ -142,3 +142,6 @@ verify_jwt = true
 
 [functions.parent-portal]
 verify_jwt = true
+
+[functions.shift-roadmap-dates]
+verify_jwt = true

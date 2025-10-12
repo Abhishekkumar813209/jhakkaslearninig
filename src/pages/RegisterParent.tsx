@@ -57,60 +57,21 @@ const RegisterParent = () => {
       // Auto-generate email from phone number
       const email = `${phoneNumber}@parent.app`;
 
-      // Create the parent account
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone_number: phoneNumber,
-          },
+      // Call auth-register edge function with parent role
+      const { data, error } = await supabase.functions.invoke('auth-register', {
+        body: {
+          email,
+          password,
+          full_name: fullName,
+          phone_number: phoneNumber,
+          role: 'parent',
         },
       });
 
-      if (signUpError) throw signUpError;
+      if (error) throw error;
 
-      if (!authData.user) {
-        throw new Error('Registration failed. Please try again.');
-      }
-
-      // Wait a bit for profile to be created by trigger
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Update profile with phone number
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ phone_number: phoneNumber })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // Assign or update parent role via upsert to avoid conflict with default 'student' role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: authData.user.id,
-          role: 'parent',
-        }, { onConflict: 'user_id' });
-
-      if (roleError) {
-        console.error('Role assignment error:', roleError);
-        throw new Error('Failed to assign parent role. Please contact admin.');
-      }
-
-      // Verify role saved as parent
-      const { data: roleCheck, error: roleCheckError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', authData.user.id)
-        .maybeSingle();
-
-      if (roleCheckError || roleCheck?.role !== 'parent') {
-        console.error('Role verification error:', roleCheckError, roleCheck);
-        throw new Error('Role verification failed. Please contact admin.');
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast({

@@ -17,7 +17,7 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { email, password, full_name, role = 'student', student_class, education_board, exam_domain, exam_name, target_exam, referral_code } = await req.json()
+    const { email, password, full_name, role = 'student', student_class, education_board, exam_domain, exam_name, target_exam, referral_code, phone_number } = await req.json()
 
     if (!email || !password || !full_name) {
       return new Response(
@@ -71,11 +71,11 @@ serve(async (req: Request) => {
     console.log('✅ Session generated successfully')
 
     // Profile is automatically created via trigger
-    // Set role
-    const { error: roleError } = await supabase.from('user_roles').insert({
+    // Set role using UPSERT to override default 'student' role from trigger
+    const { error: roleError } = await supabase.from('user_roles').upsert({
       user_id: authData.user.id,
       role: role as any
-    })
+    }, { onConflict: 'user_id' })
 
     if (roleError) {
       console.error('❌ Failed to assign role:', roleError.message)
@@ -103,11 +103,12 @@ serve(async (req: Request) => {
       }
     }
 
-    // Update profile with class, board, exam info and batch assignment
+    // Update profile with class, board, exam info, phone number and batch assignment
     const profileUpdates: any = {
       updated_at: new Date().toISOString()
     };
     
+    if (phone_number) profileUpdates.phone_number = phone_number;
     if (student_class) profileUpdates.student_class = student_class;
     if (education_board) profileUpdates.education_board = education_board;
     if (exam_domain) profileUpdates.exam_domain = exam_domain;

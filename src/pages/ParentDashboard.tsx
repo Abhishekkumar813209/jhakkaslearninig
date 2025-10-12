@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
+import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
+import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
 
 interface LinkedStudent {
   student_id: string;
@@ -52,6 +54,7 @@ export default function ParentDashboard() {
   const [fees, setFees] = useState<FeeSummary | null>(null);
   const [zoneData, setZoneData] = useState<any>(null);
   const [topicsBySubject, setTopicsBySubject] = useState<any>({});
+  const [racingData, setRacingData] = useState<any>(null);
 
   useEffect(() => {
     checkParentRole();
@@ -115,7 +118,7 @@ export default function ParentDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const [progressData, activityData, feesData, zoneStatusData, topicsData] = await Promise.all([
+      const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult] = await Promise.all([
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getStudentProgress', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
@@ -136,13 +139,20 @@ export default function ParentDashboard() {
         supabase
           .from('student_topic_analytics')
           .select('*')
-          .eq('student_id', studentId)
+          .eq('student_id', studentId),
+        supabase.functions.invoke('live-racing', {
+          body: {
+            race_type: 'overall',
+            user_id: studentId,
+          },
+        })
       ]);
 
       setProgress(progressData.data);
       setActivity(activityData.data);
       setFees(feesData.data);
       setZoneData(zoneStatusData.data);
+      setRacingData(racingResult.data?.success ? racingResult.data.data : null);
       
       // Group topics by subject
       const grouped = (topicsData.data || []).reduce((acc: any, topic: any) => {
@@ -375,6 +385,23 @@ export default function ParentDashboard() {
             {/* Topic-wise Breakdown */}
             {Object.keys(topicsBySubject).length > 0 && (
               <TopicWiseBreakdown topicsBySubject={topicsBySubject} />
+            )}
+
+            {/* Racing Charts */}
+            {racingData && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold">🏁 Live Racing Position</h2>
+                <TopRacersSection racers={racingData.topRacers || []} />
+                
+                {racingData.userPosition && racingData.userPosition.position > 15 && (
+                  <UserPositionSection
+                    userPosition={racingData.userPosition}
+                    nearbyRacers={racingData.nearbyRacers || []}
+                    gapFromLeader={racingData.gapFromLeader || 0}
+                    leaderXP={racingData.leaderXP || 0}
+                  />
+                )}
+              </div>
             )}
 
             {/* Pending Fees (if any) */}

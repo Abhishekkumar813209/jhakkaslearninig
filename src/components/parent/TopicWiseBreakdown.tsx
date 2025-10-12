@@ -77,7 +77,7 @@ export const TopicWiseBreakdown = ({ topicsBySubject }: TopicWiseBreakdownProps)
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span>Average Score</span>
-                          <span className="font-bold">{topic.average_score.toFixed(1)}%</span>
+                          <span className="font-bold">{Number(topic.average_score ?? 0).toFixed(1)}%</span>
                         </div>
                         <Progress value={topic.average_score} className="h-2" />
                       </div>

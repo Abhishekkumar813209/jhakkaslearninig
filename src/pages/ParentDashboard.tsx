@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,6 +12,8 @@ import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
+import { RaceTypeSelector } from "@/components/student/racing/RaceTypeSelector";
+import { RaceType } from "@/pages/LiveRacing";
 
 interface LinkedStudent {
   student_id: string;
@@ -55,6 +57,7 @@ export default function ParentDashboard() {
   const [zoneData, setZoneData] = useState<any>(null);
   const [topicsBySubject, setTopicsBySubject] = useState<any>({});
   const [racingData, setRacingData] = useState<any>(null);
+  const [selectedRace, setSelectedRace] = useState<RaceType>('class');
 
   useEffect(() => {
     checkParentRole();
@@ -65,7 +68,7 @@ export default function ParentDashboard() {
     if (selectedStudent) {
       fetchStudentData(selectedStudent);
     }
-  }, [selectedStudent]);
+  }, [selectedStudent, selectedRace]);
 
   const checkParentRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -143,7 +146,7 @@ export default function ParentDashboard() {
           .eq('student_id', studentId),
         supabase.functions.invoke('live-racing', {
           body: {
-            race_type: 'overall',
+            race_type: selectedRace,
             user_id: studentId,
           },
           headers: {
@@ -188,13 +191,13 @@ export default function ParentDashboard() {
           acc[topic.subject] = [];
         }
         acc[topic.subject].push({
-          name: topic.topic_name,
-          practice_count: topic.practice_count || 0,
-          avg_score: topic.average_score || 0,
-          xp_earned: topic.xp_earned || 0,
-          time_spent: topic.time_spent_minutes || 0,
+          topic_name: topic.topic_name,
+          times_practiced: topic.practice_count || 0,
+          average_score: topic.average_score || 0,
+          total_xp_earned: topic.xp_earned || 0,
+          time_spent_minutes: topic.time_spent_minutes || 0,
           mastery_level: topic.mastery_level || 'beginner',
-          last_practiced: topic.last_practiced_at
+          last_practiced_at: topic.last_practiced_at
         });
         return acc;
       }, {});
@@ -416,41 +419,47 @@ export default function ParentDashboard() {
             )}
 
             {/* Racing Charts */}
-            {racingData && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    🏁 Live Racing Position
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {racingData.topRacers?.length > 0 ? (
-                    <div className="space-y-4">
-                      <TopRacersSection racers={racingData.topRacers} />
-                      
-                      {racingData.userPosition && racingData.userPosition.position > 15 && (
-                        <UserPositionSection
-                          userPosition={racingData.userPosition}
-                          nearbyRacers={racingData.nearbyRacers || []}
-                          gapFromLeader={racingData.gapFromLeader || 0}
-                          leaderXP={racingData.leaderXP || 0}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">
-                        No racing data available yet.
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Racing data will appear once the student participates in activities.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            <div>
+              <RaceTypeSelector selectedRace={selectedRace} onRaceChange={setSelectedRace} />
+              {racingData && (
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      🏁 {racingData.title || 'Live Racing Position'}
+                    </CardTitle>
+                    <CardDescription>
+                      {racingData.description} • {racingData.totalRacers || 0} racers
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {racingData.topRacers?.length > 0 ? (
+                      <div className="space-y-4">
+                        <TopRacersSection racers={racingData.topRacers} />
+                        
+                        {racingData.userPosition && racingData.userPosition.position > 15 && (
+                          <UserPositionSection
+                            userPosition={racingData.userPosition}
+                            nearbyRacers={racingData.nearbyRacers || []}
+                            gapFromLeader={racingData.gapFromLeader || 0}
+                            leaderXP={racingData.leaderXP || 0}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                        <p className="text-muted-foreground">
+                          No racing data available yet.
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Racing data will appear once the student participates in activities.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
             {/* Pending Fees (if any) */}
             {fees?.pendingFees?.length > 0 && (

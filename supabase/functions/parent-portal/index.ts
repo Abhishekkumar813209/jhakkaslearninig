@@ -29,7 +29,8 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { action } = await req.json();
+    const requestBody = await req.json();
+    const { action, studentId } = requestBody;
 
     switch (action) {
       case 'getLinkedStudents': {
@@ -60,8 +61,6 @@ serve(async (req) => {
       }
 
       case 'getTopicWiseAnalysis': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -96,8 +95,6 @@ serve(async (req) => {
       }
 
       case 'getWeeklyProgressReport': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -135,8 +132,6 @@ serve(async (req) => {
       }
 
       case 'getDailyTargetsStatus': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -165,8 +160,6 @@ serve(async (req) => {
       }
 
       case 'getZoneStatus': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -214,8 +207,6 @@ serve(async (req) => {
       }
 
       case 'getStudentProgress': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access to this student
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -270,8 +261,6 @@ serve(async (req) => {
       }
 
       case 'getStudentActivity': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -325,8 +314,6 @@ serve(async (req) => {
       }
 
       case 'getFeeSummary': {
-        const { studentId } = await req.json();
-        
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')

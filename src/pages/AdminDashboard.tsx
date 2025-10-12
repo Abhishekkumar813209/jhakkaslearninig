@@ -41,6 +41,7 @@ import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
 import UserRoleManagement from "@/components/admin/UserRoleManagement";
 import AdminAIChat from "@/components/admin/AdminAIChat";
+import ParentManagement from "@/components/admin/ParentManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -154,6 +155,12 @@ const AdminDashboard = () => {
       label: "Exam Types",
       icon: Target,
       component: ExamTypesManagement
+    },
+    {
+      value: "parents",
+      label: "Parents",
+      icon: UserCog,
+      component: ParentManagement
     },
     {
       value: "settings",

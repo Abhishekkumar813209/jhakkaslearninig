@@ -41,13 +41,26 @@ const Login = () => {
       // Wait for session to be set properly
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      // Check user role and redirect accordingly
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', signInData.user.id)
+        .single();
+
       toast({
         title: 'Welcome back!',
         description: 'You have been logged in successfully.',
       });
       
-      // Force full page reload to ensure auth state is properly initialized
-      window.location.replace('/');
+      // Role-based redirect
+      if (roleData?.role === 'parent') {
+        window.location.replace('/parent');
+      } else if (roleData?.role === 'admin') {
+        window.location.replace('/admin');
+      } else {
+        window.location.replace('/');
+      }
     } catch (firstError: any) {
       console.log('Direct auth failed, trying edge function:', firstError);
 
@@ -84,13 +97,26 @@ const Login = () => {
         // Wait for session to be properly set
         await new Promise(resolve => setTimeout(resolve, 500));
 
+        // Check user role and redirect accordingly
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
         toast({
           title: 'Welcome back!',
           description: 'You have been logged in successfully.',
         });
         
-        // Force full page reload to ensure auth state is properly initialized
-        window.location.replace('/');
+        // Role-based redirect
+        if (roleData?.role === 'parent') {
+          window.location.replace('/parent');
+        } else if (roleData?.role === 'admin') {
+          window.location.replace('/admin');
+        } else {
+          window.location.replace('/');
+        }
       } catch (error: any) {
         console.error('Login failed:', error);
         toast({
@@ -369,11 +395,19 @@ const Login = () => {
                 Continue with Google
               </Button>
 
-              <div className="text-center text-sm">
-                <span className="text-muted-foreground">Don't have an account? </span>
-                <Link to="/register" className="text-primary hover:underline">
-                  Sign up
-                </Link>
+              <div className="text-center text-sm space-y-2">
+                <div>
+                  <span className="text-muted-foreground">Don't have an account? </span>
+                  <Link to="/register" className="text-primary hover:underline">
+                    Sign up as Student
+                  </Link>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Are you a parent? </span>
+                  <Link to="/register/parent" className="text-primary hover:underline font-medium">
+                    Register as Parent
+                  </Link>
+                </div>
               </div>
             </>
           )}

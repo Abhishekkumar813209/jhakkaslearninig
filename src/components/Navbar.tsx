@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, isAdmin, isStudent, signOut } = useAuth();
+  const { user, isAdmin, isStudent, userRole, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -101,6 +101,15 @@ const Navbar = () => {
                 <Link to="/student/racing">
                   <Button variant="nav" size="sm">
                     🏁 Live Racing
+                  </Button>
+                </Link>
+              </>
+            ) : userRole === 'parent' ? (
+              // Parent Navigation
+              <>
+                <Link to="/parent">
+                  <Button variant="nav" size="sm">
+                    My Children
                   </Button>
                 </Link>
               </>

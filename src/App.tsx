@@ -12,6 +12,7 @@ import Quiz from "./pages/Quiz";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import RegisterParent from "./pages/RegisterParent";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import StudentDashboardPage from "./pages/StudentDashboardPage";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/register/parent" element={<RegisterParent />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Student routes - require complete profile */}

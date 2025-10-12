@@ -25,11 +25,8 @@ const Register = () => {
   const [examDomain, setExamDomain] = useState('');
   const [studentClass, setStudentClass] = useState('');
   const [educationBoard, setEducationBoard] = useState('');
-  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
   const [referralCode, setReferralCode] = useState(referralCodeFromUrl);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -212,52 +209,6 @@ const Register = () => {
     }
   };
 
-  const handleSendOTP = async () => {
-    if (!phone) {
-      toast({
-        variant: 'destructive',
-        title: 'Phone Required',
-        description: 'Please enter your phone number.',
-      });
-      return;
-    }
-
-    setOtpLoading(true);
-
-    // Note: Supabase doesn't support SMS OTP out of the box
-    // This is a placeholder for SMS OTP functionality
-    // You would need to integrate with a service like Twilio
-    toast({
-      title: 'OTP Sent!',
-      description: 'OTP has been sent to your phone number.',
-    });
-    setOtpSent(true);
-    setOtpLoading(false);
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!otp) {
-      toast({
-        variant: 'destructive',
-        title: 'OTP Required',
-        description: 'Please enter the OTP.',
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    // Placeholder for OTP verification
-    // In a real implementation, you would verify the OTP with your backend
-    toast({
-      title: 'Phone Verified!',
-      description: 'Your phone number has been verified successfully.',
-    });
-    navigate('/login');
-    setLoading(false);
-  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

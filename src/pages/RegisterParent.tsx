@@ -88,16 +88,29 @@ const RegisterParent = () => {
         console.error('Profile update error:', profileError);
       }
 
-      // Assign parent role
+      // Assign or update parent role via upsert to avoid conflict with default 'student' role
       const { error: roleError } = await supabase
         .from('user_roles')
-        .insert({
+        .upsert({
           user_id: authData.user.id,
           role: 'parent',
-        });
+        }, { onConflict: 'user_id' });
 
       if (roleError) {
         console.error('Role assignment error:', roleError);
+        throw new Error('Failed to assign parent role. Please contact admin.');
+      }
+
+      // Verify role saved as parent
+      const { data: roleCheck, error: roleCheckError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
+
+      if (roleCheckError || roleCheck?.role !== 'parent') {
+        console.error('Role verification error:', roleCheckError, roleCheck);
+        throw new Error('Role verification failed. Please contact admin.');
       }
 
       toast({

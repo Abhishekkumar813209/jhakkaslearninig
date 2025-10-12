@@ -83,28 +83,16 @@ export default function ParentManagement() {
   const { data: parents, isLoading: parentsLoading } = useQuery({
     queryKey: ['parents', parentSearchQuery],
     queryFn: async () => {
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .eq('role', 'parent');
+      // Use RPC with wildcard for "all parents"
+      const searchTerm = parentSearchQuery || '';
+      const { data, error } = await supabase.rpc('search_parents_by_phone', {
+        phone_like: searchTerm
+      });
 
-      if (roleError) throw roleError;
-      if (!roleData || roleData.length === 0) return [];
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
 
-      const userIds = roleData.map(r => r.user_id);
-      let profileQuery = supabase
-        .from('profiles')
-        .select('id, full_name, email, phone_number')
-        .in('id', userIds);
-
-      if (parentSearchQuery) {
-        profileQuery = profileQuery.or(`full_name.ilike.%${parentSearchQuery}%,phone_number.ilike.%${parentSearchQuery}%`);
-      }
-
-      const { data: profileData, error: profileError } = await profileQuery.order('full_name');
-      if (profileError) throw profileError;
-
-      return profileData.map(profile => ({
+      return data.map(profile => ({
         user_id: profile.id,
         profiles: profile
       }));
@@ -123,29 +111,23 @@ export default function ParentManagement() {
     },
   });
 
-  // Search parent by phone number
+  // Search parent by phone number using RPC
   const { data: foundParents, isLoading: searchingParent } = useQuery({
     queryKey: ['search-parent-by-phone', parentPhoneSearch],
     queryFn: async () => {
-      if (parentPhoneSearch.length < 10) return [];
+      if (parentPhoneSearch.length < 3) return [];
 
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'parent');
+      // Normalize phone input (remove non-digits)
+      const digits = parentPhoneSearch.replace(/[^0-9]/g, '');
 
-      const parentIds = roleData?.map(r => r.user_id) || [];
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone_number, email')
-        .in('id', parentIds)
-        .ilike('phone_number', `%${parentPhoneSearch}%`);
+      const { data, error } = await supabase.rpc('search_parents_by_phone', {
+        phone_like: digits
+      });
 
       if (error) throw error;
       return data || [];
     },
-    enabled: parentPhoneSearch.length >= 10,
+    enabled: parentPhoneSearch.length >= 3,
   });
 
   // Stats query
@@ -410,10 +392,9 @@ export default function ParentManagement() {
                               <div>
                                 <Label>Search Parent by Phone Number</Label>
                                 <Input
-                                  placeholder="Enter parent's phone number (10 digits)"
+                                  placeholder="Enter phone number (min 3 digits)"
                                   value={parentPhoneSearch}
                                   onChange={(e) => setParentPhoneSearch(e.target.value)}
-                                  maxLength={10}
                                 />
                               </div>
 

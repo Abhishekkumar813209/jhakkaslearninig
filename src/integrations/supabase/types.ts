@@ -3878,6 +3878,15 @@ export type Database = {
         Args: { course_id_param: string; lecture_ids: string[] }
         Returns: undefined
       }
+      search_parents_by_phone: {
+        Args: { phone_like: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone_number: string
+        }[]
+      }
       update_battery_level: {
         Args: Record<PropertyKey, never>
         Returns: undefined

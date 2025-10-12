@@ -86,9 +86,9 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        if (userProfile.target_exam) {
-          classQuery = classQuery.eq('exam_name', userProfile.target_exam);
-        }
+        const examNameFilter = userProfile.target_exam || 'default';
+        classQuery = classQuery.eq('exam_name', examNameFilter);
+        console.log('[class] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: examNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           classQuery = classQuery.eq('student_class', userProfile.student_class);
         }
@@ -222,9 +222,9 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        if (userProfile.target_exam) {
-          schoolGamQuery = schoolGamQuery.eq('exam_name', userProfile.target_exam);
-        }
+        const schoolExamNameFilter = userProfile.target_exam || 'default';
+        schoolGamQuery = schoolGamQuery.eq('exam_name', schoolExamNameFilter);
+        console.log('[school] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: schoolExamNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           schoolGamQuery = schoolGamQuery.eq('student_class', userProfile.student_class);
         }
@@ -283,9 +283,9 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        if (userProfile.target_exam) {
-          zoneGamQuery = zoneGamQuery.eq('exam_name', userProfile.target_exam);
-        }
+        const zoneExamNameFilter = userProfile.target_exam || 'default';
+        zoneGamQuery = zoneGamQuery.eq('exam_name', zoneExamNameFilter);
+        console.log('[zone] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: zoneExamNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           zoneGamQuery = zoneGamQuery.eq('student_class', userProfile.student_class);
         }
@@ -322,9 +322,9 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        if (userProfile.target_exam) {
-          overallQuery = overallQuery.eq('exam_name', userProfile.target_exam);
-        }
+        const overallExamNameFilter = userProfile.target_exam || 'default';
+        overallQuery = overallQuery.eq('exam_name', overallExamNameFilter);
+        console.log('[overall] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: overallExamNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           overallQuery = overallQuery.eq('student_class', userProfile.student_class);
         }

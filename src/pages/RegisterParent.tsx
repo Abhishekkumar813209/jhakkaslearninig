@@ -5,39 +5,48 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Lock, Users, Eye, EyeOff } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Lock, Phone, Eye, EyeOff } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
 const RegisterParent = () => {
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [relationship, setRelationship] = useState('parent');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validatePhone = (phone: string) => {
+    return /^[6-9]\d{9}$/.test(phone);
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password !== confirmPassword) {
+    if (!fullName.trim()) {
       toast({
         variant: 'destructive',
-        title: 'Passwords do not match',
-        description: 'Please make sure both passwords are the same.',
+        title: 'Error',
+        description: 'Please enter your full name',
       });
       return;
     }
 
-    if (!studentId) {
+    if (!validatePhone(phoneNumber)) {
       toast({
         variant: 'destructive',
-        title: 'Student ID required',
-        description: 'Please enter your child\'s Student ID.',
+        title: 'Invalid Phone',
+        description: 'Please enter a valid 10-digit phone number (starting with 6-9)',
+      });
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Weak Password',
+        description: 'Password must be at least 6 characters',
       });
       return;
     }
@@ -45,24 +54,17 @@ const RegisterParent = () => {
     setLoading(true);
 
     try {
-      // 1. Verify student exists
-      const { data: student, error: studentError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('id', studentId)
-        .single();
+      // Auto-generate email from phone number
+      const email = `${phoneNumber}@parent.app`;
 
-      if (studentError || !student) {
-        throw new Error('Student ID not found. Please check and try again.');
-      }
-
-      // 2. Create auth user
+      // Create the parent account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
+            phone_number: phoneNumber,
           },
         },
       });
@@ -73,10 +75,20 @@ const RegisterParent = () => {
         throw new Error('Registration failed. Please try again.');
       }
 
-      // 3. Wait a bit for profile to be created by trigger
+      // Wait a bit for profile to be created by trigger
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // 4. Assign parent role
+      // Update profile with phone number
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ phone_number: phoneNumber })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+      }
+
+      // Assign parent role
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
@@ -84,23 +96,13 @@ const RegisterParent = () => {
           role: 'parent',
         });
 
-      if (roleError) throw roleError;
-
-      // 5. Link student to parent
-      const { error: linkError } = await supabase
-        .from('parent_student_links')
-        .insert({
-          parent_id: authData.user.id,
-          student_id: studentId,
-          relationship,
-          is_primary_contact: true,
-        });
-
-      if (linkError) throw linkError;
+      if (roleError) {
+        console.error('Role assignment error:', roleError);
+      }
 
       toast({
         title: 'Registration Successful!',
-        description: `Welcome! You've been linked to ${student.full_name}. Please check your email to verify your account.`,
+        description: 'Admin will link your child\'s account soon. You can login now using your phone number.',
       });
 
       // Redirect to login after a short delay
@@ -145,19 +147,23 @@ const RegisterParent = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="phoneNumber">Phone Number</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   className="pl-10"
+                  maxLength={10}
                   required
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                You'll use this phone number to login
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -167,7 +173,7 @@ const RegisterParent = () => {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Create a password"
+                  placeholder="Create a password (min 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
@@ -185,54 +191,10 @@ const RegisterParent = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="confirmPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Confirm your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="studentId">Child's Student ID</Label>
-              <div className="relative">
-                <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="studentId"
-                  type="text"
-                  placeholder="Enter your child's Student ID"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Get this from your child's profile or contact the school admin
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-md p-3">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                📌 Admin will link your child's account after registration. You can login immediately after creating your account.
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="relationship">Relationship</Label>
-              <Select value={relationship} onValueChange={setRelationship}>
-                <SelectTrigger id="relationship">
-                  <SelectValue placeholder="Select relationship" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="father">Father</SelectItem>
-                  <SelectItem value="mother">Mother</SelectItem>
-                  <SelectItem value="guardian">Guardian</SelectItem>
-                  <SelectItem value="parent">Parent</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>

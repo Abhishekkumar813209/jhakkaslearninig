@@ -1557,6 +1557,7 @@ export type Database = {
           exam_domain: string | null
           full_name: string | null
           id: string
+          phone_number: string | null
           preparation_level: string | null
           school_id: string | null
           student_class: Database["public"]["Enums"]["student_class"] | null
@@ -1575,6 +1576,7 @@ export type Database = {
           exam_domain?: string | null
           full_name?: string | null
           id: string
+          phone_number?: string | null
           preparation_level?: string | null
           school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
@@ -1593,6 +1595,7 @@ export type Database = {
           exam_domain?: string | null
           full_name?: string | null
           id?: string
+          phone_number?: string | null
           preparation_level?: string | null
           school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,8 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 export default function ParentManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<string>('');
-  const [selectedStudent, setSelectedStudent] = useState<string>('');
-  const [relationship, setRelationship] = useState('parent');
+  const [studentEmail, setStudentEmail] = useState<string>('');
+  const [relationship, setRelationship] = useState('father');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -35,7 +36,7 @@ export default function ParentManagement() {
       const userIds = roleData.map(r => r.user_id);
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, phone_number')
         .in('id', userIds);
 
       if (profileError) throw profileError;
@@ -58,35 +59,6 @@ export default function ParentManagement() {
         .order('full_name');
       if (error) throw error;
       return data;
-    },
-  });
-
-  // Fetch all students with their profile data
-  const { data: students } = useQuery({
-    queryKey: ['students'],
-    queryFn: async () => {
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .eq('role', 'student');
-
-      if (roleError) throw roleError;
-
-      if (!roleData || roleData.length === 0) return [];
-
-      const userIds = roleData.map(r => r.user_id);
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, student_class')
-        .in('id', userIds);
-
-      if (profileError) throw profileError;
-
-      return roleData.map(role => ({
-        user_id: role.user_id,
-        role: role.role,
-        profiles: profileData?.find(p => p.id === role.user_id)
-      }));
     },
   });
 
@@ -141,24 +113,50 @@ export default function ParentManagement() {
     },
   });
 
-  // Link student to parent
+  // Link student to parent by email
   const linkStudent = useMutation({
-    mutationFn: async ({ parentId, studentId, rel }: { parentId: string; studentId: string; rel: string }) => {
+    mutationFn: async ({ parentId, studentEmail, rel }: { parentId: string; studentEmail: string; rel: string }) => {
+      // First, find student by email
+      const { data: student, error: findError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('email', studentEmail)
+        .single();
+      
+      if (findError || !student) {
+        throw new Error('Student not found with this email');
+      }
+
+      // Verify student role
+      const { data: role } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', student.id)
+        .eq('role', 'student')
+        .single();
+      
+      if (!role) {
+        throw new Error('User is not a student');
+      }
+
+      // Link parent-student
       const { error } = await supabase
         .from('parent_student_links')
         .insert({
           parent_id: parentId,
-          student_id: studentId,
+          student_id: student.id,
           relationship: rel,
           is_primary_contact: true,
         });
+      
       if (error) throw error;
+      return student.full_name;
     },
-    onSuccess: () => {
+    onSuccess: (studentName) => {
       queryClient.invalidateQueries({ queryKey: ['parent-links'] });
-      toast({ title: 'Success', description: 'Student linked successfully' });
-      setSelectedStudent('');
-      setRelationship('parent');
+      toast({ title: 'Success', description: `Successfully linked to ${studentName}!` });
+      setStudentEmail('');
+      setRelationship('father');
     },
     onError: (error: any) => {
       toast({
@@ -184,10 +182,13 @@ export default function ParentManagement() {
     },
   });
 
-  const filteredParents = parents?.filter((p) =>
-    p.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.profiles?.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredParents = parents?.filter((p) => {
+    const phone = p.profiles?.phone_number || p.profiles?.email?.replace('@parent.app', '') || '';
+    return (
+      p.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      phone.includes(searchQuery)
+    );
+  });
 
   const getLinkedStudents = (parentId: string) => {
     return links?.filter((link) => link.parent_id === parentId) || [];
@@ -239,7 +240,7 @@ export default function ParentManagement() {
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search parents by name or email..."
+          placeholder="Search parents by name or phone number..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -256,12 +257,12 @@ export default function ParentManagement() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Linked Students</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Linked Students</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
             </TableHeader>
             <TableBody>
               {parentsLoading ? (
@@ -275,10 +276,12 @@ export default function ParentManagement() {
               ) : (
                 filteredParents?.map((parent) => {
                   const linkedStudents = getLinkedStudents(parent.user_id);
+                  const phone = parent.profiles?.phone_number || parent.profiles?.email?.replace('@parent.app', '') || 'N/A';
+                  
                   return (
                     <TableRow key={parent.user_id}>
                       <TableCell className="font-medium">{parent.profiles?.full_name}</TableCell>
-                      <TableCell>{parent.profiles?.email}</TableCell>
+                      <TableCell>{phone}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {linkedStudents.length === 0 ? (
@@ -312,42 +315,45 @@ export default function ParentManagement() {
                               <DialogTitle>Link Student to {parent.profiles?.full_name}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-                              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select student" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {students?.map((student) => (
-                                    <SelectItem key={student.user_id} value={student.user_id}>
-                                      {student.profiles?.full_name} - Class {student.profiles?.student_class}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Select value={relationship} onValueChange={setRelationship}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Relationship" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="father">Father</SelectItem>
-                                  <SelectItem value="mother">Mother</SelectItem>
-                                  <SelectItem value="guardian">Guardian</SelectItem>
-                                  <SelectItem value="parent">Parent</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <div>
+                                <Label>Student Email ID</Label>
+                                <Input
+                                  placeholder="Enter student's email (e.g., student@school.com)"
+                                  value={studentEmail}
+                                  onChange={(e) => setStudentEmail(e.target.value)}
+                                  type="email"
+                                />
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Search and link by entering the student's registered email
+                                </p>
+                              </div>
+                              <div>
+                                <Label>Relationship</Label>
+                                <Select value={relationship} onValueChange={setRelationship}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="father">Father</SelectItem>
+                                    <SelectItem value="mother">Mother</SelectItem>
+                                    <SelectItem value="guardian">Guardian</SelectItem>
+                                    <SelectItem value="parent">Parent</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               <Button
                                 onClick={() =>
-                                  selectedStudent &&
+                                  studentEmail &&
                                   linkStudent.mutate({
                                     parentId: parent.user_id,
-                                    studentId: selectedStudent,
+                                    studentEmail: studentEmail,
                                     rel: relationship,
                                   })
                                 }
-                                disabled={!selectedStudent || linkStudent.isPending}
+                                disabled={!studentEmail || linkStudent.isPending}
                                 className="w-full"
                               >
-                                {linkStudent.isPending ? 'Linking...' : 'Link Student'}
+                                {linkStudent.isPending ? 'Linking...' : 'Search & Link Student'}
                               </Button>
                             </div>
                           </DialogContent>

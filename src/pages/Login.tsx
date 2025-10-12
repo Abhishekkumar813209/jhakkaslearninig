@@ -13,8 +13,10 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [phonePassword, setPhonePassword] = useState('');
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showPhonePassword, setShowPhonePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
@@ -203,9 +205,54 @@ const Login = () => {
     setLoading(false);
   };
 
+  const handlePhoneLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Construct email from phone
+      const email = `${phone}@parent.app`;
+
+      const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password: phonePassword,
+      });
+
+      if (authError) throw authError;
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', signInData.user.id)
+        .single();
+
+      toast({
+        title: 'Welcome back!',
+        description: 'You have been logged in successfully.',
+      });
+      
+      if (roleData?.role === 'parent') {
+        window.location.replace('/parent');
+      } else if (roleData?.role === 'admin') {
+        window.location.replace('/admin');
+      } else {
+        window.location.replace('/');
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error?.message || 'Invalid phone number or password.',
+      });
+    }
+
+    setLoading(false);
+  };
+
   const handleGoogleLogin = async () => {
     try {
-      // Use direct Supabase signInWithOAuth for same-window experience
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -216,8 +263,6 @@ const Login = () => {
       if (error) {
         throw error;
       }
-
-      // This will redirect in the same window
     } catch (error: any) {
       console.error('Google auth error:', error);
       toast({
@@ -268,7 +313,7 @@ const Login = () => {
               <Tabs defaultValue="email" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="email">Email</TabsTrigger>
-                  <TabsTrigger value="phone">Phone</TabsTrigger>
+                  <TabsTrigger value="phone">Phone (Parents)</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="email" className="space-y-4">
@@ -325,55 +370,46 @@ const Login = () => {
                 </TabsContent>
 
                 <TabsContent value="phone" className="space-y-4">
-                  <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP} className="space-y-4">
+                  <form onSubmit={handlePhoneLogin} className="space-y-4">
                     <div className="space-y-2">
                       <div className="relative">
                         <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
                           type="tel"
-                          placeholder="Phone Number"
+                          placeholder="Phone Number (10 digits)"
                           value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
+                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                           className="pl-10"
-                          disabled={otpSent}
+                          maxLength={10}
                           required
                         />
                       </div>
                     </div>
-                    
-                    {!otpSent ? (
-                      <Button type="button" className="w-full" disabled={loading} onClick={handleSendOTP}>
-                        {loading ? 'Sending OTP...' : 'Send OTP'}
-                      </Button>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type="text"
-                              placeholder="Enter OTP"
-                              value={otp}
-                              onChange={(e) => setOtp(e.target.value)}
-                              className="pl-10"
-                              maxLength={6}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? 'Verifying...' : 'Verify & Login'}
-                        </Button>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          className="w-full" 
-                          onClick={() => setOtpSent(false)}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type={showPhonePassword ? "text" : "password"}
+                          placeholder="Password"
+                          value={phonePassword}
+                          onChange={(e) => setPhonePassword(e.target.value)}
+                          className="pl-10 pr-10"
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1 h-8 w-8"
+                          onClick={() => setShowPhonePassword(!showPhonePassword)}
                         >
-                          Change Phone Number
+                          {showPhonePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
-                      </>
-                    )}
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Signing in...' : 'Login with Phone'}
+                    </Button>
                   </form>
                 </TabsContent>
               </Tabs>

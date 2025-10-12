@@ -97,10 +97,10 @@ export const useSubjectLeaderboards = () => {
         // Fetch profiles separately
         if (analyticsData && analyticsData.length > 0) {
           const studentIds = [...new Set(analyticsData.map(a => a.student_id))];
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, full_name, student_class, batch_id')
-            .in('id', studentIds);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('public_profiles')
+        .select('id, full_name, student_class')
+        .in('id', studentIds);
 
           if (profilesError) throw profilesError;
 
@@ -163,7 +163,7 @@ export const useAchievements = () => {
           const testIds = [...new Set(achievementsData.map(a => a.test_id).filter(Boolean))];
 
           const [profilesResult, testsResult] = await Promise.all([
-            supabase.from('profiles').select('id, full_name, student_class').in('id', studentIds),
+            supabase.from('public_profiles').select('id, full_name, student_class').in('id', studentIds),
             testIds.length > 0 ? supabase.from('tests').select('id, title').in('id', testIds) : { data: [], error: null }
           ]);
 

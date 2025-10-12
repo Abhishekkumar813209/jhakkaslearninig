@@ -93,31 +93,16 @@ const Leaderboard = () => {
 
       const studentIds = analyticsData.map(a => a.student_id);
       let profileQuery = supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, batch_id, student_class')
+        .from('public_profiles')
+        .select('id, full_name, avatar_url, student_class')
         .in('id', studentIds);
-      
-      if (studentClass) {
-        profileQuery = profileQuery.eq('student_class', studentClass as any);
-      }
       
       const { data: profilesData, error: profilesError } = await profileQuery;
 
       if (profilesError) throw profilesError;
 
-      const batchIds = profilesData?.map(p => p.batch_id).filter(Boolean) || [];
-      let batchesData: any[] = [];
-      if (batchIds.length > 0) {
-        const { data, error } = await supabase
-          .from('batches')
-          .select('id, name')
-          .in('id', batchIds);
-        if (!error) batchesData = data || [];
-      }
-
       const combined: LeaderboardEntry[] = analyticsData.map((analytics, index) => {
         const profile = profilesData?.find(p => p.id === analytics.student_id);
-        const batch = batchesData.find(b => b.id === profile?.batch_id);
         
         return {
           rank: index + 1,
@@ -127,7 +112,7 @@ const Leaderboard = () => {
           xp: analytics.total_xp || 0,
           level: analytics.level || 1,
           streak: analytics.current_streak_days || 0,
-          batch_name: batch?.name,
+          batch_name: undefined,
           avatar_url: profile?.avatar_url,
           tests_attempted: 0,
         };
@@ -148,7 +133,7 @@ const Leaderboard = () => {
 
           if (userData) {
             const { data: userProfile } = await supabase
-              .from('profiles')
+              .from('public_profiles')
               .select('full_name, avatar_url')
               .eq('id', currentUser.id)
               .maybeSingle();

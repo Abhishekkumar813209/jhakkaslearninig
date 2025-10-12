@@ -3020,13 +3020,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "test_answers_attempt_id_fkey"
-            columns: ["attempt_id"]
-            isOneToOne: false
-            referencedRelation: "test_leaderboards"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "test_answers_option_id_fkey"
             columns: ["option_id"]
             isOneToOne: false
@@ -3621,115 +3614,26 @@ export type Database = {
       }
     }
     Views: {
-      limited_leaderboards: {
-        Row: {
-          percentage: number | null
-          score: number | null
-          score_rank: number | null
-          student_class: Database["public"]["Enums"]["student_class"] | null
-          student_name: string | null
-          subject: string | null
-          test_id: string | null
-          test_title: string | null
-          total_marks: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "test_attempts_test_id_fkey"
-            columns: ["test_id"]
-            isOneToOne: false
-            referencedRelation: "tests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       public_profiles: {
         Row: {
           avatar_url: string | null
-          batch_id: string | null
           full_name: string | null
           id: string | null
-          school_id: string | null
           student_class: Database["public"]["Enums"]["student_class"] | null
-          zone_id: string | null
         }
         Insert: {
           avatar_url?: string | null
-          batch_id?: string | null
           full_name?: string | null
           id?: string | null
-          school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
-          zone_id?: string | null
         }
         Update: {
           avatar_url?: string | null
-          batch_id?: string | null
           full_name?: string | null
           id?: string | null
-          school_id?: string | null
           student_class?: Database["public"]["Enums"]["student_class"] | null
-          zone_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_profiles_school"
-            columns: ["school_id"]
-            isOneToOne: false
-            referencedRelation: "schools"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_profiles_zone"
-            columns: ["zone_id"]
-            isOneToOne: false
-            referencedRelation: "zones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "batches"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      test_leaderboards: {
-        Row: {
-          accuracy_rank: number | null
-          batch_id: string | null
-          id: string | null
-          percentage: number | null
-          score: number | null
-          score_rank: number | null
-          speed_rank: number | null
-          student_class: Database["public"]["Enums"]["student_class"] | null
-          student_id: string | null
-          student_name: string | null
-          subject: string | null
-          submitted_at: string | null
-          test_id: string | null
-          test_title: string | null
-          time_taken_minutes: number | null
-          total_marks: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "batches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "test_attempts_test_id_fkey"
-            columns: ["test_id"]
-            isOneToOne: false
-            referencedRelation: "tests"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {

@@ -116,11 +116,10 @@ export const ZoneAnalytics = () => {
       .limit(10);
 
     if (!error && data) {
-      // Get profiles for these students with zone filter
+      // Get profiles for these students
       const { data: profilesData } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, full_name')
-        .eq('zone_id', zoneId)
         .in('id', data.map(item => item.student_id));
 
       const leaderboard = data
@@ -150,11 +149,10 @@ export const ZoneAnalytics = () => {
       .limit(10);
 
     if (!error && data) {
-      // Get profiles for these students with school filter
+      // Get profiles for these students
       const { data: profilesData } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, full_name')
-        .eq('school_id', schoolId)
         .in('id', data.map(item => item.student_id));
 
       const leaderboard = data
@@ -186,7 +184,7 @@ export const ZoneAnalytics = () => {
     if (!error && data) {
       // Get profiles for these students
       const { data: profilesData } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, full_name')
         .in('id', data.map(item => item.student_id));
 

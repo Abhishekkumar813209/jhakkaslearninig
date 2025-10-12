@@ -58,7 +58,7 @@ const LeaderboardManagement = () => {
       // Fetch profiles separately
       const studentIds = overallData?.map(s => s.student_id) || [];
       const { data: profilesData } = await supabase
-        .from('profiles')
+        .from('public_profiles')
         .select('id, full_name, student_class')
         .in('id', studentIds);
 
@@ -88,8 +88,8 @@ const LeaderboardManagement = () => {
 
       const zoneStudentIds = zoneData?.map(s => s.student_id) || [];
       const { data: zoneProfiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, student_class, zone_id, zones(name)')
+        .from('public_profiles')
+        .select('id, full_name, student_class')
         .in('id', zoneStudentIds);
 
       const zoneProfileMap = new Map<string, any>();
@@ -101,7 +101,7 @@ const LeaderboardManagement = () => {
           student_id: entry.student_id,
           student_name: profile?.full_name || 'Unknown',
           student_class: profile?.student_class || '',
-          zone_name: (profile?.zones as any)?.name || 'N/A',
+          zone_name: 'Zone',
           total_xp: Math.round(entry.average_score || 0),
           level: Math.floor((entry.average_score || 0) / 10),
           current_streak_days: entry.streak_days || 0,
@@ -122,8 +122,8 @@ const LeaderboardManagement = () => {
 
       const schoolStudentIds = schoolData?.map(s => s.student_id) || [];
       const { data: schoolProfiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, student_class, school_id, schools(name)')
+        .from('public_profiles')
+        .select('id, full_name, student_class')
         .in('id', schoolStudentIds);
 
       const schoolProfileMap = new Map<string, any>();
@@ -135,7 +135,7 @@ const LeaderboardManagement = () => {
           student_id: entry.student_id,
           student_name: profile?.full_name || 'Unknown',
           student_class: profile?.student_class || '',
-          school_name: (profile?.schools as any)?.name || 'N/A',
+          school_name: 'School',
           total_xp: Math.round(entry.average_score || 0),
           level: Math.floor((entry.average_score || 0) / 10),
           current_streak_days: entry.streak_days || 0,

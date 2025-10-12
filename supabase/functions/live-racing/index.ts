@@ -101,11 +101,14 @@ serve(async (req: Request) => {
         console.log(`[class] Fetched ${classStudentIds.length} gamification records`);
 
         const { data: classProfiles, error: classProfileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', classStudentIds);
 
-        if (classProfileError) throw classProfileError;
+        if (classProfileError) {
+          console.error('[class] Error fetching public_profiles:', classProfileError);
+          throw classProfileError;
+        }
         console.log(`[class] Fetched ${classProfiles?.length || 0} profiles`);
 
         // Step 3: Optionally fetch batch names
@@ -165,11 +168,14 @@ serve(async (req: Request) => {
         // Step 3: Fetch full profiles for the gamification records
         const batchGamStudentIds = (batchGamification || []).map(g => g.student_id);
         const { data: batchFullProfiles, error: batchFullProfileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', batchGamStudentIds);
 
-        if (batchFullProfileError) throw batchFullProfileError;
+        if (batchFullProfileError) {
+          console.error('[batch] Error fetching public_profiles:', batchFullProfileError);
+          throw batchFullProfileError;
+        }
 
         // Fetch batch name
         const { data: batchData } = await supabase
@@ -230,11 +236,14 @@ serve(async (req: Request) => {
         // Step 3: Fetch full profiles
         const schoolGamStudentIds = (schoolGamification || []).map(g => g.student_id);
         const { data: schoolFullProfiles, error: schoolFullProfileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', schoolGamStudentIds);
 
-        if (schoolFullProfileError) throw schoolFullProfileError;
+        if (schoolFullProfileError) {
+          console.error('[school] Error fetching public_profiles:', schoolFullProfileError);
+          throw schoolFullProfileError;
+        }
 
         const schoolProfileMap = Object.fromEntries((schoolFullProfiles || []).map(p => [p.id, p]));
         racingData = processRacingDataV2(schoolGamification || [], userId, limit, schoolProfileMap, {});
@@ -288,11 +297,14 @@ serve(async (req: Request) => {
         // Step 3: Fetch full profiles
         const zoneGamStudentIds = (zoneGamification || []).map(g => g.student_id);
         const { data: zoneFullProfiles, error: zoneFullProfileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', zoneGamStudentIds);
 
-        if (zoneFullProfileError) throw zoneFullProfileError;
+        if (zoneFullProfileError) {
+          console.error('[zone] Error fetching public_profiles:', zoneFullProfileError);
+          throw zoneFullProfileError;
+        }
 
         const zoneProfileMap = Object.fromEntries((zoneFullProfiles || []).map(p => [p.id, p]));
         racingData = processRacingDataV2(zoneGamification || [], userId, limit, zoneProfileMap, {});
@@ -324,11 +336,14 @@ serve(async (req: Request) => {
         console.log(`[overall] Fetched ${overallStudentIds.length} gamification records`);
 
         const { data: overallProfiles, error: overallProfileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, student_class, exam_domain, target_exam, batch_id')
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', overallStudentIds);
 
-        if (overallProfileError) throw overallProfileError;
+        if (overallProfileError) {
+          console.error('[overall] Error fetching public_profiles:', overallProfileError);
+          throw overallProfileError;
+        }
         console.log(`[overall] Fetched ${overallProfiles?.length || 0} profiles`);
 
         const overallProfileMap = Object.fromEntries((overallProfiles || []).map(p => [p.id, p]));

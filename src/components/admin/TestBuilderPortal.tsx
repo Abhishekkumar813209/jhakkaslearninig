@@ -198,19 +198,28 @@ const TestBuilderPortal: React.FC = () => {
 
   // Dialog session to force fresh renders
   const [dialogSessionId, setDialogSessionId] = useState(0);
+  
+  // Track how dialog was opened
+  const [openMode, setOpenMode] = useState<'new' | 'edit' | 'extracted'>('new');
 
-  // Load saved question on dialog open ONLY if editing
+  // Load saved question on dialog open - smart reset based on mode
   useEffect(() => {
     if (!showQuestionDialog) return;
     
-    // If editing, don't load from localStorage
+    // If editing, don't reset
     if (editingQuestion) return;
     
-    // Opening for NEW question - clear any stale localStorage
+    // If extracted from PDF, keep the extracted data
+    if (openMode === 'extracted') {
+      setHasUnsavedQuestion(true);
+      return;
+    }
+    
+    // Plain new question - clear localStorage and reset
     localStorage.removeItem(questionStorageKey);
     resetQuestionForm();
     setHasUnsavedQuestion(false);
-  }, [showQuestionDialog, editingQuestion]);
+  }, [showQuestionDialog, editingQuestion, openMode]);
 
   // Auto-save question when editing
   useEffect(() => {
@@ -304,18 +313,28 @@ const TestBuilderPortal: React.FC = () => {
         localStorage.removeItem(questionStorageKey);
         setHasUnsavedQuestion(false);
         resetQuestionForm();
+        setOpenMode('new');
         setDialogSessionId(prev => prev + 1);
 
         toast({
           title: "Success",
           description: "Question added successfully!"
         });
+      } else {
+        // Show backend error if available
+        const errorMsg = data.error || "Failed to add question. Please try again.";
+        toast({
+          title: "Error",
+          description: errorMsg,
+          variant: "destructive"
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding question:', error);
+      const errorMsg = error?.message || "Failed to add question. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to add question. Please try again.",
+        description: errorMsg,
         variant: "destructive"
       });
     }
@@ -836,6 +855,9 @@ const TestBuilderPortal: React.FC = () => {
     try {
       // Keep PDF extractor open for continuous extraction
       
+      // Increment dialog session to force clean render
+      setDialogSessionId(prev => prev + 1);
+      
       // Set the extracted text to question field
       setNewQuestion(prev => {
         const baseOptions = (prev.options && prev.options.length === 4)
@@ -863,14 +885,13 @@ const TestBuilderPortal: React.FC = () => {
         };
       });
       
-      // Show the question dialog for further editing
+      // Mark as extracted mode and show dialog
+      setOpenMode('extracted');
       setShowQuestionDialog(true);
       
       toast({
-        title: "Success",
-        description: options && options.length > 0 
-          ? `Question extracted with ${options.length} options from PDF!`
-          : "Question extracted from PDF successfully!",
+        title: "Text extracted!",
+        description: "Review the question and press 'Add Question' to save.",
         variant: "default"
       });
     } catch (error) {
@@ -1470,7 +1491,7 @@ const TestBuilderPortal: React.FC = () => {
           }
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent key={dialogSessionId} className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingQuestion ? 'Edit Question' : 'Add New Question'}
@@ -1789,12 +1810,36 @@ const TestBuilderPortal: React.FC = () => {
                 } else {
                   setShowQuestionDialog(false);
                   resetQuestionForm();
+                  setOpenMode('new');
                 }
               }}
             >
               Cancel
             </Button>
-            <Button onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}>
+            <Button 
+              onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}
+              disabled={(() => {
+                // Validate question text
+                if (!newQuestion.question_text?.trim()) return true;
+                
+                // Validate marks
+                const marks = Number(newQuestion.marks);
+                if (!isFinite(marks) || marks <= 0) return true;
+                
+                // MCQ validation
+                if (newQuestion.question_type === 'mcq' && newQuestion.options) {
+                  const filledOptions = newQuestion.options.filter(opt => opt.text?.trim());
+                  if (filledOptions.length === 0) return true;
+                  
+                  const correctOptions = newQuestion.options.filter(opt => opt.isCorrect);
+                  if (correctOptions.length === 0) return true;
+                  
+                  if (!newQuestion.allow_multiple_correct && correctOptions.length !== 1) return true;
+                }
+                
+                return false;
+              })()}
+            >
               {editingQuestion ? 'Update Question' : 'Add Question'}
             </Button>
           </DialogFooter>

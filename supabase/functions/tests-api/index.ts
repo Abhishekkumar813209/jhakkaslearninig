@@ -284,8 +284,20 @@ serve(async (req: Request) => {
 
             if (questionError) {
               console.error('Error adding question:', questionError)
+              console.error('Question payload summary:', {
+                test_id: questionData.test_id,
+                question_type: questionData.qtype,
+                marks,
+                position,
+                has_options: !!questionData.options,
+                has_image: !!questionData.image_url
+              })
               return new Response(
-                JSON.stringify({ error: questionError.message }),
+                JSON.stringify({ 
+                  success: false,
+                  error: questionError.message || 'Failed to add question',
+                  details: questionError.details || questionError.hint || 'Please check your input'
+                }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               )
             }

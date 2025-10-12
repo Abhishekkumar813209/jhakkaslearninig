@@ -223,7 +223,7 @@ serve(async (req) => {
           .select('student_id')
           .eq('parent_id', user.id)
           .eq('student_id', studentId)
-          .single();
+          .maybeSingle();
 
         if (!link) throw new Error('Unauthorized access to student');
 
@@ -232,7 +232,9 @@ serve(async (req) => {
           .from('student_zone_status')
           .select('*')
           .eq('student_id', studentId)
-          .single();
+          .maybeSingle();
+
+        console.log('[parent-portal] getZoneStatus:', { studentId, hadExisting: !!existingZone });
 
         const now = new Date();
         const shouldRecalculate = !existingZone || 
@@ -240,16 +242,16 @@ serve(async (req) => {
 
         if (shouldRecalculate) {
           // Recalculate zone
-          const { data: zoneColor } = await supabase.rpc('calculate_student_zone', {
+          await supabase.rpc('calculate_student_zone', {
             p_student_id: studentId
           });
 
-          // Fetch updated zone
+          // Fetch updated zone with maybeSingle to handle missing rows
           const { data: zoneStatus } = await supabase
             .from('student_zone_status')
             .select('*')
             .eq('student_id', studentId)
-            .single();
+            .maybeSingle();
 
           return new Response(
             JSON.stringify({ zoneStatus }),

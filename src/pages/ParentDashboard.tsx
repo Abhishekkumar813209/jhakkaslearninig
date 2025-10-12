@@ -133,11 +133,10 @@ export default function ParentDashboard() {
           body: { action: 'getFeeSummary', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
         }),
-        supabase
-          .from('student_zone_status')
-          .select('*')
-          .eq('student_id', studentId)
-          .single(),
+        supabase.functions.invoke('parent-portal', {
+          body: { action: 'getZoneStatus', studentId },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        }),
         supabase
           .from('student_topic_analytics')
           .select('*')
@@ -150,12 +149,17 @@ export default function ParentDashboard() {
         })
       ]);
 
+      console.log('[ParentDashboard] Progress:', progressData);
+      console.log('[ParentDashboard] Activity:', activityData);
+      console.log('[ParentDashboard] Fees:', feesData);
+      console.log('[ParentDashboard] Zone:', zoneStatusData);
+
       console.log('[ParentDashboard] Racing API response:', racingResult);
 
       setProgress(progressData.data);
       setActivity(activityData.data);
       setFees(feesData.data);
-      setZoneData(zoneStatusData.data);
+      setZoneData(zoneStatusData.data?.zoneStatus || null);
       
       // Handle racing data with proper fallback
       if (racingResult.data?.success) {

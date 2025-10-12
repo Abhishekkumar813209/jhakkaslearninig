@@ -29,8 +29,37 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const requestBody = await req.json();
-    const { action, studentId } = requestBody;
+    // Generate request ID for tracking
+    const requestId = crypto?.randomUUID?.() ?? Date.now().toString();
+    
+    // Defensive body parsing - read body as text first
+    let bodyText = '';
+    try {
+      bodyText = await req.text();
+    } catch (e) {
+      console.error('[parent-portal]', requestId, 'Failed to read body:', e);
+    }
+
+    // Parse JSON safely
+    let requestBody: any = {};
+    try {
+      requestBody = bodyText ? JSON.parse(bodyText) : {};
+    } catch (e) {
+      console.error('[parent-portal]', requestId, 'JSON parse error:', e, 'raw:', bodyText.substring(0, 100));
+      requestBody = {};
+    }
+
+    const action = requestBody?.action;
+    const studentId = requestBody?.studentId;
+
+    console.log('[parent-portal]', requestId, 'Request:', {
+      method: req.method,
+      contentType: req.headers.get('content-type'),
+      bodyLength: bodyText.length,
+      action,
+      studentId,
+      userId: user.id
+    });
 
     switch (action) {
       case 'getLinkedStudents': {
@@ -61,6 +90,13 @@ serve(async (req) => {
       }
 
       case 'getTopicWiseAnalysis': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -95,6 +131,13 @@ serve(async (req) => {
       }
 
       case 'getWeeklyProgressReport': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -132,6 +175,13 @@ serve(async (req) => {
       }
 
       case 'getDailyTargetsStatus': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -160,6 +210,13 @@ serve(async (req) => {
       }
 
       case 'getZoneStatus': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -207,6 +264,13 @@ serve(async (req) => {
       }
 
       case 'getStudentProgress': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access to this student
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -261,6 +325,13 @@ serve(async (req) => {
       }
 
       case 'getStudentActivity': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')
@@ -314,6 +385,13 @@ serve(async (req) => {
       }
 
       case 'getFeeSummary': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // Verify parent has access
         const { data: link } = await supabase
           .from('parent_student_links')

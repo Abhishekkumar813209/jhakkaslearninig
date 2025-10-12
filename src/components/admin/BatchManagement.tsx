@@ -6,14 +6,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter, Link2, X, Eye, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Users, TrendingUp, Award, Loader2, Filter, Link2, X, CalendarIcon } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useToast } from "@/hooks/use-toast";
 import { CreateBatchWizard } from "./CreateBatchWizard";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
-import { AdminRoadmapViewDialog } from "./AdminRoadmapViewDialog";
+
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInDays } from "date-fns";
 import * as LucideIcons from "lucide-react";
@@ -26,7 +26,7 @@ const BatchManagement = () => {
   const [availableRoadmaps, setAvailableRoadmaps] = useState<any[]>([]);
   const [linkingBatch, setLinkingBatch] = useState<string | null>(null);
   const [editingBatchDate, setEditingBatchDate] = useState<string | null>(null);
-  const [viewingRoadmapId, setViewingRoadmapId] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
@@ -656,14 +656,6 @@ const BatchManagement = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setViewingRoadmapId(batch.linked_roadmap_id)}
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
                               onClick={() => {
                                 setLinkingBatch(batch.id);
                                 fetchAvailableRoadmaps(batch.id);
@@ -780,11 +772,6 @@ const BatchManagement = () => {
         existingBatches={batches}
       />
 
-      <AdminRoadmapViewDialog
-        open={!!viewingRoadmapId}
-        onOpenChange={(open) => !open && setViewingRoadmapId(null)}
-        roadmapId={viewingRoadmapId}
-      />
     </div>
   );
 };

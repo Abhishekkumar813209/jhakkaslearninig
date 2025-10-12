@@ -14,8 +14,13 @@ serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Create service client (for profile lookups without RLS restrictions)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Create auth client to get user from request token
+    const authSupabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: {
         headers: {
           'Authorization': req.headers.get('Authorization') || ''
@@ -40,7 +45,7 @@ serve(async (req: Request) => {
 
     // Fallback to JWT if user_id still missing
     if (!userId) {
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      const { data: authData, error: authErr } = await authSupabase.auth.getUser();
       if (authErr) console.log('auth.getUser error', authErr.message);
       userId = authData?.user?.id || userId;
     }

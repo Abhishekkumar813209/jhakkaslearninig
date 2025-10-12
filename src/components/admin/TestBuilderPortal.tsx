@@ -189,26 +189,28 @@ const TestBuilderPortal: React.FC = () => {
       { text: '', isCorrect: false },
       { text: '', isCorrect: false }
     ],
-    marks: '' as any,
+    marks: 1,
     order_num: 0,
     explanation: '',
     tags: [],
     allow_multiple_correct: false
   });
 
-  // Load saved question on dialog open
+  // Dialog session to force fresh renders
+  const [dialogSessionId, setDialogSessionId] = useState(0);
+
+  // Load saved question on dialog open ONLY if editing
   useEffect(() => {
-    const saved = localStorage.getItem(questionStorageKey);
-    if (saved && showQuestionDialog) {
-      try {
-        const parsed = JSON.parse(saved);
-        setNewQuestion(parsed);
-        setHasUnsavedQuestion(true);
-      } catch (error) {
-        console.error('Failed to load saved question:', error);
-      }
-    }
-  }, [questionStorageKey, showQuestionDialog]);
+    if (!showQuestionDialog) return;
+    
+    // If editing, don't load from localStorage
+    if (editingQuestion) return;
+    
+    // Opening for NEW question - clear any stale localStorage
+    localStorage.removeItem(questionStorageKey);
+    resetQuestionForm();
+    setHasUnsavedQuestion(false);
+  }, [showQuestionDialog, editingQuestion]);
 
   // Auto-save question when editing
   useEffect(() => {
@@ -276,6 +278,7 @@ const TestBuilderPortal: React.FC = () => {
     try {
       const questionData = {
         ...newQuestion,
+        marks: Number(newQuestion.marks),
         test_id: testId,
         position: questions.length + 1,
         qtype: newQuestion.question_type
@@ -301,6 +304,7 @@ const TestBuilderPortal: React.FC = () => {
         localStorage.removeItem(questionStorageKey);
         setHasUnsavedQuestion(false);
         resetQuestionForm();
+        setDialogSessionId(prev => prev + 1);
 
         toast({
           title: "Success",
@@ -411,7 +415,7 @@ const TestBuilderPortal: React.FC = () => {
         { text: '', isCorrect: false },
         { text: '', isCorrect: false }
       ],
-      marks: '' as any,
+      marks: 1,
       order_num: 0,
       explanation: '',
       tags: [],

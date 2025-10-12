@@ -242,7 +242,22 @@ serve(async (req: Request) => {
 
           case 'addQuestion':
             const { questionData } = requestData as any
-            console.log('Adding question:', questionData)
+            console.log('Adding question (raw):', questionData)
+
+            // Validate and sanitize marks
+            const marks = Number(questionData?.marks)
+            if (!Number.isFinite(marks) || marks <= 0) {
+              console.error('Invalid marks value:', questionData?.marks)
+              return new Response(
+                JSON.stringify({ error: 'Marks must be a positive number', received: questionData?.marks }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            // Sanitize position
+            const position = Number.isFinite(+questionData?.position) ? +questionData.position : 1
+
+            console.log('Sanitized values:', { marks, position })
 
             const { data: newQuestion, error: questionError } = await supabase
               .from('questions')
@@ -254,8 +269,8 @@ serve(async (req: Request) => {
                 correct_answer: questionData.correct_answer || (
                   questionData.options?.find((opt: any) => opt.isCorrect)?.text || null
                 ),
-                marks: questionData.marks,
-                order_num: questionData.position,
+                marks: marks,
+                order_num: position,
                 explanation: questionData.explanation,
                 sample_answer: questionData.sample_answer,
                 word_limit: questionData.word_limit,

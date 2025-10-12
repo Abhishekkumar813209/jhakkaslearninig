@@ -91,7 +91,7 @@ const TestBuilder: React.FC = () => {
       { text: '', isCorrect: false },
       { text: '', isCorrect: false }
     ],
-    marks: '' as any,
+    marks: 1,
     position: 0,
     explanation: '',
     tags: []
@@ -203,6 +203,7 @@ const TestBuilder: React.FC = () => {
     try {
       const questionData = {
         ...newQuestion,
+        marks: Number(newQuestion.marks),
         test_id: testId,
         position: questions.length + 1
       };
@@ -321,7 +322,7 @@ const TestBuilder: React.FC = () => {
         { text: '', isCorrect: false },
         { text: '', isCorrect: false }
       ],
-      marks: '' as any,
+      marks: 1,
       position: 0,
       explanation: '',
       tags: []

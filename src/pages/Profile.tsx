@@ -17,6 +17,7 @@ import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
 import { ReferralWallet } from '@/components/student/ReferralWallet';
+import { toBoardEnumValue, toBoardDisplayName } from '@/lib/boardMapping';
 
 const Profile = () => {
   const { user, isAdmin, isStudent } = useAuth();
@@ -133,7 +134,8 @@ const Profile = () => {
       setName(profile.full_name || '');
       setAvatarUrl(profile.avatar_url || '');
       setStudentClass(profile.student_class || '');
-      setEducationBoard(profile.education_board || '');
+      // Transform database enum to display name
+      setEducationBoard(profile.education_board ? toBoardDisplayName(profile.education_board) : '');
       setExamDomain(profile.exam_domain || '');
       setZoneId(profile.zone_id || '');
       setSchoolId(profile.school_id || '');
@@ -224,7 +226,8 @@ const Profile = () => {
       }
       
       if (selectedExamType?.requires_board) {
-        updatePayload.education_board = educationBoard;
+        // Transform display name to database enum
+        updatePayload.education_board = toBoardEnumValue(educationBoard);
       } else {
         updatePayload.education_board = null;
       }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useExamTypes } from './useExamTypes';
+import { BOARD_DISPLAY } from '@/lib/boardMapping';
 
 interface UseBoardsResult {
   boards: string[];
@@ -33,7 +34,9 @@ export const useBoards = (examDomain?: string | null): UseBoardsResult => {
     }
 
     const boards = selectedExamType.requires_board && selectedExamType.available_exams
-      ? (selectedExamType.available_exams as string[])
+      ? (selectedExamType.available_exams as string[]).map(board => 
+          BOARD_DISPLAY[board] || board
+        )
       : [];
 
     console.log('useBoards:', {

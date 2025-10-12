@@ -262,10 +262,23 @@ const BatchManagement = () => {
 
       // Step 2: If roadmap linked, shift dates with proper auth
       if (batch.linked_roadmap_id && daysDifference !== 0) {
+        console.log('🔵 [BatchManagement] Linked roadmap detected, preparing to shift dates', {
+          roadmap_id: batch.linked_roadmap_id,
+          days_shift: daysDifference,
+          batch_name: batch.name
+        });
+        
         // Get session for authorization
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
+        console.log('🔑 [BatchManagement] Session check:', { 
+          hasSession: !!session, 
+          hasToken: !!session?.access_token,
+          error: sessionError 
+        });
+        
         if (sessionError || !session) {
+          console.error('❌ [BatchManagement] No valid session for roadmap shift');
           toast({
             title: "Warning",
             description: "Batch updated but couldn't authenticate for roadmap shift",
@@ -276,8 +289,14 @@ const BatchManagement = () => {
           return;
         }
 
+        console.log('📤 [BatchManagement] Calling shift-roadmap-dates edge function with:', {
+          roadmap_id: batch.linked_roadmap_id,
+          days_shift: daysDifference,
+          hasAuthToken: !!session.access_token
+        });
+
         // Call edge function with authorization
-        const { error } = await supabase.functions.invoke('shift-roadmap-dates', {
+        const { data, error } = await supabase.functions.invoke('shift-roadmap-dates', {
           body: {
             roadmap_id: batch.linked_roadmap_id,
             days_shift: daysDifference
@@ -287,20 +306,27 @@ const BatchManagement = () => {
           }
         });
 
+        console.log('📥 [BatchManagement] Edge function response:', { data, error });
+
         if (error) {
-          console.error('Roadmap shift error:', error);
+          console.error('❌ [BatchManagement] Roadmap shift error:', error);
           toast({
             title: "Warning",
             description: "Batch date updated but roadmap shift failed",
             variant: "destructive"
           });
         } else {
+          console.log('✅ [BatchManagement] Roadmap shifted successfully:', data);
           toast({
             title: "Success",
             description: `Batch and roadmap shifted by ${Math.abs(daysDifference)} days`,
           });
         }
       } else {
+        console.log('ℹ️ [BatchManagement] No roadmap shift needed:', {
+          hasLinkedRoadmap: !!batch.linked_roadmap_id,
+          daysDifference
+        });
         toast({
           title: "Success",
           description: "Batch start date updated",

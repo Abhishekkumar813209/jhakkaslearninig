@@ -7,14 +7,21 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('🔵 shift-roadmap-dates function invoked');
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    console.log('📥 Request received:', { method: req.method, url: req.url });
+    
     // ✅ CREATE AUTHENTICATED CLIENT
     const authHeader = req.headers.get('authorization');
+    console.log('🔑 Auth header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('❌ No authorization header');
       throw new Error('No authorization header');
     }
 
@@ -34,6 +41,7 @@ serve(async (req) => {
       console.error('❌ Authentication failed:', authError);
       throw new Error('Authentication failed');
     }
+    console.log('✅ Authenticated user:', user.email);
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
@@ -41,6 +49,8 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
+    console.log('👤 User role check:', { role: roleData?.role, error: roleError });
+    
     if (roleError || roleData?.role !== 'admin') {
       console.error('❌ Admin access required. Role:', roleData?.role);
       throw new Error('Admin access required');
@@ -48,6 +58,8 @@ serve(async (req) => {
 
     // ✅ NOW PROCEED WITH DATE SHIFTING
     const { roadmap_id, days_shift } = await req.json();
+    
+    console.log(`📊 Request params:`, { roadmap_id, days_shift, user_email: user.email });
 
     console.log(`✅ [shift-roadmap-dates] Admin ${user.email} shifting roadmap ${roadmap_id} by ${days_shift} days`);
 
@@ -58,6 +70,8 @@ serve(async (req) => {
     );
 
     // Fetch roadmap
+    console.log('🔍 Fetching roadmap with ID:', roadmap_id);
+    
     const { data: roadmap, error: roadmapError } = await supabaseAdmin
       .from('batch_roadmaps')
       .select('start_date, end_date')
@@ -68,6 +82,8 @@ serve(async (req) => {
       console.error('❌ Error fetching roadmap:', roadmapError);
       throw roadmapError;
     }
+    
+    console.log('📅 Current roadmap dates:', roadmap);
 
     // Shift dates
     const newStartDate = new Date(roadmap.start_date);
@@ -75,6 +91,14 @@ serve(async (req) => {
     
     const newEndDate = new Date(roadmap.end_date);
     newEndDate.setDate(newEndDate.getDate() + days_shift);
+    
+    console.log('📆 Calculated new dates:', {
+      oldStart: roadmap.start_date,
+      newStart: newStartDate.toISOString().split('T')[0],
+      oldEnd: roadmap.end_date,
+      newEnd: newEndDate.toISOString().split('T')[0],
+      shiftDays: days_shift
+    });
 
     const { error: updateError } = await supabaseAdmin
       .from('batch_roadmaps')
@@ -89,7 +113,7 @@ serve(async (req) => {
       throw updateError;
     }
 
-    console.log(`✅ Roadmap ${roadmap_id} dates shifted successfully`);
+    console.log(`✅ Roadmap ${roadmap_id} dates shifted successfully by ${days_shift} days`);
 
     return new Response(
       JSON.stringify({ 

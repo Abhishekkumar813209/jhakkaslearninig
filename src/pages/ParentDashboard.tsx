@@ -146,6 +146,9 @@ export default function ParentDashboard() {
             race_type: 'overall',
             user_id: studentId,
           },
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
         })
       ]);
 

@@ -33,11 +33,16 @@ const LiveRacing = () => {
 
     setLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase.functions.invoke('live-racing', {
         body: {
           race_type: selectedRace,
           user_id: user.id,
         },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
+        }
       });
 
       if (error) throw error;

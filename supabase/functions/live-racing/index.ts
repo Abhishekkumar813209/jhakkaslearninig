@@ -137,7 +137,7 @@ serve(async (req: Request) => {
 
         const { data: classProfiles, error: classProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class, batch_id')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', classStudentIds);
 
         if (classProfileError) {
@@ -146,22 +146,9 @@ serve(async (req: Request) => {
         }
         console.log(`[class] Fetched ${classProfiles?.length || 0} profiles`);
 
-        // Step 3: Optionally fetch batch names
-        const classBatchIds = [...new Set((classProfiles || []).map(p => p.batch_id).filter(Boolean))];
-        let classBatchMap: Record<string, string> = {};
-        if (classBatchIds.length > 0) {
-          const { data: classBatches } = await supabase
-            .from('batches')
-            .select('id, name')
-            .in('id', classBatchIds);
-          if (classBatches) {
-            classBatchMap = Object.fromEntries(classBatches.map(b => [b.id, b.name]));
-          }
-        }
-
-        // Step 4: Merge and process
+        // Step 3: Merge and process
         const classProfileMap = Object.fromEntries((classProfiles || []).map(p => [p.id, p]));
-        racingData = processRacingDataV2(classGamification || [], userId, limit, classProfileMap, classBatchMap);
+        racingData = processRacingDataV2(classGamification || [], userId, limit, classProfileMap, {});
         const classTitle = userProfile.student_class ? `Class ${userProfile.student_class}` : userProfile.target_exam;
         racingData.title = `${classTitle} Racing`;
         racingData.description = `${userProfile.exam_domain?.toUpperCase()} - ${userProfile.target_exam || 'All Students'}`;
@@ -204,7 +191,7 @@ serve(async (req: Request) => {
         const batchGamStudentIds = (batchGamification || []).map(g => g.student_id);
         const { data: batchFullProfiles, error: batchFullProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class, batch_id')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', batchGamStudentIds);
 
         if (batchFullProfileError) {
@@ -271,7 +258,7 @@ serve(async (req: Request) => {
         const schoolGamStudentIds = (schoolGamification || []).map(g => g.student_id);
         const { data: schoolFullProfiles, error: schoolFullProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class, batch_id')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', schoolGamStudentIds);
 
         if (schoolFullProfileError) {
@@ -331,7 +318,7 @@ serve(async (req: Request) => {
         const zoneGamStudentIds = (zoneGamification || []).map(g => g.student_id);
         const { data: zoneFullProfiles, error: zoneFullProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class, batch_id')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', zoneGamStudentIds);
 
         if (zoneFullProfileError) {
@@ -369,7 +356,7 @@ serve(async (req: Request) => {
 
         const { data: overallProfiles, error: overallProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class, batch_id')
+          .select('id, full_name, avatar_url, student_class')
           .in('id', overallStudentIds);
 
         if (overallProfileError) {

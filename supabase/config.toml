@@ -41,6 +41,9 @@ verify_jwt = false
 [functions.student-leaderboard]
 verify_jwt = false
 
+[functions.live-racing]
+verify_jwt = false
+
 [functions.post-test-analytics]
 verify_jwt = false
 

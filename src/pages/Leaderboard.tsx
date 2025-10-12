@@ -575,7 +575,7 @@ const Leaderboard = () => {
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="font-bold text-primary">{performer.subject_performance_index.toFixed(0)}</p>
+                              <p className="font-bold text-primary">{Number(performer.subject_performance_index ?? 0).toFixed(0)}</p>
                               <p className="text-xs text-muted-foreground">{performer.tests_taken} tests</p>
                             </div>
                           </div>

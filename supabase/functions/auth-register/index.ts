@@ -110,7 +110,8 @@ serve(async (req: Request) => {
       updated_at: new Date().toISOString()
     };
     
-    if (phone_number) profileUpdates.phone_number = phone_number;
+    // Only save phone number for parents, not students
+    if (phone_number && role === 'parent') profileUpdates.phone_number = phone_number;
     if (student_class) profileUpdates.student_class = student_class;
     if (education_board) profileUpdates.education_board = education_board;
     if (exam_domain) profileUpdates.exam_domain = exam_domain;

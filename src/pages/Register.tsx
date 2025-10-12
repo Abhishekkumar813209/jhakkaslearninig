@@ -22,7 +22,6 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [examDomain, setExamDomain] = useState('');
   const [studentClass, setStudentClass] = useState('');
   const [educationBoard, setEducationBoard] = useState('');
@@ -298,18 +297,6 @@ const Register = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
                       required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="tel"
-                      placeholder="Phone Number (Optional)"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="pl-10"
                     />
                   </div>
                 </div>

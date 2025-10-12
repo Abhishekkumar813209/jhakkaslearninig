@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Users, TrendingUp, Calendar, DollarSign, Trophy, Flame } from "lucide-react";
+import { Loader2, Users, TrendingUp, Trophy, Flame, Target } from "lucide-react";
 import { toast } from "sonner";
-import Navbar from "@/components/Navbar";
+import ParentNavbar from "@/components/ParentNavbar";
+import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
+import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 
 interface LinkedStudent {
   student_id: string;
@@ -49,6 +50,8 @@ export default function ParentDashboard() {
   const [progress, setProgress] = useState<StudentProgress | null>(null);
   const [activity, setActivity] = useState<StudentActivity | null>(null);
   const [fees, setFees] = useState<FeeSummary | null>(null);
+  const [zoneData, setZoneData] = useState<any>(null);
+  const [topicsBySubject, setTopicsBySubject] = useState<any>({});
 
   useEffect(() => {
     checkParentRole();
@@ -112,7 +115,7 @@ export default function ParentDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const [progressData, activityData, feesData] = await Promise.all([
+      const [progressData, activityData, feesData, zoneStatusData, topicsData] = await Promise.all([
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getStudentProgress', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
@@ -124,12 +127,40 @@ export default function ParentDashboard() {
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getFeeSummary', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
-        })
+        }),
+        supabase
+          .from('student_zone_status')
+          .select('*')
+          .eq('student_id', studentId)
+          .single(),
+        supabase
+          .from('student_topic_analytics')
+          .select('*')
+          .eq('student_id', studentId)
       ]);
 
       setProgress(progressData.data);
       setActivity(activityData.data);
       setFees(feesData.data);
+      setZoneData(zoneStatusData.data);
+      
+      // Group topics by subject
+      const grouped = (topicsData.data || []).reduce((acc: any, topic: any) => {
+        if (!acc[topic.subject]) {
+          acc[topic.subject] = [];
+        }
+        acc[topic.subject].push({
+          name: topic.topic_name,
+          practice_count: topic.practice_count || 0,
+          avg_score: topic.average_score || 0,
+          xp_earned: topic.xp_earned || 0,
+          time_spent: topic.time_spent_minutes || 0,
+          mastery_level: topic.mastery_level || 'beginner',
+          last_practiced: topic.last_practiced_at
+        });
+        return acc;
+      }, {});
+      setTopicsBySubject(grouped);
     } catch (error) {
       console.error('Error fetching student data:', error);
       toast.error("Failed to load student data");
@@ -151,7 +182,7 @@ export default function ParentDashboard() {
   if (linkedStudents.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+        <ParentNavbar />
         <div className="container mx-auto px-4 py-8">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -169,160 +200,151 @@ export default function ParentDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Parent Dashboard</h1>
-          <p className="text-muted-foreground">Monitor your children's academic progress</p>
-        </div>
-
-        {/* Student Selector */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {linkedStudents.map((student) => (
-            <Card
-              key={student.student_id}
-              className={`cursor-pointer transition-all ${
-                selectedStudent === student.student_id
-                  ? 'ring-2 ring-primary'
-                  : 'hover:bg-accent'
-              }`}
-              onClick={() => setSelectedStudent(student.student_id)}
-            >
-              <CardContent className="flex items-center gap-4 p-4">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={student.profiles.avatar_url || undefined} />
-                  <AvatarFallback>
-                    {student.profiles.full_name?.charAt(0) || 'S'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="font-semibold">{student.profiles.full_name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Class {student.profiles.student_class}
-                  </p>
-                </div>
-                {student.is_primary_contact && (
-                  <Badge variant="secondary">Primary</Badge>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Student Details */}
-        {currentStudent && (
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="academics">Academics</TabsTrigger>
-              <TabsTrigger value="activity">Activity</TabsTrigger>
-              <TabsTrigger value="fees">Fees</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total XP</CardTitle>
-                    <Trophy className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {activity?.gamification?.total_xp || 0}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Streak</CardTitle>
-                    <Flame className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {activity?.gamification?.streak_days || 0} days
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Tests Taken</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {progress?.analytics?.tests_attempted || 0}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Avg Score</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {progress?.analytics?.average_score?.toFixed(1) || 0}%
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Recent Tests */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Test Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {progress?.recentTests?.length > 0 ? (
-                    <div className="space-y-4">
-                      {progress.recentTests.map((test: any) => (
-                        <div key={test.id} className="flex items-center gap-4">
-                          <div className="flex-1">
-                            <p className="font-medium">{test.test?.title}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {test.test?.subject} • {new Date(test.submitted_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold">{test.percentage}%</p>
-                            <p className="text-sm text-muted-foreground">
-                              {test.score}/{test.test?.total_marks}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">
-                      No tests attempted yet
+      <ParentNavbar />
+      
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        {/* Child Selector */}
+        <div className="mb-6">
+          <h2 className="text-lg font-medium mb-3">Select Child</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {linkedStudents.map((student) => (
+              <Card
+                key={student.student_id}
+                className={`cursor-pointer transition-all ${
+                  selectedStudent === student.student_id
+                    ? 'ring-2 ring-primary'
+                    : 'hover:bg-accent'
+                }`}
+                onClick={() => setSelectedStudent(student.student_id)}
+              >
+                <CardContent className="flex items-center gap-3 p-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={student.profiles.avatar_url || undefined} />
+                    <AvatarFallback>
+                      {student.profiles.full_name?.charAt(0) || 'S'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{student.profiles.full_name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Class {student.profiles.student_class}
                     </p>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+            ))}
+          </div>
+        </div>
 
-            <TabsContent value="academics" className="space-y-4">
+        {currentStudent && !loading && (
+          <div className="space-y-6">
+            {/* Zone Status */}
+            {zoneData && <StudentZoneAnalysis zoneStatus={zoneData} />}
+
+            {/* Rankings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Rankings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Overall</p>
+                    <p className="text-3xl font-bold text-primary">
+                      #{progress?.analytics?.overall_rank || '-'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {progress?.analytics?.overall_percentile}th percentile
+                    </p>
+                  </div>
+                  <div className="text-center border-x">
+                    <p className="text-sm text-muted-foreground mb-1">Zone</p>
+                    <p className="text-3xl font-bold text-primary">
+                      #{progress?.analytics?.zone_rank || '-'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {progress?.analytics?.zone_percentile}th percentile
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">School</p>
+                    <p className="text-3xl font-bold text-primary">
+                      #{progress?.analytics?.school_rank || '-'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {progress?.analytics?.school_percentile}th percentile
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Performance Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>Subject-wise Performance</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-yellow-500" />
+                    Total XP
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {progress?.subjectAnalytics?.length > 0 ? (
-                    <div className="space-y-4">
-                      {progress.subjectAnalytics.map((subject: any) => (
-                        <div key={subject.subject} className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="font-medium">{subject.subject}</span>
-                            <span className="text-sm text-muted-foreground">
-                              {subject.average_score?.toFixed(1)}%
-                            </span>
-                          </div>
-                          <Progress value={subject.average_score} className="h-2" />
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>{subject.tests_taken} tests</span>
+                  <p className="text-2xl font-bold">{activity?.gamification?.total_xp || 0}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    Streak
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{activity?.gamification?.streak_days || 0} days</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-blue-500" />
+                    Tests
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{progress?.analytics?.tests_attempted || 0}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Target className="h-4 w-4 text-green-500" />
+                    Avg Score
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">
+                    {progress?.analytics?.average_score?.toFixed(1) || 0}%
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Subject Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Subject-wise Performance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {progress?.subjectAnalytics?.length > 0 ? (
+                  <div className="space-y-4">
+                    {progress.subjectAnalytics.map((subject: any) => (
+                      <div key={subject.subject} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{subject.subject}</span>
+                          <div className="flex items-center gap-2">
                             <Badge variant={
                               subject.mastery_level === 'master' ? 'default' :
                               subject.mastery_level === 'advanced' ? 'secondary' :
@@ -330,141 +352,69 @@ export default function ParentDashboard() {
                             }>
                               {subject.mastery_level}
                             </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">
-                      No subject data available yet
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="activity" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Attendance (Last 30 Days)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold mb-2">
-                      {activity?.attendance?.length || 0} days
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {activity?.attendance?.filter((a: any) => a.social_share_done).length || 0} days with social share
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Trophy className="h-5 w-5" />
-                      Recent Achievements
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {activity?.achievements?.length > 0 ? (
-                      <div className="space-y-2">
-                        {activity.achievements.slice(0, 5).map((achievement: any) => (
-                          <div key={achievement.id} className="flex items-center justify-between">
-                            <span className="text-sm">{achievement.achievement_type}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(achievement.achieved_at).toLocaleDateString()}
+                            <span className="text-sm font-bold">
+                              {subject.average_score?.toFixed(1)}%
                             </span>
                           </div>
-                        ))}
+                        </div>
+                        <Progress value={subject.average_score} className="h-2" />
+                        <p className="text-xs text-muted-foreground">
+                          {subject.tests_taken} tests attempted
+                        </p>
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No achievements yet</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">
+                    No subject data available yet
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-            <TabsContent value="fees" className="space-y-4">
-              <Card>
+            {/* Topic-wise Breakdown */}
+            {Object.keys(topicsBySubject).length > 0 && (
+              <TopicWiseBreakdown topicsBySubject={topicsBySubject} />
+            )}
+
+            {/* Pending Fees (if any) */}
+            {fees?.pendingFees?.length > 0 && (
+              <Card className="border-destructive/50">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Pending Fees
-                  </CardTitle>
+                  <CardTitle className="text-destructive">Pending Fees</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {fees?.pendingFees?.length > 0 ? (
-                    <div className="space-y-4">
-                      {fees.pendingFees.map((fee: any) => (
-                        <div key={fee.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div>
-                            <p className="font-medium">
-                              {new Date(fee.year, fee.month - 1).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Due: {new Date(fee.due_date).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xl font-bold">₹{fee.amount}</p>
-                            <div className="flex items-center gap-2">
-                              <Progress value={fee.battery_level} className="w-20 h-2" />
-                              <span className="text-sm">{fee.battery_level}%</span>
-                            </div>
+                  <div className="space-y-3">
+                    {fees.pendingFees.map((fee: any) => (
+                      <div key={fee.id} className="flex items-center justify-between p-3 border rounded-lg bg-destructive/5">
+                        <div>
+                          <p className="font-medium">
+                            {new Date(fee.year, fee.month - 1).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Due: {new Date(fee.due_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold">₹{fee.amount}</p>
+                          <div className="flex items-center gap-2">
+                            <Progress value={fee.battery_level} className="w-20 h-2" />
+                            <span className="text-sm">{fee.battery_level}%</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">
-                      No pending fees
-                    </p>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
+            )}
+          </div>
+        )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {fees?.feeRecords?.length > 0 ? (
-                    <div className="space-y-2">
-                      {fees.feeRecords.map((fee: any) => (
-                        <div key={fee.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                          <div>
-                            <p className="font-medium">
-                              {new Date(fee.year, fee.month - 1).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
-                            </p>
-                            {fee.paid_date && (
-                              <p className="text-sm text-muted-foreground">
-                                Paid on {new Date(fee.paid_date).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold">₹{fee.amount}</p>
-                            <Badge variant={fee.is_paid ? 'default' : 'destructive'}>
-                              {fee.is_paid ? 'Paid' : 'Pending'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">
-                      No payment history
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+        {loading && currentStudent && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
         )}
       </div>
     </div>

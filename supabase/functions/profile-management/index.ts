@@ -13,8 +13,14 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log('🔍 Request method:', req.method);
+    console.log('🔍 Request headers:', Object.fromEntries(req.headers.entries()));
+    
     const authHeader = req.headers.get('authorization')
+    console.log('🔑 Auth header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('❌ No authorization header found');
       return new Response(
         JSON.stringify({ error: 'Authorization header required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -112,9 +118,16 @@ serve(async (req: Request) => {
             return obj
           }, {} as any)
         
-        console.log('Profile update request:', { userId, fields: Object.keys(profileUpdates), updates: profileUpdates })
+        console.log('📝 Profile update request:', {
+          userId,
+          fields: Object.keys(profileUpdates),
+          updates: profileUpdates,
+          originalKeys: Object.keys(updateData),
+          originalData: updateData
+        });
 
         if (Object.keys(profileUpdates).length === 0) {
+          console.error('❌ No valid fields to update after filtering');
           return new Response(
             JSON.stringify({ error: 'No valid fields to update' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -145,11 +158,14 @@ serve(async (req: Request) => {
           .maybeSingle()
 
         if (updateError) {
+          console.error('❌ Profile update error:', updateError);
           return new Response(
             JSON.stringify({ error: updateError.message }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
+        
+        console.log('✅ Profile updated successfully');
 
         const { data: updatedRole } = await supabase
           .from('user_roles')
@@ -176,9 +192,10 @@ serve(async (req: Request) => {
     }
 
   } catch (error) {
-    console.log(error)
+    console.error('❌ Unexpected error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

@@ -73,6 +73,42 @@ serve(async (req: Request) => {
       throw new Error('User profile not found');
     }
 
+    console.log('[profile]', { 
+      exam_domain: userProfile.exam_domain, 
+      target_exam: userProfile.target_exam, 
+      student_class: userProfile.student_class 
+    });
+
+    // Derive correct exam_name filter based on domain
+    const isSchool = (userProfile.exam_domain || '').toLowerCase() === 'school';
+    const examNameFilter = isSchool ? 'default' : (userProfile.target_exam || 'default');
+
+    // Ensure student has a gamification row
+    const { data: myGam } = await supabase
+      .from('student_gamification')
+      .select('student_id')
+      .eq('student_id', userId)
+      .maybeSingle();
+
+    if (!myGam) {
+      console.log('[gamification] Creating missing row for student:', userId);
+      const { error: upsertError } = await supabase
+        .from('student_gamification')
+        .upsert({
+          student_id: userId,
+          exam_domain: userProfile.exam_domain,
+          exam_name: examNameFilter,
+          student_class: userProfile.student_class?.toString() ?? null,
+          total_xp: 0,
+          level: 1,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (upsertError) {
+        console.error('[gamification] Upsert error:', upsertError);
+      }
+    }
+
     let racingData: any = {};
 
     switch (raceType) {
@@ -86,7 +122,6 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        const examNameFilter = userProfile.target_exam || 'default';
         classQuery = classQuery.eq('exam_name', examNameFilter);
         console.log('[class] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: examNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
@@ -102,7 +137,7 @@ serve(async (req: Request) => {
 
         const { data: classProfiles, error: classProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class')
+          .select('id, full_name, avatar_url, student_class, batch_id')
           .in('id', classStudentIds);
 
         if (classProfileError) {
@@ -169,7 +204,7 @@ serve(async (req: Request) => {
         const batchGamStudentIds = (batchGamification || []).map(g => g.student_id);
         const { data: batchFullProfiles, error: batchFullProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class')
+          .select('id, full_name, avatar_url, student_class, batch_id')
           .in('id', batchGamStudentIds);
 
         if (batchFullProfileError) {
@@ -222,9 +257,8 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        const schoolExamNameFilter = userProfile.target_exam || 'default';
-        schoolGamQuery = schoolGamQuery.eq('exam_name', schoolExamNameFilter);
-        console.log('[school] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: schoolExamNameFilter, student_class: userProfile.student_class });
+        schoolGamQuery = schoolGamQuery.eq('exam_name', examNameFilter);
+        console.log('[school] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: examNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           schoolGamQuery = schoolGamQuery.eq('student_class', userProfile.student_class);
         }
@@ -237,7 +271,7 @@ serve(async (req: Request) => {
         const schoolGamStudentIds = (schoolGamification || []).map(g => g.student_id);
         const { data: schoolFullProfiles, error: schoolFullProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class')
+          .select('id, full_name, avatar_url, student_class, batch_id')
           .in('id', schoolGamStudentIds);
 
         if (schoolFullProfileError) {
@@ -283,9 +317,8 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        const zoneExamNameFilter = userProfile.target_exam || 'default';
-        zoneGamQuery = zoneGamQuery.eq('exam_name', zoneExamNameFilter);
-        console.log('[zone] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: zoneExamNameFilter, student_class: userProfile.student_class });
+        zoneGamQuery = zoneGamQuery.eq('exam_name', examNameFilter);
+        console.log('[zone] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: examNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           zoneGamQuery = zoneGamQuery.eq('student_class', userProfile.student_class);
         }
@@ -298,7 +331,7 @@ serve(async (req: Request) => {
         const zoneGamStudentIds = (zoneGamification || []).map(g => g.student_id);
         const { data: zoneFullProfiles, error: zoneFullProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class')
+          .select('id, full_name, avatar_url, student_class, batch_id')
           .in('id', zoneGamStudentIds);
 
         if (zoneFullProfileError) {
@@ -322,9 +355,8 @@ serve(async (req: Request) => {
           .order('total_xp', { ascending: false })
           .limit(100);
 
-        const overallExamNameFilter = userProfile.target_exam || 'default';
-        overallQuery = overallQuery.eq('exam_name', overallExamNameFilter);
-        console.log('[overall] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: overallExamNameFilter, student_class: userProfile.student_class });
+        overallQuery = overallQuery.eq('exam_name', examNameFilter);
+        console.log('[overall] Filtering:', { exam_domain: userProfile.exam_domain, exam_name: examNameFilter, student_class: userProfile.student_class });
         if (userProfile.student_class) {
           overallQuery = overallQuery.eq('student_class', userProfile.student_class);
         }
@@ -337,7 +369,7 @@ serve(async (req: Request) => {
 
         const { data: overallProfiles, error: overallProfileError } = await supabase
           .from('public_profiles')
-          .select('id, full_name, avatar_url, student_class')
+          .select('id, full_name, avatar_url, student_class, batch_id')
           .in('id', overallStudentIds);
 
         if (overallProfileError) {

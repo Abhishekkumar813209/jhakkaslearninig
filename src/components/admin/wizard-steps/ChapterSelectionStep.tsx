@@ -262,17 +262,31 @@ export const ChapterSelectionStep = ({
               <AccordionItem key={subject.id} value={subject.name}>
                 <AccordionTrigger className="hover:no-underline">
                   <div className="flex items-center justify-between w-full pr-4">
-                    <div className="flex flex-col items-start">
+                    <div className="flex items-center gap-3">
                       <span className="font-semibold">{subject.name}</span>
+                      <Badge 
+                        variant={
+                          totalDaysAllocated <= budget 
+                            ? "default" 
+                            : totalDaysAllocated <= budget * 1.2 
+                              ? "secondary" 
+                              : "destructive"
+                        }
+                        className="font-mono"
+                      >
+                        📅 {totalDaysAllocated} days
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
                       {budget > 0 && (
                         <span className="text-xs text-muted-foreground">
-                          Budget: {budget} days → {selectedCount} chapters ({totalDaysAllocated} days allocated)
+                          Budget: {budget}d
                         </span>
                       )}
+                      <Badge variant="outline">
+                        {selectedCount}/{subjectChapters.length}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary">
-                      {selectedCount}/{subjectChapters.length} selected
-                    </Badge>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>

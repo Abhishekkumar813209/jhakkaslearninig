@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Plus, Trash2, Edit2, Save, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -703,7 +704,13 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
                           className="h-8"
                         />
                       ) : (
-                        <CardTitle className="text-lg">{subject.name}</CardTitle>
+                        <div className="flex items-center gap-3 flex-1">
+                          <CardTitle className="text-lg">{subject.name}</CardTitle>
+                          <Badge variant="outline" className="font-mono bg-blue-50 border-blue-200">
+                            <CalendarIcon className="h-3 w-3 mr-1" />
+                            {subject.chapters.reduce((sum, ch) => sum + ch.estimatedDays, 0)} days
+                          </Badge>
+                        </div>
                       )}
                       <div className="flex gap-1">
                         <Button
@@ -778,6 +785,36 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
                 {showCalendarView ? 'Show Subject View' : 'Preview Calendar View'}
               </Button>
             </div>
+          )}
+
+          {/* Roadmap Summary */}
+          {subjects.length > 0 && (
+            <Card className="bg-muted/30">
+              <CardHeader>
+                <CardTitle className="text-sm">Roadmap Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {subjects.map(subject => {
+                  const totalDays = subject.chapters.reduce((sum, ch) => sum + ch.estimatedDays, 0);
+                  return (
+                    <div key={subject.id} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{subject.name}</span>
+                      <Badge variant="secondary" className="font-mono">
+                        {subject.chapters.length} chapters • {totalDays} days
+                      </Badge>
+                    </div>
+                  );
+                })}
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Total Duration (Parallel)</span>
+                    <Badge variant="default" className="font-mono">
+                      {calculateTotalDays()} days
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Calendar View */}

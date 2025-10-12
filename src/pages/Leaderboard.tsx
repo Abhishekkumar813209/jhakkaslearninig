@@ -92,12 +92,12 @@ const Leaderboard = () => {
       }
 
       const studentIds = analyticsData.map(a => a.student_id);
-      let profileQuery = supabase
-        .from('public_profiles')
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('public_profiles' as any)
         .select('id, full_name, avatar_url, student_class')
-        .in('id', studentIds);
+        .in('id', studentIds) as any;
       
-      const { data: profilesData, error: profilesError } = await profileQuery;
+      
 
       if (profilesError) throw profilesError;
 
@@ -133,10 +133,10 @@ const Leaderboard = () => {
 
           if (userData) {
             const { data: userProfile } = await supabase
-              .from('public_profiles')
+              .from('public_profiles' as any)
               .select('full_name, avatar_url')
               .eq('id', currentUser.id)
-              .maybeSingle();
+              .maybeSingle() as any;
 
             const userRank = combined.findIndex(u => u.student_id === currentUser.id) + 1;
             setCurrentUserRank({

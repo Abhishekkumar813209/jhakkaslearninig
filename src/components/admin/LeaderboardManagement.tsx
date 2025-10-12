@@ -58,9 +58,9 @@ const LeaderboardManagement = () => {
       // Fetch profiles separately
       const studentIds = overallData?.map(s => s.student_id) || [];
       const { data: profilesData } = await supabase
-        .from('public_profiles')
+        .from('public_profiles' as any)
         .select('id, full_name, student_class')
-        .in('id', studentIds);
+        .in('id', studentIds) as any;
 
       const profileMap = new Map<string, any>();
       profilesData?.forEach(p => profileMap.set(p.id, p));
@@ -88,9 +88,9 @@ const LeaderboardManagement = () => {
 
       const zoneStudentIds = zoneData?.map(s => s.student_id) || [];
       const { data: zoneProfiles } = await supabase
-        .from('public_profiles')
+        .from('public_profiles' as any)
         .select('id, full_name, student_class')
-        .in('id', zoneStudentIds);
+        .in('id', zoneStudentIds) as any;
 
       const zoneProfileMap = new Map<string, any>();
       zoneProfiles?.forEach(p => zoneProfileMap.set(p.id, p));
@@ -122,9 +122,9 @@ const LeaderboardManagement = () => {
 
       const schoolStudentIds = schoolData?.map(s => s.student_id) || [];
       const { data: schoolProfiles } = await supabase
-        .from('public_profiles')
+        .from('public_profiles' as any)
         .select('id, full_name, student_class')
-        .in('id', schoolStudentIds);
+        .in('id', schoolStudentIds) as any;
 
       const schoolProfileMap = new Map<string, any>();
       schoolProfiles?.forEach(p => schoolProfileMap.set(p.id, p));

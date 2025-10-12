@@ -56,11 +56,11 @@ export const useTestLeaderboard = (testId?: string) => {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('test_leaderboards')
+          .from('test_leaderboards' as any)
           .select('*')
           .eq('test_id', testId)
           .order('score_rank', { ascending: true })
-          .limit(50);
+          .limit(50) as any;
 
         if (error) throw error;
         setLeaderboard(data || []);
@@ -98,9 +98,9 @@ export const useSubjectLeaderboards = () => {
         if (analyticsData && analyticsData.length > 0) {
           const studentIds = [...new Set(analyticsData.map(a => a.student_id))];
       const { data: profilesData, error: profilesError } = await supabase
-        .from('public_profiles')
+        .from('public_profiles' as any)
         .select('id, full_name, student_class')
-        .in('id', studentIds);
+        .in('id', studentIds) as any;
 
           if (profilesError) throw profilesError;
 
@@ -163,7 +163,7 @@ export const useAchievements = () => {
           const testIds = [...new Set(achievementsData.map(a => a.test_id).filter(Boolean))];
 
           const [profilesResult, testsResult] = await Promise.all([
-            supabase.from('public_profiles').select('id, full_name, student_class').in('id', studentIds),
+            supabase.from('public_profiles' as any).select('id, full_name, student_class').in('id', studentIds) as any,
             testIds.length > 0 ? supabase.from('tests').select('id, title').in('id', testIds) : { data: [], error: null }
           ]);
 

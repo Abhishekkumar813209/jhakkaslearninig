@@ -118,6 +118,8 @@ export default function ParentDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      console.log('[ParentDashboard] Fetching data for student:', studentId);
+
       const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult] = await Promise.all([
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getStudentProgress', studentId },
@@ -148,11 +150,30 @@ export default function ParentDashboard() {
         })
       ]);
 
+      console.log('[ParentDashboard] Racing API response:', racingResult);
+
       setProgress(progressData.data);
       setActivity(activityData.data);
       setFees(feesData.data);
       setZoneData(zoneStatusData.data);
-      setRacingData(racingResult.data?.success ? racingResult.data.data : null);
+      
+      // Handle racing data with proper fallback
+      if (racingResult.data?.success) {
+        console.log('[ParentDashboard] Racing data:', racingResult.data.data);
+        setRacingData(racingResult.data.data);
+      } else {
+        console.error('[ParentDashboard] Racing fetch failed:', racingResult.data?.error || racingResult.error);
+        setRacingData({
+          topRacers: [],
+          userPosition: null,
+          nearbyRacers: [],
+          totalRacers: 0,
+          gapFromLeader: 0,
+          leaderXP: 0,
+          title: 'Live Racing',
+          description: 'No racing data available'
+        });
+      }
       
       // Group topics by subject
       const grouped = (topicsData.data || []).reduce((acc: any, topic: any) => {
@@ -389,19 +410,39 @@ export default function ParentDashboard() {
 
             {/* Racing Charts */}
             {racingData && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold">🏁 Live Racing Position</h2>
-                <TopRacersSection racers={racingData.topRacers || []} />
-                
-                {racingData.userPosition && racingData.userPosition.position > 15 && (
-                  <UserPositionSection
-                    userPosition={racingData.userPosition}
-                    nearbyRacers={racingData.nearbyRacers || []}
-                    gapFromLeader={racingData.gapFromLeader || 0}
-                    leaderXP={racingData.leaderXP || 0}
-                  />
-                )}
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    🏁 Live Racing Position
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {racingData.topRacers?.length > 0 ? (
+                    <div className="space-y-4">
+                      <TopRacersSection racers={racingData.topRacers} />
+                      
+                      {racingData.userPosition && racingData.userPosition.position > 15 && (
+                        <UserPositionSection
+                          userPosition={racingData.userPosition}
+                          nearbyRacers={racingData.nearbyRacers || []}
+                          gapFromLeader={racingData.gapFromLeader || 0}
+                          leaderXP={racingData.leaderXP || 0}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">
+                        No racing data available yet.
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Racing data will appear once the student participates in activities.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             {/* Pending Fees (if any) */}

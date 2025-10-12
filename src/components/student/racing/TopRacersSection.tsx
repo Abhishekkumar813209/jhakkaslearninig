@@ -8,7 +8,19 @@ interface TopRacersSectionProps {
 }
 
 export const TopRacersSection = ({ racers }: TopRacersSectionProps) => {
-  if (racers.length === 0) return null;
+  if (racers.length === 0) {
+    return (
+      <Card className="p-6 bg-card/50 backdrop-blur-sm border-2">
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy className="h-5 w-5 text-yellow-500" />
+          <h3 className="text-lg font-bold">Top 15 Racers</h3>
+        </div>
+        <div className="text-center py-8 text-muted-foreground">
+          No racers yet. Start earning XP to join the leaderboard!
+        </div>
+      </Card>
+    );
+  }
 
   const maxXP = racers[0]?.total_xp || 1;
 

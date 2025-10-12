@@ -250,6 +250,47 @@ serve(async (req) => {
 
       console.log('[razorpay-subscription] Monthly subscription activated for user:', user.id);
 
+      // Fetch student profile for invoice
+      const { data: profile } = await supabaseService
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single();
+
+      // Prepare invoice data
+      const invoiceData = {
+        studentName: profile?.full_name || 'Student',
+        studentEmail: profile?.email || user.email,
+        studentId: user.id,
+        orderId: orderId,
+        paymentId: paymentId,
+        originalAmount: 299,
+        creditsApplied: creditsUsed,
+        finalAmount: (orderDetails.amount / 100),
+        currency: 'INR',
+        paymentDate: new Date().toISOString(),
+        validityDays: 30,
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        planName: 'Monthly Test Series + Learning Paths',
+        isTestMode: orderId.startsWith('order_test_') || paymentId.startsWith('pay_test_')
+      };
+
+      // Send invoice email
+      try {
+        const invoiceResponse = await supabaseService.functions.invoke('send-payment-invoice', {
+          body: invoiceData
+        });
+        
+        if (invoiceResponse.error) {
+          console.error('[Invoice] Failed to send:', invoiceResponse.error);
+        } else {
+          console.log('[Invoice] Sent successfully to:', profile?.email);
+        }
+      } catch (invoiceError) {
+        console.error('[Invoice] Error:', invoiceError);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 

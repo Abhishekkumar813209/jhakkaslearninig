@@ -84,28 +84,10 @@ const SubscriptionManagement = () => {
       setLoading(true);
       setError(null);
       
+      // Fetch subscriptions
       const { data: subscriptionsData, error: subError } = await supabase
         .from('test_subscriptions')
-        .select(`
-          id,
-          student_id,
-          subscription_type,
-          status,
-          start_date,
-          end_date,
-          amount,
-          created_at,
-          profiles!test_subscriptions_student_id_fkey (
-            full_name,
-            email,
-            phone_number
-          ),
-          payments (
-            amount,
-            payment_method,
-            created_at
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (subError) {
@@ -128,18 +110,58 @@ const SubscriptionManagement = () => {
         return;
       }
 
-      const transformedData: SubscriptionData[] = subscriptionsData.map((sub: any) => ({
-        student_id: sub.student_id,
-        full_name: sub.profiles?.full_name || 'N/A',
-        email: sub.profiles?.email || 'N/A',
-        phone_number: sub.profiles?.phone_number || 'N/A',
-        subscription_type: sub.subscription_type,
-        current_status: sub.status,
-        start_date: sub.start_date,
-        end_date: sub.end_date,
-        last_payment_amount: sub.payments?.[0]?.amount || sub.amount || 0,
-        payment_method: sub.payments?.[0]?.payment_method || 'N/A',
-      }));
+      // Get unique student IDs
+      const studentIds = [...new Set(subscriptionsData.map(sub => sub.student_id))];
+
+      // Fetch profiles separately
+      const { data: profilesData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone_number')
+        .in('id', studentIds);
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+      }
+
+      // Fetch payments separately
+      const subscriptionIds = subscriptionsData.map(sub => sub.id);
+      const { data: paymentsData, error: paymentError } = await supabase
+        .from('payments')
+        .select('subscription_id, amount, payment_method, created_at')
+        .in('subscription_id', subscriptionIds)
+        .order('created_at', { ascending: false });
+
+      if (paymentError) {
+        console.error('Payment fetch error:', paymentError);
+      }
+
+      // Create lookup maps
+      const profileMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+      const paymentMap = new Map();
+      paymentsData?.forEach(payment => {
+        if (!paymentMap.has(payment.subscription_id)) {
+          paymentMap.set(payment.subscription_id, payment);
+        }
+      });
+
+      // Transform and merge data
+      const transformedData: SubscriptionData[] = subscriptionsData.map((sub: any) => {
+        const profile = profileMap.get(sub.student_id);
+        const payment = paymentMap.get(sub.id);
+
+        return {
+          student_id: sub.student_id,
+          full_name: profile?.full_name || 'N/A',
+          email: profile?.email || 'N/A',
+          phone_number: profile?.phone_number || 'N/A',
+          subscription_type: sub.subscription_type,
+          current_status: sub.status,
+          start_date: sub.start_date,
+          end_date: sub.end_date,
+          last_payment_amount: payment?.amount || sub.amount || 0,
+          payment_method: payment?.payment_method || 'N/A',
+        };
+      });
 
       setSubscriptions(transformedData);
       calculateStats(transformedData);

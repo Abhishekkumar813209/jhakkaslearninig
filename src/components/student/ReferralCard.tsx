@@ -21,7 +21,7 @@ export const ReferralCard = () => {
     );
   }
 
-  const joinedCount = referrals.filter(r => r.status === 'joined' || r.status === 'paid').length;
+  // const joinedCount = referrals.filter(r => r.status === 'joined' || r.status === 'paid').length; // Future feature
   const paidCount = referrals.filter(r => r.status === 'paid').length;
   const totalEarned = credits?.total_credits || 0;
 
@@ -52,11 +52,7 @@ export const ReferralCard = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="text-center p-2 bg-muted rounded-lg">
-            <p className="text-2xl font-bold">{joinedCount}</p>
-            <p className="text-xs text-muted-foreground">Joined</p>
-          </div>
+        <div className="grid grid-cols-2 gap-2">
           <div className="text-center p-2 bg-muted rounded-lg">
             <p className="text-2xl font-bold">{paidCount}</p>
             <p className="text-xs text-muted-foreground">Paid</p>

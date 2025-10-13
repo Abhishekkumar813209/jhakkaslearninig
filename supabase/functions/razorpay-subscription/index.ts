@@ -457,12 +457,12 @@ serve(async (req) => {
         studentId: user.id,
         orderId: orderId,
         paymentId: paymentId,
+        originalAmount: basePrice,
         basePrice: basePrice,
         displayPrice: displayPrice,
         friendDiscount: friendDiscount,
         promoDiscount: promoDiscount,
-        creditsUsed: creditsUsed,
-        totalDiscount: friendDiscount + promoDiscount + creditsUsed,
+        creditsApplied: creditsUsed,
         finalAmount: finalAmount,
         currency: 'INR',
         paymentDate: new Date().toISOString(),
@@ -470,8 +470,9 @@ serve(async (req) => {
         startDate: new Date().toISOString(),
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         planName: 'Monthly Premium Subscription',
+        isTestMode: false,
         friendReferralCode: friendReferralCode || null,
-        promoCodeUsed: promoCodeUsed || null
+        promoCode: promoCodeUsed || null
       };
 
       let invoiceEmailSent = false;

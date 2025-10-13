@@ -307,11 +307,29 @@ function generateInvoiceHTML(data: InvoiceData): string {
         <tbody>
           <tr>
             <td>Monthly Premium Access<br><small style="color: #999;">${data.planName}</small></td>
-            <td style="text-align: right;">₹${data.originalAmount.toFixed(2)}</td>
+            <td style="text-align: right;">₹${(data.originalAmount || data.basePrice || data.displayPrice || 0).toFixed(2)}</td>
           </tr>
+          ${data.displayPrice && data.basePrice && data.displayPrice < data.basePrice ? `
+          <tr>
+            <td>Special Offer Discount</td>
+            <td style="text-align: right; color: #10b981;">-₹${(data.basePrice - data.displayPrice).toFixed(2)}</td>
+          </tr>
+          ` : ''}
+          ${data.friendDiscount && data.friendDiscount > 0 ? `
+          <tr>
+            <td>Friend Referral Discount ${data.friendReferralCode ? `(${data.friendReferralCode})` : ''}</td>
+            <td style="text-align: right; color: #10b981;">-₹${data.friendDiscount.toFixed(2)}</td>
+          </tr>
+          ` : ''}
+          ${data.promoDiscount && data.promoDiscount > 0 ? `
+          <tr>
+            <td>Promo Code Discount ${data.promoCode ? `(${data.promoCode})` : ''}</td>
+            <td style="text-align: right; color: #10b981;">-₹${data.promoDiscount.toFixed(2)}</td>
+          </tr>
+          ` : ''}
           ${data.creditsApplied > 0 ? `
           <tr>
-            <td>Referral Credits Applied</td>
+            <td>Wallet Credits Applied</td>
             <td style="text-align: right; color: #10b981;">-₹${data.creditsApplied.toFixed(2)}</td>
           </tr>
           ` : ''}

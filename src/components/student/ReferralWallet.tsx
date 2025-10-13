@@ -73,7 +73,7 @@ export const ReferralWallet = () => {
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Button 
           onClick={() => setShowWithdrawDialog(true)}
           disabled={available <= 0}

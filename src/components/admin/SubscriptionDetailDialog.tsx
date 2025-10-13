@@ -6,8 +6,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -16,10 +29,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CreditCard, Calendar, DollarSign, User, Mail, Receipt } from "lucide-react";
+import { CreditCard, Calendar, DollarSign, User, Mail, Receipt, Loader2, XCircle } from "lucide-react";
+import { subscriptionAPI } from "@/services/api";
 
 interface SubscriptionDetailDialogProps {
   studentId: string;
@@ -71,6 +84,9 @@ export const SubscriptionDetailDialog = ({
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [discounts, setDiscounts] = useState<DiscountUsage[]>([]);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [canceling, setCanceling] = useState(false);
 
   useEffect(() => {
     if (open && studentId) {
@@ -130,12 +146,35 @@ export const SubscriptionDetailDialog = ({
     }
   };
 
+  const handleCancelSubscription = async () => {
+    if (!studentId) return;
+    
+    try {
+      setCanceling(true);
+      await subscriptionAPI.cancelSubscription(studentId);
+      
+      toast.success("Subscription cancelled successfully");
+      
+      setCancelDialogOpen(false);
+      setCancelReason("");
+      fetchStudentDetails();
+      
+      setTimeout(() => onOpenChange(false), 500);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to cancel subscription");
+    } finally {
+      setCanceling(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
         return <Badge className="bg-green-500">Active</Badge>;
       case 'expired':
         return <Badge variant="destructive">Expired</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>;
       case 'captured':
       case 'success':
         return <Badge className="bg-green-500">Success</Badge>;
@@ -148,14 +187,207 @@ export const SubscriptionDetailDialog = ({
     }
   };
 
+  const hasActiveSubscription = subscriptions.some(sub => sub.status === 'active');
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </DialogContent>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Student Subscription Details</DialogTitle>
+              {hasActiveSubscription && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setCancelDialogOpen(true)}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel Subscription
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Student Profile */}
+            {profile && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Student Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Name:</span>
+                    <span>{profile.full_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Email:</span>
+                    <span>{profile.email}</span>
+                  </div>
+                  {profile.phone_number && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Phone:</span>
+                      <span>{profile.phone_number}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Subscription History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Subscription History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {subscriptions.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No subscriptions found</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>End Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Payment Method</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {subscriptions.map((sub) => (
+                        <TableRow key={sub.id}>
+                          <TableCell>
+                            <Badge variant={sub.subscription_type === 'premium' ? 'default' : 'secondary'}>
+                              {sub.subscription_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(sub.status)}</TableCell>
+                          <TableCell>
+                            {sub.start_date ? format(new Date(sub.start_date), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {sub.end_date ? format(new Date(sub.end_date), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                          </TableCell>
+                          <TableCell>₹{sub.amount}</TableCell>
+                          <TableCell>{sub.payment_method || 'N/A'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Payment History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  Payment History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {payments.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No payments found</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Razorpay Order ID</TableHead>
+                        <TableHead>Razorpay Payment ID</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="font-medium">₹{payment.amount}</TableCell>
+                          <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {payment.razorpay_order_id}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {payment.razorpay_payment_id || 'N/A'}
+                          </TableCell>
+                          <TableCell>{payment.payment_method || 'N/A'}</TableCell>
+                          <TableCell>
+                            {format(new Date(payment.created_at), 'dd/MM/yyyy HH:mm')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Discount Usage */}
+            {discounts.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Discount Usage
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Discount Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {discounts.map((discount, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <Badge variant="outline">{discount.discount_type}</Badge>
+                          </TableCell>
+                          <TableCell>{discount.code_used || 'N/A'}</TableCell>
+                          <TableCell className="text-green-600 font-medium">
+                            -₹{discount.discount_amount}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(discount.created_at), 'dd/MM/yyyy HH:mm')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <AlertDialogContent>
@@ -197,195 +429,6 @@ export const SubscriptionDetailDialog = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
-  );
-}
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Student Subscription Details</DialogTitle>
-            {hasActiveSubscription && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setCancelDialogOpen(true)}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Cancel Subscription
-              </Button>
-            )}
-          </div>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Student Profile */}
-          {profile && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Student Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">Name:</span>
-                  <span>{profile.full_name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">Email:</span>
-                  <span>{profile.email}</span>
-                </div>
-                {profile.phone_number && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Phone:</span>
-                    <span>{profile.phone_number}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Subscription History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Subscription History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {subscriptions.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No subscriptions found</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Payment Method</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {subscriptions.map((sub) => (
-                      <TableRow key={sub.id}>
-                        <TableCell>
-                          <Badge variant={sub.subscription_type === 'premium' ? 'default' : 'secondary'}>
-                            {sub.subscription_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(sub.status)}</TableCell>
-                        <TableCell>
-                          {sub.start_date ? format(new Date(sub.start_date), 'dd/MM/yyyy HH:mm') : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {sub.end_date ? format(new Date(sub.end_date), 'dd/MM/yyyy HH:mm') : 'N/A'}
-                        </TableCell>
-                        <TableCell>₹{sub.amount}</TableCell>
-                        <TableCell>{sub.payment_method || 'N/A'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Payment History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Receipt className="h-5 w-5" />
-                Payment History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {payments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No payments found</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Razorpay Order ID</TableHead>
-                      <TableHead>Razorpay Payment ID</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-medium">₹{payment.amount}</TableCell>
-                        <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {payment.razorpay_order_id}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {payment.razorpay_payment_id || 'N/A'}
-                        </TableCell>
-                        <TableCell>{payment.payment_method || 'N/A'}</TableCell>
-                        <TableCell>
-                          {format(new Date(payment.created_at), 'dd/MM/yyyy HH:mm')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Discount Usage */}
-          {discounts.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Discount Usage
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Discount Amount</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {discounts.map((discount, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <Badge variant="outline">{discount.discount_type}</Badge>
-                        </TableCell>
-                        <TableCell>{discount.code_used || 'N/A'}</TableCell>
-                        <TableCell className="text-green-600 font-medium">
-                          -₹{discount.discount_amount}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(discount.created_at), 'dd/MM/yyyy HH:mm')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 };

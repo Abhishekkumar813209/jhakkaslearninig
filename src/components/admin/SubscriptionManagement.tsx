@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -27,26 +28,26 @@ import {
   TrendingUp,
   Users,
   DollarSign,
-  Calendar
+  Calendar,
+  XCircle,
+  AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { SubscriptionDetailDialog } from "./SubscriptionDetailDialog";
+import { subscriptionAPI } from "@/services/api";
 
 interface SubscriptionData {
   student_id: string;
   full_name: string;
   email: string;
+  phone_number?: string;
   subscription_type: string;
-  subscription_status: string;
+  current_status: string;
   start_date: string | null;
   end_date: string | null;
-  amount: number;
+  last_payment_amount: number;
   payment_method: string | null;
-  subscribed_at: string;
-  razorpay_order_id: string | null;
-  razorpay_payment_id: string | null;
-  current_status: string;
 }
 
 interface SummaryStats {
@@ -92,6 +93,7 @@ const SubscriptionManagement = () => {
           status,
           start_date,
           end_date,
+          amount,
           created_at,
           profiles!test_subscriptions_student_id_fkey (
             full_name,
@@ -115,7 +117,7 @@ const SubscriptionManagement = () => {
 
       if (!subscriptionsData || subscriptionsData.length === 0) {
         setSubscriptions([]);
-        setSummary({
+        setStats({
           totalPaidUsers: 0,
           totalRevenue: 0,
           activeSubscriptions: 0,
@@ -135,14 +137,12 @@ const SubscriptionManagement = () => {
         current_status: sub.status,
         start_date: sub.start_date,
         end_date: sub.end_date,
-        last_payment_amount: sub.payments?.[0]?.amount || 0,
+        last_payment_amount: sub.payments?.[0]?.amount || sub.amount || 0,
         payment_method: sub.payments?.[0]?.payment_method || 'N/A',
       }));
 
       setSubscriptions(transformedData);
-      
-      const stats = calculateStats(transformedData);
-      setSummary(stats);
+      calculateStats(transformedData);
       
     } catch (err) {
       console.error('Unexpected error:', err);
@@ -156,10 +156,10 @@ const SubscriptionManagement = () => {
     const paidUsers = data.filter(s => s.subscription_type === 'premium').length;
     const totalRevenue = data
       .filter(s => s.subscription_type === 'premium')
-      .reduce((sum, s) => sum + (s.amount || 0), 0);
+      .reduce((sum, s) => sum + (s.last_payment_amount || 0), 0);
     const active = data.filter(s => s.current_status === 'active').length;
     const expired = data.filter(s => s.current_status === 'expired').length;
-    const free = data.filter(s => s.current_status === 'free').length;
+    const free = data.filter(s => s.subscription_type === 'free').length;
 
     setStats({
       totalPaidUsers: paidUsers,
@@ -176,10 +176,26 @@ const SubscriptionManagement = () => {
         return <Badge className="bg-green-500">Active</Badge>;
       case 'expired':
         return <Badge variant="destructive">Expired</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>;
       case 'free':
         return <Badge variant="secondary">Free</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const handleCancelSubscription = async (studentId: string, studentName: string) => {
+    if (!confirm(`Are you sure you want to cancel subscription for ${studentName}?\n\nThis action will immediately revoke their premium access.`)) {
+      return;
+    }
+    
+    try {
+      await subscriptionAPI.cancelSubscription(studentId);
+      toast.success(`Subscription cancelled for ${studentName}`);
+      fetchSubscriptions();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to cancel subscription");
     }
   };
 
@@ -193,7 +209,6 @@ const SubscriptionManagement = () => {
       'End Date',
       'Amount',
       'Payment Method',
-      'Razorpay Order ID',
     ];
 
     const rows = filteredSubscriptions.map(sub => [
@@ -203,9 +218,8 @@ const SubscriptionManagement = () => {
       sub.current_status,
       sub.start_date ? format(new Date(sub.start_date), 'dd/MM/yyyy') : 'N/A',
       sub.end_date ? format(new Date(sub.end_date), 'dd/MM/yyyy') : 'N/A',
-      `₹${sub.amount}`,
+      `₹${sub.last_payment_amount}`,
       sub.payment_method || 'N/A',
-      sub.razorpay_order_id || 'N/A',
     ]);
 
     const csvContent = [
@@ -239,6 +253,15 @@ const SubscriptionManagement = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
     );
   }
 
@@ -333,7 +356,7 @@ const SubscriptionManagement = () => {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
 
@@ -367,8 +390,8 @@ const SubscriptionManagement = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredSubscriptions.map((sub) => (
-                    <TableRow key={sub.student_id + sub.subscribed_at}>
+                  filteredSubscriptions.map((sub, idx) => (
+                    <TableRow key={sub.student_id + idx}>
                       <TableCell className="font-medium">{sub.full_name}</TableCell>
                       <TableCell>{sub.email}</TableCell>
                       <TableCell>
@@ -383,20 +406,33 @@ const SubscriptionManagement = () => {
                       <TableCell>
                         {sub.end_date ? format(new Date(sub.end_date), 'dd/MM/yyyy') : 'N/A'}
                       </TableCell>
-                      <TableCell>₹{sub.amount}</TableCell>
+                      <TableCell>₹{sub.last_payment_amount}</TableCell>
                       <TableCell>{sub.payment_method || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedStudent(sub.student_id);
-                            setDetailDialogOpen(true);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedStudent(sub.student_id);
+                              setDetailDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          {sub.current_status === 'active' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleCancelSubscription(sub.student_id, sub.full_name)}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -416,7 +452,10 @@ const SubscriptionManagement = () => {
         <SubscriptionDetailDialog
           studentId={selectedStudent}
           open={detailDialogOpen}
-          onOpenChange={setDetailDialogOpen}
+          onOpenChange={(open) => {
+            setDetailDialogOpen(open);
+            if (!open) fetchSubscriptions();
+          }}
         />
       )}
     </div>

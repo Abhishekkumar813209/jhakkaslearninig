@@ -18,6 +18,9 @@ interface Withdrawal {
   student_id: string;
   amount: number;
   upi_id: string;
+  phone_number?: string;
+  account_holder_name?: string;
+  withdrawal_method: string;
   status: string;
   requested_at: string;
   completed_at: string | null;
@@ -289,7 +292,8 @@ export const WithdrawalManagement = () => {
                       <TableHead>Student</TableHead>
                       <TableHead>Contact</TableHead>
                       <TableHead>Amount</TableHead>
-                      <TableHead>UPI ID</TableHead>
+                      <TableHead>Payment Method</TableHead>
+                      <TableHead>Payment Details</TableHead>
                       <TableHead>Requested At</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -305,7 +309,21 @@ export const WithdrawalManagement = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-bold text-green-600">₹{withdrawal.amount}</TableCell>
-                        <TableCell className="font-mono text-sm">{withdrawal.upi_id}</TableCell>
+                        <TableCell>
+                          <Badge variant={withdrawal.withdrawal_method === 'phone' ? 'secondary' : 'outline'}>
+                            {withdrawal.withdrawal_method === 'phone' ? '📱 Phone' : '💳 UPI ID'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {withdrawal.withdrawal_method === 'phone' ? (
+                            <div>
+                              <div>{withdrawal.phone_number}</div>
+                              <div className="text-xs text-muted-foreground">{withdrawal.account_holder_name}</div>
+                            </div>
+                          ) : (
+                            withdrawal.upi_id
+                          )}
+                        </TableCell>
                         <TableCell>{new Date(withdrawal.requested_at).toLocaleString('en-IN')}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">

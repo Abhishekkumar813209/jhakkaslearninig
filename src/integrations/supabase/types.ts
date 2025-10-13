@@ -3915,6 +3915,7 @@ export type Database = {
       }
       withdrawal_history: {
         Row: {
+          account_holder_name: string | null
           admin_approved_by: string | null
           admin_notes: string | null
           amount: number
@@ -3923,6 +3924,7 @@ export type Database = {
           failure_reason: string | null
           id: string
           payment_reference: string | null
+          phone_number: string | null
           requested_at: string
           retry_count: number | null
           status: string
@@ -3931,6 +3933,7 @@ export type Database = {
           withdrawal_method: string | null
         }
         Insert: {
+          account_holder_name?: string | null
           admin_approved_by?: string | null
           admin_notes?: string | null
           amount: number
@@ -3939,6 +3942,7 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           payment_reference?: string | null
+          phone_number?: string | null
           requested_at?: string
           retry_count?: number | null
           status?: string
@@ -3947,6 +3951,7 @@ export type Database = {
           withdrawal_method?: string | null
         }
         Update: {
+          account_holder_name?: string | null
           admin_approved_by?: string | null
           admin_notes?: string | null
           amount?: number
@@ -3955,6 +3960,7 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           payment_reference?: string | null
+          phone_number?: string | null
           requested_at?: string
           retry_count?: number | null
           status?: string

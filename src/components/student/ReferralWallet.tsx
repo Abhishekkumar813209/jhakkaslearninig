@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wallet, Download, ShoppingCart } from 'lucide-react';
+import { Wallet, Download, ShoppingCart, Clock } from 'lucide-react';
 import { useReferrals } from '@/hooks/useReferrals';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState } from 'react';
@@ -8,7 +8,7 @@ import { WithdrawCreditsDialog } from './WithdrawCreditsDialog';
 import { ReferralHistory } from './ReferralHistory';
 
 export const ReferralWallet = () => {
-  const { credits, loading } = useReferrals();
+  const { credits, loading, withdrawals } = useReferrals();
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
 
   if (loading) {
@@ -19,6 +19,11 @@ export const ReferralWallet = () => {
   const used = credits?.used_credits || 0;
   const locked = credits?.locked_for_withdrawal || 0;
   const total = credits?.total_credits || 0;
+
+  const hasPendingWithdrawal = withdrawals?.some(w => w.status === 'pending') || false;
+  const pendingAmount = withdrawals
+    ?.filter(w => w.status === 'pending')
+    .reduce((sum, w) => sum + w.amount, 0) || 0;
 
   return (
     <div className="space-y-4">
@@ -61,8 +66,27 @@ export const ReferralWallet = () => {
         </Card>
       </div>
 
+      {/* Pending Withdrawal Notice */}
+      {hasPendingWithdrawal && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-2">
+              <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-900">
+                  Withdrawal Request Pending
+                </p>
+                <p className="text-xs text-blue-700 mt-1">
+                  ₹{pendingAmount.toFixed(2)} is pending admin approval. Money will be transferred within 24 hours.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Locked Credits Warning */}
-      {locked > 0 && (
+      {locked > 0 && !hasPendingWithdrawal && (
         <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="pt-6">
             <p className="text-sm text-yellow-800">
@@ -76,11 +100,21 @@ export const ReferralWallet = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <Button 
           onClick={() => setShowWithdrawDialog(true)}
-          disabled={available <= 0}
+          disabled={available <= 0 || hasPendingWithdrawal}
+          variant={hasPendingWithdrawal ? "secondary" : "default"}
           className="flex-1"
         >
-          <Download className="h-4 w-4 mr-2" />
-          Withdraw via UPI
+          {hasPendingWithdrawal ? (
+            <>
+              <Clock className="h-4 w-4 mr-2" />
+              ⏳ Waiting for Admin Approval
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Withdraw via UPI
+            </>
+          )}
         </Button>
         <Button 
           variant="outline"

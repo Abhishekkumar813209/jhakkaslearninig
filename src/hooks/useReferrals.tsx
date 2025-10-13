@@ -24,6 +24,9 @@ interface WithdrawalHistory {
   id: string;
   amount: number;
   upi_id: string;
+  phone_number?: string;
+  account_holder_name?: string;
+  withdrawal_method: string;
   status: string;
   requested_at: string;
   completed_at: string;
@@ -106,10 +109,22 @@ export const useReferrals = () => {
     });
   };
 
-  const requestWithdrawal = async (amount: number, upiId: string) => {
+  const requestWithdrawal = async (
+    amount: number, 
+    upiId: string,
+    withdrawalMethod: 'upi' | 'phone' = 'upi',
+    phoneNumber?: string,
+    accountName?: string
+  ) => {
     try {
       const { data, error } = await supabase.functions.invoke('request-withdrawal', {
-        body: { amount, upiId }
+        body: { 
+          amount, 
+          upiId,
+          withdrawalMethod,
+          phoneNumber,
+          accountName
+        }
       });
 
       if (error) throw error;

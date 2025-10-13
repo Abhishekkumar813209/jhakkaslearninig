@@ -19,7 +19,9 @@ import {
   Building,
   BookText,
   UserCog,
-  Bot
+  Bot,
+  Tag,
+  Users2
 } from "lucide-react";
 
 // Import dashboard components
@@ -42,6 +44,9 @@ import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
 import UserRoleManagement from "@/components/admin/UserRoleManagement";
 import AdminAIChat from "@/components/admin/AdminAIChat";
 import ParentManagement from "@/components/admin/ParentManagement";
+import PricingManagement from "@/components/admin/PricingManagement";
+import PromoCodeManagement from "@/components/admin/PromoCodeManagement";
+import ReferralManagement from "@/components/admin/ReferralManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -137,6 +142,24 @@ const AdminDashboard = () => {
       label: "Fees",
       icon: DollarSign,
       component: FeesManagement
+    },
+    {
+      value: "pricing",
+      label: "Pricing",
+      icon: DollarSign,
+      component: PricingManagement
+    },
+    {
+      value: "promo-codes",
+      label: "Promo Codes",
+      icon: Tag,
+      component: PromoCodeManagement
+    },
+    {
+      value: "referrals",
+      label: "Referrals",
+      icon: Users2,
+      component: ReferralManagement
     },
     {
       value: "analytics",

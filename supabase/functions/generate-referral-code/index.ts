@@ -35,9 +35,6 @@ Deno.serve(async (req) => {
     const fullName = profile?.full_name || user.email?.split('@')[0] || 'USER';
     const firstName = fullName.split(' ')[0].toUpperCase();
     
-    // Base code: FIRSTNAME2025
-    let referralCode = `${firstName}2025`;
-    
     // Check if code already exists
     const { data: existingReferral } = await supabaseClient
       .from('referrals')
@@ -52,17 +49,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for duplicates and add random suffix if needed
-    const { data: duplicate } = await supabaseClient
-      .from('referrals')
-      .select('referral_code')
-      .eq('referral_code', referralCode)
-      .maybeSingle();
-
-    if (duplicate) {
-      const randomSuffix = Math.floor(Math.random() * 999);
-      referralCode = `${firstName}2025-${randomSuffix}`;
-    }
+    // Generate unique code using FIRSTNAME-HASH format (last 6 chars of UUID)
+    const hashSuffix = user.id.substring(user.id.length - 6).toUpperCase();
+    const referralCode = `${firstName}-${hashSuffix}`;
 
     // Create initial referral entry
     const { error: insertError } = await supabaseClient

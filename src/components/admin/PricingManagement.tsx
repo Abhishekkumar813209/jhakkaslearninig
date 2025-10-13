@@ -46,14 +46,11 @@ const PricingManagement = () => {
         .update({ is_active: false })
         .eq('is_active', true);
 
-      const discountPercentage = Math.round(((values.base_price - values.display_price) / values.base_price) * 100);
-
       const { data, error } = await supabase
         .from('pricing_config')
         .insert({
           base_price: values.base_price,
           display_price: values.display_price,
-          discount_percentage: discountPercentage,
           valid_from: values.valid_from,
           valid_until: values.valid_until,
           is_active: true

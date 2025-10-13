@@ -93,32 +93,35 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
     setValidatingFriend(true);
     try {
-      // Get auth token
-      const { data: { session } } = await supabase.auth.getSession();
+      const normalizedCode = friendReferralCode.toUpperCase().trim();
       
-      // Call edge function to validate code (bypasses RLS)
-      const response = await fetch(
-        `https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/validate-referral-code`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({ code: friendReferralCode.trim() }),
+      // Use razorpay-subscription function with validate-referral action
+      const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
+        body: { 
+          action: 'validate-referral',
+          code: normalizedCode
         }
-      );
+      });
 
-      const result = await response.json();
+      if (error) {
+        console.error('Referral validation error:', error);
+        toast({
+          title: "Validation Error",
+          description: "Failed to validate referral code. Please try again.",
+          variant: "destructive"
+        });
+        setFriendDiscount(0);
+        return;
+      }
 
-      if (!result.valid) {
-        if (result.reason === 'self_code') {
+      if (!data.valid) {
+        if (data.reason === 'self_code') {
           toast({
             title: "Cannot Use Own Code",
             description: "You cannot use your own referral code.",
             variant: "destructive"
           });
-        } else if (result.reason === 'not_found') {
+        } else if (data.reason === 'not_found') {
           toast({
             title: "Invalid Referral Code",
             description: "The friend referral code you entered is not valid.",
@@ -136,10 +139,10 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
       }
 
       // Code is valid
-      setFriendDiscount(result.discount);
+      setFriendDiscount(data.discount);
       toast({
         title: "Referral Code Applied!",
-        description: `You get ₹${result.discount} OFF!`,
+        description: `You get ₹${data.discount} OFF!`,
       });
     } catch (error) {
       console.error('Friend code validation error:', error);

@@ -56,6 +56,61 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { action, orderId, paymentId, signature, friendReferralCode, promoCode } = requestBody;
 
+    // Handle referral code validation (workaround until validate-referral-code deploys)
+    if (action === 'validate-referral') {
+      const { code } = requestBody;
+      
+      console.log('[validate-referral] Validating code:', code);
+      
+      if (!code || typeof code !== 'string') {
+        return new Response(
+          JSON.stringify({ valid: false, reason: 'invalid_input' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      const normalizedCode = code.toUpperCase().trim();
+
+      // Use service role client to bypass RLS
+      const { data: referral } = await supabaseService
+        .from('referrals')
+        .select('referrer_id')
+        .eq('referral_code', normalizedCode)
+        .maybeSingle();
+
+      if (!referral) {
+        console.log('[validate-referral] Code not found');
+        return new Response(
+          JSON.stringify({ valid: false, reason: 'not_found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      if (referral.referrer_id === user.id) {
+        console.log('[validate-referral] Self-referral detected');
+        return new Response(
+          JSON.stringify({ valid: false, reason: 'self_code' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      // Fetch referral config to get discount amount
+      const { data: referralConfig } = await supabaseService
+        .from('referral_config')
+        .select('student_discount')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const discount = referralConfig?.student_discount || 10;
+      
+      console.log(`[validate-referral] Valid code, discount: ₹${discount}`);
+
+      return new Response(
+        JSON.stringify({ valid: true, discount, code: normalizedCode }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     if (action === 'create-order') {
       const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');

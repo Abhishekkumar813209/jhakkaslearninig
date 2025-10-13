@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
+import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib@1.17.1";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -25,6 +26,193 @@ interface InvoiceData {
   endDate: string;
   planName: string;
   isTestMode: boolean;
+  basePrice?: number;
+  displayPrice?: number;
+  friendDiscount?: number;
+  promoDiscount?: number;
+  friendReferralCode?: string;
+  promoCode?: string;
+}
+
+async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595, 842]); // A4 size
+  const { width, height } = page.getSize();
+  
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  const invoiceNumber = `INV-${data.orderId.replace('order_', '')}`;
+  const formattedDate = new Date(data.paymentDate).toLocaleDateString('en-IN');
+  const validFrom = new Date(data.startDate).toLocaleDateString('en-IN');
+  const validUntil = new Date(data.endDate).toLocaleDateString('en-IN');
+  
+  let yPos = height - 60;
+  
+  // Header
+  page.drawRectangle({
+    x: 0,
+    y: yPos - 50,
+    width: width,
+    height: 80,
+    color: rgb(0.4, 0.49, 0.92),
+  });
+  
+  page.drawText('PAYMENT INVOICE', {
+    x: 50,
+    y: yPos - 15,
+    size: 24,
+    font: boldFont,
+    color: rgb(1, 1, 1),
+  });
+  
+  if (data.isTestMode) {
+    page.drawText('TEST MODE', {
+      x: width - 150,
+      y: yPos - 15,
+      size: 12,
+      font: boldFont,
+      color: rgb(1, 0.42, 0.42),
+    });
+  }
+  
+  yPos -= 100;
+  
+  // Invoice meta
+  page.drawText('Invoice Number:', { x: 50, y: yPos, size: 10, font: font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(invoiceNumber, { x: 50, y: yPos - 15, size: 12, font: boldFont });
+  
+  page.drawText('Invoice Date:', { x: width - 200, y: yPos, size: 10, font: font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(formattedDate, { x: width - 200, y: yPos - 15, size: 12, font: boldFont });
+  
+  yPos -= 50;
+  
+  // Student details
+  page.drawRectangle({
+    x: 40,
+    y: yPos - 60,
+    width: width - 80,
+    height: 70,
+    color: rgb(0.97, 0.97, 0.98),
+  });
+  
+  page.drawText('BILL TO', { x: 50, y: yPos - 15, size: 10, font: boldFont, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(data.studentName, { x: 50, y: yPos - 32, size: 12, font: boldFont });
+  page.drawText(data.studentEmail, { x: 50, y: yPos - 47, size: 10, font: font });
+  page.drawText(`Student ID: ${data.studentId.substring(0, 8)}`, { x: 50, y: yPos - 60, size: 8, font: font, color: rgb(0.6, 0.6, 0.6) });
+  
+  yPos -= 90;
+  
+  // Payment table header
+  page.drawRectangle({
+    x: 40,
+    y: yPos - 25,
+    width: width - 80,
+    height: 25,
+    color: rgb(0.97, 0.97, 0.98),
+  });
+  
+  page.drawText('Description', { x: 50, y: yPos - 18, size: 11, font: boldFont });
+  page.drawText('Amount', { x: width - 130, y: yPos - 18, size: 11, font: boldFont });
+  
+  yPos -= 35;
+  
+  // Line items
+  page.drawText('Monthly Premium Access', { x: 50, y: yPos, size: 10, font: font });
+  page.drawText(data.planName, { x: 50, y: yPos - 12, size: 8, font: font, color: rgb(0.6, 0.6, 0.6) });
+  page.drawText(`₹${(data.basePrice || data.originalAmount).toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font });
+  
+  yPos -= 30;
+  
+  // Display price discount (if different from base)
+  if (data.displayPrice && data.basePrice && data.displayPrice < data.basePrice) {
+    const displayDiscount = data.basePrice - data.displayPrice;
+    page.drawText('Special Offer Discount', { x: 50, y: yPos, size: 10, font: font });
+    page.drawText(`-₹${displayDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    yPos -= 25;
+  }
+  
+  // Friend referral discount
+  if (data.friendDiscount && data.friendDiscount > 0) {
+    page.drawText(`Friend Referral Discount (${data.friendReferralCode || ''})`, { x: 50, y: yPos, size: 10, font: font });
+    page.drawText(`-₹${data.friendDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    yPos -= 25;
+  }
+  
+  // Promo code discount
+  if (data.promoDiscount && data.promoDiscount > 0) {
+    page.drawText(`Promo Code Discount (${data.promoCode || ''})`, { x: 50, y: yPos, size: 10, font: font });
+    page.drawText(`-₹${data.promoDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    yPos -= 25;
+  }
+  
+  // Wallet credits
+  if (data.creditsApplied > 0) {
+    page.drawText('Wallet Credits Applied', { x: 50, y: yPos, size: 10, font: font });
+    page.drawText(`-₹${data.creditsApplied.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    yPos -= 25;
+  }
+  
+  yPos -= 10;
+  
+  // Total
+  page.drawRectangle({
+    x: 40,
+    y: yPos - 25,
+    width: width - 80,
+    height: 30,
+    color: rgb(0.97, 0.97, 0.98),
+  });
+  
+  page.drawText('TOTAL PAID', { x: 50, y: yPos - 18, size: 12, font: boldFont });
+  page.drawText(`₹${data.finalAmount.toFixed(2)}`, { x: width - 130, y: yPos - 18, size: 14, font: boldFont, color: rgb(0.4, 0.49, 0.92) });
+  
+  yPos -= 50;
+  
+  // Payment success box
+  page.drawRectangle({
+    x: 40,
+    y: yPos - 50,
+    width: width - 80,
+    height: 55,
+    color: rgb(0.94, 0.99, 0.96),
+  });
+  
+  page.drawText('✓ Payment Successful', { x: 50, y: yPos - 18, size: 11, font: boldFont, color: rgb(0.06, 0.72, 0.51) });
+  page.drawText(`Payment ID: ${data.paymentId}`, { x: 50, y: yPos - 32, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(`Order ID: ${data.orderId}`, { x: 50, y: yPos - 43, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
+  
+  yPos -= 80;
+  
+  // Subscription details
+  page.drawRectangle({
+    x: 40,
+    y: yPos - 100,
+    width: width - 80,
+    height: 110,
+    color: rgb(0.4, 0.49, 0.92),
+  });
+  
+  page.drawText('SUBSCRIPTION DETAILS', { x: 50, y: yPos - 20, size: 12, font: boldFont, color: rgb(1, 1, 1) });
+  page.drawText('✓ Full Access to Test Series', { x: 50, y: yPos - 40, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('✓ Unlimited Practice Questions', { x: 50, y: yPos - 55, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('✓ Detailed Performance Analytics', { x: 50, y: yPos - 70, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('✓ Learning Path Guidance', { x: 50, y: yPos - 85, size: 9, font: font, color: rgb(1, 1, 1) });
+  
+  // Validity dates
+  page.drawText('VALID FROM', { x: 50, y: yPos - 100, size: 8, font: font, color: rgb(0.9, 0.9, 0.9) });
+  page.drawText(validFrom, { x: 50, y: yPos - 112, size: 10, font: boldFont, color: rgb(1, 1, 1) });
+  
+  page.drawText('VALID UNTIL', { x: width - 200, y: yPos - 100, size: 8, font: font, color: rgb(0.9, 0.9, 0.9) });
+  page.drawText(validUntil, { x: width - 200, y: yPos - 112, size: 10, font: boldFont, color: rgb(1, 1, 1) });
+  
+  // Footer
+  yPos = 80;
+  page.drawText('Thank you for your subscription!', { x: width / 2 - 90, y: yPos, size: 10, font: boldFont, color: rgb(0.2, 0.2, 0.2) });
+  page.drawText('For support, contact us at support@jhakkaslearning.com', { x: width / 2 - 130, y: yPos - 15, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText('This is an auto-generated invoice. No signature required.', { x: width / 2 - 120, y: yPos - 30, size: 7, font: font, color: rgb(0.6, 0.6, 0.6) });
+  
+  return await pdfDoc.save();
 }
 
 function generateInvoiceHTML(data: InvoiceData): string {
@@ -199,12 +387,22 @@ serve(async (req) => {
     console.log('[send-payment-invoice] Generating invoice HTML...');
     const htmlContent = generateInvoiceHTML(invoiceData);
 
-    console.log('[send-payment-invoice] Sending email via Resend...');
+    console.log('[send-payment-invoice] Generating PDF invoice...');
+    const pdfBytes = await generateInvoicePDF(invoiceData);
+    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+
+    console.log('[send-payment-invoice] Sending email via Resend with PDF attachment...');
     const emailResult = await resend.emails.send({
       from: "Jhakkas Learning <noreply@jhakkaslearning.com>",
       to: [invoiceData.studentEmail],
       subject: `Payment Invoice - ${invoiceData.orderId}`,
       html: htmlContent,
+      attachments: [
+        {
+          filename: `Invoice-${invoiceData.orderId}.pdf`,
+          content: pdfBase64,
+        }
+      ],
     });
 
     if (emailResult.error) {

@@ -54,22 +54,74 @@ serve(async (req) => {
     }
 
     const requestBody = await req.json();
-    const { action, orderId, paymentId, signature } = requestBody;
+    const { action, orderId, paymentId, signature, friendReferralCode, promoCode } = requestBody;
 
     if (action === 'create-order') {
-      // Create one-time Razorpay order for monthly access
       const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
       if (!razorpayKeyId || !razorpayKeySecret) {
-        console.error('[razorpay-subscription] Missing credentials:', { 
-          hasKeyId: !!razorpayKeyId, 
-          hasKeySecret: !!razorpayKeySecret 
-        });
+        console.error('[razorpay-subscription] Missing credentials');
         throw new Error('Razorpay credentials not configured');
       }
 
-      console.log('[razorpay-subscription] Creating one-time order for monthly access, user:', user.id);
+      console.log('[razorpay-subscription] Creating order for user:', user.id);
+
+      // Fetch active pricing config
+      const { data: pricingConfig } = await supabaseService
+        .from('pricing_config')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const basePrice = pricingConfig?.base_price || 399;
+      const displayPrice = pricingConfig?.display_price || 299;
+
+      // Fetch active referral config
+      const { data: referralConfig } = await supabaseService
+        .from('referral_config')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      let friendDiscount = 0;
+      let promoDiscount = 0;
+      let referralData = null;
+
+      // Validate friend referral code
+      if (friendReferralCode) {
+        const { data: referral } = await supabaseService
+          .from('referrals')
+          .select('*')
+          .eq('referral_code', friendReferralCode.toUpperCase().trim())
+          .maybeSingle();
+
+        if (referral && referral.referrer_id !== user.id) {
+          friendDiscount = referralConfig?.student_discount || 25;
+          referralData = referral;
+          console.log(`[Discount] Friend code ${friendReferralCode}: ₹${friendDiscount}`);
+        }
+      }
+
+      // Validate promo code
+      if (promoCode) {
+        const { data: promo } = await supabaseService
+          .from('promo_codes')
+          .select('*')
+          .eq('code', promoCode.toUpperCase().trim())
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (promo) {
+          const isExpired = promo.valid_until && new Date(promo.valid_until) < new Date();
+          const isMaxedOut = promo.max_uses && promo.current_uses >= promo.max_uses;
+
+          if (!isExpired && !isMaxedOut) {
+            promoDiscount = promo.discount_value;
+            console.log(`[Discount] Promo code ${promoCode}: ₹${promoDiscount}`);
+          }
+        }
+      }
 
       // Fetch available credits
       const { data: credits } = await supabaseService
@@ -79,25 +131,33 @@ serve(async (req) => {
         .maybeSingle();
 
       const availableCredits = credits?.available_credits || 0;
-      const creditsToUse = Math.min(availableCredits, 299); // Can use up to full amount
-      const discountInPaise = Math.floor(creditsToUse * 100);
-      const finalAmount = Math.max(29900 - discountInPaise, 0); // ₹299 - discount
+      const maxCreditsUsable = Math.max(0, displayPrice - friendDiscount - promoDiscount);
+      const creditsToUse = Math.min(availableCredits, maxCreditsUsable);
+      
+      const finalAmount = Math.max(0, displayPrice - friendDiscount - promoDiscount - creditsToUse);
+      const finalAmountPaise = Math.round(finalAmount * 100);
 
-      console.log(`[Subscription] User ${user.id} using ₹${creditsToUse} credits. Final: ₹${finalAmount/100}`);
+      console.log(`[Pricing] Base: ₹${basePrice}, Display: ₹${displayPrice}, Friend: -₹${friendDiscount}, Promo: -₹${promoDiscount}, Credits: -₹${creditsToUse}, Final: ₹${finalAmount}`);
 
-      // Create one-time order instead of subscription
+      // Create Razorpay order with all discount details in notes
       const orderPayload = {
-        amount: finalAmount,
+        amount: finalAmountPaise,
         currency: 'INR',
         receipt: `ord_${user.id.substring(0, 8)}_${Date.now().toString().substring(-8)}`.substring(0, 40),
         notes: {
           student_id: user.id,
           subscription_type: 'premium',
-          includes_roadmap: 'true',
           validity_days: '30',
-          original_amount: '29900',
-          credits_applied: creditsToUse.toString(),
-          discount_amount: discountInPaise.toString()
+          base_price: basePrice.toString(),
+          display_price: displayPrice.toString(),
+          friend_discount: friendDiscount.toString(),
+          promo_discount: promoDiscount.toString(),
+          credits_used: creditsToUse.toString(),
+          final_amount: finalAmount.toString(),
+          friend_referral_code: friendReferralCode || '',
+          promo_code: promoCode || '',
+          referrer_id: referralData?.referrer_id || '',
+          referrer_bonus: (referralConfig?.referrer_bonus || 25).toString()
         }
       };
 
@@ -112,16 +172,10 @@ serve(async (req) => {
         body: JSON.stringify(orderPayload),
       });
 
-      console.log('[razorpay-subscription] Order response status:', orderResponse.status);
-
       const order = await orderResponse.json();
       
       if (!orderResponse.ok) {
-        console.error('[razorpay-subscription] Order creation failed:', {
-          status: orderResponse.status,
-          statusText: orderResponse.statusText,
-          response: order,
-        });
+        console.error('[razorpay-subscription] Order creation failed:', order);
         throw new Error(`Razorpay order creation failed: ${order.error?.description || 'Unknown error'}`);
       }
 
@@ -131,12 +185,13 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           orderId: order.id,
-          amount: finalAmount,
+          amount: finalAmountPaise,
           currency: 'INR',
           keyId: razorpayKeyId,
-          isOneTime: true,
-          creditsApplied: creditsToUse,
-          discountAmount: discountInPaise
+          friendDiscount,
+          promoDiscount,
+          creditsUsed: creditsToUse,
+          finalAmount
         }),
         { 
           status: 200, 
@@ -146,13 +201,12 @@ serve(async (req) => {
     }
 
     if (action === 'verify-payment') {
-      // Verify one-time payment signature
       const crypto = await import('node:crypto');
       const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
       
       console.log('[razorpay-subscription] Verifying payment:', { orderId, paymentId });
       
-      // For one-time payments, verify using order_id + payment_id
+      // Verify signature
       const body = orderId + "|" + paymentId;
       const expectedSignature = crypto.createHmac('sha256', razorpayKeySecret!)
         .update(body.toString())
@@ -171,16 +225,27 @@ serve(async (req) => {
 
       console.log('[razorpay-subscription] Payment verified successfully');
 
-      // Fetch order to get credits applied
+      // Fetch order to get all discount details from notes
       const orderResponse = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
         headers: {
           'Authorization': `Basic ${btoa(`${Deno.env.get('RAZORPAY_KEY_ID')}:${razorpayKeySecret}`)}`
         }
       });
       const orderDetails = await orderResponse.json();
-      const creditsUsed = parseFloat(orderDetails.notes?.credits_applied || '0');
+      const notes = orderDetails.notes || {};
+      
+      const creditsUsed = parseFloat(notes.credits_used || '0');
+      const friendDiscount = parseFloat(notes.friend_discount || '0');
+      const promoDiscount = parseFloat(notes.promo_discount || '0');
+      const basePrice = parseFloat(notes.base_price || '399');
+      const displayPrice = parseFloat(notes.display_price || '299');
+      const finalAmount = parseFloat(notes.final_amount || '0');
+      const friendReferralCode = notes.friend_referral_code || '';
+      const promoCodeUsed = notes.promo_code || '';
+      const referrerId = notes.referrer_id || '';
+      const referrerBonus = parseFloat(notes.referrer_bonus || '25');
 
-      // Deduct used credits from student's wallet
+      // 1. Deduct used credits from wallet
       if (creditsUsed > 0) {
         await supabaseService
           .from('referral_credits')
@@ -189,58 +254,127 @@ serve(async (req) => {
           })
           .eq('student_id', user.id);
 
-        console.log(`[Subscription] Deducted ₹${creditsUsed} from user ${user.id}'s wallet`);
+        console.log(`[Credits] Deducted ₹${creditsUsed} from user ${user.id}'s wallet`);
       }
 
-      // Check if THIS user was referred - award ₹25 to referrer
-      const { data: referral } = await supabaseService
-        .from('referrals')
-        .select('*')
-        .eq('referred_id', user.id)
-        .eq('status', 'joined')
-        .maybeSingle();
-
-      if (referral) {
-        // Award ₹25 to referrer
+      // 2. Award referrer bonus if friend code was used
+      if (referrerId && friendDiscount > 0) {
         await supabaseService
           .from('referral_credits')
           .upsert({
-            student_id: referral.referrer_id,
-            total_credits: supabaseService.sql`COALESCE(total_credits, 0) + 25`,
+            student_id: referrerId,
+            total_credits: supabaseService.sql`COALESCE(total_credits, 0) + ${referrerBonus}`,
             last_earned_at: new Date().toISOString()
           }, {
             onConflict: 'student_id'
           });
 
-        // Update referral status to 'paid'
-        await supabaseService
+        // Create referral record linking referred student to referrer
+        const { data: existingReferral } = await supabaseService
           .from('referrals')
-          .update({
-            status: 'paid',
-            bonus_paid: 25,
-            paid_at: new Date().toISOString()
-          })
-          .eq('id', referral.id);
+          .select('id')
+          .eq('referred_id', user.id)
+          .eq('referrer_id', referrerId)
+          .maybeSingle();
 
-        console.log(`[Referral Bonus] Awarded ₹25 to referrer ${referral.referrer_id}`);
+        if (existingReferral) {
+          // Update existing referral to 'paid'
+          await supabaseService
+            .from('referrals')
+            .update({
+              status: 'paid',
+              bonus_paid: referrerBonus,
+              paid_at: new Date().toISOString()
+            })
+            .eq('id', existingReferral.id);
+        } else {
+          // Create new referral record
+          await supabaseService
+            .from('referrals')
+            .insert({
+              referrer_id: referrerId,
+              referred_id: user.id,
+              referral_code: friendReferralCode,
+              status: 'paid',
+              bonus_paid: referrerBonus,
+              paid_at: new Date().toISOString()
+            });
+        }
+
+        console.log(`[Referral] Awarded ₹${referrerBonus} to referrer ${referrerId}`);
       }
 
-      // Create subscription record for 30-day access using service role client
+      // 3. Increment promo code usage if promo was used
+      if (promoCodeUsed && promoDiscount > 0) {
+        await supabaseService.rpc('increment_promo_usage', { 
+          code: promoCodeUsed.toUpperCase() 
+        });
+
+        console.log(`[Promo] Incremented usage for code ${promoCodeUsed}`);
+      }
+
+      // 4. Log discount usage
+      const discountLogs = [];
+      
+      if (friendDiscount > 0) {
+        discountLogs.push({
+          student_id: user.id,
+          discount_type: 'friend_referral',
+          discount_amount: friendDiscount,
+          code_used: friendReferralCode
+        });
+      }
+
+      if (promoDiscount > 0) {
+        discountLogs.push({
+          student_id: user.id,
+          discount_type: 'promo_code',
+          discount_amount: promoDiscount,
+          code_used: promoCodeUsed
+        });
+      }
+
+      if (creditsUsed > 0) {
+        discountLogs.push({
+          student_id: user.id,
+          discount_type: 'wallet_credits',
+          discount_amount: creditsUsed,
+          code_used: null
+        });
+      }
+
+      if (discountLogs.length > 0) {
+        await supabaseService
+          .from('discount_usage_log')
+          .insert(discountLogs);
+      }
+
+      // 5. Create subscription record with all discount details
       const { error: subscriptionError } = await supabaseService
         .from('test_subscriptions')
         .insert({
           student_id: user.id,
           subscription_type: 'premium',
           status: 'active',
-          amount: 299,
+          amount: basePrice,
           payment_id: paymentId,
           razorpay_order_id: orderId,
           payment_method: 'razorpay',
           currency: 'INR',
           start_date: new Date().toISOString(),
-          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           includes_roadmap: true,
-          subscription_name: 'Monthly Test Series + Learning Paths'
+          subscription_name: 'Monthly Premium Subscription',
+          // New discount columns
+          base_price: basePrice,
+          display_price: displayPrice,
+          friend_referral_discount: friendDiscount,
+          promo_code_discount: promoDiscount,
+          wallet_credits_used: creditsUsed,
+          total_discount: friendDiscount + promoDiscount + creditsUsed,
+          final_paid_amount: finalAmount,
+          friend_referral_code: friendReferralCode || null,
+          promo_code_used: promoCodeUsed || null
         });
 
       if (subscriptionError) {
@@ -248,46 +382,48 @@ serve(async (req) => {
         throw new Error(`Failed to create subscription: ${subscriptionError.message}`);
       }
 
-      console.log('[razorpay-subscription] Monthly subscription activated for user:', user.id);
+      console.log('[razorpay-subscription] Subscription activated for user:', user.id);
 
-      // Fetch student profile for invoice
+      // 6. Send invoice email
       const { data: profile } = await supabaseService
         .from('profiles')
         .select('full_name, email')
         .eq('id', user.id)
         .single();
 
-      // Prepare invoice data
       const invoiceData = {
         studentName: profile?.full_name || 'Student',
         studentEmail: profile?.email || user.email,
         studentId: user.id,
         orderId: orderId,
         paymentId: paymentId,
-        originalAmount: 299,
-        creditsApplied: creditsUsed,
-        finalAmount: (orderDetails.amount / 100),
+        basePrice: basePrice,
+        displayPrice: displayPrice,
+        friendDiscount: friendDiscount,
+        promoDiscount: promoDiscount,
+        creditsUsed: creditsUsed,
+        totalDiscount: friendDiscount + promoDiscount + creditsUsed,
+        finalAmount: finalAmount,
         currency: 'INR',
         paymentDate: new Date().toISOString(),
         validityDays: 30,
         startDate: new Date().toISOString(),
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        planName: 'Monthly Test Series + Learning Paths',
-        isTestMode: orderId.startsWith('order_test_') || paymentId.startsWith('pay_test_')
+        planName: 'Monthly Premium Subscription',
+        friendReferralCode: friendReferralCode || null,
+        promoCodeUsed: promoCodeUsed || null
       };
 
-      // Send invoice email with better error handling
       let invoiceEmailSent = false;
       try {
-        console.log('[Invoice] Attempting to send invoice to:', profile?.email);
+        console.log('[Invoice] Sending invoice to:', profile?.email);
         
         const invoiceResponse = await supabaseService.functions.invoke('send-payment-invoice', {
           body: invoiceData
         });
         
         if (invoiceResponse.error) {
-          console.error('[Invoice] Failed to send:', JSON.stringify(invoiceResponse.error));
-          // Log to database for admin tracking
+          console.error('[Invoice] Failed:', JSON.stringify(invoiceResponse.error));
           await supabaseService.from('email_logs').insert({
             recipient: profile?.email || user.email,
             type: 'payment_invoice',
@@ -296,9 +432,8 @@ serve(async (req) => {
             metadata: { orderId, paymentId, studentId: user.id }
           });
         } else {
-          console.log('[Invoice] Sent successfully to:', profile?.email);
+          console.log('[Invoice] Sent successfully');
           invoiceEmailSent = true;
-          // Log success
           await supabaseService.from('email_logs').insert({
             recipient: profile?.email || user.email,
             type: 'payment_invoice',
@@ -308,7 +443,6 @@ serve(async (req) => {
         }
       } catch (invoiceError: any) {
         console.error('[Invoice] Exception:', invoiceError);
-        // Still log the attempt
         await supabaseService.from('email_logs').insert({
           recipient: profile?.email || user.email,
           type: 'payment_invoice',
@@ -321,12 +455,16 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Monthly access activated successfully',
+          message: 'Premium subscription activated',
           subscriptionType: 'premium',
           invoiceEmailSent: invoiceEmailSent,
-          invoiceNote: !invoiceEmailSent 
-            ? 'Invoice email pending. Check your email in a few minutes or contact support.' 
-            : 'Invoice sent to your email.'
+          discountsSummary: {
+            friendDiscount,
+            promoDiscount,
+            creditsUsed,
+            totalSavings: friendDiscount + promoDiscount + creditsUsed,
+            finalPaid: finalAmount
+          }
         }),
         { 
           status: 200, 

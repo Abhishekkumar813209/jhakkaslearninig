@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Trophy, BookOpen, Clock, Users } from 'lucide-react';
+import { CheckCircle, Trophy, BookOpen, Clock, Users, Tag, Users2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +29,40 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // State for discount codes
+  const [friendReferralCode, setFriendReferralCode] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [friendDiscount, setFriendDiscount] = useState(0);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [validatingFriend, setValidatingFriend] = useState(false);
+  const [validatingPromo, setValidatingPromo] = useState(false);
+
+  // Fetch pricing config
+  const { data: pricingConfig } = useQuery({
+    queryKey: ['pricing-config'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pricing_config')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+      return data;
+    }
+  });
+
+  // Fetch referral config
+  const { data: referralConfig } = useQuery({
+    queryKey: ['referral-config'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('referral_config')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+      return data;
+    }
+  });
 
   // Fetch available credits
   const { data: credits } = useQuery({
@@ -44,6 +80,124 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
   });
 
   const availableCredits = credits?.available_credits || 0;
+  const basePrice = pricingConfig?.base_price || 399;
+  const displayPrice = pricingConfig?.display_price || 299;
+  const platformDiscount = basePrice - displayPrice;
+
+  // Validate friend referral code
+  const validateFriendCode = async () => {
+    if (!friendReferralCode.trim()) {
+      setFriendDiscount(0);
+      return;
+    }
+
+    setValidatingFriend(true);
+    try {
+      const { data: referral, error } = await supabase
+        .from('referrals')
+        .select('referrer_id')
+        .eq('referral_code', friendReferralCode.toUpperCase().trim())
+        .maybeSingle();
+
+      if (error || !referral) {
+        toast({
+          title: "Invalid Referral Code",
+          description: "The friend referral code you entered is not valid.",
+          variant: "destructive"
+        });
+        setFriendDiscount(0);
+        return;
+      }
+
+      if (referral.referrer_id === user?.id) {
+        toast({
+          title: "Cannot Use Own Code",
+          description: "You cannot use your own referral code.",
+          variant: "destructive"
+        });
+        setFriendDiscount(0);
+        return;
+      }
+
+      const discount = referralConfig?.student_discount || 25;
+      setFriendDiscount(discount);
+      toast({
+        title: "Referral Code Applied!",
+        description: `You get ₹${discount} OFF!`,
+      });
+    } catch (error) {
+      console.error('Friend code validation error:', error);
+      setFriendDiscount(0);
+    } finally {
+      setValidatingFriend(false);
+    }
+  };
+
+  // Validate promo code
+  const validatePromoCode = async () => {
+    if (!promoCode.trim()) {
+      setPromoDiscount(0);
+      return;
+    }
+
+    setValidatingPromo(true);
+    try {
+      const { data: promo, error } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .eq('code', promoCode.toUpperCase().trim())
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error || !promo) {
+        toast({
+          title: "Invalid Promo Code",
+          description: "The promo code you entered is not valid or has expired.",
+          variant: "destructive"
+        });
+        setPromoDiscount(0);
+        return;
+      }
+
+      // Check expiry
+      if (promo.valid_until && new Date(promo.valid_until) < new Date()) {
+        toast({
+          title: "Promo Code Expired",
+          description: "This promo code has expired.",
+          variant: "destructive"
+        });
+        setPromoDiscount(0);
+        return;
+      }
+
+      // Check max uses
+      if (promo.max_uses && promo.current_uses >= promo.max_uses) {
+        toast({
+          title: "Promo Code Limit Reached",
+          description: "This promo code has reached its usage limit.",
+          variant: "destructive"
+        });
+        setPromoDiscount(0);
+        return;
+      }
+
+      const discount = promo.discount_value;
+      setPromoDiscount(discount);
+      toast({
+        title: "Promo Code Applied!",
+        description: `You get ₹${discount} OFF!`,
+      });
+    } catch (error) {
+      console.error('Promo code validation error:', error);
+      setPromoDiscount(0);
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const creditsToUse = Math.min(availableCredits, displayPrice - friendDiscount - promoDiscount);
+  const finalPrice = Math.max(0, displayPrice - friendDiscount - promoDiscount - creditsToUse);
+  const totalDiscount = friendDiscount + promoDiscount + creditsToUse;
 
   const loadRazorpayScript = () => {
     return new Promise<boolean>((resolve) => {
@@ -67,20 +221,24 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         return;
       }
 
-      // Fetch user profile for phone number
+      // Fetch user profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, email')
         .eq('id', user?.id)
         .single();
 
-      // Create Razorpay order
-      console.log('[SubscriptionCard] Creating order...');
+      // Create Razorpay order with discount codes
+      console.log('[SubscriptionCard] Creating order with discounts...');
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
-        body: { action: 'create-order' },
+        body: { 
+          action: 'create-order',
+          friendReferralCode: friendReferralCode.trim() || null,
+          promoCode: promoCode.trim() || null
+        },
         headers
       });
 
@@ -94,8 +252,8 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         key: data.keyId,
         amount: data.amount,
         currency: data.currency,
-        name: 'EduTech Learning Platform',
-        description: 'Monthly Test Series + Learning Paths Access',
+        name: 'Jhakkas Learning',
+        description: 'Monthly Premium Subscription',
         order_id: data.orderId,
         method: {
           upi: true,
@@ -109,24 +267,14 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
             blocks: {
               banks: {
                 name: 'Pay using Net Banking',
-                instruments: [
-                  {
-                    method: 'netbanking'
-                  }
-                ]
+                instruments: [{ method: 'netbanking' }]
               },
               other: {
                 name: 'Other Payment Modes',
                 instruments: [
-                  {
-                    method: 'upi'
-                  },
-                  {
-                    method: 'card'
-                  },
-                  {
-                    method: 'wallet'
-                  }
+                  { method: 'upi' },
+                  { method: 'card' },
+                  { method: 'wallet' }
                 ]
               }
             },
@@ -143,7 +291,6 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
             const { data: { session } } = await supabase.auth.getSession();
             const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
             
-            // Verify one-time payment
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-subscription', {
               body: {
                 action: 'verify-payment',
@@ -162,11 +309,11 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
             const invoiceNote = verifyData?.invoiceEmailSent 
               ? "Invoice has been sent to your email." 
-              : "Invoice will be sent shortly. Check your email in a few minutes.";
+              : "Invoice will be sent shortly.";
 
             toast({
               title: "Premium Access Activated! 🎉",
-              description: `Welcome to premium! You now have 30 days of unlimited access. ${invoiceNote}`,
+              description: `Welcome to premium! ${invoiceNote}`,
             });
 
             onSubscriptionSuccess();
@@ -174,14 +321,14 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
             console.error('[SubscriptionCard] Payment verification failed:', error);
             toast({
               title: "Payment Verification Failed",
-              description: `Error: ${error.message || 'Unknown error'}. Please contact support if amount was deducted.`,
+              description: `Error: ${error.message}. Please contact support if amount was deducted.`,
               variant: "destructive"
             });
           }
         },
         modal: {
           ondismiss: () => {
-            console.log('[SubscriptionCard] Payment cancelled by user');
+            console.log('[SubscriptionCard] Payment cancelled');
             toast({
               title: "Payment Cancelled",
               description: "You can try again anytime.",
@@ -274,25 +421,115 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
             </CardDescription>
           </div>
           <div className="text-right">
-            {availableCredits > 0 ? (
+            <p className="text-sm text-muted-foreground line-through">₹{basePrice}</p>
+            {totalDiscount > 0 ? (
               <>
-                <p className="text-sm text-muted-foreground line-through">₹299</p>
                 <Badge variant="secondary" className="text-primary font-semibold text-lg">
-                  ₹{Math.max(0, 299 - availableCredits).toFixed(0)}
+                  ₹{finalPrice}
                 </Badge>
-                <p className="text-xs text-green-600 mt-1">
-                  ₹{Math.min(availableCredits, 299).toFixed(0)} discount applied!
+                <p className="text-xs text-green-600 mt-1 font-semibold">
+                  ₹{totalDiscount} total savings!
                 </p>
               </>
             ) : (
               <Badge variant="secondary" className="text-primary font-semibold">
-                ₹299/month
+                ₹{displayPrice}/month
               </Badge>
             )}
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Discount Code Inputs */}
+        <div className="space-y-3 p-4 bg-muted rounded-lg border">
+          <div className="space-y-2">
+            <Label htmlFor="friendCode" className="flex items-center gap-2 text-sm">
+              <Users2 className="h-4 w-4" />
+              Friend's Referral Code (Optional)
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="friendCode"
+                placeholder="JOHN-A3F9B2"
+                value={friendReferralCode}
+                onChange={(e) => setFriendReferralCode(e.target.value.toUpperCase())}
+                onBlur={validateFriendCode}
+                className="uppercase"
+              />
+              {validatingFriend && <Loader2 className="h-4 w-4 animate-spin" />}
+            </div>
+            {friendDiscount > 0 && (
+              <p className="text-xs text-green-600">✓ ₹{friendDiscount} discount applied</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="promoCode" className="flex items-center gap-2 text-sm">
+              <Tag className="h-4 w-4" />
+              Promo Code (Optional)
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="promoCode"
+                placeholder="DIWALI50"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                onBlur={validatePromoCode}
+                className="uppercase"
+              />
+              {validatingPromo && <Loader2 className="h-4 w-4 animate-spin" />}
+            </div>
+            {promoDiscount > 0 && (
+              <p className="text-xs text-green-600">✓ ₹{promoDiscount} discount applied</p>
+            )}
+          </div>
+
+          {availableCredits > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Wallet Credits: <span className="font-semibold text-foreground">₹{availableCredits}</span>
+                {creditsToUse > 0 && (
+                  <span className="text-green-600 ml-1">(₹{creditsToUse} will be used)</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {totalDiscount > 0 && (
+            <div className="pt-2 border-t space-y-1">
+              <p className="text-xs font-semibold">Discount Breakdown:</p>
+              <div className="text-xs space-y-1 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Platform Offer:</span>
+                  <span className="text-green-600">-₹{platformDiscount}</span>
+                </div>
+                {friendDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Friend Referral:</span>
+                    <span className="text-green-600">-₹{friendDiscount}</span>
+                  </div>
+                )}
+                {promoDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Promo Code:</span>
+                    <span className="text-green-600">-₹{promoDiscount}</span>
+                  </div>
+                )}
+                {creditsToUse > 0 && (
+                  <div className="flex justify-between">
+                    <span>Wallet Credits:</span>
+                    <span className="text-green-600">-₹{creditsToUse}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold pt-1 border-t">
+                  <span>You Pay:</span>
+                  <span className="text-primary">₹{finalPrice}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -319,7 +556,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
         {!hasFreeTestUsed && (
           <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Try Free:</strong> Take one free test to see your performance analysis before subscribing!
+              <strong>Try Free:</strong> Take one free test before subscribing!
             </p>
           </div>
         )}
@@ -339,7 +576,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
           className="w-full"
           size="lg"
         >
-          Buy Monthly Access ₹299
+          {finalPrice === 0 ? 'Get Free Access' : `Pay ₹${finalPrice}`}
         </Button>
       </CardFooter>
     </Card>

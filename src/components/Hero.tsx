@@ -51,7 +51,7 @@ const Hero = () => {
                 variant="default" 
                 size="lg" 
                 className="text-base"
-                onClick={() => navigate('/student/guided-paths')}
+                onClick={() => navigate('/student')}
               >
                 <Play className="h-5 w-5 mr-2" />
                 Start Learning Free

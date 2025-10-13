@@ -1,29 +1,8 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/Navbar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import { 
-  BarChart3, 
-  Users, 
-  GraduationCap, 
-  BookOpen, 
-  FileText, 
-  TrendingUp, 
-  Trophy,
-  Settings,
-  Target,
-  DollarSign,
-  Map,
-  Building,
-  BookText,
-  UserCog,
-  Bot,
-  Tag,
-  Users2,
-  CreditCard
-} from "lucide-react";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
 
 // Import dashboard components
 import OverviewSection from "@/components/admin/OverviewSection";
@@ -68,190 +47,59 @@ const AdminDashboard = () => {
   }
 
   const tabItems = [
-    {
-      value: "overview",
-      label: "Overview",
-      icon: BarChart3,
-      component: OverviewSection
-    },
-    {
-      value: "students",
-      label: "Students",
-      icon: Users,
-      component: StudentManagement
-    },
-    {
-      value: "user-roles",
-      label: "User Roles",
-      icon: UserCog,
-      component: UserRoleManagement
-    },
-    {
-      value: "batches",
-      label: "Batches",
-      icon: GraduationCap,
-      component: BatchManagement
-    },
-    {
-      value: "guided-paths",
-      label: "Guided Paths",
-      icon: BookOpen,
-      component: GuidedPathsManagement
-    },
-    {
-      value: "roadmaps",
-      label: "Roadmaps",
-      icon: Map,
-      component: RoadmapManagement
-    },
-    {
-      value: "manual-topics",
-      label: "Add Topics",
-      icon: BookText,
-      component: ManualTopicEditor
-    },
-    {
-      value: "lessons",
-      label: "Lesson Builder",
-      icon: BookOpen,
-      component: LessonContentBuilder
-    },
-    {
-      value: "zones",
-      label: "Zones",
-      icon: Map,
-      component: ZoneManagementNew
-    },
-    {
-      value: "schools",
-      label: "Schools",
-      icon: Building,
-      component: SchoolManagement
-    },
-    {
-      value: "zone-analytics",
-      label: "Zone Analytics",
-      icon: TrendingUp,
-      component: ZoneSchoolAnalytics
-    },
-    {
-      value: "tests",
-      label: "Tests",
-      icon: FileText,
-      component: TestManagement
-    },
-    {
-      value: "fees",
-      label: "Fees",
-      icon: DollarSign,
-      component: FeesManagement
-    },
-    {
-      value: "pricing",
-      label: "Pricing",
-      icon: DollarSign,
-      component: PricingManagement
-    },
-    {
-      value: "promo-codes",
-      label: "Promo Codes",
-      icon: Tag,
-      component: PromoCodeManagement
-    },
-    {
-      value: "referrals",
-      label: "Referrals",
-      icon: Users2,
-      component: ReferralManagement
-    },
-    {
-      value: "subscriptions",
-      label: "Subscriptions",
-      icon: CreditCard,
-      component: SubscriptionManagement
-    },
-    {
-      value: "withdrawals",
-      label: "Withdrawals",
-      icon: DollarSign,
-      component: WithdrawalManagement
-    },
-    {
-      value: "analytics",
-      label: "Analytics",
-      icon: TrendingUp,
-      component: AnalyticsReports
-    },
-    {
-      value: "leaderboard",
-      label: "Leaderboard",
-      icon: Trophy,
-      component: LeaderboardManagement
-    },
-    {
-      value: "exam-types",
-      label: "Exam Types",
-      icon: Target,
-      component: ExamTypesManagement
-    },
-    {
-      value: "parents",
-      label: "Parents",
-      icon: UserCog,
-      component: ParentManagement
-    },
-    {
-      value: "settings",
-      label: "Settings",
-      icon: Settings,
-      component: AdminSettings
-    },
-    {
-      value: "ai-assistant",
-      label: "AI Assistant",
-      icon: Bot,
-      component: AdminAIChat
-    }
+    { value: "overview", label: "Overview", component: OverviewSection },
+    { value: "students", label: "Students", component: StudentManagement },
+    { value: "user-roles", label: "User Roles", component: UserRoleManagement },
+    { value: "batches", label: "Batches", component: BatchManagement },
+    { value: "guided-paths", label: "Guided Paths", component: GuidedPathsManagement },
+    { value: "roadmaps", label: "Roadmaps", component: RoadmapManagement },
+    { value: "manual-topics", label: "Add Topics", component: ManualTopicEditor },
+    { value: "lessons", label: "Lesson Builder", component: LessonContentBuilder },
+    { value: "zones", label: "Zones", component: ZoneManagementNew },
+    { value: "schools", label: "Schools", component: SchoolManagement },
+    { value: "zone-analytics", label: "Zone Analytics", component: ZoneSchoolAnalytics },
+    { value: "tests", label: "Tests", component: TestManagement },
+    { value: "fees", label: "Fees", component: FeesManagement },
+    { value: "pricing", label: "Pricing", component: PricingManagement },
+    { value: "promo-codes", label: "Promo Codes", component: PromoCodeManagement },
+    { value: "referrals", label: "Referrals", component: ReferralManagement },
+    { value: "subscriptions", label: "Subscriptions", component: SubscriptionManagement },
+    { value: "withdrawals", label: "Withdrawals", component: WithdrawalManagement },
+    { value: "analytics", label: "Analytics", component: AnalyticsReports },
+    { value: "leaderboard", label: "Leaderboard", component: LeaderboardManagement },
+    { value: "exam-types", label: "Exam Types", component: ExamTypesManagement },
+    { value: "parents", label: "Parents", component: ParentManagement },
+    { value: "settings", label: "Settings", component: AdminSettings },
+    { value: "ai-assistant", label: "AI Assistant", component: AdminAIChat },
   ];
 
+  const activeTabItem = tabItems.find(item => item.value === activeTab);
+
+  const ActiveComponent = activeTabItem?.component || OverviewSection;
+
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage your learning management system</p>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-12 lg:grid-cols-13 mb-6 bg-card border border-border overflow-x-auto">
-            {tabItems.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="flex items-center gap-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          {tabItems.map((tab) => {
-            const Component = tab.component;
-            return (
-              <TabsContent key={tab.value} value={tab.value} className="space-y-6">
-                <Component />
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+    <SidebarProvider defaultOpen>
+      <div className="flex min-h-screen w-full bg-background">
+        <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        <main className="flex-1 flex flex-col">
+          {/* Top Header Bar */}
+          <header className="h-16 border-b border-border bg-card flex items-center px-6 sticky top-0 z-40 backdrop-blur-sm bg-card/80">
+            <SidebarTrigger className="mr-4" />
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-foreground">
+                {activeTabItem?.label || "Admin Dashboard"}
+              </h1>
+            </div>
+          </header>
+          
+          {/* Main Content Area */}
+          <div className="flex-1 p-6 overflow-auto">
+            <ActiveComponent />
+          </div>
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 

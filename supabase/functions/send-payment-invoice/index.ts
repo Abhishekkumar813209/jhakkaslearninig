@@ -182,22 +182,24 @@ serve(async (req) => {
     console.log('[send-payment-invoice] Request received');
     console.log('[send-payment-invoice] Student email:', invoiceData.studentEmail);
     console.log('[send-payment-invoice] Order ID:', invoiceData.orderId);
-    
+
     // Check if RESEND_API_KEY is configured
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
       console.error('[send-payment-invoice] RESEND_API_KEY not configured!');
-      throw new Error('Email service not configured - RESEND_API_KEY missing');
+      throw new Error('Email service not configured');
     }
-    
+
     // Validate email address
     if (!invoiceData.studentEmail || !invoiceData.studentEmail.includes('@')) {
       console.error('[send-payment-invoice] Invalid email:', invoiceData.studentEmail);
       throw new Error('Invalid recipient email address');
     }
 
+    console.log('[send-payment-invoice] Generating invoice HTML...');
     const htmlContent = generateInvoiceHTML(invoiceData);
 
+    console.log('[send-payment-invoice] Sending email via Resend...');
     const emailResult = await resend.emails.send({
       from: "Learning Platform <onboarding@resend.dev>",
       to: [invoiceData.studentEmail],
@@ -206,7 +208,7 @@ serve(async (req) => {
     });
 
     if (emailResult.error) {
-      console.error('[send-payment-invoice] Resend error:', emailResult.error);
+      console.error('[send-payment-invoice] Resend error:', JSON.stringify(emailResult.error));
       return new Response(
         JSON.stringify({ error: "Failed to send invoice email", details: emailResult.error }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

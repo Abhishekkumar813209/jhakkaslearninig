@@ -10,6 +10,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper to sanitize text for PDF (WinAnsi encoding only supports ASCII)
+function sanitizeForPdf(text: string): string {
+  return text
+    .replace(/₹/g, 'Rs. ')
+    .replace(/✓/g, '- ')
+    .replace(/✔/g, '- ')
+    .replace(/•/g, '- ')
+    .replace(/"/g, '"')
+    .replace(/"/g, '"')
+    .replace(/'/g, "'")
+    .replace(/'/g, "'")
+    .replace(/–/g, '-')
+    .replace(/—/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[^\x20-\x7E]/g, ''); // Strip any remaining non-ASCII
+}
+
 interface InvoiceData {
   studentName: string;
   studentEmail: string;
@@ -119,7 +136,7 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
   
   // Line items
   page.drawText('Monthly Premium Access', { x: 50, y: yPos, size: 10, font: font });
-  page.drawText(data.planName, { x: 50, y: yPos - 12, size: 8, font: font, color: rgb(0.6, 0.6, 0.6) });
+  page.drawText(sanitizeForPdf(data.planName), { x: 50, y: yPos - 12, size: 8, font: font, color: rgb(0.6, 0.6, 0.6) });
   page.drawText(`Rs. ${(data.basePrice || data.originalAmount).toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font });
   
   yPos -= 30;
@@ -134,14 +151,14 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
   
   // Friend referral discount
   if (data.friendDiscount && data.friendDiscount > 0) {
-    page.drawText(`Friend Referral Discount (${data.friendReferralCode || ''})`, { x: 50, y: yPos, size: 10, font: font });
+    page.drawText(sanitizeForPdf(`Friend Referral Discount (${data.friendReferralCode || ''})`), { x: 50, y: yPos, size: 10, font: font });
     page.drawText(`-Rs. ${data.friendDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
     yPos -= 25;
   }
   
   // Promo code discount
   if (data.promoDiscount && data.promoDiscount > 0) {
-    page.drawText(`Promo Code Discount (${data.promoCode || ''})`, { x: 50, y: yPos, size: 10, font: font });
+    page.drawText(sanitizeForPdf(`Promo Code Discount (${data.promoCode || ''})`), { x: 50, y: yPos, size: 10, font: font });
     page.drawText(`-Rs. ${data.promoDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
     yPos -= 25;
   }
@@ -178,9 +195,9 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
     color: rgb(0.94, 0.99, 0.96),
   });
   
-  page.drawText('✓ Payment Successful', { x: 50, y: yPos - 18, size: 11, font: boldFont, color: rgb(0.06, 0.72, 0.51) });
-  page.drawText(`Payment ID: ${data.paymentId}`, { x: 50, y: yPos - 32, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
-  page.drawText(`Order ID: ${data.orderId}`, { x: 50, y: yPos - 43, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText('- Payment Successful', { x: 50, y: yPos - 18, size: 11, font: boldFont, color: rgb(0.06, 0.72, 0.51) });
+  page.drawText(sanitizeForPdf(`Payment ID: ${data.paymentId}`), { x: 50, y: yPos - 32, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(sanitizeForPdf(`Order ID: ${data.orderId}`), { x: 50, y: yPos - 43, size: 8, font: font, color: rgb(0.4, 0.4, 0.4) });
   
   yPos -= 80;
   
@@ -194,10 +211,10 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
   });
   
   page.drawText('SUBSCRIPTION DETAILS', { x: 50, y: yPos - 20, size: 12, font: boldFont, color: rgb(1, 1, 1) });
-  page.drawText('✓ Full Access to Test Series', { x: 50, y: yPos - 40, size: 9, font: font, color: rgb(1, 1, 1) });
-  page.drawText('✓ Unlimited Practice Questions', { x: 50, y: yPos - 55, size: 9, font: font, color: rgb(1, 1, 1) });
-  page.drawText('✓ Detailed Performance Analytics', { x: 50, y: yPos - 70, size: 9, font: font, color: rgb(1, 1, 1) });
-  page.drawText('✓ Learning Path Guidance', { x: 50, y: yPos - 85, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('- Full Access to Test Series', { x: 50, y: yPos - 40, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('- Unlimited Practice Questions', { x: 50, y: yPos - 55, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('- Detailed Performance Analytics', { x: 50, y: yPos - 70, size: 9, font: font, color: rgb(1, 1, 1) });
+  page.drawText('- Learning Path Guidance', { x: 50, y: yPos - 85, size: 9, font: font, color: rgb(1, 1, 1) });
   
   // Validity dates
   page.drawText('VALID FROM', { x: 50, y: yPos - 100, size: 8, font: font, color: rgb(0.9, 0.9, 0.9) });
@@ -405,22 +422,33 @@ serve(async (req) => {
     console.log('[send-payment-invoice] Generating invoice HTML...');
     const htmlContent = generateInvoiceHTML(invoiceData);
 
-    console.log('[send-payment-invoice] Generating PDF invoice...');
-    const pdfBytes = await generateInvoicePDF(invoiceData);
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    let pdfAttachment = null;
+    let pdfGenerationFailed = false;
+    
+    // Try to generate PDF with fallback
+    try {
+      console.log('[send-payment-invoice] Generating PDF invoice...');
+      const pdfBytes = await generateInvoicePDF(invoiceData);
+      const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+      
+      pdfAttachment = {
+        filename: `Invoice-${invoiceData.orderId}.pdf`,
+        content: pdfBase64,
+      };
+      console.log('[send-payment-invoice] PDF generated successfully');
+    } catch (pdfError: any) {
+      console.error('[send-payment-invoice] PDF generation failed:', pdfError.message);
+      console.warn('[send-payment-invoice] Continuing with HTML-only email');
+      pdfGenerationFailed = true;
+    }
 
-    console.log('[send-payment-invoice] Sending email via Resend with PDF attachment...');
+    console.log('[send-payment-invoice] Sending email via Resend' + (pdfAttachment ? ' with PDF attachment' : ' (HTML only)'));
     const emailResult = await resend.emails.send({
       from: "Jhakkas Learning <noreply@jhakkaslearning.com>",
       to: [invoiceData.studentEmail],
       subject: `Payment Invoice - ${invoiceData.orderId}`,
       html: htmlContent,
-      attachments: [
-        {
-          filename: `Invoice-${invoiceData.orderId}.pdf`,
-          content: pdfBase64,
-        }
-      ],
+      ...(pdfAttachment ? { attachments: [pdfAttachment] } : {}),
     });
 
     if (emailResult.error) {
@@ -437,7 +465,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: "Invoice sent successfully",
-        emailId: emailResult.data?.id 
+        emailId: emailResult.data?.id,
+        sentWithoutPdf: pdfGenerationFailed
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

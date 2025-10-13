@@ -304,27 +304,29 @@ serve(async (req) => {
 
       // 1. Deduct used credits from wallet
       if (creditsUsed > 0) {
-        await supabaseService
-          .from('referral_credits')
-          .update({
-            used_credits: supabaseService.sql`used_credits + ${creditsUsed}`
-          })
-          .eq('student_id', user.id);
+        const { error: creditsError } = await supabaseService.rpc('deduct_referral_credits', {
+          p_student_id: user.id,
+          p_amount: creditsUsed
+        });
+
+        if (creditsError) {
+          console.error('[Credits] Deduction failed:', creditsError);
+          throw new Error('Failed to deduct credits');
+        }
 
         console.log(`[Credits] Deducted ₹${creditsUsed} from user ${user.id}'s wallet`);
       }
 
       // 2. Award referrer bonus if friend code was used
       if (referrerId && friendDiscount > 0) {
-        await supabaseService
-          .from('referral_credits')
-          .upsert({
-            student_id: referrerId,
-            total_credits: supabaseService.sql`COALESCE(total_credits, 0) + ${referrerBonus}`,
-            last_earned_at: new Date().toISOString()
-          }, {
-            onConflict: 'student_id'
-          });
+        const { error: bonusError } = await supabaseService.rpc('add_referrer_bonus', {
+          p_referrer_id: referrerId,
+          p_bonus: referrerBonus
+        });
+
+        if (bonusError) {
+          console.error('[Referral] Bonus award failed:', bonusError);
+        }
 
         // Create referral record linking referred student to referrer
         const { data: existingReferral } = await supabaseService

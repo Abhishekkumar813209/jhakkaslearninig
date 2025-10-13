@@ -4024,6 +4024,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_referrer_bonus: {
+        Args: { p_bonus: number; p_referrer_id: string }
+        Returns: undefined
+      }
       calculate_student_zone: {
         Args: { p_student_id: string }
         Returns: string
@@ -4042,6 +4046,10 @@ export type Database = {
       }
       check_batch_capacity: {
         Args: { p_batch_id: string }
+        Returns: undefined
+      }
+      deduct_referral_credits: {
+        Args: { p_amount: number; p_student_id: string }
         Returns: undefined
       }
       generate_monthly_fees: {

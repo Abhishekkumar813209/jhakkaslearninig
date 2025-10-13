@@ -17,6 +17,7 @@ import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
 import { ReferralWallet } from '@/components/student/ReferralWallet';
+import { SubscriptionBatteryCard } from '@/components/student/SubscriptionBatteryCard';
 import { toBoardEnumValue, toBoardDisplayName } from '@/lib/boardMapping';
 
 const Profile = () => {
@@ -526,6 +527,8 @@ const Profile = () => {
 
           {isStudent && (
             <>
+              <SubscriptionBatteryCard userId={user?.id || ''} />
+              
               <Card>
                 <CardHeader>
                   <CardTitle>💰 Referral Wallet</CardTitle>

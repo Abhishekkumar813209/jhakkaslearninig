@@ -119,8 +119,8 @@ export const useReferrals = () => {
       if (error) throw error;
 
       toast({
-        title: 'Success',
-        description: 'Money will be transferred to your UPI within 24 hours.',
+        title: 'Withdrawal Request Submitted! 📝',
+        description: 'Your request is being reviewed. Money will be transferred within 24 hours.',
       });
 
       await fetchReferralData();

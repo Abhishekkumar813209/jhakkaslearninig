@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create withdrawal record and mark as completed immediately (instant withdrawal)
+    // Create withdrawal record with pending status (requires admin approval)
     const { data: withdrawal, error: withdrawalError } = await supabaseClient
       .from('withdrawal_history')
       .insert({
@@ -71,9 +71,8 @@ Deno.serve(async (req) => {
         amount,
         upi_id: upiId,
         withdrawal_method: 'upi',
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        auto_approved: true
+        status: 'pending',
+        auto_approved: false
       })
       .select()
       .single();
@@ -92,27 +91,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Complete withdrawal - deduct credits immediately
-    const { error: deductError } = await supabaseClient.rpc('complete_withdrawal', {
-      p_student_id: user.id,
-      p_amount: amount
-    });
-
-    if (deductError) {
-      console.error('Error deducting credits:', deductError);
-      // Note: Withdrawal record exists but credits weren't deducted
-      // Admin should handle this manually
-      return new Response(JSON.stringify({ error: 'Withdrawal created but credits not deducted. Contact support.' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`[Instant Withdrawal] ₹${amount} withdrawn by user ${user.id} to ${upiId}`);
+    console.log(`[Withdrawal Requested] ₹${amount} requested by user ${user.id} to ${upiId} - Pending admin approval`);
 
     return new Response(
       JSON.stringify({ 
-        message: 'Withdrawal completed successfully! Money will be transferred to your UPI within 24 hours.',
+        message: 'Your withdrawal request has been submitted! We will review and process it within 24 hours.',
         withdrawal 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

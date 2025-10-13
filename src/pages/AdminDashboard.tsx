@@ -47,6 +47,7 @@ import ParentManagement from "@/components/admin/ParentManagement";
 import PricingManagement from "@/components/admin/PricingManagement";
 import PromoCodeManagement from "@/components/admin/PromoCodeManagement";
 import ReferralManagement from "@/components/admin/ReferralManagement";
+import { WithdrawalManagement } from "@/components/admin/WithdrawalManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -160,6 +161,12 @@ const AdminDashboard = () => {
       label: "Referrals",
       icon: Users2,
       component: ReferralManagement
+    },
+    {
+      value: "withdrawals",
+      label: "Withdrawals",
+      icon: DollarSign,
+      component: WithdrawalManagement
     },
     {
       value: "analytics",

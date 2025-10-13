@@ -28,7 +28,14 @@ Deno.serve(async (req) => {
     const { amount, upiId } = await req.json();
 
     if (!amount || amount <= 0) {
-      return new Response(JSON.stringify({ error: 'Invalid amount' }), {
+      return new Response(JSON.stringify({ error: 'Please enter a valid amount (minimum ₹25)' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (amount < 25) {
+      return new Response(JSON.stringify({ error: 'Minimum withdrawal amount is ₹25' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -50,7 +57,7 @@ Deno.serve(async (req) => {
 
     if (lockError || !lockSuccess) {
       console.error('Error locking credits:', lockError);
-      return new Response(JSON.stringify({ error: 'Insufficient credits or unable to lock' }), {
+      return new Response(JSON.stringify({ error: 'Insufficient credits. You need at least ₹25 to withdraw.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

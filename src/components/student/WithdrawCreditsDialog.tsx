@@ -58,7 +58,7 @@ export const WithdrawCreditsDialog = ({ open, onOpenChange, availableCredits }: 
               required
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Minimum: ₹25, Maximum: ₹{availableCredits.toFixed(2)}
+              Minimum: ₹25, Available: ₹{availableCredits.toFixed(2)}
             </p>
           </div>
 

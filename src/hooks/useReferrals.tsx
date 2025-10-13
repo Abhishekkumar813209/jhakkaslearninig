@@ -111,7 +111,7 @@ export const useReferrals = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       
-      const { error } = await supabase.functions.invoke('request-withdrawal', {
+      const { data, error } = await supabase.functions.invoke('request-withdrawal', {
         body: { amount, upiId },
         headers
       });
@@ -120,15 +120,20 @@ export const useReferrals = () => {
 
       toast({
         title: 'Success',
-        description: 'Withdrawal request submitted. Admin will review it soon.',
+        description: 'Money will be transferred to your UPI within 24 hours.',
       });
 
       await fetchReferralData();
       return true;
     } catch (error: any) {
+      console.error('Withdrawal error:', error);
+      
+      // Extract actual error message from edge function response
+      const errorMessage = error?.context?.error || error?.message || 'Failed to request withdrawal';
+      
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to request withdrawal',
+        title: 'Withdrawal Failed',
+        description: errorMessage,
         variant: 'destructive',
       });
       return false;

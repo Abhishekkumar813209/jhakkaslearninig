@@ -36,10 +36,18 @@ serve(async (req: Request) => {
 
     if (authError) {
       console.error('❌ User creation failed:', authError.message)
-      const status = authError.message.includes('already been registered') ? 409 : 400
+      
+      // Check if email already exists
+      if (authError.message.includes('already been registered') || authError.message.includes('User already registered')) {
+        return new Response(
+          JSON.stringify({ error: 'Email already exists. Please login instead.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       return new Response(
         JSON.stringify({ error: authError.message }),
-        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 

@@ -121,10 +121,18 @@ const Login = () => {
         }
       } catch (error: any) {
         console.error('Login failed:', error);
+        const errorMessage = error?.message || 'Unable to sign you in. Please check your credentials and try again.';
+        const isPasswordError = errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials');
+        
         toast({
           variant: 'destructive',
           title: 'Login Failed',
-          description: error?.message || 'Unable to sign you in. Please check your credentials and try again.',
+          description: errorMessage,
+          action: isPasswordError ? (
+            <Button variant="outline" size="sm" onClick={() => setForgotPassword(true)}>
+              Forgot Password?
+            </Button>
+          ) : undefined
         });
       }
     }
@@ -241,10 +249,18 @@ const Login = () => {
         window.location.replace('/');
       }
     } catch (error: any) {
+      const errorMessage = error?.message || 'Invalid phone number or password.';
+      const isPasswordError = errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials');
+      
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error?.message || 'Invalid phone number or password.',
+        description: errorMessage,
+        action: isPasswordError ? (
+          <Button variant="outline" size="sm" onClick={() => setForgotPassword(true)}>
+            Forgot Password?
+          </Button>
+        ) : undefined
       });
     }
 

@@ -32,6 +32,14 @@ serve(async (req: Request) => {
     })
 
     if (error) {
+      // Check if it's an invalid credentials error
+      if (error.message.includes('Invalid login credentials') || error.message.includes('Email not confirmed')) {
+        return new Response(
+          JSON.stringify({ error: 'Incorrect email or password. Please try again or click "Forgot Password" to reset.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       return new Response(
         JSON.stringify({ error: error.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

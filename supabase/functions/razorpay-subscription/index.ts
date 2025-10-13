@@ -413,7 +413,7 @@ serve(async (req) => {
         student_id: user.id,
         subscription_type: 'premium',
         status: 'active',
-        amount: basePrice,
+        amount: finalAmount, // ✅ Store actual amount paid after discounts
         payment_id: paymentId,
         razorpay_order_id: orderId,
         payment_method: 'razorpay',
@@ -433,9 +433,11 @@ serve(async (req) => {
 
       console.log('[Subscription] Creating with columns:', Object.keys(subscriptionPayload));
       
-      const { error: subscriptionError } = await supabaseService
+      const { data: subscriptionData, error: subscriptionError } = await supabaseService
         .from('test_subscriptions')
-        .insert(subscriptionPayload);
+        .insert(subscriptionPayload)
+        .select()
+        .single();
 
       if (subscriptionError) {
         console.error('[razorpay-subscription] Subscription creation failed:', subscriptionError);
@@ -443,6 +445,27 @@ serve(async (req) => {
       }
 
       console.log('[razorpay-subscription] Subscription activated successfully for user:', user.id);
+
+      // 5.1 Insert payment record with actual amount paid
+      const { error: paymentError } = await supabaseService
+        .from('payments')
+        .insert({
+          student_id: user.id,
+          subscription_id: subscriptionData.id,
+          razorpay_order_id: orderId,
+          razorpay_payment_id: paymentId,
+          amount: finalAmount, // ✅ Actual discounted amount user paid
+          currency: 'INR',
+          status: 'captured',
+          payment_method: 'razorpay',
+        });
+
+      if (paymentError) {
+        console.error('[Payment Record] Failed to insert:', paymentError);
+        // Non-critical error, continue execution
+      } else {
+        console.log('[Payment Record] Created successfully with amount:', finalAmount);
+      }
 
       // 6. Send invoice email
       const { data: profile } = await supabaseService

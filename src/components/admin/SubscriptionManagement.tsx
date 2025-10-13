@@ -26,6 +26,7 @@ import {
   Download, 
   Eye,
   TrendingUp,
+  TrendingDown,
   Users,
   DollarSign,
   Calendar,
@@ -56,6 +57,9 @@ interface SummaryStats {
   activeSubscriptions: number;
   expiredSubscriptions: number;
   freeUsers: number;
+  baseRevenue?: number;
+  totalDiscounts?: number;
+  discountPercentage?: string;
 }
 
 const SubscriptionManagement = () => {
@@ -183,12 +187,20 @@ const SubscriptionManagement = () => {
     const expired = data.filter(s => s.current_status === 'expired').length;
     const free = data.filter(s => s.subscription_type === 'free').length;
 
+    // Calculate base revenue (if we charged base price to all premium users)
+    const baseRevenue = paidUsers * 999; // Assuming base price is ₹999
+    const totalDiscounts = baseRevenue - totalRevenue;
+    const discountPercentage = baseRevenue > 0 ? ((totalDiscounts / baseRevenue) * 100).toFixed(1) : '0';
+
     setStats({
       totalPaidUsers: paidUsers,
       totalRevenue,
       activeSubscriptions: active,
       expiredSubscriptions: expired,
       freeUsers: free,
+      baseRevenue,
+      totalDiscounts,
+      discountPercentage,
     });
   };
 
@@ -308,6 +320,9 @@ const SubscriptionManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₹{stats.totalRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Actual collected
+            </p>
           </CardContent>
         </Card>
 
@@ -338,6 +353,56 @@ const SubscriptionManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.freeUsers}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Revenue Breakdown */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Base Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              ₹{stats.baseRevenue?.toLocaleString() || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              If charged base price
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Discounts Given</CardTitle>
+            <TrendingDown className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              ₹{stats.totalDiscounts?.toLocaleString() || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {stats.discountPercentage || 0}% avg discount
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Collection Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {stats.baseRevenue && stats.baseRevenue > 0
+                ? ((stats.totalRevenue / stats.baseRevenue) * 100).toFixed(1)
+                : 0}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Of base price collected
+            </p>
           </CardContent>
         </Card>
       </div>

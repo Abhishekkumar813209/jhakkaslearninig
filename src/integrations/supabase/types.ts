@@ -3918,6 +3918,7 @@ export type Database = {
           admin_approved_by: string | null
           admin_notes: string | null
           amount: number
+          auto_approved: boolean | null
           completed_at: string | null
           failure_reason: string | null
           id: string
@@ -3931,6 +3932,7 @@ export type Database = {
           admin_approved_by?: string | null
           admin_notes?: string | null
           amount: number
+          auto_approved?: boolean | null
           completed_at?: string | null
           failure_reason?: string | null
           id?: string
@@ -3944,6 +3946,7 @@ export type Database = {
           admin_approved_by?: string | null
           admin_notes?: string | null
           amount?: number
+          auto_approved?: boolean | null
           completed_at?: string | null
           failure_reason?: string | null
           id?: string
@@ -4048,6 +4051,10 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: undefined
       }
+      complete_withdrawal: {
+        Args: { p_amount: number; p_student_id: string }
+        Returns: undefined
+      }
       deduct_referral_credits: {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined
@@ -4132,6 +4139,10 @@ export type Database = {
         Args: { code: string }
         Returns: undefined
       }
+      lock_credits_for_withdrawal: {
+        Args: { p_amount: number; p_student_id: string }
+        Returns: boolean
+      }
       refill_hearts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -4148,6 +4159,10 @@ export type Database = {
           id: string
           phone_number: string
         }[]
+      }
+      unlock_credits_for_withdrawal: {
+        Args: { p_amount: number; p_student_id: string }
+        Returns: undefined
       }
       update_battery_level: {
         Args: Record<PropertyKey, never>

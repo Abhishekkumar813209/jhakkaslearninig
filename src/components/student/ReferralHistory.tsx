@@ -24,6 +24,24 @@ export const ReferralHistory = () => {
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'paid':
+      case 'completed':
+        return '✅';
+      case 'joined':
+      case 'processing':
+        return '🔄';
+      case 'pending':
+        return '⏳';
+      case 'failed':
+      case 'cancelled':
+        return '❌';
+      default:
+        return '•';
+    }
+  };
+
   const allTransactions = [
     ...referrals.map(r => ({
       id: r.id,
@@ -89,11 +107,11 @@ export const ReferralHistory = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <p className={`text-sm font-bold ${transaction.amount > 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                <p className={`text-sm font-bold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {transaction.amount > 0 ? '+' : ''}₹{Math.abs(transaction.amount).toFixed(2)}
                 </p>
                 <Badge variant="outline" className={`${getStatusColor(transaction.status)} text-white text-xs`}>
-                  {transaction.status}
+                  {getStatusIcon(transaction.status)} {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
                 </Badge>
               </div>
             </div>

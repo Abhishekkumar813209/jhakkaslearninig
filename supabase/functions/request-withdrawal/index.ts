@@ -41,37 +41,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check available credits
-    const { data: credits } = await supabaseClient
-      .from('referral_credits')
-      .select('available_credits')
-      .eq('student_id', user.id)
-      .maybeSingle();
+    // Step 1: Lock credits using RPC function
+    const { data: lockSuccess, error: lockError } = await supabaseClient
+      .rpc('lock_credits_for_withdrawal', {
+        p_student_id: user.id,
+        p_amount: amount
+      });
 
-    if (!credits || credits.available_credits < amount) {
-      return new Response(JSON.stringify({ error: 'Insufficient credits' }), {
+    if (lockError || !lockSuccess) {
+      console.error('Error locking credits:', lockError);
+      return new Response(JSON.stringify({ error: 'Insufficient credits or failed to lock' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Lock the credits
-    const { error: lockError } = await supabaseClient
-      .from('referral_credits')
-      .update({
-        locked_for_withdrawal: supabaseClient.sql`locked_for_withdrawal + ${amount}`
-      })
-      .eq('student_id', user.id);
-
-    if (lockError) {
-      console.error('Error locking credits:', lockError);
-      return new Response(JSON.stringify({ error: 'Failed to lock credits' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Create withdrawal request
+    // Step 2: Create withdrawal record as completed (instant withdrawal)
     const { data: withdrawal, error: withdrawalError } = await supabaseClient
       .from('withdrawal_history')
       .insert({
@@ -79,32 +64,50 @@ Deno.serve(async (req) => {
         amount,
         upi_id: upiId,
         withdrawal_method: 'upi',
-        status: 'pending'
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        auto_approved: true
       })
       .select()
       .single();
 
     if (withdrawalError) {
-      console.error('Error creating withdrawal request:', withdrawalError);
-      // Unlock credits if withdrawal creation failed
-      await supabaseClient
-        .from('referral_credits')
-        .update({
-          locked_for_withdrawal: supabaseClient.sql`locked_for_withdrawal - ${amount}`
-        })
-        .eq('student_id', user.id);
-
-      return new Response(JSON.stringify({ error: withdrawalError.message }), {
+      console.error('Error creating withdrawal:', withdrawalError);
+      // Rollback - unlock credits
+      await supabaseClient.rpc('unlock_credits_for_withdrawal', {
+        p_student_id: user.id,
+        p_amount: amount
+      });
+      
+      return new Response(JSON.stringify({ error: 'Failed to create withdrawal' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[Withdrawal Request] User ${user.id} requested ₹${amount} to ${upiId}`);
+    // Step 3: Complete withdrawal - deduct credits
+    const { error: deductError } = await supabaseClient.rpc('complete_withdrawal', {
+      p_student_id: user.id,
+      p_amount: amount
+    });
+
+    if (deductError) {
+      console.error('Error deducting credits:', deductError);
+      // Note: Withdrawal record already created, admin will need to handle manually
+      return new Response(JSON.stringify({ 
+        error: 'Withdrawal created but credits not deducted. Contact support.',
+        withdrawal 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`[Instant Withdrawal] ₹${amount} withdrawn by ${user.id} to ${upiId}`);
 
     return new Response(
       JSON.stringify({ 
-        message: 'Withdrawal request submitted successfully',
+        message: 'Withdrawal completed! Money will be transferred to your UPI within 24 hours.',
         withdrawal 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

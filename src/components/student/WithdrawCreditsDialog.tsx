@@ -77,9 +77,9 @@ export const WithdrawCreditsDialog = ({ open, onOpenChange, availableCredits }: 
             </p>
           </div>
 
-          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-            <p className="text-xs text-yellow-800">
-              ⚠️ Your withdrawal request will be reviewed by admin. Credits will be locked until approval.
+          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+            <p className="text-xs text-green-800">
+              ✅ Money will be transferred to your UPI within 24 hours
             </p>
           </div>
 

@@ -44,10 +44,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { withdrawalId, action, notes } = await req.json();
+    const { withdrawalId, action, notes, paymentReference } = await req.json();
 
     if (!withdrawalId || !['approve', 'reject'].includes(action)) {
       return new Response(JSON.stringify({ error: 'Invalid request' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // For approval, payment reference is mandatory
+    if (action === 'approve' && (!paymentReference || paymentReference.trim() === '')) {
+      return new Response(JSON.stringify({ error: 'Payment reference is required for approval' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -68,34 +76,55 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'approve') {
-      // Update withdrawal status
-      await supabaseService
+      // Update withdrawal status (trigger will enforce payment_reference requirement)
+      const { error: updateError } = await supabaseService
         .from('withdrawal_history')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
           admin_approved_by: user.id,
-          admin_notes: notes
+          admin_notes: notes,
+          payment_reference: paymentReference.trim()
         })
         .eq('id', withdrawalId);
 
-      // Deduct from locked and move to used
-      await supabaseService
-        .from('referral_credits')
-        .update({
-          locked_for_withdrawal: supabaseService.sql`locked_for_withdrawal - ${withdrawal.amount}`,
-          used_credits: supabaseService.sql`used_credits + ${withdrawal.amount}`
-        })
-        .eq('student_id', withdrawal.student_id);
+      if (updateError) {
+        console.error('Error updating withdrawal:', updateError);
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-      console.log(`[Withdrawal Approved] ₹${withdrawal.amount} approved for user ${withdrawal.student_id}`);
+      // Use RPC function to complete withdrawal (atomic operation)
+      const { error: completeError } = await supabaseService
+        .rpc('complete_withdrawal', {
+          p_student_id: withdrawal.student_id,
+          p_amount: withdrawal.amount
+        });
+
+      if (completeError) {
+        console.error('Error completing withdrawal:', completeError);
+        // Rollback withdrawal status
+        await supabaseService
+          .from('withdrawal_history')
+          .update({ status: 'pending', completed_at: null, admin_approved_by: null, payment_reference: null })
+          .eq('id', withdrawalId);
+        
+        return new Response(JSON.stringify({ error: 'Failed to complete withdrawal: ' + completeError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log(`[Withdrawal Approved] ₹${withdrawal.amount} approved for user ${withdrawal.student_id}, ref: ${paymentReference}`);
 
       return new Response(
-        JSON.stringify({ message: 'Withdrawal approved successfully' }),
+        JSON.stringify({ message: 'Withdrawal approved and payment recorded successfully' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      // Reject - unlock credits
+      // Reject - update status
       await supabaseService
         .from('withdrawal_history')
         .update({
@@ -106,18 +135,21 @@ Deno.serve(async (req) => {
         })
         .eq('id', withdrawalId);
 
-      // Unlock credits
-      await supabaseService
-        .from('referral_credits')
-        .update({
-          locked_for_withdrawal: supabaseService.sql`locked_for_withdrawal - ${withdrawal.amount}`
-        })
-        .eq('student_id', withdrawal.student_id);
+      // Use RPC function to unlock credits (atomic operation)
+      const { error: unlockError } = await supabaseService
+        .rpc('unlock_credits_for_withdrawal', {
+          p_student_id: withdrawal.student_id,
+          p_amount: withdrawal.amount
+        });
 
-      console.log(`[Withdrawal Rejected] ₹${withdrawal.amount} rejected for user ${withdrawal.student_id}`);
+      if (unlockError) {
+        console.error('Error unlocking credits:', unlockError);
+      }
+
+      console.log(`[Withdrawal Rejected] ₹${withdrawal.amount} rejected for user ${withdrawal.student_id}, reason: ${notes || 'No reason provided'}`);
 
       return new Response(
-        JSON.stringify({ message: 'Withdrawal rejected' }),
+        JSON.stringify({ message: 'Withdrawal rejected and credits unlocked' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

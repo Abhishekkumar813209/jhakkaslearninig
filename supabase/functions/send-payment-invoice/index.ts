@@ -162,7 +162,7 @@ function generateInvoiceHTML(data: InvoiceData): string {
 
     <div class="footer">
       <p><strong>Thank you for your subscription!</strong></p>
-      <p>For support, contact us at support@example.com</p>
+      <p>For support, contact us at support@jhakkaslearning.com</p>
       <p style="margin-top: 15px; font-size: 11px; color: #999;">This is an auto-generated invoice. No signature required.</p>
     </div>
   </div>
@@ -201,7 +201,7 @@ serve(async (req) => {
 
     console.log('[send-payment-invoice] Sending email via Resend...');
     const emailResult = await resend.emails.send({
-      from: "Learning Platform <onboarding@resend.dev>",
+      from: "Jhakkas Learning <noreply@jhakkaslearning.com>",
       to: [invoiceData.studentEmail],
       subject: `Payment Invoice - ${invoiceData.orderId}`,
       html: htmlContent,

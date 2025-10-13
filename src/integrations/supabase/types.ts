@@ -580,6 +580,44 @@ export type Database = {
         }
         Relationships: []
       }
+      discount_usage_log: {
+        Row: {
+          code_used: string | null
+          created_at: string | null
+          discount_amount: number
+          discount_type: string
+          id: string
+          student_id: string
+          subscription_id: string | null
+        }
+        Insert: {
+          code_used?: string | null
+          created_at?: string | null
+          discount_amount: number
+          discount_type: string
+          id?: string
+          student_id: string
+          subscription_id?: string | null
+        }
+        Update: {
+          code_used?: string | null
+          created_at?: string | null
+          discount_amount?: number
+          discount_type?: string
+          id?: string
+          student_id?: string
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_usage_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "test_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           created_at: string | null
@@ -1555,6 +1593,48 @@ export type Database = {
           },
         ]
       }
+      pricing_config: {
+        Row: {
+          base_price: number
+          created_at: string | null
+          created_by: string | null
+          discount_percentage: number | null
+          display_price: number
+          id: string
+          is_active: boolean | null
+          plan_name: string
+          updated_at: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string | null
+          created_by?: string | null
+          discount_percentage?: number | null
+          display_price?: number
+          id?: string
+          is_active?: boolean | null
+          plan_name?: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          base_price?: number
+          created_at?: string | null
+          created_by?: string | null
+          discount_percentage?: number | null
+          display_price?: number
+          id?: string
+          is_active?: boolean | null
+          plan_name?: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       profile_audit_log: {
         Row: {
           action: string
@@ -1686,6 +1766,57 @@ export type Database = {
           },
         ]
       }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          created_by: string | null
+          current_uses: number | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_purchase_amount: number | null
+          updated_at: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          current_uses?: number | null
+          description?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_purchase_amount?: number | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          current_uses?: number | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_purchase_amount?: number | null
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       questions: {
         Row: {
           allow_multiple_correct: boolean | null
@@ -1756,6 +1887,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      referral_config: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          min_purchase_for_bonus: number | null
+          referrer_bonus: number
+          student_discount: number
+          updated_at: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          min_purchase_for_bonus?: number | null
+          referrer_bonus?: number
+          student_discount?: number
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          min_purchase_for_bonus?: number | null
+          referrer_bonus?: number
+          student_discount?: number
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
       }
       referral_credits: {
         Row: {
@@ -3311,16 +3481,23 @@ export type Database = {
       test_subscriptions: {
         Row: {
           amount: number | null
+          base_price: number | null
           created_at: string
+          credits_discount_applied: number | null
           currency: string | null
           end_date: string | null
+          final_amount_paid: number | null
           free_test_used: boolean | null
+          friend_discount_applied: number | null
+          friend_referral_code: string | null
           id: string
           includes_roadmap: boolean | null
           paid_amount: number | null
           payment_id: string | null
           payment_method: string | null
           payment_status: string | null
+          promo_code_used: string | null
+          promo_discount_applied: number | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           razorpay_signature: string | null
@@ -3334,16 +3511,23 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          base_price?: number | null
           created_at?: string
+          credits_discount_applied?: number | null
           currency?: string | null
           end_date?: string | null
+          final_amount_paid?: number | null
           free_test_used?: boolean | null
+          friend_discount_applied?: number | null
+          friend_referral_code?: string | null
           id?: string
           includes_roadmap?: boolean | null
           paid_amount?: number | null
           payment_id?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          promo_code_used?: string | null
+          promo_discount_applied?: number | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
@@ -3357,16 +3541,23 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          base_price?: number | null
           created_at?: string
+          credits_discount_applied?: number | null
           currency?: string | null
           end_date?: string | null
+          final_amount_paid?: number | null
           free_test_used?: boolean | null
+          friend_discount_applied?: number | null
+          friend_referral_code?: string | null
           id?: string
           includes_roadmap?: boolean | null
           paid_amount?: number | null
           payment_id?: string | null
           payment_method?: string | null
           payment_status?: string | null
+          promo_code_used?: string | null
+          promo_discount_applied?: number | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
@@ -3928,6 +4119,10 @@ export type Database = {
       has_used_free_test: {
         Args: { student_id_param: string }
         Returns: boolean
+      }
+      increment_promo_usage: {
+        Args: { code: string }
+        Returns: undefined
       }
       refill_hearts: {
         Args: Record<PropertyKey, never>

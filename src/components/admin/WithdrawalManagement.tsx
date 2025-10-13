@@ -44,7 +44,37 @@ export const WithdrawalManagement = () => {
 
   useEffect(() => {
     fetchWithdrawals();
-  }, []);
+
+    // Real-time subscription for new withdrawal requests
+    const channel = supabase
+      .channel('withdrawal_requests')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public', 
+          table: 'withdrawal_history' 
+        },
+        (payload) => {
+          console.log('🔔 Withdrawal request update:', payload);
+          fetchWithdrawals(); // Refresh list on any change
+          
+          // Show toast notification for new requests
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: '🔔 New Withdrawal Request',
+              description: `A student has requested to withdraw ₹${payload.new.amount}`,
+              duration: 5000,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [toast]);
 
   const fetchWithdrawals = async () => {
     try {

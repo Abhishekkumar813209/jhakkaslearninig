@@ -72,10 +72,12 @@ serve(async (req) => {
       const normalizedCode = code.toUpperCase().trim();
 
       // Use service role client to bypass RLS
+      // UNIQUE constraint on referral_code ensures max 1 row, use limit(1) for deterministic results
       const { data: referral } = await supabaseService
         .from('referrals')
         .select('referrer_id')
         .eq('referral_code', normalizedCode)
+        .limit(1)
         .maybeSingle();
 
       if (!referral) {

@@ -21,7 +21,8 @@ import {
   UserCog,
   Bot,
   Tag,
-  Users2
+  Users2,
+  CreditCard
 } from "lucide-react";
 
 // Import dashboard components
@@ -48,6 +49,7 @@ import PricingManagement from "@/components/admin/PricingManagement";
 import PromoCodeManagement from "@/components/admin/PromoCodeManagement";
 import ReferralManagement from "@/components/admin/ReferralManagement";
 import { WithdrawalManagement } from "@/components/admin/WithdrawalManagement";
+import SubscriptionManagement from "@/components/admin/SubscriptionManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -161,6 +163,12 @@ const AdminDashboard = () => {
       label: "Referrals",
       icon: Users2,
       component: ReferralManagement
+    },
+    {
+      value: "subscriptions",
+      label: "Subscriptions",
+      icon: CreditCard,
+      component: SubscriptionManagement
     },
     {
       value: "withdrawals",

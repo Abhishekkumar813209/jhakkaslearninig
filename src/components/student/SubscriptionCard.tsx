@@ -93,40 +93,61 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
     setValidatingFriend(true);
     try {
-      const { data: referral, error } = await supabase
-        .from('referrals')
-        .select('referrer_id')
-        .eq('referral_code', friendReferralCode.toUpperCase().trim())
-        .maybeSingle();
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Call edge function to validate code (bypasses RLS)
+      const response = await fetch(
+        `https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/validate-referral-code`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ code: friendReferralCode.trim() }),
+        }
+      );
 
-      if (error || !referral) {
-        toast({
-          title: "Invalid Referral Code",
-          description: "The friend referral code you entered is not valid.",
-          variant: "destructive"
-        });
+      const result = await response.json();
+
+      if (!result.valid) {
+        if (result.reason === 'self_code') {
+          toast({
+            title: "Cannot Use Own Code",
+            description: "You cannot use your own referral code.",
+            variant: "destructive"
+          });
+        } else if (result.reason === 'not_found') {
+          toast({
+            title: "Invalid Referral Code",
+            description: "The friend referral code you entered is not valid.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Validation Failed",
+            description: "Failed to validate referral code. Please try again.",
+            variant: "destructive"
+          });
+        }
         setFriendDiscount(0);
         return;
       }
 
-      if (referral.referrer_id === user?.id) {
-        toast({
-          title: "Cannot Use Own Code",
-          description: "You cannot use your own referral code.",
-          variant: "destructive"
-        });
-        setFriendDiscount(0);
-        return;
-      }
-
-      const discount = referralConfig?.student_discount || 25;
-      setFriendDiscount(discount);
+      // Code is valid
+      setFriendDiscount(result.discount);
       toast({
         title: "Referral Code Applied!",
-        description: `You get ₹${discount} OFF!`,
+        description: `You get ₹${result.discount} OFF!`,
       });
     } catch (error) {
       console.error('Friend code validation error:', error);
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate referral code. Please try again.",
+        variant: "destructive"
+      });
       setFriendDiscount(0);
     } finally {
       setValidatingFriend(false);

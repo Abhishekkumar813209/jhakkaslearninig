@@ -160,9 +160,13 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
               throw new Error(`Payment verification failed: ${verifyError.message || 'Unknown error'}`);
             }
 
+            const invoiceNote = verifyData?.invoiceEmailSent 
+              ? "Invoice has been sent to your email." 
+              : "Invoice will be sent shortly. Check your email in a few minutes.";
+
             toast({
               title: "Premium Access Activated! 🎉",
-              description: "Welcome to premium! You now have 30 days of unlimited access to tests and learning paths.",
+              description: `Welcome to premium! You now have 30 days of unlimited access. ${invoiceNote}`,
             });
 
             onSubscriptionSuccess();

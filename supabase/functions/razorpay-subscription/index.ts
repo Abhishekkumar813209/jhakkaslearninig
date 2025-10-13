@@ -276,26 +276,62 @@ serve(async (req) => {
         isTestMode: orderId.startsWith('order_test_') || paymentId.startsWith('pay_test_')
       };
 
-      // Send invoice email
+      // Send invoice email with better error handling
+      let invoiceEmailSent = false;
       try {
+        console.log('[Invoice] Attempting to send invoice to:', profile?.email || user.email);
+        
         const invoiceResponse = await supabaseService.functions.invoke('send-payment-invoice', {
           body: invoiceData
         });
         
         if (invoiceResponse.error) {
-          console.error('[Invoice] Failed to send:', invoiceResponse.error);
+          console.error('[Invoice] Failed to send:', JSON.stringify(invoiceResponse.error));
+          // Log failure to database
+          await supabaseService.from('email_logs').insert({
+            recipient: profile?.email || user.email,
+            type: 'payment_invoice',
+            status: 'failed',
+            error_message: invoiceResponse.error.message || 'Edge function error',
+            metadata: { orderId, paymentId, errorDetails: invoiceResponse.error }
+          });
         } else {
-          console.log('[Invoice] Sent successfully to:', profile?.email);
+          console.log('[Invoice] Sent successfully to:', profile?.email || user.email);
+          invoiceEmailSent = true;
+          // Log success to database
+          await supabaseService.from('email_logs').insert({
+            recipient: profile?.email || user.email,
+            type: 'payment_invoice',
+            status: 'sent',
+            metadata: { 
+              orderId, 
+              paymentId, 
+              emailId: invoiceResponse.data?.emailId,
+              studentId: user.id
+            }
+          });
         }
-      } catch (invoiceError) {
-        console.error('[Invoice] Error:', invoiceError);
+      } catch (invoiceError: any) {
+        console.error('[Invoice] Exception:', invoiceError);
+        // Log exception to database
+        await supabaseService.from('email_logs').insert({
+          recipient: profile?.email || user.email,
+          type: 'payment_invoice',
+          status: 'error',
+          error_message: invoiceError.message || 'Unknown error',
+          metadata: { orderId, paymentId, stack: invoiceError.stack }
+        });
       }
 
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'Monthly access activated successfully',
-          subscriptionType: 'premium'
+          subscriptionType: 'premium',
+          invoiceEmailSent: invoiceEmailSent,
+          invoiceNote: invoiceEmailSent 
+            ? 'Invoice has been sent to your email.' 
+            : 'Invoice will be sent to your email shortly. If not received, please contact support.'
         }),
         { 
           status: 200, 

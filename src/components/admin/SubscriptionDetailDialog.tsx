@@ -154,17 +154,70 @@ export const SubscriptionDetailDialog = ({
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </DialogContent>
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately revoke premium access for {profile?.full_name}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-2">
+            <Label htmlFor="cancel-reason">Reason (Optional)</Label>
+            <Textarea
+              id="cancel-reason"
+              placeholder="e.g., Disciplinary action, policy violation, student request..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="min-h-20"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={canceling}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSubscription}
+              disabled={canceling}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {canceling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Confirm Cancellation"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Dialog>
+  );
+}
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Student Subscription Details</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Student Subscription Details</DialogTitle>
+            {hasActiveSubscription && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setCancelDialogOpen(true)}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancel Subscription
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">

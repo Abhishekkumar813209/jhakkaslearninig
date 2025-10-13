@@ -72,6 +72,7 @@ const SubscriptionManagement = () => {
   });
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubscriptions();
@@ -80,9 +81,9 @@ const SubscriptionManagement = () => {
   const fetchSubscriptions = async () => {
     try {
       setLoading(true);
-
-      // Fetch all subscription data
-      const { data, error } = await supabase
+      setError(null);
+      
+      const { data: subscriptionsData, error: subError } = await supabase
         .from('test_subscriptions')
         .select(`
           id,
@@ -91,49 +92,61 @@ const SubscriptionManagement = () => {
           status,
           start_date,
           end_date,
-          amount,
-          payment_method,
           created_at,
-          profiles!inner(
+          profiles!test_subscriptions_student_id_fkey (
             full_name,
-            email
+            email,
+            phone_number
           ),
-          payments(
-            razorpay_order_id,
-            razorpay_payment_id
+          payments (
+            amount,
+            payment_method,
+            created_at
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (subError) {
+        console.error('Subscription fetch error:', subError);
+        setError(`Failed to load subscriptions: ${subError.message}`);
+        setLoading(false);
+        return;
+      }
 
-      // Transform the data
-      const transformedData: SubscriptionData[] = (data || []).map((item: any) => {
-        const isActive = item.end_date && new Date(item.end_date) > new Date();
-        const isFree = item.subscription_type === 'free';
-        
-        return {
-          student_id: item.student_id,
-          full_name: item.profiles?.full_name || 'N/A',
-          email: item.profiles?.email || 'N/A',
-          subscription_type: item.subscription_type,
-          subscription_status: item.status,
-          start_date: item.start_date,
-          end_date: item.end_date,
-          amount: item.amount || 0,
-          payment_method: item.payment_method,
-          subscribed_at: item.created_at,
-          razorpay_order_id: item.payments?.[0]?.razorpay_order_id || null,
-          razorpay_payment_id: item.payments?.[0]?.razorpay_payment_id || null,
-          current_status: isFree ? 'free' : (isActive ? 'active' : 'expired'),
-        };
-      });
+      if (!subscriptionsData || subscriptionsData.length === 0) {
+        setSubscriptions([]);
+        setSummary({
+          totalPaidUsers: 0,
+          totalRevenue: 0,
+          activeSubscriptions: 0,
+          expiredSubscriptions: 0,
+          freeUsers: 0,
+        });
+        setLoading(false);
+        return;
+      }
+
+      const transformedData: SubscriptionData[] = subscriptionsData.map((sub: any) => ({
+        student_id: sub.student_id,
+        full_name: sub.profiles?.full_name || 'N/A',
+        email: sub.profiles?.email || 'N/A',
+        phone_number: sub.profiles?.phone_number || 'N/A',
+        subscription_type: sub.subscription_type,
+        current_status: sub.status,
+        start_date: sub.start_date,
+        end_date: sub.end_date,
+        last_payment_amount: sub.payments?.[0]?.amount || 0,
+        payment_method: sub.payments?.[0]?.payment_method || 'N/A',
+      }));
 
       setSubscriptions(transformedData);
-      calculateStats(transformedData);
-    } catch (error: any) {
-      console.error('Error fetching subscriptions:', error);
-      toast.error('Failed to load subscriptions');
+      
+      const stats = calculateStats(transformedData);
+      setSummary(stats);
+      
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      setError('An unexpected error occurred while loading subscriptions');
     } finally {
       setLoading(false);
     }
@@ -343,7 +356,7 @@ const SubscriptionManagement = () => {
                   <TableHead>End Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Payment Method</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

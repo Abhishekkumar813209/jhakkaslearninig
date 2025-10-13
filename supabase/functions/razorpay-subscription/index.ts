@@ -396,7 +396,7 @@ serve(async (req) => {
       if (creditsUsed > 0) {
         discountLogs.push({
           student_id: user.id,
-          discount_type: 'wallet_credits',
+          discount_type: 'referral_credit',
           discount_amount: creditsUsed,
           code_used: null
         });
@@ -409,39 +409,40 @@ serve(async (req) => {
       }
 
       // 5. Create subscription record with all discount details
+      const subscriptionPayload = {
+        student_id: user.id,
+        subscription_type: 'premium',
+        status: 'active',
+        amount: basePrice,
+        payment_id: paymentId,
+        razorpay_order_id: orderId,
+        payment_method: 'razorpay',
+        currency: 'INR',
+        start_date: new Date().toISOString(),
+        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        includes_roadmap: true,
+        subscription_name: 'Monthly Premium Subscription',
+        base_price: basePrice,
+        friend_discount_applied: friendDiscount,
+        promo_discount_applied: promoDiscount,
+        credits_discount_applied: creditsUsed,
+        final_amount_paid: finalAmount,
+        friend_referral_code: friendReferralCode || null,
+        promo_code_used: promoCodeUsed || null
+      };
+
+      console.log('[Subscription] Creating with columns:', Object.keys(subscriptionPayload));
+      
       const { error: subscriptionError } = await supabaseService
         .from('test_subscriptions')
-        .insert({
-          student_id: user.id,
-          subscription_type: 'premium',
-          status: 'active',
-          amount: basePrice,
-          payment_id: paymentId,
-          razorpay_order_id: orderId,
-          payment_method: 'razorpay',
-          currency: 'INR',
-          start_date: new Date().toISOString(),
-          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          includes_roadmap: true,
-          subscription_name: 'Monthly Premium Subscription',
-          // New discount columns
-          base_price: basePrice,
-          display_price: displayPrice,
-          friend_referral_discount: friendDiscount,
-          promo_code_discount: promoDiscount,
-          wallet_credits_used: creditsUsed,
-          total_discount: friendDiscount + promoDiscount + creditsUsed,
-          final_paid_amount: finalAmount,
-          friend_referral_code: friendReferralCode || null,
-          promo_code_used: promoCodeUsed || null
-        });
+        .insert(subscriptionPayload);
 
       if (subscriptionError) {
         console.error('[razorpay-subscription] Subscription creation failed:', subscriptionError);
         throw new Error(`Failed to create subscription: ${subscriptionError.message}`);
       }
 
-      console.log('[razorpay-subscription] Subscription activated for user:', user.id);
+      console.log('[razorpay-subscription] Subscription activated successfully for user:', user.id);
 
       // 6. Send invoice email
       const { data: profile } = await supabaseService

@@ -120,7 +120,7 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
   // Line items
   page.drawText('Monthly Premium Access', { x: 50, y: yPos, size: 10, font: font });
   page.drawText(data.planName, { x: 50, y: yPos - 12, size: 8, font: font, color: rgb(0.6, 0.6, 0.6) });
-  page.drawText(`₹${(data.basePrice || data.originalAmount).toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font });
+  page.drawText(`Rs. ${(data.basePrice || data.originalAmount).toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font });
   
   yPos -= 30;
   
@@ -128,28 +128,28 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
   if (data.displayPrice && data.basePrice && data.displayPrice < data.basePrice) {
     const displayDiscount = data.basePrice - data.displayPrice;
     page.drawText('Special Offer Discount', { x: 50, y: yPos, size: 10, font: font });
-    page.drawText(`-₹${displayDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    page.drawText(`-Rs. ${displayDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
     yPos -= 25;
   }
   
   // Friend referral discount
   if (data.friendDiscount && data.friendDiscount > 0) {
     page.drawText(`Friend Referral Discount (${data.friendReferralCode || ''})`, { x: 50, y: yPos, size: 10, font: font });
-    page.drawText(`-₹${data.friendDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    page.drawText(`-Rs. ${data.friendDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
     yPos -= 25;
   }
   
   // Promo code discount
   if (data.promoDiscount && data.promoDiscount > 0) {
     page.drawText(`Promo Code Discount (${data.promoCode || ''})`, { x: 50, y: yPos, size: 10, font: font });
-    page.drawText(`-₹${data.promoDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    page.drawText(`-Rs. ${data.promoDiscount.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
     yPos -= 25;
   }
   
   // Wallet credits
   if (data.creditsApplied > 0) {
     page.drawText('Wallet Credits Applied', { x: 50, y: yPos, size: 10, font: font });
-    page.drawText(`-₹${data.creditsApplied.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
+    page.drawText(`-Rs. ${data.creditsApplied.toFixed(2)}`, { x: width - 130, y: yPos, size: 10, font: font, color: rgb(0.06, 0.72, 0.51) });
     yPos -= 25;
   }
   
@@ -165,7 +165,7 @@ async function generateInvoicePDF(data: InvoiceData): Promise<Uint8Array> {
   });
   
   page.drawText('TOTAL PAID', { x: 50, y: yPos - 18, size: 12, font: boldFont });
-  page.drawText(`₹${data.finalAmount.toFixed(2)}`, { x: width - 130, y: yPos - 18, size: 14, font: boldFont, color: rgb(0.4, 0.49, 0.92) });
+  page.drawText(`Rs. ${data.finalAmount.toFixed(2)}`, { x: width - 130, y: yPos - 18, size: 14, font: boldFont, color: rgb(0.4, 0.49, 0.92) });
   
   yPos -= 50;
   

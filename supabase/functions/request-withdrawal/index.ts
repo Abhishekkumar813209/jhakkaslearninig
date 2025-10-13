@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 1: Lock credits using RPC function
+    // Lock credits using RPC function (atomic operation)
     const { data: lockSuccess, error: lockError } = await supabaseClient
       .rpc('lock_credits_for_withdrawal', {
         p_student_id: user.id,
@@ -50,13 +50,13 @@ Deno.serve(async (req) => {
 
     if (lockError || !lockSuccess) {
       console.error('Error locking credits:', lockError);
-      return new Response(JSON.stringify({ error: 'Insufficient credits or failed to lock' }), {
+      return new Response(JSON.stringify({ error: 'Insufficient credits or unable to lock' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Step 2: Create withdrawal record as completed (instant withdrawal)
+    // Create withdrawal record and mark as completed immediately (instant withdrawal)
     const { data: withdrawal, error: withdrawalError } = await supabaseClient
       .from('withdrawal_history')
       .insert({
@@ -78,14 +78,14 @@ Deno.serve(async (req) => {
         p_student_id: user.id,
         p_amount: amount
       });
-      
-      return new Response(JSON.stringify({ error: 'Failed to create withdrawal' }), {
+
+      return new Response(JSON.stringify({ error: withdrawalError.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Step 3: Complete withdrawal - deduct credits
+    // Complete withdrawal - deduct credits immediately
     const { error: deductError } = await supabaseClient.rpc('complete_withdrawal', {
       p_student_id: user.id,
       p_amount: amount
@@ -93,21 +93,19 @@ Deno.serve(async (req) => {
 
     if (deductError) {
       console.error('Error deducting credits:', deductError);
-      // Note: Withdrawal record already created, admin will need to handle manually
-      return new Response(JSON.stringify({ 
-        error: 'Withdrawal created but credits not deducted. Contact support.',
-        withdrawal 
-      }), {
+      // Note: Withdrawal record exists but credits weren't deducted
+      // Admin should handle this manually
+      return new Response(JSON.stringify({ error: 'Withdrawal created but credits not deducted. Contact support.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[Instant Withdrawal] ₹${amount} withdrawn by ${user.id} to ${upiId}`);
+    console.log(`[Instant Withdrawal] ₹${amount} withdrawn by user ${user.id} to ${upiId}`);
 
     return new Response(
       JSON.stringify({ 
-        message: 'Withdrawal completed! Money will be transferred to your UPI within 24 hours.',
+        message: 'Withdrawal completed successfully! Money will be transferred to your UPI within 24 hours.',
         withdrawal 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

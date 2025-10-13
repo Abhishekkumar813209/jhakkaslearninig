@@ -232,9 +232,9 @@ const AdminDashboard = () => {
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="flex items-center gap-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-5 w-5" />
                   <span className="hidden sm:inline">{tab.label}</span>
                 </TabsTrigger>
               );

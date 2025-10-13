@@ -641,6 +641,87 @@ export const dashboardAPI = {
   getAchievements: () => makeSupabaseRequest('dashboard-achievements'),
 };
 
+// Subscription API
+export const subscriptionAPI = {
+  getSubscriptions: async () => {
+    const { data, error } = await supabase
+      .from('test_subscriptions')
+      .select(`
+        id,
+        student_id,
+        subscription_type,
+        status,
+        start_date,
+        end_date,
+        amount,
+        payment_method,
+        created_at,
+        profiles!inner(
+          full_name,
+          email
+        ),
+        payments(
+          razorpay_order_id,
+          razorpay_payment_id
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  getPaymentHistory: async (studentId?: string) => {
+    let query = supabase
+      .from('payments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (studentId) {
+      query = query.eq('student_id', studentId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
+  extendSubscription: async (studentId: string, days: number) => {
+    const { data, error } = await supabase
+      .from('test_subscriptions')
+      .select('end_date')
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+      .single();
+
+    if (error) throw error;
+
+    const currentEndDate = data.end_date ? new Date(data.end_date) : new Date();
+    const newEndDate = new Date(currentEndDate);
+    newEndDate.setDate(newEndDate.getDate() + days);
+
+    const { error: updateError } = await supabase
+      .from('test_subscriptions')
+      .update({ end_date: newEndDate.toISOString() })
+      .eq('student_id', studentId)
+      .eq('status', 'active');
+
+    if (updateError) throw updateError;
+    return { success: true };
+  },
+
+  cancelSubscription: async (studentId: string) => {
+    const { error } = await supabase
+      .from('test_subscriptions')
+      .update({ status: 'cancelled', end_date: new Date().toISOString() })
+      .eq('student_id', studentId)
+      .eq('status', 'active');
+
+    if (error) throw error;
+    return { success: true };
+  },
+};
+
 // Export all APIs
 export default {
   auth: authAPI,
@@ -650,6 +731,7 @@ export default {
   users: usersAPI,
   analytics: analyticsAPI,
   dashboard: dashboardAPI,
+  subscriptions: subscriptionAPI,
 };
 
 // Batch API

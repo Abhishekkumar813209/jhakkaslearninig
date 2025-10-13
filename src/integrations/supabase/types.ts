@@ -3922,7 +3922,9 @@ export type Database = {
           completed_at: string | null
           failure_reason: string | null
           id: string
+          payment_reference: string | null
           requested_at: string
+          retry_count: number | null
           status: string
           student_id: string
           upi_id: string | null
@@ -3936,7 +3938,9 @@ export type Database = {
           completed_at?: string | null
           failure_reason?: string | null
           id?: string
+          payment_reference?: string | null
           requested_at?: string
+          retry_count?: number | null
           status?: string
           student_id: string
           upi_id?: string | null
@@ -3950,7 +3954,9 @@ export type Database = {
           completed_at?: string | null
           failure_reason?: string | null
           id?: string
+          payment_reference?: string | null
           requested_at?: string
+          retry_count?: number | null
           status?: string
           student_id?: string
           upi_id?: string | null

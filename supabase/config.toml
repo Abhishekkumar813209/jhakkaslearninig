@@ -2,3 +2,6 @@ project_id = "qajmtfcphpncqwcrzphm"
 
 [functions.razorpay-subscription]
 verify_jwt = false
+
+[functions.send-payment-invoice]
+verify_jwt = false

@@ -507,13 +507,26 @@ serve(async (req) => {
         });
         
         if (invoiceResponse.error) {
-          console.error('[Invoice] Failed:', JSON.stringify(invoiceResponse.error));
+          const errorContext = invoiceResponse.error.context?.response || {};
+          console.error('[Invoice] Failed:', {
+            message: invoiceResponse.error.message,
+            status: errorContext.status,
+            body: errorContext.body,
+            fullError: JSON.stringify(invoiceResponse.error)
+          });
+          
           await supabaseService.from('email_logs').insert({
             recipient: profile?.email || user.email,
             type: 'payment_invoice',
             status: 'failed',
-            error_message: invoiceResponse.error.message || JSON.stringify(invoiceResponse.error),
-            metadata: { orderId, paymentId, studentId: user.id }
+            error_message: `Status: ${errorContext.status || 'unknown'} - ${invoiceResponse.error.message || JSON.stringify(invoiceResponse.error)}`,
+            metadata: { 
+              orderId, 
+              paymentId, 
+              studentId: user.id,
+              httpStatus: errorContext.status,
+              responseBody: errorContext.body 
+            }
           });
         } else {
           console.log('[Invoice] Sent successfully');

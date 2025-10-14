@@ -561,8 +561,8 @@ const OnlineTestInterface: React.FC = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Main Question Area */}
-      <div className="max-w-5xl mx-auto px-4 pb-40 lg:pb-44">
+      {/* Mobile: Single Column Question Area */}
+      <div className="lg:hidden max-w-5xl mx-auto px-4 pb-40">
         {/* Subject Badge (Centered) */}
         <div className="flex justify-center mb-6">
           <Badge className="bg-[#1e3a8a] text-white px-8 py-2 text-lg font-semibold rounded-full shadow-md">
@@ -661,64 +661,180 @@ const OnlineTestInterface: React.FC = () => {
         </Card>
       </div>
 
-      {/* Desktop: Simple Numbered Navigation (NTA Style) */}
-      <div className="hidden lg:flex fixed bottom-20 left-0 right-0 bg-background border-t-2 shadow-lg z-30 overflow-x-hidden">
-        <div className="max-w-6xl mx-auto px-4 py-3 w-full">
-          <div className="flex items-center justify-center gap-2">
-            {/* Previous Arrow */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-              disabled={currentQuestionIndex === 0}
-              className="text-muted-foreground"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
+      {/* Desktop: Two-column layout - Question LEFT, Sidebar RIGHT */}
+      <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 max-w-7xl mx-auto px-4 pb-32">
+        {/* Left Column: Question Area */}
+        <div>
+          {/* Subject Badge */}
+          <div className="mb-6">
+            <Badge className="bg-[#1e3a8a] text-white px-8 py-2 text-lg font-semibold rounded-full shadow-md">
+              Section: {test.subject}
+            </Badge>
+          </div>
 
-            {/* Question Numbers (Show current ±3 questions) */}
-            {getVisibleQuestionRange().map((index) => {
-              const isCurrent = index === currentQuestionIndex;
-              return (
-                <Button
-                  key={index}
-                  variant={isCurrent ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentQuestionIndex(index)}
-                  className={`
-                    min-w-[44px] h-10 font-semibold rounded
-                    ${isCurrent 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'bg-background text-foreground border-border hover:bg-muted'
-                    }
-                  `}
-                >
-                  {index + 1}
-                </Button>
-              );
-            })}
+          {/* Question Card */}
+          <Card className="shadow-xl">
+            <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-bold">Q.{currentQuestionIndex + 1}</span>
+                  <Badge variant="secondary" className="bg-white text-blue-900 font-semibold">
+                    {currentQuestion.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Text Answer'}
+                  </Badge>
+                </div>
+                <Badge variant="outline" className="text-white border-white text-base px-3 py-1">
+                  {currentQuestion.marks} {currentQuestion.marks === 1 ? 'mark' : 'marks'}
+                </Badge>
+              </div>
+            </CardHeader>
 
-            {/* Next Arrow */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
-              disabled={currentQuestionIndex === questions.length - 1}
-              className="text-muted-foreground"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+            <CardContent className="p-8 space-y-6">
+              {/* Question Text */}
+              <div 
+                className="text-lg leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+              />
 
-            {/* View All Questions Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowQuestionPalette(true)}
-              className="ml-4 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-            >
-              <Grid3x3 className="h-4 w-4 mr-2" />
-              View All
-            </Button>
+              {/* Options - NTA Style with Radio Buttons */}
+              {currentQuestion.question_type === 'multiple_choice' && currentQuestion.options && (
+                <div className="space-y-3 mt-6">
+                  {currentQuestion.options.map((option, index) => {
+                    const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
+                    const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
+                    
+                    return (
+                      <div
+                        key={index}
+                        onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
+                        className={`
+                          flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer
+                          transition-all duration-200 group
+                          ${isSelected 
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-md' 
+                            : 'border-border hover:border-blue-400 hover:bg-muted/50 hover:shadow-sm'
+                          }
+                        `}
+                      >
+                        {/* Custom Radio Button Circle */}
+                        <div className={`
+                          relative flex-shrink-0 w-7 h-7 rounded-full border-2 mt-1
+                          flex items-center justify-center transition-all duration-200
+                          ${isSelected 
+                            ? 'border-blue-500 bg-blue-500 shadow-md' 
+                            : 'border-muted-foreground/40 group-hover:border-blue-400'
+                          }
+                        `}>
+                          {isSelected && (
+                            <div className="w-3 h-3 bg-white rounded-full" />
+                          )}
+                        </div>
+
+                        {/* Option Label and Text */}
+                        <div className="flex-1 pt-1">
+                          <span className="font-bold text-lg mr-2">
+                            {optionLabel}.
+                          </span>
+                          <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Text Answer Area */}
+              {currentQuestion.question_type === 'text' && (
+                <div className="mt-6">
+                  <Textarea
+                    value={answers[currentQuestion.id]?.textAnswer || ''}
+                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value, 'text')}
+                    rows={10}
+                    className="resize-none text-base border-2 focus:border-blue-500"
+                    placeholder="Type your answer here..."
+                  />
+                  {currentQuestion.word_limit && (
+                    <p className="text-sm text-muted-foreground mt-2 text-right">
+                      {answers[currentQuestion.id]?.textAnswer?.length || 0} / {currentQuestion.word_limit} characters
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Question Navigation Sidebar */}
+        <div className="sticky top-24 h-[calc(100vh-180px)]">
+          <div className="bg-background border-2 rounded-lg shadow-xl p-4 h-full overflow-y-auto">
+            {/* Status Legend */}
+            <Card className="mb-4 bg-muted">
+              <CardContent className="pt-4 space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-green-500 rounded"></div>
+                  <span>Answered</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-red-400 rounded"></div>
+                  <span>Not Answered</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                  <span>Not Visited</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-blue-500 rounded"></div>
+                  <span>Review Later</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-blue-500 border-2 border-green-500 rounded"></div>
+                  <span className="text-xs">Answered & Review</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Subject Header */}
+            <div className="mb-3 bg-green-600 text-white px-3 py-2 rounded font-bold text-center">
+              {test.subject}
+            </div>
+
+            {/* Question Grid - ALL questions visible */}
+            <div className="grid grid-cols-5 gap-2">
+              {questions.map((question, index) => {
+                const isAnswered = !!answers[question.id];
+                const isVisited = visitedQuestions.has(index);
+                const isMarkedForReview = markedForReview.includes(question.id);
+                const isCurrent = index === currentQuestionIndex;
+                
+                let bgColor = 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300';
+                let borderClass = '';
+                
+                if (isAnswered && isMarkedForReview) {
+                  bgColor = 'bg-blue-500 text-white';
+                  borderClass = 'border-2 border-green-500';
+                } else if (isAnswered) {
+                  bgColor = 'bg-green-500 text-white';
+                } else if (isMarkedForReview) {
+                  bgColor = 'bg-blue-500 text-white';
+                } else if (isVisited) {
+                  bgColor = 'bg-red-400 text-white';
+                }
+                
+                return (
+                  <Button
+                    key={question.id}
+                    onClick={() => setCurrentQuestionIndex(index)}
+                    className={`
+                      h-11 w-11 rounded font-semibold text-sm
+                      ${bgColor} ${borderClass}
+                      ${isCurrent ? 'ring-2 ring-yellow-400 ring-offset-2' : ''}
+                      hover:scale-105 transition-transform
+                    `}
+                  >
+                    {index + 1}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

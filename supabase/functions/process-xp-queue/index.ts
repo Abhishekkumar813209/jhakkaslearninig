@@ -88,9 +88,9 @@ Deno.serve(async (req) => {
           throw awardError;
         }
 
-        // Check if award was successful
-        if (awardResult?.success === true && awardResult?.xp_awarded === true) {
-          // Mark as completed
+        // Handle different award results
+        if (awardResult?.xp_awarded === true) {
+          // Success: either just awarded or already processed
           await supabaseClient
             .from('xp_award_queue')
             .update({
@@ -100,42 +100,24 @@ Deno.serve(async (req) => {
             })
             .eq('id', item.id);
 
-          // Mark daily_attendance as awarded
-          await supabaseClient
-            .from('daily_attendance')
-            .update({ xp_awarded: true })
-            .eq('share_id', item.share_id);
-
-          console.log(`✅ Successfully awarded XP for queue item ${item.id}`);
-          results.completed++;
-        } else if (awardResult?.reason === 'already_processed') {
-          // Already processed, mark as completed
-          await supabaseClient
-            .from('xp_award_queue')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              error_message: 'Already processed'
-            })
-            .eq('id', item.id);
-
-          console.log(`✅ Queue item ${item.id} already processed`);
+          console.log(`✅ XP awarded for queue item ${item.id} (reason: ${awardResult.reason})`);
           results.completed++;
         } else if (awardResult?.reason === 'cooldown') {
-          // Cooldown active, mark as failed (non-retryable)
+          // Cooldown active - reschedule for 2 hours later
+          const nextSchedule = new Date(Date.now() + 2 * 60 * 60000);
           await supabaseClient
             .from('xp_award_queue')
             .update({
-              status: 'failed',
-              error_message: `Cooldown: ${awardResult.message}`,
-              attempts: item.max_attempts // Stop retrying
+              status: 'pending',
+              scheduled_for: nextSchedule.toISOString(),
+              error_message: `Cooldown: ${awardResult.message}`
             })
             .eq('id', item.id);
 
-          console.log(`❌ Queue item ${item.id} failed due to cooldown`);
-          results.failed++;
+          console.log(`⏰ Queue item ${item.id} rescheduled due to cooldown`);
+          results.retrying++;
         } else {
-          throw new Error('XP award failed with unknown reason');
+          throw new Error(`XP award failed: ${awardResult?.message || 'Unknown reason'}`);
         }
 
         results.processed++;

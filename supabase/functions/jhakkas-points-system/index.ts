@@ -30,7 +30,6 @@ serve(async (req) => {
       );
     }
 
-    // Get user's exam domain and class for domain-aware operations
     const { data: profile } = await supabase
       .from('profiles')
       .select('exam_domain, student_class')
@@ -38,7 +37,7 @@ serve(async (req) => {
       .single();
 
     const body = await req.json();
-    const { action, xp_amount, activity_type } = body;
+    const { action, xp_amount, activity_type, share_id } = body;
 
     if (action === 'get') {
       const { data, error } = await supabase
@@ -71,66 +70,67 @@ serve(async (req) => {
     }
 
     if (action === 'add') {
-      const { share_id } = body; // Extract share_id for idempotency
-      
-      // Validate 24-hour cooldown for social shares
-      if (activity_type === 'social_share') {
-        console.log('=== SOCIAL SHARE XP REQUEST ===');
-        console.log('User ID:', user.id);
-        console.log('Share ID:', share_id);
-        console.log('XP Amount:', xp_amount);
-        console.log('Timestamp:', new Date().toISOString());
+      console.log('=== XP AWARD REQUEST ===');
+      console.log('User ID:', user.id);
+      console.log('Activity Type:', activity_type);
+      console.log('Share ID:', share_id);
+      console.log('XP Amount:', xp_amount);
+      console.log('Timestamp:', new Date().toISOString());
 
-        // Check for duplicate share_id first (idempotency)
+      // SOCIAL SHARE LOGIC - Idempotent and correct
+      if (activity_type === 'social_share') {
+        // Step 1: Check if this share_id was already awarded XP
         if (share_id) {
           const { data: existingShare } = await supabase
             .from('daily_attendance')
-            .select('share_id, xp_awarded')
+            .select('share_id, xp_awarded, last_share_date')
             .eq('share_id', share_id)
             .maybeSingle();
 
           if (existingShare) {
-            console.log(`Duplicate share_id detected: ${share_id}, XP awarded:`, existingShare.xp_awarded);
-            return new Response(
-              JSON.stringify({ 
-                success: false,
-                xp_awarded: existingShare.xp_awarded,
-                reason: 'already_processed',
-                message: 'This share has already been processed'
-              }),
-              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            if (existingShare.xp_awarded === true) {
+              // Already fully processed - idempotent success
+              console.log('✅ Share already processed (xp_awarded=true):', share_id);
+              return new Response(
+                JSON.stringify({ 
+                  success: true,
+                  xp_awarded: true,
+                  reason: 'already_processed',
+                  message: 'This share has already been credited'
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            } else {
+              // xp_awarded=false means stuck/pending - proceed to award
+              console.log('⚠️ Share exists but not awarded (xp_awarded=false), proceeding to award:', share_id);
+            }
           }
         }
 
-        const { data: lastShare } = await supabase
+        // Step 2: Check 24h cooldown (only if no share_id or share doesn't exist yet)
+        const { data: recentShares } = await supabase
           .from('daily_attendance')
-          .select('last_share_date, xp_awarded')
+          .select('last_share_date, share_id')
           .eq('student_id', user.id)
+          .eq('xp_awarded', true)
           .order('last_share_date', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (lastShare?.last_share_date) {
-          const lastShareTime = new Date(lastShare.last_share_date).getTime();
+        if (recentShares?.last_share_date) {
+          const lastShareTime = new Date(recentShares.last_share_date).getTime();
           const now = new Date().getTime();
           const hoursSinceLastShare = (now - lastShareTime) / (1000 * 60 * 60);
 
           if (hoursSinceLastShare < 24) {
-            console.log(`Share cooldown active: ${24 - hoursSinceLastShare} hours remaining`);
+            console.log(`❌ Cooldown active: ${Math.ceil(24 - hoursSinceLastShare)} hours remaining`);
             return new Response(
               JSON.stringify({ 
                 success: false,
                 xp_awarded: false,
                 reason: 'cooldown',
                 message: `Please wait ${Math.ceil(24 - hoursSinceLastShare)} hours before sharing again`,
-                hours_remaining: Math.ceil(24 - hoursSinceLastShare),
-                last_share_date: lastShare.last_share_date,
-                debug_info: {
-                  user_id: user.id,
-                  share_id: share_id,
-                  timestamp: new Date().toISOString()
-                }
+                hours_remaining: Math.ceil(24 - hoursSinceLastShare)
               }),
               { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -138,6 +138,7 @@ serve(async (req) => {
         }
       }
 
+      // Validate XP amount
       if (!xp_amount || xp_amount <= 0) {
         return new Response(
           JSON.stringify({ error: 'Invalid XP amount' }),
@@ -145,11 +146,12 @@ serve(async (req) => {
         );
       }
 
+      // Step 3: Award XP - update student_gamification
       const { data: existingData } = await supabase
         .from('student_gamification')
         .select('*')
         .eq('student_id', user.id)
-        .single();
+        .maybeSingle();
 
       let currentXP = existingData?.total_xp || 0;
       let currentLevel = existingData?.level || 1;
@@ -184,12 +186,9 @@ serve(async (req) => {
         updateData.social_share_xp = (existingData?.social_share_xp || 0) + xp_amount;
       } else if (activity_type === 'referral') {
         updateData.referral_xp = (existingData?.referral_xp || 0) + xp_amount;
-      } else if (activity_type === 'theory_read') {
-        // Phase 5: Track theory reading XP
-        console.log('Theory read XP awarded:', xp_amount);
       }
 
-      const { data, error } = await supabase
+      const { data: gamificationData, error: gamificationError } = await supabase
         .from('student_gamification')
         .upsert(
           {
@@ -201,19 +200,42 @@ serve(async (req) => {
         .select()
         .single();
 
-      if (error) {
-        console.error('Error updating Jhakkas Points:', error);
-        return new Response(
-          JSON.stringify({ error: error.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (gamificationError) {
+        console.error('❌ Error updating student_gamification:', gamificationError);
+        throw gamificationError;
       }
 
-      console.log('=== XP AWARD RESULT ===');
-      console.log('Success: true');
-      console.log('New Total XP:', data.total_xp);
-      console.log('Social Share XP:', data.social_share_xp);
-      console.log('Level:', data.level);
+      // Step 4: Update daily_attendance for social_share (mark xp_awarded=true)
+      if (activity_type === 'social_share' && share_id) {
+        const { error: attendanceError } = await supabase
+          .from('daily_attendance')
+          .upsert({
+            student_id: user.id,
+            date: today,
+            share_id: share_id,
+            xp_awarded: true,
+            social_share_done: true,
+            last_share_date: today,
+            social_share_at: new Date().toISOString(),
+            xp_earned: xp_amount,
+          }, { 
+            onConflict: 'share_id',
+            ignoreDuplicates: false 
+          });
+
+        if (attendanceError) {
+          console.error('❌ Error updating daily_attendance:', attendanceError);
+          // Non-fatal: XP was awarded, attendance tracking is secondary
+        } else {
+          console.log('✅ Updated daily_attendance: xp_awarded=true for share_id:', share_id);
+        }
+      }
+
+      console.log('=== XP AWARD SUCCESS ===');
+      console.log('New Total XP:', gamificationData.total_xp);
+      console.log('New Level:', gamificationData.level);
+      console.log('Social Share XP:', gamificationData.social_share_xp);
+      console.log('Streak Days:', gamificationData.current_streak_days);
 
       return new Response(
         JSON.stringify({ 
@@ -221,9 +243,9 @@ serve(async (req) => {
           xp_awarded: true,
           reason: 'awarded',
           data: {
-            xp: data.total_xp,
-            level: data.level,
-            streak_days: data.current_streak_days,
+            xp: gamificationData.total_xp,
+            level: gamificationData.level,
+            streak_days: gamificationData.current_streak_days,
             xp_earned: xp_amount
           },
           message: `Earned ${xp_amount} Jhakkas Points!`
@@ -253,7 +275,6 @@ serve(async (req) => {
         `)
         .order('total_xp', { ascending: false });
 
-      // Filter by domain, exam_name, and class if profile has them
       if (profile?.exam_domain) {
         query = query.eq('exam_domain', profile.exam_domain);
       }
@@ -286,9 +307,13 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('❌ Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        success: false,
+        xp_awarded: false,
+        error: error.message || 'Internal server error' 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

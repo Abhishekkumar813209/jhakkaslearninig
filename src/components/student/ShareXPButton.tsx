@@ -414,7 +414,7 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       // Show immediate feedback
       toast({
         title: "🎉 Share successful!",
-        description: "Your XP will be credited in 2 minutes!"
+        description: "Social media pe share karne ke 2 min baad Jhakkas Coins credit ho jaayenge"
       });
 
       setSharedToday(true); // Disable button immediately

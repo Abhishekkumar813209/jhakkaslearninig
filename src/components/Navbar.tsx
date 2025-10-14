@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass, Flag } from "lucide-react";
+import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass, Flag, Grid3x3 } from "lucide-react";
 import { XPDisplay } from "@/components/student/XPDisplay";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,7 @@ const Navbar = () => {
   const { toast } = useToast();
 
   const isHomePage = location.pathname === '/';
+  const isTestRoute = location.pathname.startsWith('/test/') || location.pathname.startsWith('/student/test/');
 
   const handleLogout = async () => {
     try {
@@ -47,7 +48,18 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-2">
-            {!isHomePage && (
+            {isTestRoute && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-question-palette'))}
+              >
+                <Grid3x3 className="h-4 w-4 mr-2" />
+                Questions
+              </Button>
+            )}
+            
+            {!isHomePage && !isTestRoute && (
               <Link to="/">
                 <Button variant="nav" size="sm">
                   <Home className="h-4 w-4 mr-2" />
@@ -187,7 +199,22 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col space-y-3">
-              {!isHomePage && (
+              {isTestRoute && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full justify-start mx-3"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-question-palette'));
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Grid3x3 className="h-4 w-4 mr-2" />
+                  Questions
+                </Button>
+              )}
+              
+              {!isHomePage && !isTestRoute && (
                 <Link to="/" onClick={() => setIsMenuOpen(false)}>
                   <Button variant="nav" size="sm" className="w-full justify-start">
                     <Home className="h-4 w-4 mr-2" />

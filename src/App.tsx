@@ -100,7 +100,7 @@ const App = () => (
             } />
             <Route path="/test/:testId" element={
               <ProtectedRoute>
-                <TakeTest />
+                <OnlineTestInterface />
               </ProtectedRoute>
             } />
             <Route path="/test/:testId/results" element={

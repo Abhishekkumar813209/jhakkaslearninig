@@ -27,6 +27,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { renderMath } from '@/lib/mathRendering';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Navbar from '@/components/Navbar';
 
 interface Question {
   id: string;
@@ -91,6 +92,13 @@ const OnlineTestInterface: React.FC = () => {
   useEffect(() => {
     setVisitedQuestions(prev => new Set([...prev, currentQuestionIndex]));
   }, [currentQuestionIndex]);
+
+  // Listen for navbar question palette event
+  useEffect(() => {
+    const handleOpenPalette = () => setShowQuestionPalette(true);
+    window.addEventListener('open-question-palette', handleOpenPalette);
+    return () => window.removeEventListener('open-question-palette', handleOpenPalette);
+  }, []);
 
   useEffect(() => {
     if (testId) {
@@ -387,19 +395,15 @@ const OnlineTestInterface: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Navbar at the top */}
+      <Navbar />
+
       {/* Mobile: Mini Header Below Navbar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#1e3a8a] text-white z-40 px-4 py-2 flex items-center justify-between">
+      <div className="lg:hidden fixed top-16 left-0 right-0 bg-[#1e3a8a] text-white z-40 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4" />
           <span className="text-sm font-bold">{formatTime(timeRemaining)}</span>
         </div>
-        <Button
-          size="sm"
-          onClick={() => setShowQuestionPalette(true)}
-          className="bg-white/20 hover:bg-white/30 text-xs px-3 py-1 h-7"
-        >
-          Questions
-        </Button>
         <Button
           size="sm"
           onClick={() => handleSubmitTest()}
@@ -410,8 +414,8 @@ const OnlineTestInterface: React.FC = () => {
         </Button>
       </div>
 
-      {/* Desktop: Test Header */}
-      <div className="hidden lg:block fixed top-0 left-0 right-0 bg-[#1e3a8a] text-white z-50 shadow-lg">
+      {/* Desktop: Test Header (below navbar) */}
+      <div className="hidden lg:block fixed top-16 left-0 right-0 bg-[#1e3a8a] text-white z-40 shadow-lg">
         <div className="flex items-center justify-between px-4 py-3">
           {/* Left: Subject */}
           <div className="flex items-center gap-2">
@@ -438,8 +442,8 @@ const OnlineTestInterface: React.FC = () => {
         </div>
       </div>
 
-      {/* Spacer for fixed header */}
-      <div className="h-12 lg:h-16"></div>
+      {/* Spacer for navbar + test header */}
+      <div className="h-28 lg:h-32"></div>
 
       {/* Mobile: Question Palette Sheet */}
       <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>

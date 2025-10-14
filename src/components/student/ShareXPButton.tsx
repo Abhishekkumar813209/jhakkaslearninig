@@ -82,16 +82,15 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
-
-      // Check if there's a share with xp_awarded = false
+      // Check for unprocessed shares
       const { data: attendance } = await supabase
         .from("daily_attendance")
         .select("social_share_done, social_share_at, xp_awarded, share_id")
         .eq("student_id", user.id)
-        .eq("date", today)
         .eq("xp_awarded", false)
         .eq("social_share_done", true)
+        .order("date", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (!attendance) return;
@@ -99,21 +98,44 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
       const shareTime = new Date(attendance.social_share_at).getTime();
       const now = Date.now();
       const minutesSinceShare = (now - shareTime) / (1000 * 60);
+      const hoursSinceShare = minutesSinceShare / 60;
 
-      if (minutesSinceShare >= 2) {
+      // Only recover if at least 2 minutes old and less than 24 hours old
+      if (minutesSinceShare >= 2 && hoursSinceShare < 24) {
         console.log('Unprocessed share found from', Math.floor(minutesSinceShare), 'minutes ago, recovering...');
+        
+        // Generate share_id for legacy shares
+        const effectiveShareId = attendance.share_id || `RECOVERY-${user.id}-${shareTime}`;
+        
         setXpPending(true);
         
-        const result = await awardShareXPWithRetry(user.id, 'AUTO_RECOVERY', attendance.share_id);
+        const result = await awardShareXPWithRetry(user.id, 'AUTO_RECOVERY', effectiveShareId);
         
         if (result) {
           toast({
             title: "✅ XP Recovered!",
             description: "Your share XP has been credited!"
           });
+        } else {
+          toast({
+            title: "Unable to recover XP",
+            description: "This share may have expired.",
+            variant: "destructive"
+          });
         }
         
         setXpPending(false);
+      } else if (hoursSinceShare >= 24) {
+        // Mark expired shares as awarded to prevent recovery loops
+        console.log('Share expired (>24h), marking as processed to prevent loops');
+        await supabase
+          .from("daily_attendance")
+          .update({ 
+            xp_awarded: true,
+            share_id: `EXPIRED-${shareTime}`
+          })
+          .eq("student_id", user.id)
+          .eq("social_share_at", attendance.social_share_at);
       }
     } catch (error) {
       console.error("Error checking unprocessed shares:", error);
@@ -357,14 +379,29 @@ export const ShareXPButton = ({ xp, streak, level, compact = false }: ShareXPBut
           variant: "destructive"
         });
         
-        // Reset UI state
         setSharedToday(false);
         setCooldownHours(0);
         setIsGenerating(false);
         return;
       }
 
-      console.log('Share marked successfully, scheduling XP award...');
+      console.log('Share marked successfully, adding to queue...');
+
+      // Add to XP award queue for reliable processing
+      const { error: queueError } = await supabase
+        .from("xp_award_queue")
+        .insert({
+          student_id: user.id,
+          share_id: shareId,
+          xp_amount: 5,
+          activity_type: 'social_share',
+          scheduled_for: new Date(Date.now() + 120000).toISOString() // 2 minutes
+        });
+
+      if (queueError) {
+        console.error('Error adding to queue:', queueError);
+        // Fallback to old setTimeout method if queue fails
+      }
 
       // Store pending XP in localStorage as backup
       localStorage.setItem('pendingXP', JSON.stringify({

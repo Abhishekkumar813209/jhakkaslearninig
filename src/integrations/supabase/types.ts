@@ -4203,6 +4203,73 @@ export type Database = {
         }
         Relationships: []
       }
+      xp_award_queue: {
+        Row: {
+          activity_type: string
+          attempts: number
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number
+          scheduled_for: string
+          share_id: string
+          status: string
+          student_id: string
+          xp_amount: number
+        }
+        Insert: {
+          activity_type?: string
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          scheduled_for: string
+          share_id: string
+          status?: string
+          student_id: string
+          xp_amount?: number
+        }
+        Update: {
+          activity_type?: string
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          scheduled_for?: string
+          share_id?: string
+          status?: string
+          student_id?: string
+          xp_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xp_award_queue_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xp_award_queue_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xp_award_queue_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       zones: {
         Row: {
           allowed_classes: Json | null

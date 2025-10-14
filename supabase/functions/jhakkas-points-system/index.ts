@@ -75,6 +75,12 @@ serve(async (req) => {
       
       // Validate 24-hour cooldown for social shares
       if (activity_type === 'social_share') {
+        console.log('=== SOCIAL SHARE XP REQUEST ===');
+        console.log('User ID:', user.id);
+        console.log('Share ID:', share_id);
+        console.log('XP Amount:', xp_amount);
+        console.log('Timestamp:', new Date().toISOString());
+
         // Check for duplicate share_id first (idempotency)
         if (share_id) {
           const { data: existingShare } = await supabase
@@ -84,7 +90,7 @@ serve(async (req) => {
             .maybeSingle();
 
           if (existingShare) {
-            console.log(`Duplicate share_id detected: ${share_id}`);
+            console.log(`Duplicate share_id detected: ${share_id}, XP awarded:`, existingShare.xp_awarded);
             return new Response(
               JSON.stringify({ 
                 success: false,
@@ -118,7 +124,13 @@ serve(async (req) => {
                 xp_awarded: false,
                 reason: 'cooldown',
                 message: `Please wait ${Math.ceil(24 - hoursSinceLastShare)} hours before sharing again`,
-                hours_remaining: Math.ceil(24 - hoursSinceLastShare)
+                hours_remaining: Math.ceil(24 - hoursSinceLastShare),
+                last_share_date: lastShare.last_share_date,
+                debug_info: {
+                  user_id: user.id,
+                  share_id: share_id,
+                  timestamp: new Date().toISOString()
+                }
               }),
               { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -196,6 +208,12 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      console.log('=== XP AWARD RESULT ===');
+      console.log('Success: true');
+      console.log('New Total XP:', data.total_xp);
+      console.log('Social Share XP:', data.social_share_xp);
+      console.log('Level:', data.level);
 
       return new Response(
         JSON.stringify({ 

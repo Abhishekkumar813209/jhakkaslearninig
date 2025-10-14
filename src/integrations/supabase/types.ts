@@ -506,10 +506,12 @@ export type Database = {
           last_share_date: string | null
           marked_at: string | null
           share_count: number | null
+          share_id: string | null
           social_share_at: string | null
           social_share_done: boolean | null
           streak_days: number | null
           student_id: string
+          xp_awarded: boolean
           xp_earned: number | null
         }
         Insert: {
@@ -519,10 +521,12 @@ export type Database = {
           last_share_date?: string | null
           marked_at?: string | null
           share_count?: number | null
+          share_id?: string | null
           social_share_at?: string | null
           social_share_done?: boolean | null
           streak_days?: number | null
           student_id: string
+          xp_awarded?: boolean
           xp_earned?: number | null
         }
         Update: {
@@ -532,10 +536,12 @@ export type Database = {
           last_share_date?: string | null
           marked_at?: string | null
           share_count?: number | null
+          share_id?: string | null
           social_share_at?: string | null
           social_share_done?: boolean | null
           streak_days?: number | null
           student_id?: string
+          xp_awarded?: boolean
           xp_earned?: number | null
         }
         Relationships: [

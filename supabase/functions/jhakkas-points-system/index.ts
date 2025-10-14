@@ -71,11 +71,35 @@ serve(async (req) => {
     }
 
     if (action === 'add') {
+      const { share_id } = body; // Extract share_id for idempotency
+      
       // Validate 24-hour cooldown for social shares
       if (activity_type === 'social_share') {
+        // Check for duplicate share_id first (idempotency)
+        if (share_id) {
+          const { data: existingShare } = await supabase
+            .from('daily_attendance')
+            .select('share_id, xp_awarded')
+            .eq('share_id', share_id)
+            .maybeSingle();
+
+          if (existingShare) {
+            console.log(`Duplicate share_id detected: ${share_id}`);
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                xp_awarded: existingShare.xp_awarded,
+                reason: 'already_processed',
+                message: 'This share has already been processed'
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+
         const { data: lastShare } = await supabase
           .from('daily_attendance')
-          .select('last_share_date')
+          .select('last_share_date, xp_awarded')
           .eq('student_id', user.id)
           .order('last_share_date', { ascending: false })
           .limit(1)
@@ -90,7 +114,9 @@ serve(async (req) => {
             console.log(`Share cooldown active: ${24 - hoursSinceLastShare} hours remaining`);
             return new Response(
               JSON.stringify({ 
-                error: 'Cooldown active',
+                success: false,
+                xp_awarded: false,
+                reason: 'cooldown',
                 message: `Please wait ${Math.ceil(24 - hoursSinceLastShare)} hours before sharing again`,
                 hours_remaining: Math.ceil(24 - hoursSinceLastShare)
               }),
@@ -174,6 +200,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
+          xp_awarded: true,
+          reason: 'awarded',
           data: {
             xp: data.total_xp,
             level: data.level,

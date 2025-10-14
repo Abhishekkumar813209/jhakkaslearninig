@@ -72,7 +72,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
               Maybe Later
             </Button>
             <Button onClick={onSubscribe} className="flex-1">
-              Subscribe Now
+              View Plans ↓
             </Button>
           </div>
           

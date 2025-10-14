@@ -151,12 +151,15 @@ const StudentTests: React.FC = () => {
     
     // If not free, require subscription
     if (!hasActiveSubscription) {
-      // Show subscription card instead of just modal
-      const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
-      if (subscriptionCard) {
-        subscriptionCard.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        setShowPaywallModal(true);
+      // Scroll to subscription section with highlight
+      const subscriptionSection = document.getElementById('subscription-section');
+      if (subscriptionSection) {
+        subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add brief highlight animation
+        subscriptionSection.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        setTimeout(() => {
+          subscriptionSection.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        }, 2000);
       }
       return;
     }
@@ -237,32 +240,23 @@ const StudentTests: React.FC = () => {
         </Card>
       </div>
 
-      {/* Premium Feature Lock for expired users */}
+      {/* Premium Feature Lock - Minimal Banner for expired users */}
       {showPaywall && (
-        <div className="mb-6">
-          <PremiumFeatureLock
-            featureName="Unlimited Tests"
-            description="Your free test has been used and your premium access has expired. Renew your subscription to continue taking unlimited tests and access all learning materials."
-            onUpgrade={() => {
-              // Scroll to subscription card below
-              const subscriptionCard = document.querySelector('[data-subscription-card]') as HTMLElement;
-              if (subscriptionCard) {
-                subscriptionCard.scrollIntoView({ behavior: 'smooth' });
-              }
-            }}
-          />
-          
-          <div className="mt-6">
-            <SubscriptionCard
-              hasActiveSubscription={hasActiveSubscription}
-              hasFreeTestUsed={hasFreeTestUsed}
-              onSubscriptionSuccess={async () => {
-                await fetchSubscriptionStatus();
-                await fetchAvailableTests();
-              }}
-            />
-          </div>
-        </div>
+        <PremiumFeatureLock
+          featureName="Premium Tests"
+          description="Your premium access has expired. Scroll down to renew for ₹299/month."
+          onUpgrade={() => {
+            const subscriptionSection = document.getElementById('subscription-section');
+            if (subscriptionSection) {
+              subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Add brief highlight animation
+              subscriptionSection.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+              setTimeout(() => {
+                subscriptionSection.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+              }, 2000);
+            }
+          }}
+        />
       )}
 
       {/* Tests Grid */}
@@ -283,24 +277,19 @@ const StudentTests: React.FC = () => {
             const shouldShowLockOverlay = isPremiumTest;
             
             return (
-              <Card key={test.id} className={`hover:shadow-lg transition-shadow ${shouldShowLockOverlay ? 'relative' : ''}`}>
-                {shouldShowLockOverlay && (
-                  <div className="absolute inset-0 bg-black/5 backdrop-blur-[2px] rounded-lg z-10 flex items-center justify-center">
-                    <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg text-center">
-                      <Trophy className="h-6 w-6 text-primary mx-auto mb-2" />
-                      <p className="text-sm font-medium">Premium Required</p>
-                    </div>
-                  </div>
-                )}
+              <Card 
+                key={test.id} 
+                className={`hover:shadow-lg transition-all ${isPremiumTest ? 'border-2 border-primary/30' : ''}`}
+              >
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{test.title}</CardTitle>
                       {isFreeTest && (
-                        <Badge variant="secondary" className="text-xs bg-green-500 text-white">Free</Badge>
+                        <Badge variant="secondary" className="text-xs bg-green-500 text-white">✅ Free</Badge>
                       )}
                       {isPremiumTest && (
-                        <Badge variant="outline" className="text-xs text-primary border-primary">Premium</Badge>
+                        <Badge variant="outline" className="text-xs text-primary border-primary">🔒 Premium</Badge>
                       )}
                     </div>
                     {getDifficultyBadge(test.difficulty)}
@@ -340,8 +329,8 @@ const StudentTests: React.FC = () => {
                      <Play className="h-4 w-4 mr-2" />
                      {test.question_count === 0 
                        ? 'No Questions' 
-                       : isPremiumTest && hasFreeTestUsed 
-                         ? 'Subscribe to Access' 
+                       : isPremiumTest
+                         ? 'Unlock with Premium' 
                          : 'Start Test'
                      }
                   </Button>
@@ -352,30 +341,39 @@ const StudentTests: React.FC = () => {
         </div>
       )}
 
-      {/* Subscription Card - Always show for non-premium users */}
+      {/* Single Subscription Section - Only for non-premium users */}
       {!hasActiveSubscription && (
-        <div data-subscription-card className="mt-8">
-          <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold mb-2">Unlock All Tests & Learning Paths</h2>
-            <p className="text-muted-foreground">Get unlimited access to all premium features</p>
+        <>
+          <div className="border-t my-8"></div>
+          <div id="subscription-section" className="mt-8 transition-all duration-300">
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-bold mb-2">🏆 Get Premium Access</h2>
+              <p className="text-muted-foreground">Unlock unlimited tests, learning paths, analytics, and rankings</p>
+            </div>
+            <SubscriptionCard
+              hasActiveSubscription={hasActiveSubscription}
+              hasFreeTestUsed={hasFreeTestUsed}
+              onSubscriptionSuccess={async () => {
+                await fetchSubscriptionStatus();
+                await fetchAvailableTests();
+              }}
+            />
           </div>
-          <SubscriptionCard
-            hasActiveSubscription={hasActiveSubscription}
-            hasFreeTestUsed={hasFreeTestUsed}
-            onSubscriptionSuccess={async () => {
-              await fetchSubscriptionStatus();
-              await fetchAvailableTests();
-            }}
-          />
-        </div>
+        </>
       )}
 
       <PaywallModal
         isOpen={showPaywallModal}
         onClose={() => setShowPaywallModal(false)}
-        onSubscribe={handleSubscribeNow}
+        onSubscribe={() => {
+          setShowPaywallModal(false);
+          const subscriptionSection = document.getElementById('subscription-section');
+          if (subscriptionSection) {
+            subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }}
         title="Premium Test Access"
-        description="You've used your free test. Subscribe for ₹299 to unlock unlimited tests and learning paths."
+        description="Scroll down to view our premium subscription plans and unlock unlimited access."
       />
 
     </div>

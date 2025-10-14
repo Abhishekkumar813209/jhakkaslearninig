@@ -16,11 +16,17 @@ import {
   CheckCircle,
   Circle,
   FileText,
-  Timer
+  Timer,
+  Menu,
+  Flag,
+  X,
+  Grid3x3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import { renderMath } from '@/lib/mathRendering';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Question {
   id: string;
@@ -62,9 +68,33 @@ const OnlineTestInterface: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [showQuestionPalette, setShowQuestionPalette] = useState(false);
+  const [markedForReview, setMarkedForReview] = useState<string[]>([]);
+  const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set([0]));
   const { toast } = useToast();
   const timerRef = useRef<NodeJS.Timeout>();
   const autoSaveRef = useRef<NodeJS.Timeout>();
+
+  // Hide navbar during test
+  useEffect(() => {
+    const navbar = document.querySelector('nav');
+    const originalDisplay = navbar ? (navbar as HTMLElement).style.display : '';
+    
+    if (navbar) {
+      (navbar as HTMLElement).style.display = 'none';
+    }
+    
+    return () => {
+      if (navbar) {
+        (navbar as HTMLElement).style.display = originalDisplay || 'block';
+      }
+    };
+  }, []);
+
+  // Track visited questions
+  useEffect(() => {
+    setVisitedQuestions(prev => new Set([...prev, currentQuestionIndex]));
+  }, [currentQuestionIndex]);
 
   useEffect(() => {
     if (testId) {
@@ -295,10 +325,42 @@ const OnlineTestInterface: React.FC = () => {
   };
 
   const getTimeColor = () => {
-    const percentage = (timeRemaining / (test!.duration_minutes * 60)) * 100;
-    if (percentage > 50) return 'text-green-600';
-    if (percentage > 25) return 'text-yellow-600';
-    return 'text-red-600';
+    const minutes = Math.floor(timeRemaining / 60);
+    if (minutes < 5) return 'text-red-500 animate-pulse';
+    if (minutes < 15) return 'text-yellow-400';
+    return 'text-white';
+  };
+
+  // Mark for review handler
+  const handleMarkForReview = (questionId: string) => {
+    setMarkedForReview(prev => {
+      if (prev.includes(questionId)) {
+        toast({
+          title: "Removed from Review",
+          description: "Question unmarked for review",
+        });
+        return prev.filter(id => id !== questionId);
+      } else {
+        toast({
+          title: "Marked for Review",
+          description: "You can review this question later",
+        });
+        return [...prev, questionId];
+      }
+    });
+  };
+
+  // Clear answer handler
+  const handleClearAnswer = (questionId: string) => {
+    setAnswers(prev => {
+      const newAnswers = { ...prev };
+      delete newAnswers[questionId];
+      return newAnswers;
+    });
+    toast({
+      title: "Response Cleared",
+      description: "Your answer has been removed",
+    });
   };
 
   if (loading) {
@@ -328,203 +390,389 @@ const OnlineTestInterface: React.FC = () => {
   const progress = (answeredCount / questions.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-2xl">{test.title}</CardTitle>
-                <p className="text-muted-foreground">{test.subject} • {test.class}</p>
-              </div>
-              <div className="text-right">
-                <div className={`text-2xl font-bold ${getTimeColor()}`}>
-                  <Timer className="inline h-5 w-5 mr-2" />
-                  {formatTime(timeRemaining)}
-                </div>
-                <p className="text-sm text-muted-foreground">Time Remaining</p>
-              </div>
+    <div className="min-h-screen bg-background">
+      {/* Fixed Test Header - NTA Style */}
+      <div className="fixed top-0 left-0 right-0 bg-[#1e3a8a] text-white z-50 shadow-lg">
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* Left: Hamburger + Subject Badge */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden text-white hover:bg-white/20"
+              onClick={() => setShowQuestionPalette(true)}
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-orange-400" />
+              <span className="font-semibold text-lg hidden sm:inline">
+                {test.subject}
+              </span>
             </div>
-          </CardHeader>
-        </Card>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Question Panel */}
-          <div className="lg:col-span-3">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>
-                    Question {currentQuestionIndex + 1} of {questions.length}
-                  </CardTitle>
-                  <Badge variant="outline">{currentQuestion.marks} marks</Badge>
-                </div>
-                <Progress value={progress} className="mt-2" />
-                <p className="text-sm text-muted-foreground">
-                  {answeredCount} of {questions.length} questions answered
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div 
-                    className="font-medium text-lg prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
-                  />
-                </div>
-
-                {currentQuestion.question_type === 'multiple_choice' && currentQuestion.options && (
-                  <div className="space-y-3">
-                    {currentQuestion.options.map((option, index) => (
-                      <div key={index} className="flex items-center space-x-3">
-                        <Button
-                          variant={answers[currentQuestion.id]?.selectedOption === option.text ? 'default' : 'outline'}
-                          className="w-8 h-8 rounded-full p-0"
-                          onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
-                        >
-                          {answers[currentQuestion.id]?.selectedOption === option.text ? (
-                            <CheckCircle className="h-4 w-4" />
-                          ) : (
-                            <Circle className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <div 
-                          className="flex-1 p-3 rounded border cursor-pointer hover:bg-gray-50"
-                          onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
-                        >
-                          <span className="font-medium mr-3">{String.fromCharCode(65 + index)}.</span>
-                          <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {currentQuestion.question_type === 'text' && (
-                  <div className="space-y-2">
-                    <Textarea
-                      placeholder="Type your answer here..."
-                      value={answers[currentQuestion.id]?.textAnswer || ''}
-                      onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value, 'text')}
-                      rows={6}
-                      className="resize-none"
-                    />
-                    {currentQuestion.word_limit && (
-                      <p className="text-sm text-muted-foreground">
-                        Word limit: {currentQuestion.word_limit} words
-                        {answers[currentQuestion.id]?.textAnswer && (
-                          <span className="ml-2">
-                            (Current: {answers[currentQuestion.id]?.textAnswer?.split(' ').length || 0} words)
-                          </span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Navigation */}
-                <div className="flex justify-between items-center pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-                    disabled={currentQuestionIndex === 0}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Previous
-                  </Button>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={autoSaveAnswers}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Progress
-                    </Button>
-                    
-                    {currentQuestionIndex === questions.length - 1 ? (
-                      <Button
-                        onClick={() => handleSubmitTest()}
-                        disabled={submitting}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {submitting ? 'Submitting...' : 'Submit Test'}
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
-                      >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
-          {/* Question Navigator Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4">
-              <CardHeader>
-                <CardTitle className="text-lg">Question Navigator</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 gap-2">
-                  {questions.map((question, index) => (
+          {/* Center: Timer */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg">
+            <Clock className="h-5 w-5" />
+            <span className={`text-xl font-bold ${getTimeColor()}`}>
+              {formatTime(timeRemaining)}
+            </span>
+          </div>
+
+          {/* Right: Submit Button */}
+          <Button
+            onClick={() => handleSubmitTest()}
+            disabled={submitting}
+            className="bg-green-600 hover:bg-green-700 font-semibold px-4 sm:px-6"
+          >
+            SUBMIT
+          </Button>
+        </div>
+      </div>
+
+      {/* Spacer for fixed header */}
+      <div className="h-16"></div>
+
+      {/* Mobile: Question Palette Sheet */}
+      <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>
+        <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto p-0">
+          <div className="sticky top-0 bg-background z-10 border-b pb-4 pt-6 px-6">
+            <SheetHeader>
+              <SheetTitle className="text-xl font-bold flex items-center gap-2">
+                <Grid3x3 className="h-6 w-6" />
+                Test Navigation
+              </SheetTitle>
+            </SheetHeader>
+          </div>
+
+          <Tabs defaultValue="questions" className="mt-4 px-6">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="questions" className="font-semibold">
+                QUESTION PAPER
+              </TabsTrigger>
+              <TabsTrigger value="instructions" className="font-semibold">
+                INSTRUCTIONS
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="questions" className="space-y-4 pb-6">
+              {/* Status Legend */}
+              <Card className="bg-muted/50">
+                <CardContent className="pt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center text-white font-bold">1</div>
+                    <span className="text-sm font-medium">Answered</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-red-400 rounded flex items-center justify-center text-white font-bold">2</div>
+                    <span className="text-sm font-medium">Not Answered</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gray-300 rounded flex items-center justify-center text-gray-700 font-bold">3</div>
+                    <span className="text-sm font-medium">Not Visited</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold">4</div>
+                    <span className="text-sm font-medium">Review Later</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-500 border-4 border-green-500 rounded flex items-center justify-center text-white font-bold">5</div>
+                    <span className="text-sm font-medium">Answered & Marked for Review</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Subject Section Header */}
+              <div className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg">
+                <FileText className="h-5 w-5" />
+                <span className="font-bold text-lg">{test.subject}</span>
+              </div>
+
+              {/* Question Grid */}
+              <div className="grid grid-cols-5 gap-3">
+                {questions.map((question, index) => {
+                  const isAnswered = !!answers[question.id];
+                  const isVisited = visitedQuestions.has(index);
+                  const isMarkedForReview = markedForReview.includes(question.id);
+                  
+                  let bgColor = 'bg-gray-300 text-gray-700'; // Not visited
+                  let borderClass = '';
+                  
+                  if (isAnswered && isMarkedForReview) {
+                    bgColor = 'bg-blue-500 text-white';
+                    borderClass = 'border-4 border-green-500';
+                  } else if (isAnswered) {
+                    bgColor = 'bg-green-500 text-white';
+                  } else if (isMarkedForReview) {
+                    bgColor = 'bg-blue-500 text-white';
+                  } else if (isVisited) {
+                    bgColor = 'bg-red-400 text-white';
+                  }
+                  
+                  return (
                     <Button
                       key={question.id}
-                      size="sm"
-                      variant={
-                        index === currentQuestionIndex 
-                          ? 'default' 
-                          : answers[question.id] 
-                            ? 'outline' 
-                            : 'ghost'
-                      }
-                      className={`h-8 w-8 p-0 ${
-                        answers[question.id] 
-                          ? 'border-green-500 text-green-700' 
-                          : 'border-gray-300'
-                      }`}
-                      onClick={() => setCurrentQuestionIndex(index)}
+                      onClick={() => {
+                        setCurrentQuestionIndex(index);
+                        setShowQuestionPalette(false);
+                      }}
+                      className={`
+                        h-14 w-14 rounded text-lg font-bold
+                        ${bgColor} ${borderClass}
+                        ${index === currentQuestionIndex ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
+                        hover:scale-110 transition-transform
+                      `}
                     >
                       {index + 1}
                     </Button>
-                  ))}
-                </div>
-                
-                <div className="mt-4 space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-primary rounded"></div>
-                    <span>Current Question</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 border-2 border-green-500 rounded"></div>
-                    <span>Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 border-2 border-gray-300 rounded"></div>
-                    <span>Unanswered</span>
-                  </div>
-                </div>
+                  );
+                })}
+              </div>
+            </TabsContent>
 
-                <div className="mt-4 p-3 bg-yellow-50 rounded border border-yellow-200">
-                  <div className="flex items-center gap-2 text-yellow-800">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="text-sm font-medium">Test Info</span>
+            <TabsContent value="instructions" className="pb-6">
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="prose prose-sm max-w-none">
+                    <h3 className="text-lg font-bold mb-3">General Instructions</h3>
+                    <div className="space-y-2 text-sm">
+                      <p><strong>Total Questions:</strong> {questions.length}</p>
+                      <p><strong>Total Marks:</strong> {test.total_marks}</p>
+                      <p><strong>Passing Marks:</strong> {test.passing_marks}</p>
+                      <p><strong>Duration:</strong> {test.duration_minutes} minutes</p>
+                      <p><strong>Negative Marking:</strong> No</p>
+                    </div>
+                    {test.instructions && (
+                      <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
+                        <div dangerouslySetInnerHTML={{ __html: renderMath(test.instructions) }} />
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-2 text-xs text-yellow-700 space-y-1">
-                    <p>Total Questions: {questions.length}</p>
-                    <p>Total Marks: {test.total_marks}</p>
-                    <p>Passing Marks: {test.passing_marks}</p>
-                    <p>Duration: {test.duration_minutes} minutes</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Question Area */}
+      <div className="max-w-5xl mx-auto px-4 pb-40 lg:pb-44">
+        {/* Subject Badge (Centered) */}
+        <div className="flex justify-center mb-6">
+          <Badge className="bg-[#1e3a8a] text-white px-8 py-2 text-lg font-semibold rounded-full shadow-md">
+            Section: {test.subject}
+          </Badge>
+        </div>
+
+        {/* Question Card */}
+        <Card className="shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-bold">Q.{currentQuestionIndex + 1}</span>
+                <Badge variant="secondary" className="bg-white text-blue-900 font-semibold">
+                  {currentQuestion.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Text Answer'}
+                </Badge>
+              </div>
+              <Badge variant="outline" className="text-white border-white text-base px-3 py-1">
+                {currentQuestion.marks} {currentQuestion.marks === 1 ? 'mark' : 'marks'}
+              </Badge>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-8 space-y-6">
+            {/* Question Text */}
+            <div 
+              className="text-lg leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+            />
+
+            {/* Options - NTA Style with Radio Buttons */}
+            {currentQuestion.question_type === 'multiple_choice' && currentQuestion.options && (
+              <div className="space-y-3 mt-6">
+                {currentQuestion.options.map((option, index) => {
+                  const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
+                  const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
+                  
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
+                      className={`
+                        flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer
+                        transition-all duration-200 group
+                        ${isSelected 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-md' 
+                          : 'border-border hover:border-blue-400 hover:bg-muted/50 hover:shadow-sm'
+                        }
+                      `}
+                    >
+                      {/* Custom Radio Button Circle */}
+                      <div className={`
+                        relative flex-shrink-0 w-7 h-7 rounded-full border-2 mt-1
+                        flex items-center justify-center transition-all duration-200
+                        ${isSelected 
+                          ? 'border-blue-500 bg-blue-500 shadow-md' 
+                          : 'border-muted-foreground/40 group-hover:border-blue-400'
+                        }
+                      `}>
+                        {isSelected && (
+                          <div className="w-3 h-3 bg-white rounded-full" />
+                        )}
+                      </div>
+
+                      {/* Option Label and Text */}
+                      <div className="flex-1 pt-1">
+                        <span className="font-bold text-lg mr-2">
+                          {optionLabel}.
+                        </span>
+                        <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Text Answer Area */}
+            {currentQuestion.question_type === 'text' && (
+              <div className="mt-6">
+                <Textarea
+                  value={answers[currentQuestion.id]?.textAnswer || ''}
+                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value, 'text')}
+                  rows={10}
+                  className="resize-none text-base border-2 focus:border-blue-500"
+                  placeholder="Type your answer here..."
+                />
+                {currentQuestion.word_limit && (
+                  <p className="text-sm text-muted-foreground mt-2 text-right">
+                    {answers[currentQuestion.id]?.textAnswer?.length || 0} / {currentQuestion.word_limit} characters
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Desktop: Bottom Horizontal Question Navigator */}
+      <div className="hidden lg:block fixed bottom-20 left-0 right-0 bg-background border-t-2 shadow-lg z-30">
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            {questions.map((question, index) => {
+              const isAnswered = !!answers[question.id];
+              const isCurrent = index === currentQuestionIndex;
+              const isMarkedForReview = markedForReview.includes(question.id);
+              const isVisited = visitedQuestions.has(index);
+              
+              let bgColor = 'bg-gray-300 text-gray-700'; // Not visited
+              let borderClass = '';
+              
+              if (isAnswered && isMarkedForReview) {
+                bgColor = 'bg-blue-500 text-white';
+                borderClass = 'border-2 border-green-500';
+              } else if (isAnswered) {
+                bgColor = 'bg-green-500 text-white';
+              } else if (isMarkedForReview) {
+                bgColor = 'bg-blue-500 text-white';
+              } else if (isVisited) {
+                bgColor = 'bg-red-400 text-white';
+              }
+              
+              return (
+                <Button
+                  key={question.id}
+                  size="sm"
+                  onClick={() => setCurrentQuestionIndex(index)}
+                  className={`
+                    min-w-[44px] h-11 rounded font-bold text-base flex-shrink-0
+                    ${bgColor} ${borderClass}
+                    ${isCurrent 
+                      ? 'ring-4 ring-yellow-400 ring-offset-1 scale-110' 
+                      : 'hover:scale-105'
+                    }
+                    transition-all duration-200
+                  `}
+                >
+                  {index + 1}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Fixed Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t-2 shadow-2xl z-40">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: Previous Button */}
+            <Button
+              variant="outline"
+              onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentQuestionIndex === 0}
+              className="flex items-center gap-2 px-4 sm:px-6 h-11 font-semibold border-2"
+            >
+              <ChevronLeft className="h-5 w-5" />
+              <span className="hidden sm:inline">Previous</span>
+            </Button>
+
+            {/* Center: Action Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleMarkForReview(currentQuestion.id)}
+                className={`
+                  flex items-center gap-2 px-3 sm:px-4 h-11 font-semibold border-2
+                  ${markedForReview.includes(currentQuestion.id) 
+                    ? 'bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300' 
+                    : 'hover:bg-blue-50 dark:hover:bg-blue-950/50'
+                  }
+                `}
+              >
+                <Flag className="h-5 w-5" />
+                <span className="hidden md:inline">Mark for Review</span>
+                <span className="md:hidden">Review</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => handleClearAnswer(currentQuestion.id)}
+                disabled={!answers[currentQuestion.id]}
+                className="flex items-center gap-2 px-3 sm:px-4 h-11 font-semibold border-2 hover:bg-red-50 dark:hover:bg-red-950/50 hover:border-red-400"
+              >
+                <X className="h-5 w-5" />
+                <span className="hidden sm:inline">Clear</span>
+              </Button>
+            </div>
+
+            {/* Right: Save and Next / Submit */}
+            {currentQuestionIndex === questions.length - 1 ? (
+              <Button
+                onClick={() => handleSubmitTest()}
+                disabled={submitting}
+                className="bg-green-600 hover:bg-green-700 px-4 sm:px-6 h-11 font-bold text-base shadow-lg"
+              >
+                <Send className="h-5 w-5 mr-2" />
+                <span className="hidden sm:inline">Submit</span>
+                <span className="sm:hidden">Submit</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  autoSaveAnswers();
+                  setCurrentQuestionIndex(prev => prev + 1);
+                  setVisitedQuestions(prev => new Set([...prev, currentQuestionIndex + 1]));
+                }}
+                className="bg-blue-600 hover:bg-blue-700 px-4 sm:px-6 h-11 font-bold text-base shadow-lg flex items-center gap-2"
+              >
+                <span className="hidden sm:inline">Save & Next</span>
+                <span className="sm:hidden">Next</span>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         </div>
       </div>

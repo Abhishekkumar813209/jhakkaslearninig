@@ -342,12 +342,14 @@ const OnlineTestInterface: React.FC = () => {
         toast({
           title: "Removed from Review",
           description: "Question unmarked for review",
+          duration: 2000,
         });
         return prev.filter(id => id !== questionId);
       } else {
         toast({
           title: "Marked for Review",
           description: "You can review this question later",
+          duration: 2000,
         });
         return [...prev, questionId];
       }
@@ -398,20 +400,16 @@ const OnlineTestInterface: React.FC = () => {
       {/* Navbar at the top */}
       <Navbar />
 
-      {/* Mobile: Mini Header Below Navbar */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 bg-[#1e3a8a] text-white z-40 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          <span className="text-sm font-bold">{formatTime(timeRemaining)}</span>
+      {/* Mobile: Compact Header - Question Number + Timer */}
+      <div className="lg:hidden fixed top-16 left-0 right-0 bg-[#1e3a8a] text-white z-40 px-4 py-2 flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold">Q.{currentQuestionIndex + 1}</span>
+          <span className="text-gray-300">|</span>
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            <span className={`text-sm font-bold ${getTimeColor()}`}>{formatTime(timeRemaining)}</span>
+          </div>
         </div>
-        <Button
-          size="sm"
-          onClick={() => handleSubmitTest()}
-          disabled={submitting}
-          className="bg-green-600 hover:bg-green-700 text-xs px-3 py-1 h-7"
-        >
-          SUBMIT
-        </Button>
       </div>
 
       {/* Desktop: Test Header (below navbar) */}
@@ -443,7 +441,7 @@ const OnlineTestInterface: React.FC = () => {
       </div>
 
       {/* Spacer for navbar + test header */}
-      <div className="h-28 lg:h-32"></div>
+      <div className="h-20 lg:h-32"></div>
 
       {/* Mobile: Question Palette Sheet */}
       <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>
@@ -567,13 +565,6 @@ const OnlineTestInterface: React.FC = () => {
 
       {/* Mobile: Single Column Question Area */}
       <div className="lg:hidden max-w-5xl mx-auto px-4 pb-40">
-        {/* Subject Badge (Centered) */}
-        <div className="flex justify-center mb-6">
-          <Badge className="bg-[#1e3a8a] text-white px-8 py-2 text-lg font-semibold rounded-full shadow-md">
-            Section: {test.subject}
-          </Badge>
-        </div>
-
         {/* Question Card */}
         <Card className="shadow-xl">
           <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white">
@@ -598,9 +589,17 @@ const OnlineTestInterface: React.FC = () => {
             />
 
             {/* Options - NTA Style with Radio Buttons */}
-            {currentQuestion.question_type === 'multiple_choice' && currentQuestion.options && (
-              <div className="space-y-3 mt-6">
-                {currentQuestion.options.map((option, index) => {
+            {currentQuestion.question_type === 'multiple_choice' && (
+              <>
+                {console.log('Question Options:', currentQuestion.options)}
+                {!currentQuestion.options || currentQuestion.options.length === 0 ? (
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 rounded-lg">
+                    <p className="text-yellow-800 dark:text-yellow-200 font-semibold">⚠️ No options available for this question</p>
+                    <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">Please contact administrator.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 mt-6">
+                    {currentQuestion.options.map((option, index) => {
                   const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
                   const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
                   
@@ -641,7 +640,9 @@ const OnlineTestInterface: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Text Answer Area */}
@@ -669,13 +670,6 @@ const OnlineTestInterface: React.FC = () => {
       <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 max-w-7xl mx-auto px-4 pb-32">
         {/* Left Column: Question Area */}
         <div>
-          {/* Subject Badge */}
-          <div className="mb-6">
-            <Badge className="bg-[#1e3a8a] text-white px-8 py-2 text-lg font-semibold rounded-full shadow-md">
-              Section: {test.subject}
-            </Badge>
-          </div>
-
           {/* Question Card */}
           <Card className="shadow-xl">
             <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white">
@@ -700,9 +694,17 @@ const OnlineTestInterface: React.FC = () => {
               />
 
               {/* Options - NTA Style with Radio Buttons */}
-              {currentQuestion.question_type === 'multiple_choice' && currentQuestion.options && (
-                <div className="space-y-3 mt-6">
-                  {currentQuestion.options.map((option, index) => {
+              {currentQuestion.question_type === 'multiple_choice' && (
+                <>
+                  {console.log('Question Options:', currentQuestion.options)}
+                  {!currentQuestion.options || currentQuestion.options.length === 0 ? (
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 rounded-lg">
+                      <p className="text-yellow-800 dark:text-yellow-200 font-semibold">⚠️ No options available for this question</p>
+                      <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">Please contact administrator.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 mt-6">
+                      {currentQuestion.options.map((option, index) => {
                     const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
                     const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
                     
@@ -743,7 +745,9 @@ const OnlineTestInterface: React.FC = () => {
                       </div>
                     );
                   })}
-                </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Text Answer Area */}

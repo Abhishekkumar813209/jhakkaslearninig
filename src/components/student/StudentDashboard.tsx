@@ -19,6 +19,8 @@ import { AttendanceButton } from './AttendanceButton';
 import { ReferralCard } from './ReferralCard';
 import { ProfileSidebar } from './ProfileSidebar';
 import { SubjectProgressCircles } from './SubjectProgressCircles';
+import { StudyHoursChart } from './StudyHoursChart';
+import { LearningJourneySummary } from './LearningJourneySummary';
 
 const StudentDashboard: React.FC = () => {
   const { 
@@ -191,6 +193,12 @@ const StudentDashboard: React.FC = () => {
 
           {/* Subject Progress Circles */}
           <SubjectProgressCircles />
+
+          {/* Study Hours Chart & Learning Journey */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <StudyHoursChart />
+            <LearningJourneySummary />
+          </div>
 
           {/* Batch Info Card */}
           {profile?.batches && (

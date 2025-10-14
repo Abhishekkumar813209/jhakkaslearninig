@@ -601,6 +601,42 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_study_logs: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          lessons_watched: number | null
+          student_id: string
+          study_minutes: number | null
+          tests_taken: number | null
+          topics_completed: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          lessons_watched?: number | null
+          student_id: string
+          study_minutes?: number | null
+          tests_taken?: number | null
+          topics_completed?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          lessons_watched?: number | null
+          student_id?: string
+          study_minutes?: number | null
+          tests_taken?: number | null
+          topics_completed?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       discount_usage_log: {
         Row: {
           code_used: string | null
@@ -4393,6 +4429,16 @@ export type Database = {
       }
       update_battery_level: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_daily_study_log: {
+        Args: {
+          p_lessons_watched?: number
+          p_student_id: string
+          p_study_minutes?: number
+          p_tests_taken?: number
+          p_topics_completed?: number
+        }
         Returns: undefined
       }
       validate_leaderboard_access: {

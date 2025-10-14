@@ -25,7 +25,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import { renderMath } from '@/lib/mathRendering';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Navbar from '@/components/Navbar';
 
@@ -430,7 +430,7 @@ const OnlineTestInterface: React.FC = () => {
       </div>
 
       {/* Spacer for navbar + test header */}
-      <div className="h-16 lg:h-32"></div>
+      <div className="h-0 lg:h-24"></div>
 
       {/* Mobile: Question Palette Sheet */}
       <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>
@@ -549,23 +549,35 @@ const OnlineTestInterface: React.FC = () => {
               </Card>
             </TabsContent>
           </Tabs>
+          
+          {/* Back to Test Button */}
+          <div className="sticky bottom-0 bg-background border-t pt-4 pb-6 px-6 mt-6">
+            <SheetClose asChild>
+              <Button 
+                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-6 text-lg"
+              >
+                Back to Test
+              </Button>
+            </SheetClose>
+          </div>
         </SheetContent>
       </Sheet>
 
       {/* Mobile: Single Column Question Area */}
-      <div className="lg:hidden max-w-5xl mx-auto px-4 pb-40">
+      <div className="lg:hidden w-full px-2 pb-40">
         {/* Question Card */}
-        <Card className="shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white py-3">
+        <div className="bg-background overflow-hidden">
+          {/* Blue header strip */}
+          <div className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white py-3 px-4">
             <div className="flex items-center justify-between">
               <span className="text-2xl font-bold">Q.{currentQuestionIndex + 1}</span>
               <span className={`text-xl font-bold ${getTimeColor()}`}>
                 {formatTime(timeRemaining)}
               </span>
             </div>
-          </CardHeader>
+          </div>
 
-          <CardContent className="p-8 space-y-6">
+          <div className="p-4 space-y-6">
             {/* Question Text */}
             <div 
               className="text-lg leading-relaxed"
@@ -646,12 +658,12 @@ const OnlineTestInterface: React.FC = () => {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Desktop: Two-column layout - Question LEFT, Sidebar RIGHT */}
-      <div className="hidden lg:grid lg:grid-cols-[1fr_320px] gap-6 max-w-7xl mx-auto px-4 pb-32">
+      <div className="hidden lg:grid lg:grid-cols-[1fr_340px] gap-4 max-w-screen-2xl mx-auto px-3 pb-32">
         {/* Left Column: Question Area */}
         <div>
           {/* Question Card */}
@@ -662,7 +674,7 @@ const OnlineTestInterface: React.FC = () => {
               </div>
             </CardHeader>
 
-            <CardContent className="p-8 space-y-6">
+            <CardContent className="p-4 space-y-6">
               {/* Question Text */}
               <div 
                 className="text-lg leading-relaxed"

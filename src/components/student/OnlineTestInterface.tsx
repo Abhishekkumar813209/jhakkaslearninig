@@ -75,21 +75,17 @@ const OnlineTestInterface: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout>();
   const autoSaveRef = useRef<NodeJS.Timeout>();
 
-  // Hide navbar during test
-  useEffect(() => {
-    const navbar = document.querySelector('nav');
-    const originalDisplay = navbar ? (navbar as HTMLElement).style.display : '';
-    
-    if (navbar) {
-      (navbar as HTMLElement).style.display = 'none';
+  // Helper function to show only nearby questions for pagination
+  const getVisibleQuestionRange = () => {
+    const range = 3; // Show current ±3 questions (total 7)
+    const start = Math.max(0, currentQuestionIndex - range);
+    const end = Math.min(questions.length - 1, currentQuestionIndex + range);
+    const indices = [];
+    for (let i = start; i <= end; i++) {
+      indices.push(i);
     }
-    
-    return () => {
-      if (navbar) {
-        (navbar as HTMLElement).style.display = originalDisplay || 'block';
-      }
-    };
-  }, []);
+    return indices;
+  };
 
   // Track visited questions
   useEffect(() => {
@@ -391,26 +387,36 @@ const OnlineTestInterface: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Fixed Test Header - NTA Style */}
-      <div className="fixed top-0 left-0 right-0 bg-[#1e3a8a] text-white z-50 shadow-lg">
+      {/* Mobile: Mini Header Below Navbar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#1e3a8a] text-white z-40 px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          <span className="text-sm font-bold">{formatTime(timeRemaining)}</span>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => setShowQuestionPalette(true)}
+          className="bg-white/20 hover:bg-white/30 text-xs px-3 py-1 h-7"
+        >
+          Questions
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleSubmitTest()}
+          disabled={submitting}
+          className="bg-green-600 hover:bg-green-700 text-xs px-3 py-1 h-7"
+        >
+          SUBMIT
+        </Button>
+      </div>
+
+      {/* Desktop: Test Header */}
+      <div className="hidden lg:block fixed top-0 left-0 right-0 bg-[#1e3a8a] text-white z-50 shadow-lg">
         <div className="flex items-center justify-between px-4 py-3">
-          {/* Left: Hamburger + Subject Badge */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden text-white hover:bg-white/20"
-              onClick={() => setShowQuestionPalette(true)}
-            >
-              <Menu className="h-6 w-6" />
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-6 w-6 text-orange-400" />
-              <span className="font-semibold text-lg hidden sm:inline">
-                {test.subject}
-              </span>
-            </div>
+          {/* Left: Subject */}
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-6 w-6 text-orange-400" />
+            <span className="font-semibold text-lg">{test.subject}</span>
           </div>
 
           {/* Center: Timer */}
@@ -425,7 +431,7 @@ const OnlineTestInterface: React.FC = () => {
           <Button
             onClick={() => handleSubmitTest()}
             disabled={submitting}
-            className="bg-green-600 hover:bg-green-700 font-semibold px-4 sm:px-6"
+            className="bg-green-600 hover:bg-green-700 font-semibold px-6"
           >
             SUBMIT
           </Button>
@@ -433,7 +439,7 @@ const OnlineTestInterface: React.FC = () => {
       </div>
 
       {/* Spacer for fixed header */}
-      <div className="h-16"></div>
+      <div className="h-12 lg:h-16"></div>
 
       {/* Mobile: Question Palette Sheet */}
       <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>
@@ -490,19 +496,18 @@ const OnlineTestInterface: React.FC = () => {
                 <span className="font-bold text-lg">{test.subject}</span>
               </div>
 
-              {/* Question Grid */}
-              <div className="grid grid-cols-5 gap-3">
+              {/* Question Grid - Simplified NTA Style */}
+              <div className="grid grid-cols-5 gap-2">
                 {questions.map((question, index) => {
                   const isAnswered = !!answers[question.id];
                   const isVisited = visitedQuestions.has(index);
                   const isMarkedForReview = markedForReview.includes(question.id);
+                  const isCurrent = index === currentQuestionIndex;
                   
-                  let bgColor = 'bg-gray-300 text-gray-700'; // Not visited
-                  let borderClass = '';
+                  let bgColor = 'bg-gray-200 text-gray-700'; // Not visited
                   
                   if (isAnswered && isMarkedForReview) {
-                    bgColor = 'bg-blue-500 text-white';
-                    borderClass = 'border-4 border-green-500';
+                    bgColor = 'bg-blue-500 text-white border-2 border-green-500';
                   } else if (isAnswered) {
                     bgColor = 'bg-green-500 text-white';
                   } else if (isMarkedForReview) {
@@ -519,10 +524,9 @@ const OnlineTestInterface: React.FC = () => {
                         setShowQuestionPalette(false);
                       }}
                       className={`
-                        h-14 w-14 rounded text-lg font-bold
-                        ${bgColor} ${borderClass}
-                        ${index === currentQuestionIndex ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
-                        hover:scale-110 transition-transform
+                        h-12 w-12 rounded font-semibold text-base
+                        ${bgColor}
+                        ${isCurrent ? 'ring-2 ring-blue-600' : ''}
                       `}
                     >
                       {index + 1}
@@ -657,49 +661,64 @@ const OnlineTestInterface: React.FC = () => {
         </Card>
       </div>
 
-      {/* Desktop: Bottom Horizontal Question Navigator */}
-      <div className="hidden lg:block fixed bottom-20 left-0 right-0 bg-background border-t-2 shadow-lg z-30">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-            {questions.map((question, index) => {
-              const isAnswered = !!answers[question.id];
+      {/* Desktop: Simple Numbered Navigation (NTA Style) */}
+      <div className="hidden lg:flex fixed bottom-20 left-0 right-0 bg-background border-t-2 shadow-lg z-30 overflow-x-hidden">
+        <div className="max-w-6xl mx-auto px-4 py-3 w-full">
+          <div className="flex items-center justify-center gap-2">
+            {/* Previous Arrow */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentQuestionIndex === 0}
+              className="text-muted-foreground"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+
+            {/* Question Numbers (Show current ±3 questions) */}
+            {getVisibleQuestionRange().map((index) => {
               const isCurrent = index === currentQuestionIndex;
-              const isMarkedForReview = markedForReview.includes(question.id);
-              const isVisited = visitedQuestions.has(index);
-              
-              let bgColor = 'bg-gray-300 text-gray-700'; // Not visited
-              let borderClass = '';
-              
-              if (isAnswered && isMarkedForReview) {
-                bgColor = 'bg-blue-500 text-white';
-                borderClass = 'border-2 border-green-500';
-              } else if (isAnswered) {
-                bgColor = 'bg-green-500 text-white';
-              } else if (isMarkedForReview) {
-                bgColor = 'bg-blue-500 text-white';
-              } else if (isVisited) {
-                bgColor = 'bg-red-400 text-white';
-              }
-              
               return (
                 <Button
-                  key={question.id}
+                  key={index}
+                  variant={isCurrent ? "default" : "outline"}
                   size="sm"
                   onClick={() => setCurrentQuestionIndex(index)}
                   className={`
-                    min-w-[44px] h-11 rounded font-bold text-base flex-shrink-0
-                    ${bgColor} ${borderClass}
+                    min-w-[44px] h-10 font-semibold rounded
                     ${isCurrent 
-                      ? 'ring-4 ring-yellow-400 ring-offset-1 scale-110' 
-                      : 'hover:scale-105'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-background text-foreground border-border hover:bg-muted'
                     }
-                    transition-all duration-200
                   `}
                 >
                   {index + 1}
                 </Button>
               );
             })}
+
+            {/* Next Arrow */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
+              disabled={currentQuestionIndex === questions.length - 1}
+              className="text-muted-foreground"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+
+            {/* View All Questions Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowQuestionPalette(true)}
+              className="ml-4 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+            >
+              <Grid3x3 className="h-4 w-4 mr-2" />
+              View All
+            </Button>
           </div>
         </div>
       </div>

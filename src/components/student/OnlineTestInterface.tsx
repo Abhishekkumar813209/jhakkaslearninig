@@ -140,7 +140,7 @@ const OnlineTestInterface: React.FC = () => {
         const testData = data.test;
         const questionsData = (data.questions || []).map((q: any) => ({
           ...q,
-          options: q.options ? JSON.parse(q.options) : null,
+          options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : [],
         })).sort((a: any, b: any) => a.order_num - b.order_num);
 
         setTest(testData);
@@ -400,18 +400,6 @@ const OnlineTestInterface: React.FC = () => {
       {/* Navbar at the top */}
       <Navbar />
 
-      {/* Mobile: Compact Header - Question Number + Timer */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 bg-[#1e3a8a] text-white z-40 px-4 py-2 flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold">Q.{currentQuestionIndex + 1}</span>
-          <span className="text-gray-300">|</span>
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            <span className={`text-sm font-bold ${getTimeColor()}`}>{formatTime(timeRemaining)}</span>
-          </div>
-        </div>
-      </div>
-
       {/* Desktop: Test Header (below navbar) */}
       <div className="hidden lg:block fixed top-16 left-0 right-0 bg-[#1e3a8a] text-white z-40 shadow-lg">
         <div className="flex items-center justify-between px-4 py-3">
@@ -441,7 +429,7 @@ const OnlineTestInterface: React.FC = () => {
       </div>
 
       {/* Spacer for navbar + test header */}
-      <div className="h-20 lg:h-32"></div>
+      <div className="h-16 lg:h-32"></div>
 
       {/* Mobile: Question Palette Sheet */}
       <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>
@@ -567,17 +555,12 @@ const OnlineTestInterface: React.FC = () => {
       <div className="lg:hidden max-w-5xl mx-auto px-4 pb-40">
         {/* Question Card */}
         <Card className="shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white">
+          <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold">Q.{currentQuestionIndex + 1}</span>
-                <Badge variant="secondary" className="bg-white text-blue-900 font-semibold">
-                  {currentQuestion.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Text Answer'}
-                </Badge>
-              </div>
-              <Badge variant="outline" className="text-white border-white text-base px-3 py-1">
-                {currentQuestion.marks} {currentQuestion.marks === 1 ? 'mark' : 'marks'}
-              </Badge>
+              <span className="text-2xl font-bold">Q.{currentQuestionIndex + 1}</span>
+              <span className={`text-xl font-bold ${getTimeColor()}`}>
+                {formatTime(timeRemaining)}
+              </span>
             </div>
           </CardHeader>
 
@@ -589,15 +572,15 @@ const OnlineTestInterface: React.FC = () => {
             />
 
             {/* Options - NTA Style with Radio Buttons */}
-            {currentQuestion.question_type === 'multiple_choice' && (
-              <>
-                {console.log('Question Options:', currentQuestion.options)}
-                {!currentQuestion.options || currentQuestion.options.length === 0 ? (
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 rounded-lg">
-                    <p className="text-yellow-800 dark:text-yellow-200 font-semibold">⚠️ No options available for this question</p>
-                    <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">Please contact administrator.</p>
-                  </div>
-                ) : (
+              {currentQuestion.question_type === 'multiple_choice' && (
+                <>
+                  {console.log('Question Options:', currentQuestion.options)}
+                  {!currentQuestion.options || !Array.isArray(currentQuestion.options) || currentQuestion.options.length === 0 ? (
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 rounded-lg">
+                      <p className="text-yellow-800 dark:text-yellow-200 font-semibold">⚠️ No options available for this question</p>
+                      <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">Please contact administrator.</p>
+                    </div>
+                  ) : (
                   <div className="space-y-3 mt-6">
                     {currentQuestion.options.map((option, index) => {
                   const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
@@ -672,17 +655,9 @@ const OnlineTestInterface: React.FC = () => {
         <div>
           {/* Question Card */}
           <Card className="shadow-xl">
-            <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white">
+            <CardHeader className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white py-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl font-bold">Q.{currentQuestionIndex + 1}</span>
-                  <Badge variant="secondary" className="bg-white text-blue-900 font-semibold">
-                    {currentQuestion.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Text Answer'}
-                  </Badge>
-                </div>
-                <Badge variant="outline" className="text-white border-white text-base px-3 py-1">
-                  {currentQuestion.marks} {currentQuestion.marks === 1 ? 'mark' : 'marks'}
-                </Badge>
+                <span className="text-3xl font-bold">Q.{currentQuestionIndex + 1}</span>
               </div>
             </CardHeader>
 
@@ -697,7 +672,7 @@ const OnlineTestInterface: React.FC = () => {
               {currentQuestion.question_type === 'multiple_choice' && (
                 <>
                   {console.log('Question Options:', currentQuestion.options)}
-                  {!currentQuestion.options || currentQuestion.options.length === 0 ? (
+                  {!currentQuestion.options || !Array.isArray(currentQuestion.options) || currentQuestion.options.length === 0 ? (
                     <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 rounded-lg">
                       <p className="text-yellow-800 dark:text-yellow-200 font-semibold">⚠️ No options available for this question</p>
                       <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">Please contact administrator.</p>

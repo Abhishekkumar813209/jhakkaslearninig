@@ -40,11 +40,22 @@ const Navbar = () => {
     <nav className="bg-card border-b border-border shadow-soft sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-foreground">Jhakkas</span>
-          </Link>
+          {/* Logo - or Questions button on test routes */}
+          {isTestRoute ? (
+            <Button 
+              variant="ghost" 
+              onClick={() => window.dispatchEvent(new CustomEvent('open-question-palette'))}
+              className="flex items-center space-x-2"
+            >
+              <Grid3x3 className="h-5 w-5 text-primary" />
+              <span className="text-lg font-semibold text-foreground">Questions</span>
+            </Button>
+          ) : (
+            <Link to="/" className="flex items-center space-x-2">
+              <BookOpen className="h-8 w-8 text-primary" />
+              <span className="text-xl font-bold text-foreground">Jhakkas</span>
+            </Link>
+          )}
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-2">
@@ -199,21 +210,6 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col space-y-3">
-              {isTestRoute && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full justify-start mx-3"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent('open-question-palette'));
-                    setIsMenuOpen(false);
-                  }}
-                >
-                  <Grid3x3 className="h-4 w-4 mr-2" />
-                  Questions
-                </Button>
-              )}
-              
               {!isHomePage && !isTestRoute && (
                 <Link to="/" onClick={() => setIsMenuOpen(false)}>
                   <Button variant="nav" size="sm" className="w-full justify-start">

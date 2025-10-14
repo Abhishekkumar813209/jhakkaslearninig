@@ -2549,6 +2549,57 @@ export type Database = {
           },
         ]
       }
+      student_course_history: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          id: string
+          last_accessed_at: string | null
+          last_lecture_id: string | null
+          progress_percentage: number | null
+          student_id: string
+          total_time_minutes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          last_lecture_id?: string | null
+          progress_percentage?: number | null
+          student_id: string
+          total_time_minutes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          last_lecture_id?: string | null
+          progress_percentage?: number | null
+          student_id?: string
+          total_time_minutes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_course_history_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_course_history_last_lecture_id_fkey"
+            columns: ["last_lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_daily_targets: {
         Row: {
           completed_tests: string[] | null

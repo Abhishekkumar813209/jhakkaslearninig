@@ -564,11 +564,9 @@ const OnlineTestInterface: React.FC = () => {
       </Sheet>
 
       {/* Mobile: Single Column Question Area */}
-      <div className="lg:hidden w-full px-2 pb-40">
-        {/* Question Card */}
-        <div className="bg-background overflow-hidden">
-          {/* Blue header strip */}
-          <div className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white py-3 px-4">
+      <div className="lg:hidden w-full pb-40">
+        {/* Blue header strip - Full width */}
+        <div className="bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white py-3 px-3">
             <div className="flex items-center justify-between">
               <span className="text-2xl font-bold">Q.{currentQuestionIndex + 1}</span>
               <span className={`text-xl font-bold ${getTimeColor()}`}>
@@ -577,7 +575,9 @@ const OnlineTestInterface: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 space-y-6">
+          {/* Question content with padding */}
+          <div className="px-2">
+            <div className="p-3 space-y-6">
             {/* Question Text */}
             <div 
               className="text-lg leading-relaxed"
@@ -594,7 +594,7 @@ const OnlineTestInterface: React.FC = () => {
                       <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">Please contact administrator.</p>
                     </div>
                   ) : (
-                  <div className="space-y-3 mt-6">
+                  <div className="space-y-2.5 mt-4">
                     {currentQuestion.options.map((option, index) => {
                   const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
                   const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
@@ -603,9 +603,9 @@ const OnlineTestInterface: React.FC = () => {
                     <div
                       key={index}
                       onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
-                      className={`
-                        flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer
-                        transition-all duration-200 group
+                  className={`
+                    flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer
+                    transition-all duration-200 group
                         ${isSelected 
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-md' 
                           : 'border-border hover:border-blue-400 hover:bg-muted/50 hover:shadow-sm'
@@ -658,8 +658,8 @@ const OnlineTestInterface: React.FC = () => {
                 )}
               </div>
             )}
+            </div>
           </div>
-        </div>
       </div>
 
       {/* Desktop: Two-column layout - Question LEFT, Sidebar RIGHT */}

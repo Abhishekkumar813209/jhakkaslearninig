@@ -435,130 +435,88 @@ const OnlineTestInterface: React.FC = () => {
       {/* Mobile: Question Palette Sheet */}
       <Sheet open={showQuestionPalette} onOpenChange={setShowQuestionPalette}>
         <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto p-0">
-          <div className="sticky top-0 bg-background z-10 border-b pb-4 pt-6 px-6">
-            <SheetHeader>
-              <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                <Grid3x3 className="h-6 w-6" />
-                Test Navigation
-              </SheetTitle>
-            </SheetHeader>
-          </div>
-
-          <Tabs defaultValue="questions" className="mt-4 px-6">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="questions" className="font-semibold">
-                QUESTION PAPER
-              </TabsTrigger>
-              <TabsTrigger value="instructions" className="font-semibold">
-                INSTRUCTIONS
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="questions" className="space-y-4 pb-6">
-              {/* Status Legend */}
-              <Card className="bg-muted/50">
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center text-white font-bold">1</div>
-                    <span className="text-sm font-medium">Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-red-400 rounded flex items-center justify-center text-white font-bold">2</div>
-                    <span className="text-sm font-medium">Not Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gray-300 rounded flex items-center justify-center text-gray-700 font-bold">3</div>
-                    <span className="text-sm font-medium">Not Visited</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold">4</div>
-                    <span className="text-sm font-medium">Review Later</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-500 border-4 border-green-500 rounded flex items-center justify-center text-white font-bold">5</div>
-                    <span className="text-sm font-medium">Answered & Marked for Review</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Subject Section Header */}
-              <div className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg">
-                <FileText className="h-5 w-5" />
-                <span className="font-bold text-lg">{test.subject}</span>
-              </div>
-
-              {/* Question Grid - Simplified NTA Style */}
-              <div className="grid grid-cols-5 gap-2">
-                {questions.map((question, index) => {
-                  const isAnswered = !!answers[question.id];
-                  const isVisited = visitedQuestions.has(index);
-                  const isMarkedForReview = markedForReview.includes(question.id);
-                  const isCurrent = index === currentQuestionIndex;
-                  
-                  let bgColor = 'bg-gray-200 text-gray-700'; // Not visited
-                  
-                  if (isAnswered && isMarkedForReview) {
-                    bgColor = 'bg-blue-500 text-white border-2 border-green-500';
-                  } else if (isAnswered) {
-                    bgColor = 'bg-green-500 text-white';
-                  } else if (isMarkedForReview) {
-                    bgColor = 'bg-blue-500 text-white';
-                  } else if (isVisited) {
-                    bgColor = 'bg-red-400 text-white';
-                  }
-                  
-                  return (
-                    <Button
-                      key={question.id}
-                      onClick={() => {
-                        setCurrentQuestionIndex(index);
-                        setShowQuestionPalette(false);
-                      }}
-                      className={`
-                        h-12 w-12 rounded font-semibold text-base
-                        ${bgColor}
-                        ${isCurrent ? 'ring-2 ring-blue-600' : ''}
-                      `}
-                    >
-                      {index + 1}
-                    </Button>
-                  );
-                })}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="instructions" className="pb-6">
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="prose prose-sm max-w-none">
-                    <h3 className="text-lg font-bold mb-3">General Instructions</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><strong>Total Questions:</strong> {questions.length}</p>
-                      <p><strong>Total Marks:</strong> {test.total_marks}</p>
-                      <p><strong>Passing Marks:</strong> {test.passing_marks}</p>
-                      <p><strong>Duration:</strong> {test.duration_minutes} minutes</p>
-                      <p><strong>Negative Marking:</strong> No</p>
-                    </div>
-                    {test.instructions && (
-                      <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 rounded">
-                        <div dangerouslySetInnerHTML={{ __html: renderMath(test.instructions) }} />
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-          
-          {/* Back to Test Button */}
-          <div className="sticky bottom-0 bg-background border-t pt-4 pb-6 px-6 mt-6">
+          {/* Back to Test Button - At Top */}
+          <div className="sticky top-0 bg-background z-10 border-b p-4">
             <SheetClose asChild>
               <Button 
-                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-6 text-lg"
+                className="w-full bg-gradient-to-r from-[#2563eb] to-[#1e40af] hover:from-[#1d4ed8] hover:to-[#1e3a8a] text-white font-semibold py-3 text-base shadow-md"
               >
                 Back to Test
               </Button>
             </SheetClose>
+          </div>
+
+          <div className="px-6 py-4 space-y-4">
+            {/* Subject Section Header */}
+            <div className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg">
+              <FileText className="h-5 w-5" />
+              <span className="font-bold text-lg">{test.subject}</span>
+            </div>
+
+            {/* Question Grid - Simplified NTA Style */}
+            <div className="grid grid-cols-5 gap-2">
+              {questions.map((question, index) => {
+                const isAnswered = !!answers[question.id];
+                const isVisited = visitedQuestions.has(index);
+                const isMarkedForReview = markedForReview.includes(question.id);
+                const isCurrent = index === currentQuestionIndex;
+                
+                let bgColor = 'bg-gray-200 text-gray-700'; // Not visited
+                
+                if (isAnswered && isMarkedForReview) {
+                  bgColor = 'bg-blue-500 text-white border-2 border-green-500';
+                } else if (isAnswered) {
+                  bgColor = 'bg-green-500 text-white';
+                } else if (isMarkedForReview) {
+                  bgColor = 'bg-blue-500 text-white';
+                } else if (isVisited) {
+                  bgColor = 'bg-red-400 text-white';
+                }
+                
+                return (
+                  <Button
+                    key={question.id}
+                    onClick={() => {
+                      setCurrentQuestionIndex(index);
+                      setShowQuestionPalette(false);
+                    }}
+                    className={`
+                      h-12 w-12 rounded font-semibold text-base
+                      ${bgColor}
+                      ${isCurrent ? 'ring-2 ring-blue-600' : ''}
+                    `}
+                  >
+                    {index + 1}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Status Legend - Below Questions */}
+            <Card className="bg-muted/50">
+              <CardContent className="pt-4 pb-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center text-white font-bold">1</div>
+                  <span className="text-sm font-medium">Answered</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-400 rounded flex items-center justify-center text-white font-bold">2</div>
+                  <span className="text-sm font-medium">Not Answered</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-300 rounded flex items-center justify-center text-gray-700 font-bold">3</div>
+                  <span className="text-sm font-medium">Not Visited</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold">4</div>
+                  <span className="text-sm font-medium">Review Later</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-blue-500 border-4 border-green-500 rounded flex items-center justify-center text-white font-bold">5</div>
+                  <span className="text-sm font-medium">Answered & Marked for Review</span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </SheetContent>
       </Sheet>

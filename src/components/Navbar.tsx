@@ -43,12 +43,11 @@ const Navbar = () => {
           {/* Logo - or Questions button on test routes */}
           {isTestRoute ? (
             <Button 
-              variant="ghost" 
               onClick={() => window.dispatchEvent(new CustomEvent('open-question-palette'))}
-              className="flex items-center space-x-2"
+              className="flex items-center gap-2 bg-gradient-to-r from-[#2563eb] to-[#1e40af] text-white px-4 py-2 rounded-lg hover:from-[#1d4ed8] hover:to-[#1e3a8a] transition-all shadow-md"
             >
-              <Grid3x3 className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold text-foreground">Questions</span>
+              <Grid3x3 className="h-5 w-5" />
+              <span className="text-base font-semibold">Questions</span>
             </Button>
           ) : (
             <Link to="/" className="flex items-center space-x-2">

@@ -140,6 +140,7 @@ const OnlineTestInterface: React.FC = () => {
         const testData = data.test;
         const questionsData = (data.questions || []).map((q: any) => ({
           ...q,
+          question_type: (q.qtype || q.question_type) === 'mcq' ? 'multiple_choice' : 'text',
           options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : [],
         })).sort((a: any, b: any) => a.order_num - b.order_num);
 

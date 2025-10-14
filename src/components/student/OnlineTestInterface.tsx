@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
+import { renderMath } from '@/lib/mathRendering';
 
 interface Question {
   id: string;
@@ -366,7 +367,10 @@ const OnlineTestInterface: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-lg">{currentQuestion.question_text}</p>
+                  <div 
+                    className="font-medium text-lg prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+                  />
                 </div>
 
                 {currentQuestion.question_type === 'multiple_choice' && currentQuestion.options && (
@@ -389,7 +393,7 @@ const OnlineTestInterface: React.FC = () => {
                           onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
                         >
                           <span className="font-medium mr-3">{String.fromCharCode(65 + index)}.</span>
-                          {option.text}
+                          <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
                         </div>
                       </div>
                     ))}

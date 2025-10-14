@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Clock, ChevronLeft, ChevronRight, Send, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
+import { renderMath } from '@/lib/mathRendering';
 
 interface Question {
   id: string;
@@ -318,7 +319,10 @@ const TakeTest: React.FC = () => {
                   <Badge variant="outline">Max {currentQuestion.word_limit} words</Badge>
                 )}
               </div>
-              <h3 className="text-lg font-medium">{currentQuestion.question_text}</h3>
+              <div 
+                className="text-lg font-medium prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+              />
             </div>
           </div>
         </CardHeader>
@@ -341,7 +345,10 @@ const TakeTest: React.FC = () => {
                     className="text-primary"
                   />
                   <span className="font-medium">{String.fromCharCode(65 + index)}.</span>
-                  <span className="flex-1">{option.text}</span>
+                  <span 
+                    className="flex-1"
+                    dangerouslySetInnerHTML={{ __html: renderMath(option.text) }}
+                  />
                 </label>
               ))}
             </div>

@@ -44,72 +44,8 @@ import type { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { pipeline, env } from '@huggingface/transformers';
 
-// Math rendering helpers (lightweight, no external runtime)
-const escapeHtml = (s: string) => s
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;');
-
-const applySupSub = (t: string) => {
-  // Braced superscripts/subscripts
-  t = t.replace(/(\S)\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
-  t = t.replace(/(\S)\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
-  // Simple superscripts/subscripts (supports negatives and letters)
-  t = t.replace(/(\S)\s*\^\s*(-?[0-9A-Za-z+\-]+)/g, '$1<sup>$2</sup>');
-  t = t.replace(/(\S)\s*_\s*([0-9A-Za-z+\-]+)/g, '$1<sub>$2</sub>');
-  return t;
-};
-
-// Utility to strip leading option labels like "A.", "(A)", "a)" from text
-const stripLeadingOptionLabel = (text: string) => {
-  if (!text) return text;
-  return text.replace(/^\s*(?:\(([A-Da-d])\)|([A-Da-d])[.)])\s*/, '');
-};
-
-export const renderMath = (input: string) => {
-  if (!input) return '';
-  
-  // Protect ALL single-character parentheses from transformations (not just MCQ tokens)
-  const protectedTokens: Record<string, string> = {};
-  let tokenIndex = 0;
-  
-  // Protect (A)-(D) MCQ tokens (case-insensitive)
-  let protectedInput = input.replace(/\([A-Da-d]\)/g, (match) => {
-    const placeholder = `__PROTECTED_TOKEN_${tokenIndex++}__`;
-    protectedTokens[placeholder] = match;
-    return placeholder;
-  });
-  
-  // Protect ALL single-digit/letter parentheses like (8), (1), (x), (B), etc.
-  protectedInput = protectedInput.replace(/\(([A-Za-z0-9])\)/g, (match) => {
-    const placeholder = `__PROTECTED_TOKEN_${tokenIndex++}__`;
-    protectedTokens[placeholder] = match;
-    return placeholder;
-  });
-  
-  // Clean input - remove stray dollar signs from OCR
-  let cleaned = protectedInput.replace(/\$(?![_{^])/g, ''); // Remove standalone $ but keep $_ and $^
-  
-  // Normalize common OCR glitches: "$_-16" → "^{-16}"
-  cleaned = cleaned.replace(/(\d+)\s*\$\s*_\s*(-?\d+)/g, '$1^{$2}');
-  
-  let safe = escapeHtml(cleaned);
-  
-  // Handle inline $...$ segments first (proper LaTeX)
-  safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => {
-    return `<span class="math-inline">${applySupSub(content)}</span>`;
-  });
-  
-  // Then process remaining plain-text math patterns
-  safe = applySupSub(safe);
-  
-  // Restore ALL protected tokens
-  Object.keys(protectedTokens).forEach(placeholder => {
-    safe = safe.replace(placeholder, protectedTokens[placeholder]);
-  });
-  
-  return safe;
-};
+// Import shared math rendering utilities
+import { renderMath, stripLeadingOptionLabel } from '@/lib/mathRendering';
 
 interface Question {
   id?: string;
@@ -1525,8 +1461,17 @@ const TestBuilderPortal: React.FC = () => {
                 onChange={(e) => setNewQuestion(prev => ({ ...prev, question_text: e.target.value }))}
                 rows={4}
               />
-              <div className="text-xs text-muted-foreground mt-1">
-                Math examples: H₂SO₄ → H_2SO_4, x² → x^2, 10^-16, CO₂ → CO_2
+              <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                <div className="font-semibold">Chemical Formulas (use braces for precise control):</div>
+                <div>• H₂SO₄ → <code>H_{"{2}"}SO_{"{4}"}</code> (braces control subscript length)</div>
+                <div>• Fe²⁺ → <code>Fe^{"{2+}"}</code> | Simple: H_2 (next char only)</div>
+                
+                <div className="font-semibold mt-2">Chemical Arrows:</div>
+                <div>• Reaction: <code>-&gt;</code> → → | Long: <code>\longrightarrow</code> → ⟶</div>
+                <div>• Equilibrium: <code>&lt;-&gt;</code> → ⇌</div>
+                
+                <div className="font-semibold mt-2">Example:</div>
+                <div><code>2Na + Cl_{"{2}"} -&gt; 2NaCl</code></div>
               </div>
               {newQuestion.question_text && (
                 <div className="mt-2 p-2 border rounded bg-gray-50">
@@ -1646,7 +1591,7 @@ const TestBuilderPortal: React.FC = () => {
                           </div>
                           <div className="flex-1 space-y-1">
                             <Input
-                              placeholder={`Option ${String.fromCharCode(65 + index)} - Use: H_2O for H₂O, x^2 for x², 10^-16`}
+                              placeholder={`Option ${String.fromCharCode(65 + index)} - Use: H_{2}O for H₂O (braces for exact length), x^2, -> for arrow`}
                               value={option.text}
                               onChange={(e) => updateOptionText(index, e.target.value)}
                             />

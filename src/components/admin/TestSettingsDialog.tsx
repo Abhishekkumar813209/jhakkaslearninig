@@ -183,8 +183,47 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+              )}
+            </div>
+
+            {/* Test Duration and Passing Marks */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="duration_minutes">Test Duration (minutes)</Label>
+                <Input
+                  id="duration_minutes"
+                  type="number"
+                  min="5"
+                  max="300"
+                  value={settings.duration_minutes}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    duration_minutes: parseInt(e.target.value) || 60
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How long students have to complete the test
+                </p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="passing_marks">Passing Marks (%)</Label>
+                <Input
+                  id="passing_marks"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={settings.passing_marks}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    passing_marks: parseInt(e.target.value) || 40
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Minimum percentage required to pass
+                </p>
+              </div>
+            </div>
 
             {/* Allow Retakes */}
             <div className="space-y-4">

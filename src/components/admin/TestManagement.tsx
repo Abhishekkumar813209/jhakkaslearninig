@@ -9,13 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Download, Clock, Users, FileText, Wand2, BookOpen, Calendar, GraduationCap, Building2, Briefcase, Globe, Shield, Zap, Award, Pencil } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, Clock, Users, FileText, Wand2, BookOpen, Calendar, GraduationCap, Building2, Briefcase, Globe, Shield, Zap, Award, Pencil, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { BoardClassSelector } from './BoardClassSelector';
 import { useBoardClassHierarchy } from '@/hooks/useBoardClassHierarchy';
+import { useFormPersistence } from '@/hooks/useFormPersistence';
 import * as LucideIcons from 'lucide-react';
 
 interface Test {
@@ -59,19 +61,37 @@ const TestManagement: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newTest, setNewTest] = useState<NewTestData>({
-    title: '',
-    description: '',
-    subject: '',
-    class: '',
-    target_class: '',
-    target_board: '',
-    exam_domain: 'school',
-    difficulty: 'medium',
-    duration_minutes: 60,
-    passing_marks: 50,
-    status: 'draft'
-  });
+  
+  // Form persistence for test creation
+  const {
+    data: newTest,
+    setData: setNewTest,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    showResumeDialog,
+    setShowResumeDialog,
+    clearProgress,
+    resumeProgress,
+    startFresh
+  } = useFormPersistence<NewTestData>(
+    'test-creation-form',
+    {
+      title: '',
+      description: '',
+      subject: '',
+      class: '',
+      target_class: '',
+      target_board: '',
+      exam_domain: 'school',
+      difficulty: 'medium',
+      duration_minutes: 60,
+      passing_marks: 50,
+      status: 'draft'
+    },
+    24, // 24 hours expiry
+    showCreateDialog
+  );
+  
   const { boards: availableBoards, requiresBoard } = useBoards(newTest.exam_domain);
   const { toast } = useToast();
 
@@ -181,6 +201,10 @@ const TestManagement: React.FC = () => {
 
       setTests(prev => [{ ...data, question_count: 0, attempt_count: 0 }, ...prev]);
       setShowCreateDialog(false);
+      
+      // Clear saved form data on successful creation
+      clearProgress();
+      
       setNewTest({
         title: '',
         description: '',
@@ -318,6 +342,7 @@ const TestManagement: React.FC = () => {
       target_class: selectedClass || ''
     }));
     setShowCreateDialog(true);
+    setHasUnsavedChanges(false); // Reset unsaved changes when opening dialog
   };
 
   const handleChangeDomain = () => {
@@ -447,13 +472,35 @@ const TestManagement: React.FC = () => {
                 <DialogHeader>
                   <DialogTitle>Create New Test</DialogTitle>
                 </DialogHeader>
+                
+                {/* Resume Dialog */}
+                {showResumeDialog && (
+                  <Alert className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>Draft found from previous session. Resume or start fresh?</span>
+                      <div className="flex gap-2 ml-4">
+                        <Button size="sm" variant="outline" onClick={startFresh}>
+                          Start Fresh
+                        </Button>
+                        <Button size="sm" onClick={resumeProgress}>
+                          Resume
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="title">Test Title</Label>
                     <Input
                       id="title"
                       value={newTest.title}
-                      onChange={(e) => setNewTest(prev => ({ ...prev, title: e.target.value }))}
+                      onChange={(e) => {
+                        setNewTest(prev => ({ ...prev, title: e.target.value }));
+                        setHasUnsavedChanges(true);
+                      }}
                       placeholder="Enter test title"
                     />
                   </div>

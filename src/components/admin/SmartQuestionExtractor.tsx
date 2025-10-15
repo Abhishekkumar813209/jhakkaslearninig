@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter } from "lucide-react";
 import { getDocument } from 'pdfjs-dist';
+import mammoth from 'mammoth';
 
 interface ExtractedQuestion {
   id: string;
@@ -65,6 +66,13 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     return fullText;
   };
 
+  // Extract text from Word documents
+  const extractTextFromWord = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  };
+
   // Add structure markers to help AI detect question types
   const enhanceTextForAI = (text: string): string => {
     let enhanced = text;
@@ -106,9 +114,11 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       if (file.type === 'application/pdf') {
         toast.info("Extracting text from PDF with advanced parsing...", { duration: 3000 });
         fileContent = await extractTextFromPDF(file);
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
+        toast.info("Extracting text from Word document...", { duration: 3000 });
+        fileContent = await extractTextFromWord(file);
       } else {
-        // For Word docs, read as text
-        fileContent = await file.text();
+        throw new Error('Unsupported file type');
       }
 
       // Enhance text with structure markers

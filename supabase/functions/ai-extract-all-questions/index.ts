@@ -32,6 +32,14 @@ serve(async (req) => {
 4. If you can't find a question number in the text, SKIP IT
 5. Each question MUST have a visible number marker (1., Q1, Question 1, etc.)
 
+📷 IMAGE & OCR HANDLING:
+- Input may contain [FIGURE id=...] tokens indicating embedded images
+- Input may contain [IMAGE_OCR id=...]: text extracted from images via OCR
+- For Match-the-Column questions: If OCR text shows column data, use it to populate left_column[] and right_column[]
+- For Fill-in-the-Blanks: Preserve [FIGURE] tokens in question_text if diagram is referenced
+- For MCQ options: Options may contain superscripts ^{...} or subscripts _{...} - DO NOT drop these
+- Preserve mathematical notation like m^{3}, r^{2}, ∝, ×, etc.
+
 📋 STRICT PRIORITY ORDER FOR TYPE DETECTION (Check in this order):
 
 Priority 1: ASSERTION-REASON (Check FIRST before MCQ)
@@ -138,10 +146,19 @@ For each question, ask yourself:
       "blanks_count": 1,
       "marks": 1,
       "difficulty": "easy"
+    },
+    {
+      "question_number": "54",
+      "question_type": "short_answer",
+      "question_text": "Question with [FIGURE id=img_5] diagram. Density is 600 Kg/m^{3}",
+      "marks": 3,
+      "difficulty": "hard"
     }
   ],
   "total_found": 64
 }
+
+IMPORTANT: Preserve numbering within question text (like 1., 2., a), b), i), ii)), preserve sup/sub notation, and keep [FIGURE] tokens intact.
 
 🎯 MARKS ASSIGNMENT:
 - MCQ/True-False: 1 mark

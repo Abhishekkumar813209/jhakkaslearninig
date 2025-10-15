@@ -8,9 +8,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon } from "lucide-react";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
+import Tesseract from 'tesseract.js';
 
 interface ExtractedQuestion {
   id: string;
@@ -27,6 +28,8 @@ interface ExtractedQuestion {
   difficulty?: 'easy' | 'medium' | 'hard';
   auto_corrected?: boolean;
   confidence?: 'high' | 'medium' | 'low';
+  images?: string[];
+  ocr_text?: string[];
 }
 
 interface SmartQuestionExtractorProps {
@@ -42,6 +45,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   const [previewQuestion, setPreviewQuestion] = useState<ExtractedQuestion | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
+  const [enableOcr, setEnableOcr] = useState(true);
 
   // Enhanced text extraction for better structure preservation
   const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -66,11 +70,185 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     return fullText;
   };
 
-  // Extract text from Word documents
+  // Extract rich content from Word documents (HTML + images + OCR)
   const extractTextFromWord = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
+    
+    const imageDataUrls: string[] = [];
+    const imageIds: string[] = [];
+    
+    // Convert DOCX to HTML with embedded images
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer },
+      {
+        convertImage: mammoth.images.imgElement((image) => {
+          return image.read("base64").then((imageBuffer) => {
+            const dataUrl = `data:${image.contentType};base64,${imageBuffer}`;
+            const imageId = `img_${imageDataUrls.length + 1}`;
+            imageDataUrls.push(dataUrl);
+            imageIds.push(imageId);
+            return {
+              src: dataUrl,
+              'data-image-id': imageId
+            };
+          });
+        })
+      }
+    );
+    
+    const html = result.value;
+    
+    // Run OCR on images if enabled (max 2 concurrent)
+    const ocrResults: Map<string, string> = new Map();
+    if (enableOcr && imageDataUrls.length > 0) {
+      console.log(`🔍 Running OCR on ${imageDataUrls.length} images...`);
+      toast.info(`Running OCR on ${imageDataUrls.length} images...`, { duration: 5000 });
+      
+      for (let i = 0; i < imageDataUrls.length; i += 2) {
+        const batch = imageDataUrls.slice(i, i + 2);
+        const batchIds = imageIds.slice(i, i + 2);
+        
+        console.log(`OCR Progress: ${i + 1}-${Math.min(i + batch.length, imageDataUrls.length)}/${imageDataUrls.length}`);
+        
+        const ocrPromises = batch.map(async (dataUrl, idx) => {
+          try {
+            const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
+              logger: () => {} // Suppress verbose logs
+            });
+            return { id: batchIds[idx], text: text.trim() };
+          } catch (error) {
+            console.warn(`OCR failed for image ${batchIds[idx]}:`, error);
+            return { id: batchIds[idx], text: '' };
+          }
+        });
+        
+        const results = await Promise.all(ocrPromises);
+        results.forEach(({ id, text }) => {
+          if (text) ocrResults.set(id, text);
+        });
+      }
+      
+      console.log(`✅ OCR complete: ${ocrResults.size}/${imageDataUrls.length} images processed`);
+    }
+    
+    // Convert HTML to structured text
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    let structuredText = '';
+    let currentQuestionNumber = '';
+    const imagesByQuestion: Record<string, Array<{ url: string; ocr?: string }>> = {};
+    
+    const processNode = (node: Node, indent: string = ''): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || '';
+      }
+      
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+      
+      const element = node as Element;
+      const tagName = element.tagName.toLowerCase();
+      
+      // Handle lists with proper numbering
+      if (tagName === 'ol' || tagName === 'ul') {
+        const listType = element.getAttribute('type') || '1';
+        const children = Array.from(element.children);
+        
+        return children.map((child, idx) => {
+          const num = idx + 1;
+          let marker = '';
+          
+          if (tagName === 'ol') {
+            if (listType === 'a') marker = `${String.fromCharCode(97 + idx)}) `;
+            else if (listType === 'A') marker = `${String.fromCharCode(65 + idx)}) `;
+            else if (listType === 'i') marker = `(${toRoman(num).toLowerCase()}) `;
+            else if (listType === 'I') marker = `(${toRoman(num)}) `;
+            else marker = `${num}. `;
+          } else {
+            marker = '• ';
+          }
+          
+          return indent + marker + processNode(child, indent + '  ').trim();
+        }).join('\n');
+      }
+      
+      if (tagName === 'li') {
+        return Array.from(element.childNodes).map(child => processNode(child, indent)).join('');
+      }
+      
+      // Handle superscript and subscript
+      if (tagName === 'sup') {
+        return `^{${element.textContent}}`;
+      }
+      if (tagName === 'sub') {
+        return `_{${element.textContent}}`;
+      }
+      
+      // Handle images
+      if (tagName === 'img') {
+        const imageId = element.getAttribute('data-image-id') || '';
+        const src = element.getAttribute('src') || '';
+        const ocr = ocrResults.get(imageId);
+        
+        // Map image to current question
+        if (currentQuestionNumber && src) {
+          if (!imagesByQuestion[currentQuestionNumber]) {
+            imagesByQuestion[currentQuestionNumber] = [];
+          }
+          imagesByQuestion[currentQuestionNumber].push({ url: src, ocr });
+        }
+        
+        let imageText = `\n[FIGURE id=${imageId}]\n`;
+        if (ocr) {
+          imageText += `[IMAGE_OCR id=${imageId}]: ${ocr}\n`;
+        }
+        return imageText;
+      }
+      
+      // Handle tables
+      if (tagName === 'table') {
+        const rows = Array.from(element.querySelectorAll('tr'));
+        return '\n' + rows.map(row => {
+          const cells = Array.from(row.querySelectorAll('th, td'));
+          return cells.map(cell => cell.textContent?.trim() || '').join(' | ');
+        }).join('\n') + '\n';
+      }
+      
+      // Handle paragraphs and divs
+      if (tagName === 'p' || tagName === 'div') {
+        const content = Array.from(element.childNodes).map(child => processNode(child, indent)).join('');
+        return content + '\n';
+      }
+      
+      // Handle headings
+      if (tagName.match(/^h[1-6]$/)) {
+        return '\n\n' + element.textContent + '\n\n';
+      }
+      
+      // Default: process children
+      return Array.from(element.childNodes).map(child => processNode(child, indent)).join('');
+    };
+    
+    const toRoman = (num: number): string => {
+      const romanNumerals: [number, string][] = [
+        [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+      ];
+      let result = '';
+      for (const [value, numeral] of romanNumerals) {
+        while (num >= value) {
+          result += numeral;
+          num -= value;
+        }
+      }
+      return result;
+    };
+    
+    structuredText = processNode(doc.body);
+    
+    // Store image mapping for later use
+    (window as any).__questionImages = imagesByQuestion;
+    
+    return structuredText;
   };
 
   // Normalize text for better processing
@@ -192,12 +370,19 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         throw new Error(data.error || 'Extraction failed');
       }
 
-      // Add unique IDs to questions
-      const questionsWithIds = data.questions.map((q: any, index: number) => ({
-        ...q,
-        id: `q-${Date.now()}-${index}`,
-        auto_corrected: q.auto_corrected || false
-      }));
+      // Add unique IDs to questions and attach images
+      const imagesByQuestion = (window as any).__questionImages || {};
+      
+      const questionsWithIds = data.questions.map((q: any, index: number) => {
+        const questionImages = imagesByQuestion[q.question_number] || [];
+        return {
+          ...q,
+          id: `q-${Date.now()}-${index}`,
+          auto_corrected: q.auto_corrected || false,
+          images: questionImages.map((img: any) => img.url),
+          ocr_text: questionImages.map((img: any) => img.ocr).filter(Boolean)
+        };
+      });
 
       setExtractedQuestions(questionsWithIds);
       toast.success(`Found ${data.total_questions} questions! Select the ones you want to add.`);
@@ -309,6 +494,18 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
               <p className="text-sm text-muted-foreground mb-4">
                 Upload a PDF or Word document containing questions. AI will automatically detect all questions and their types.
               </p>
+              
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Checkbox 
+                  id="enable-ocr" 
+                  checked={enableOcr}
+                  onCheckedChange={(checked) => setEnableOcr(!!checked)}
+                />
+                <label htmlFor="enable-ocr" className="text-sm cursor-pointer">
+                  Enable OCR for images (extracts text from figures and tables)
+                </label>
+              </div>
+              
               <Input
                 type="file"
                 accept=".pdf,.doc,.docx"
@@ -578,6 +775,36 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                 <div className="space-y-2">
                   <p className="text-sm"><strong>Assertion:</strong> {previewQuestion.assertion}</p>
                   <p className="text-sm"><strong>Reason:</strong> {previewQuestion.reason}</p>
+                </div>
+              </div>
+            )}
+
+            {previewQuestion?.images && previewQuestion.images.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  Figures & Diagrams ({previewQuestion.images.length})
+                </h4>
+                <div className="grid grid-cols-1 gap-3">
+                  {previewQuestion.images.map((imgUrl, idx) => (
+                    <div key={idx} className="border rounded-lg p-2">
+                      <img 
+                        src={imgUrl} 
+                        alt={`Figure ${idx + 1}`}
+                        className="max-w-full h-auto rounded mb-2"
+                      />
+                      {previewQuestion.ocr_text?.[idx] && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-muted-foreground cursor-pointer">
+                            Extracted text from figure
+                          </summary>
+                          <p className="text-xs mt-1 p-2 bg-gray-50 rounded">
+                            {previewQuestion.ocr_text[idx]}
+                          </p>
+                        </details>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

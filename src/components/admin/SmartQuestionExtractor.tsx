@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ interface ExtractedQuestion {
   confidence?: 'high' | 'medium' | 'low';
   images?: string[];
   ocr_text?: string[];
+  edited?: boolean;
 }
 
 interface SmartQuestionExtractorProps {
@@ -131,6 +133,13 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       console.log(`✅ OCR complete: ${ocrResults.size}/${imageDataUrls.length} images processed`);
     }
     
+    // Build global imageId -> {url, ocr} map for later figure-to-question mapping
+    const __imageIdMap: Record<string, { url: string; ocr?: string }> = {};
+    imageIds.forEach((id, idx) => {
+      __imageIdMap[id] = { url: imageDataUrls[idx], ocr: ocrResults.get(id) || undefined };
+    });
+    (window as any).__imageIdMap = __imageIdMap;
+
     // Convert HTML to structured text
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -187,17 +196,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       // Handle images
       if (tagName === 'img') {
         const imageId = element.getAttribute('data-image-id') || '';
-        const src = element.getAttribute('src') || '';
         const ocr = ocrResults.get(imageId);
-        
-        // Map image to current question
-        if (currentQuestionNumber && src) {
-          if (!imagesByQuestion[currentQuestionNumber]) {
-            imagesByQuestion[currentQuestionNumber] = [];
-          }
-          imagesByQuestion[currentQuestionNumber].push({ url: src, ocr });
-        }
-        
         let imageText = `\n[FIGURE id=${imageId}]\n`;
         if (ocr) {
           imageText += `[IMAGE_OCR id=${imageId}]: ${ocr}\n`;
@@ -245,9 +244,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     
     structuredText = processNode(doc.body);
     
-    // Store image mapping for later use
-    (window as any).__questionImages = imagesByQuestion;
-    
+    // Figure-to-question mapping will be built after enhancing text using markers
     return structuredText;
   };
 
@@ -303,6 +300,68 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     return enhanced;
   };
 
+  // Map figures to questions using [QUESTION_n] markers present in enhanced content
+  const mapFiguresToQuestions = (enhanced: string) => {
+    const imageIdMap: Record<string, { url: string; ocr?: string }> = (window as any).__imageIdMap || {};
+    const imagesByQuestion: Record<string, Array<{ url: string; ocr?: string }>> = {};
+    const lines = enhanced.split(/\r?\n/);
+    let currentQ = '';
+    const figureRegex = /^\s*\[FIGURE\s+id=(img_\d+)\]\s*$/i;
+    const qRegex = /^\s*\[QUESTION_(\d+)\]\s*$/i;
+    for (const raw of lines) {
+      const line = raw.trim();
+      const qm = line.match(qRegex);
+      if (qm) { currentQ = qm[1]; continue; }
+      const fm = line.match(figureRegex);
+      if (fm && currentQ) {
+        const id = fm[1];
+        const img = imageIdMap[id];
+        if (img) {
+          imagesByQuestion[currentQ] = imagesByQuestion[currentQ] || [];
+          imagesByQuestion[currentQ].push({ url: img.url, ocr: img.ocr });
+        }
+      }
+    }
+    (window as any).__questionImages = imagesByQuestion;
+    const totalFigures = Object.values(imagesByQuestion).reduce((a, arr) => a + arr.length, 0);
+    console.log('🧩 Figure mapping complete', { questions_with_figures: Object.keys(imagesByQuestion).length, total_figures: totalFigures });
+    return imagesByQuestion;
+  };
+
+  // Basic OCR parser for match-the-column when AI leaves columns empty
+  const parseColumnsFromOCR = (ocr_text: string[] = []) => {
+    const joined = ocr_text.join('\n').replace(/\u00A0/g, ' ').trim();
+    if (!joined) return null;
+    // Try explicit headings first
+    const headingMatch = joined.match(/Column\s*I[\s\S]*?Column\s*II[\s\S]*/i);
+    let left: string[] = [], right: string[] = [];
+    if (headingMatch) {
+      const [_, afterI] = joined.split(/Column\s*I\s*/i);
+      const [leftPart, rightPart] = afterI.split(/Column\s*II\s*/i);
+      left = leftPart?.split(/\n|\r/).map(s => s.trim()).filter(Boolean) || [];
+      right = rightPart?.split(/\n|\r/).map(s => s.trim()).filter(Boolean) || [];
+    } else {
+      // Heuristic: lines starting with A./B./C. etc to left, (i)/(ii)/i. etc to right
+      const lines = joined.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      left = lines.filter(l => /^[A-Da-d][).\-\s]/.test(l)).map(l => l.replace(/^[A-Da-d][).\-\s]/, '').trim());
+      right = lines.filter(l => /^(?:\(?i{1,3}\)?|\(?v?i{0,3}\)?|\(?x\)?)[).\-\s]/i.test(l) || /^\(?[ivxlcdm]+\)?[).\-\s]/i.test(l))
+                   .map(l => l.replace(/^\(?[ivxlcdm]+\)?[).\-\s]/i, '').trim());
+      // Fallback split by table-like pipes
+      if (left.length === 0 && right.length === 0) {
+        const pipeLines = lines.filter(l => l.includes('|'));
+        pipeLines.forEach(l => {
+          const [lft, rgt] = l.split('|');
+          if (lft && rgt) {
+            left.push(lft.trim());
+            right.push(rgt.trim());
+          }
+        });
+      }
+    }
+    if (left.length >= 2 && right.length >= 2) return { left, right };
+    return null;
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -354,6 +413,14 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         toast.info("Document formatting detected. Using advanced parsing...", { duration: 3000 });
       }
 
+      // Map figures to questions before invoking AI
+      const imgMap = mapFiguresToQuestions(enhancedContent);
+      const hasFigures = Object.keys((window as any).__imageIdMap || {}).length > 0;
+      const mappedCount = Object.values(imgMap || {}).reduce((a: number, arr: any[]) => a + arr.length, 0);
+      if (hasFigures && mappedCount === 0) {
+        toast.message('Figures detected but not linked to any question. We will still include OCR text where possible.');
+      }
+
       // Call AI extraction edge function
       const { data, error } = await supabase.functions.invoke('ai-extract-all-questions', {
         body: {
@@ -375,13 +442,27 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       
       const questionsWithIds = data.questions.map((q: any, index: number) => {
         const questionImages = imagesByQuestion[q.question_number] || [];
-        return {
+        const base = {
           ...q,
           id: `q-${Date.now()}-${index}`,
           auto_corrected: q.auto_corrected || false,
           images: questionImages.map((img: any) => img.url),
           ocr_text: questionImages.map((img: any) => img.ocr).filter(Boolean)
-        };
+        } as any;
+        // OCR fallback for match_column
+        if (
+          base.question_type === 'match_column' &&
+          (!base.left_column || base.left_column.length === 0 || !base.right_column || base.right_column.length === 0) &&
+          base.ocr_text && base.ocr_text.length > 0
+        ) {
+          const parsed = parseColumnsFromOCR(base.ocr_text);
+          if (parsed) {
+            base.left_column = parsed.left;
+            base.right_column = parsed.right;
+            base.auto_corrected = true;
+          }
+        }
+        return base;
       });
 
       setExtractedQuestions(questionsWithIds);
@@ -640,6 +721,11 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                             ✓ Auto-corrected
                           </Badge>
                         )}
+                        {(question as any).edited && (
+                          <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                            Edited
+                          </Badge>
+                        )}
                         {question.confidence && question.confidence !== 'high' && (
                           <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-xs">
                             {question.confidence} confidence
@@ -734,7 +820,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
               <p className="text-sm whitespace-pre-wrap">{previewQuestion?.question_text}</p>
             </div>
 
-            {previewQuestion?.options && previewQuestion.options.length > 0 && (
+            {previewQuestion?.options && previewQuestion.options.length > 0 && previewQuestion?.question_type !== 'match_column' && (
               <div>
                 <h4 className="font-medium mb-2">Options:</h4>
                 <ul className="space-y-1">
@@ -765,19 +851,20 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                       ))}
                     </ul>
                   </div>
-                </div>
+               </div>
+               {previewQuestion?.question_type === 'match_column' && previewQuestion?.options && previewQuestion.options.length > 0 && (
+                 <div className="mt-3">
+                   <h4 className="font-medium mb-2">Options:</h4>
+                   <ul className="space-y-1">
+                     {previewQuestion.options.map((opt, idx) => (
+                       <li key={idx} className="text-sm pl-4">{opt}</li>
+                     ))}
+                   </ul>
+                 </div>
+               )}
               </div>
             )}
 
-            {previewQuestion?.assertion && previewQuestion?.reason && (
-              <div>
-                <h4 className="font-medium mb-2">Assertion & Reason:</h4>
-                <div className="space-y-2">
-                  <p className="text-sm"><strong>Assertion:</strong> {previewQuestion.assertion}</p>
-                  <p className="text-sm"><strong>Reason:</strong> {previewQuestion.reason}</p>
-                </div>
-              </div>
-            )}
 
             {previewQuestion?.images && previewQuestion.images.length > 0 && (
               <div>
@@ -806,7 +893,54 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                     </div>
                   ))}
                 </div>
+            </div>
+            <details className="mt-4">
+              <summary className="text-sm cursor-pointer">Quick Edit</summary>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="text-xs font-medium">Question Text</label>
+                  <Textarea value={previewQuestion?.question_text || ''} onChange={(e) => setPreviewQuestion(prev => prev ? { ...prev, question_text: e.target.value, edited: true } : prev)} />
+                </div>
+                {previewQuestion?.question_type === 'mcq' && (
+                  <div>
+                    <label className="text-xs font-medium">Options (one per line)</label>
+                    <Textarea value={(previewQuestion?.options || []).join('\n')} onChange={(e) => setPreviewQuestion(prev => prev ? { ...prev, options: e.target.value.split('\n').map(s => s.trim()).filter(Boolean), edited: true } : prev)} />
+                  </div>
+                )}
+                {previewQuestion?.question_type === 'match_column' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium">Column I (one per line)</label>
+                      <Textarea value={(previewQuestion?.left_column || []).join('\n')} onChange={(e) => setPreviewQuestion(prev => prev ? { ...prev, left_column: e.target.value.split('\n').map(s => s.trim()).filter(Boolean), edited: true } : prev)} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Column II (one per line)</label>
+                      <Textarea value={(previewQuestion?.right_column || []).join('\n')} onChange={(e) => setPreviewQuestion(prev => prev ? { ...prev, right_column: e.target.value.split('\n').map(s => s.trim()).filter(Boolean), edited: true } : prev)} />
+                    </div>
+                  </div>
+                )}
+                {previewQuestion?.question_type === 'assertion_reason' && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="text-xs font-medium">Assertion</label>
+                      <Textarea value={previewQuestion?.assertion || ''} onChange={(e) => setPreviewQuestion(prev => prev ? { ...prev, assertion: e.target.value, edited: true } : prev)} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Reason</label>
+                      <Textarea value={previewQuestion?.reason || ''} onChange={(e) => setPreviewQuestion(prev => prev ? { ...prev, reason: e.target.value, edited: true } : prev)} />
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPreviewQuestion(null)}>Close</Button>
+                  <Button size="sm" onClick={() => {
+                    if (!previewQuestion) return;
+                    setExtractedQuestions(prev => prev.map(q => q.id === previewQuestion.id ? { ...previewQuestion } : q));
+                    toast.success('Question updated');
+                  }}>Save</Button>
+                </div>
               </div>
+            </details>
             )}
           </div>
         </DialogContent>

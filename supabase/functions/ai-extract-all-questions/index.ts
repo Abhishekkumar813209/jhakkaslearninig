@@ -36,6 +36,7 @@ serve(async (req) => {
 - Input may contain [FIGURE id=...] tokens indicating embedded images
 - Input may contain [IMAGE_OCR id=...]: text extracted from images via OCR
 - For Match-the-Column questions: If OCR text shows column data, use it to populate left_column[] and right_column[]
+- If [IMAGE_OCR] appears for a match-the-column question, NEVER leave left_column/right_column empty. Use OCR to reconstruct best-effort lists; if still unclear, keep [FIGURE] and OCR text in question_text but provide any items you can parse.
 - For Fill-in-the-Blanks: Preserve [FIGURE] tokens in question_text if diagram is referenced
 - For MCQ options: Options may contain superscripts ^{...} or subscripts _{...} - DO NOT drop these
 - Preserve mathematical notation like m^{3}, r^{2}, ∝, ×, etc.

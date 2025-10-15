@@ -37,7 +37,21 @@ serve(async (req) => {
     );
 
     // Get the authorization header from the request
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+
+    if (!authHeader) {
+      console.error('[razorpay-subscription] Authorization header missing');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Unauthorized',
+          message: 'Authentication required. Please log in again.' 
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
     
     // Verify and get user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));

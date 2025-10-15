@@ -95,12 +95,17 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
     try {
       const normalizedCode = friendReferralCode.toUpperCase().trim();
       
+      // Get auth session for headers
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       // Use razorpay-subscription function with validate-referral action
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {
         body: { 
           action: 'validate-referral',
           code: normalizedCode
-        }
+        },
+        headers
       });
 
       if (error) {
@@ -235,6 +240,18 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
   const handleSubscription = async () => {
     try {
+      // Validate session first
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to continue with payment",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const isLoaded = await loadRazorpayScript();
       if (!isLoaded) {
         toast({
@@ -254,7 +271,6 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({
 
       // Create Razorpay order with discount codes
       console.log('[SubscriptionCard] Creating order with discounts...');
-      const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       
       const { data, error } = await supabase.functions.invoke('razorpay-subscription', {

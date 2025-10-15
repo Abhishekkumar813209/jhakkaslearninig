@@ -1044,12 +1044,17 @@ export type Database = {
       }
       generated_questions: {
         Row: {
+          admin_reviewed: boolean | null
           approved_at: string | null
           approved_by: string | null
+          batch_id: string | null
+          chapter_id: string | null
           chapter_name: string | null
           correct_answer: string
           created_at: string
           difficulty: string | null
+          exam_domain: string | null
+          exam_name: string | null
           explanation: string | null
           id: string
           is_approved: boolean | null
@@ -1057,19 +1062,28 @@ export type Database = {
           options: Json | null
           question_text: string
           question_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          roadmap_id: string | null
           source_id: string | null
           study_content_id: string | null
           subject: string | null
+          topic_id: string | null
           topic_name: string | null
           updated_at: string
         }
         Insert: {
+          admin_reviewed?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
+          batch_id?: string | null
+          chapter_id?: string | null
           chapter_name?: string | null
           correct_answer: string
           created_at?: string
           difficulty?: string | null
+          exam_domain?: string | null
+          exam_name?: string | null
           explanation?: string | null
           id?: string
           is_approved?: boolean | null
@@ -1077,19 +1091,28 @@ export type Database = {
           options?: Json | null
           question_text: string
           question_type: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roadmap_id?: string | null
           source_id?: string | null
           study_content_id?: string | null
           subject?: string | null
+          topic_id?: string | null
           topic_name?: string | null
           updated_at?: string
         }
         Update: {
+          admin_reviewed?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
+          batch_id?: string | null
+          chapter_id?: string | null
           chapter_name?: string | null
           correct_answer?: string
           created_at?: string
           difficulty?: string | null
+          exam_domain?: string | null
+          exam_name?: string | null
           explanation?: string | null
           id?: string
           is_approved?: boolean | null
@@ -1097,9 +1120,13 @@ export type Database = {
           options?: Json | null
           question_text?: string
           question_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roadmap_id?: string | null
           source_id?: string | null
           study_content_id?: string | null
           subject?: string | null
+          topic_id?: string | null
           topic_name?: string | null
           updated_at?: string
         }
@@ -1126,6 +1153,48 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
           {
+            foreignKeyName: "generated_questions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "generated_questions_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "generated_questions_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
@@ -1137,6 +1206,13 @@ export type Database = {
             columns: ["study_content_id"]
             isOneToOne: false
             referencedRelation: "study_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_questions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
             referencedColumns: ["id"]
           },
         ]

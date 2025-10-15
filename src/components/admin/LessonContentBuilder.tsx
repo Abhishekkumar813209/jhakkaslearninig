@@ -142,13 +142,16 @@ export function LessonContentBuilder() {
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
   
-  // Persist active tab across sessions
+  // Persist active tab across sessions with debug logging
   const [activeTab, setActiveTab] = useState<string>(() => {
-    return localStorage.getItem('lesson-builder-active-tab') || 'lesson-library';
+    const savedTab = localStorage.getItem('lesson-builder-active-tab') || 'lesson-library';
+    console.log('🔷 LessonContentBuilder loading tab:', savedTab);
+    return savedTab;
   });
 
-  // Save active tab whenever it changes
+  // Save active tab whenever it changes with debug logging
   useEffect(() => {
+    console.log('🔷 LessonContentBuilder saving tab:', activeTab);
     localStorage.setItem('lesson-builder-active-tab', activeTab);
   }, [activeTab]);
   

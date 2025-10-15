@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon } from "lucide-react";
@@ -86,6 +87,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   useEffect(() => {
     if (extractedQuestions.length > 0) {
       const timeoutId = setTimeout(() => {
+        console.log('📦 Persisting questions to localStorage:', extractedQuestions.length);
         setHasUnsavedChanges(true);
       }, 500);
       return () => clearTimeout(timeoutId);
@@ -95,8 +97,20 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   // Show restore toast on mount if data exists
   useEffect(() => {
     if (extractedQuestions.length > 0) {
-      toast(`Restored ${extractedQuestions.length} questions from previous session`);
+      console.log('✅ Restored questions from localStorage:', extractedQuestions.length);
+      toast.success(`Restored ${extractedQuestions.length} questions from previous session`, {
+        description: `${selectedIds.length} questions were selected`,
+        duration: 5000
+      });
     }
+  }, []);
+
+  // Debug: Log when component mounts/unmounts
+  useEffect(() => {
+    console.log('🔵 SmartQuestionExtractor mounted with', extractedQuestions.length, 'questions');
+    return () => {
+      console.log('🔴 SmartQuestionExtractor unmounting, saved', extractedQuestions.length, 'questions to localStorage');
+    };
   }, []);
 
   // Helper: Extract only digits from question number (handles "54.", "Q54", "54)" etc.)
@@ -870,6 +884,25 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Data Persistence Info */}
+            {savedProgress && savedProgress.length > 0 && (
+              <Alert className="mb-4 bg-blue-50 border-blue-200">
+                <AlertDescription className="flex items-center justify-between">
+                  <span className="text-sm">
+                    💾 You have {savedProgress.length} questions from a previous session
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={resumeProgress}
+                    className="ml-2"
+                  >
+                    Restore
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="border-2 border-dashed rounded-lg p-8 text-center">
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-4">
@@ -976,7 +1009,14 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
               </div>
 
               <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
-                <span>Found {extractedQuestions.length} questions • Selected {selectedIds.length}</span>
+                <div className="flex items-center gap-3">
+                  <span>Found {extractedQuestions.length} questions • Selected {selectedIds.length}</span>
+                  {hasUnsavedChanges && (
+                    <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                      💾 Auto-saved
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex gap-3 text-xs">
                   <span className="text-blue-600">
                     ✓ {extractedQuestions.filter(q => q.auto_corrected).length} auto-corrected
@@ -1093,7 +1133,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
             ))}
           </div>
 
-          {/* Action Bar */}
+          {/* Action Bar with Clear Session Option */}
           {selectedIds.length > 0 && (
             <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
               <Card className="shadow-lg">
@@ -1105,6 +1145,18 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                     </div>
                     <Button onClick={handleAddToGames} size="lg">
                       Add to Lesson Builder ({selectedIds.length})
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        clearProgress();
+                        setExtractedQuestions([]);
+                        setSelectedIds([]);
+                        toast.success('Session cleared');
+                      }}
+                    >
+                      Clear Session
                     </Button>
                   </div>
                 </CardContent>

@@ -66,6 +66,24 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     24 // 24 hours expiry
   );
 
+  // Helper: Extract only digits from question number (handles "54.", "Q54", "54)" etc.)
+  const getNormalizedQNumber = (qn: any, fallback: number): string => {
+    const str = (qn ?? '').toString();
+    const match = str.match(/\d+/);
+    return match ? match[0] : String(fallback);
+  };
+
+  // Helper: Dedupe images by URL
+  const dedupeByUrl = <T extends { url?: string }>(arr: T[]): T[] => {
+    const seen = new Set<string>();
+    return arr.filter(item => {
+      const key = item.url || JSON.stringify(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   // Enhanced text extraction for better structure preservation
   const extractTextFromPDF = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -454,18 +472,35 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         throw new Error(data.error || 'Extraction failed');
       }
 
-      // Add unique IDs to questions and attach images
-      const imagesByQuestion = (window as any).__questionImages || {};
+      // Map images to questions using normalized numbers and fallback figure tokens
+      const imageIdMap: Record<string, { url: string; ocr?: string }> = (window as any).__imageIdMap || {};
+      const qImagesMap = (window as any).__questionImages || {};
       
       const questionsWithIds = data.questions.map((q: any, index: number) => {
-        const questionImages = imagesByQuestion[q.question_number] || [];
-        const base = {
+        const normalizedNum = getNormalizedQNumber(q.question_number, index + 1);
+
+        // Source A: mapping built from [QUESTION_x] and [FIGURE id=img_x]
+        const byNumber = qImagesMap[normalizedNum] || [];
+
+        // Source B: figure tokens present inside this question's text (if AI preserved them)
+        const tokenMatches = Array.from((q.question_text || '').matchAll(/\[FIGURE\s+id=(img_\d+)\]/gi));
+        const byTokens = tokenMatches
+          .map((m) => m[1])
+          .map((id) => imageIdMap[id])
+          .filter(Boolean);
+
+        // Merge + dedupe
+        const mergedImages = dedupeByUrl([...(byNumber || []), ...(byTokens || [])]);
+
+        const base: any = {
           ...q,
+          question_number: normalizedNum,
           id: `q-${Date.now()}-${index}`,
           auto_corrected: q.auto_corrected || false,
-          images: questionImages.map((img: any) => img.url),
-          ocr_text: questionImages.map((img: any) => img.ocr).filter(Boolean)
-        } as any;
+          images: mergedImages.map((img) => img.url),
+          ocr_text: mergedImages.map((img) => img.ocr).filter(Boolean),
+        };
+
         // OCR fallback for match_column
         if (
           base.question_type === 'match_column' &&
@@ -479,6 +514,18 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
             base.auto_corrected = true;
           }
         }
+
+        // Debug logging for specific questions
+        if (['3', '54'].includes(normalizedNum)) {
+          console.log('Image mapping debug', {
+            qn: q.question_number,
+            normalizedNum,
+            byNumber,
+            byTokens,
+            mergedImagesCount: mergedImages.length,
+          });
+        }
+
         return base;
       });
 

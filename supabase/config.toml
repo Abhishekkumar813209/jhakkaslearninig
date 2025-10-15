@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.ai-extract-all-questions]
 verify_jwt = true
+
+[functions.save-extracted-questions]
+verify_jwt = true
+
+[functions.sync-batch-students]
+verify_jwt = true

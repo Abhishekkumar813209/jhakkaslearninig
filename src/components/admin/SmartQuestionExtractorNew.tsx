@@ -50,9 +50,15 @@ export const SmartQuestionExtractorNew = ({
 
   // Auto-load draft questions when topic changes
   useEffect(() => {
+    // Avoid invoking APIs on login route
+    if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+      return;
+    }
+
     if (selectedTopic) {
       // Only load if we have a valid session
       supabase.auth.getSession().then(({ data: { session } }) => {
+        console.log('SmartQuestionExtractorNew: session check for draft load ->', !!session);
         if (session) {
           loadDraftQuestions();
         }
@@ -77,6 +83,7 @@ export const SmartQuestionExtractorNew = ({
         toast.success(`Loaded ${data.questions.length} draft questions`);
       }
     } catch (error: any) {
+      console.error('loadDraftQuestions error:', error);
       if (error.code !== 401) {
         toast.error('Failed to load questions');
       }
@@ -109,7 +116,12 @@ export const SmartQuestionExtractorNew = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!selectedTopic) {
+      toast.error('Please select a topic before uploading');
+      return;
+    }
 
+    console.log('📄 File selected:', file.name, 'size:', file.size);
     setExtracting(true);
     try {
       let extractedText = '';
@@ -122,6 +134,15 @@ export const SmartQuestionExtractorNew = ({
         return;
       }
 
+      // Validate and log extracted text
+      console.log('📄 File uploaded:', file.name, 'size:', file.size);
+      console.log('📝 Extracted text length:', extractedText?.length);
+      if (!extractedText || extractedText.trim().length === 0) {
+        toast.error('No readable text detected in this document');
+        return;
+      }
+      console.log('📤 Sending to AI (first 100 chars):', extractedText.slice(0, 100));
+
       // Call AI to extract questions
       const aiData = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
         name: 'ai-extract-all-questions',
@@ -132,7 +153,7 @@ export const SmartQuestionExtractorNew = ({
           topic: selectedTopic || null
         }
       });
-
+      console.log('AI extract response:', aiData);
       if (aiData.success && aiData.questions?.length > 0) {
         // Add to existing questions (don't replace)
         setQuestions(prev => [...prev, ...aiData.questions.map((q: any) => ({

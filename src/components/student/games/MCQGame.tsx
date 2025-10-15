@@ -86,9 +86,14 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
             </h3>
             <div className="flex gap-2 ml-4 flex-shrink-0">
               {gameData.marks && (
-                <Badge variant="outline" className="bg-primary/10">
-                  {gameData.marks} {gameData.marks === 1 ? 'Mark' : 'Marks'} | {gameData.marks} XP
-                </Badge>
+                <>
+                  <Badge variant="outline" className="bg-primary/10">
+                    {gameData.marks} {gameData.marks === 1 ? 'Mark' : 'Marks'}
+                  </Badge>
+                  <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-700">
+                    {gameData.marks} XP
+                  </Badge>
+                </>
               )}
               {gameData.difficulty && (
                 <Badge 

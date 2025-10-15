@@ -89,7 +89,9 @@ function SortableLesson({ lesson, onEdit, onDelete }: { lesson: Lesson; onEdit: 
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline">{lesson.lesson_type}</Badge>
-            {lesson.game_type && <Badge variant="secondary">{lesson.game_type}</Badge>}
+            {(lesson.game_data?.original_type || lesson.game_type) && (
+              <Badge variant="secondary">{lesson.game_data?.original_type || lesson.game_type}</Badge>
+            )}
             {lesson.svg_type && <Badge variant="secondary">{lesson.svg_type}</Badge>}
             <span className="text-sm text-muted-foreground ml-auto">{lesson.estimated_time_minutes} min</span>
           </div>
@@ -767,27 +769,33 @@ export function LessonContentBuilder() {
           case 'mcq':
             gameType = 'mcq' as GameType;
             gameData = {
+              original_type: 'mcq',
               question: q.question_text,
               options: q.options || [],
-              correct_answer: 0, // Default to first option, can be enhanced
+              correct_answer: 0,
               explanation: "Review your textbook for detailed explanation",
               difficulty: q.difficulty || 'medium',
-              marks: q.marks
+              marks: q.marks || 1,
+              question_number: q.question_number
             };
             break;
           
           case 'fill_blank':
             gameType = 'fill_blanks';
             gameData = {
+              original_type: 'fill_blank',
               text: q.question_text,
               blanks_count: q.blanks_count || 1,
-              difficulty: q.difficulty || 'medium'
+              difficulty: q.difficulty || 'medium',
+              marks: q.marks || 1,
+              question_number: q.question_number
             };
             break;
           
           case 'match_column':
             gameType = 'match_pairs';
             gameData = {
+              original_type: 'match_column',
               pairs: (q.left_column || []).map((left, idx) => ({
                 id: `pair_${idx}`,
                 left,
@@ -795,24 +803,30 @@ export function LessonContentBuilder() {
               })),
               max_attempts: 10,
               time_limit: 120,
-              difficulty: q.difficulty || 'medium'
+              difficulty: q.difficulty || 'medium',
+              marks: q.marks || 1,
+              question_number: q.question_number
             };
             break;
           
           case 'true_false':
             gameType = 'mcq' as GameType;
             gameData = {
+              original_type: 'true_false',
               question: q.question_text,
               options: ['True', 'False'],
               correct_answer: 0,
               explanation: "Review the concept to understand why",
-              difficulty: q.difficulty || 'easy'
+              difficulty: q.difficulty || 'easy',
+              marks: q.marks || 1,
+              question_number: q.question_number
             };
             break;
           
           case 'assertion_reason':
             gameType = 'mcq' as GameType;
             gameData = {
+              original_type: 'assertion_reason',
               question: `Assertion (A): ${q.assertion || ''}\n\nReason (R): ${q.reason || ''}`,
               options: [
                 'Both A and R are true, R is correct explanation of A',
@@ -822,23 +836,27 @@ export function LessonContentBuilder() {
               ],
               correct_answer: 0,
               explanation: "Analyze both statements carefully",
-              difficulty: q.difficulty || 'medium'
+              difficulty: q.difficulty || 'medium',
+              marks: q.marks || 1,
+              question_number: q.question_number
             };
             break;
 
           case 'short_answer':
             lessonType = 'theory';
-            gameData = {
-              question: q.question_text,
-              type: 'short_answer'
-            };
+            gameData = null;
             break;
 
           default:
-            gameType = 'match_pairs';
+            gameType = 'mcq' as GameType;
             gameData = {
+              original_type: q.question_type,
               question: q.question_text,
-              type: 'generic'
+              options: ['Option A', 'Option B'],
+              correct_answer: 0,
+              difficulty: q.difficulty || 'medium',
+              marks: q.marks || 1,
+              question_number: q.question_number
             };
         }
 
@@ -846,7 +864,7 @@ export function LessonContentBuilder() {
           topic_id: selectedTopic,
           lesson_type: lessonType,
           game_type: lessonType === 'game' ? gameType : null,
-          game_data: gameData,
+          game_data: lessonType === 'game' ? gameData : null,
           theory_text: lessonType === 'theory' ? q.question_text : null,
           content_order: lessons.length + lessonsToInsert.length + 1,
           estimated_time_minutes: 3,

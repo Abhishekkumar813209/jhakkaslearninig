@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Heart, Star, Flame, ArrowRight, SkipForward, Award, Trophy, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
@@ -594,7 +595,10 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
             </div>
 
             {/* XP and Streak */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-xs font-semibold">
+                This lesson: {lesson.xp_reward || 1} XP
+              </Badge>
               <div className="flex items-center gap-1 text-sm font-semibold">
                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
                 <span>{currentXP} XP</span>

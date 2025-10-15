@@ -79,6 +79,45 @@ const BatchManagement = () => {
     return examNames;
   };
 
+  const handleSyncStudents = async (batchId: string, batchName: string) => {
+    const studentCount = batches.find(b => b.id === batchId)?.student_count || 0;
+    
+    if (!window.confirm(
+      `⚠️ This will reset ${studentCount} students to the current batch roadmap.\n\n` +
+      `All progress will be reset. Continue?`
+    )) {
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('sync-batch-students', {
+        body: { batchId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "✅ Students Synced",
+        description: `${data.updated_count} students synced to "${batchName}" roadmap`,
+      });
+
+      fetchBatches();
+    } catch (error: any) {
+      console.error('Error syncing students:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync students",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDelete = async (batchId: string) => {
     if (window.confirm('Are you sure you want to delete this batch? All students will be unassigned.')) {
       try {
@@ -662,6 +701,14 @@ const BatchManagement = () => {
                               }}
                             >
                               Change
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSyncStudents(batch.id, batch.name)}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              Sync Students
                             </Button>
                           </div>
                         ) : (

@@ -11,6 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import confetti from 'canvas-confetti';
 import { calculateXP, getDifficultyColor, getDifficultyBadgeVariant, type Difficulty } from "@/lib/xpConfig";
+import { useQuestionQueue } from "@/hooks/useQuestionQueue";
+import { MCQGame } from "./games/MCQGame";
 
 interface TopicContent {
   id: string;
@@ -54,6 +56,9 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
   const [theoryCompleted, setTheoryCompleted] = useState(false);
   const [completedGames, setCompletedGames] = useState<Set<number>>(new Set());
   const { toast } = useToast();
+  
+  // Phase 3: Question Queue System
+  const questionQueue = useQuestionQueue(topicId);
 
   useEffect(() => {
     fetchContent();
@@ -174,6 +179,47 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     setCurrentExerciseIndex(0);
   };
 
+  const handleCorrectAnswer = async () => {
+    if (!questionQueue.currentQuestion) return;
+    
+    const difficulty = (questionQueue.currentQuestion.difficulty || 'medium') as Difficulty;
+    const xpAmount = calculateXP('exercise', difficulty);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
+      await supabase.functions.invoke("jhakkas-points-system", {
+        body: { 
+          action: "add",
+          xp_amount: xpAmount,
+          activity_type: "exercise_completed",
+          metadata: { difficulty, topic_id: topicId }
+        },
+        headers
+      });
+      
+      toast({
+        title: `✅ Correct! +${xpAmount} XP`,
+        description: `${difficulty.toUpperCase()} question completed!`,
+      });
+    } catch (error) {
+      console.error("Error awarding XP:", error);
+    }
+  };
+  
+  const handleWrongAnswer = () => {
+    // Wrong answers don't award XP, just for tracking
+  };
+  
+  const handleNextQuestion = () => {
+    const hasMore = questionQueue.nextQuestion();
+    if (!hasMore) {
+      // No more questions, mark complete
+      markTopicComplete();
+    }
+  };
+  
   const handleExerciseComplete = async (exerciseId: string, xpReward: number, difficulty?: Difficulty) => {
     setCompletedExercises(prev => new Set(prev).add(exerciseId));
 
@@ -412,31 +458,44 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     );
   }
 
-  if (showExercises && content && content.exercises.length > 0) {
+  // Phase 3: Show Question Queue UI
+  if (showExercises && questionQueue.currentQuestion) {
+    const currentQ = questionQueue.currentQuestion;
+    
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => setShowExercises(false)}>
+        <Button variant="ghost" onClick={() => {
+          setShowExercises(false);
+          questionQueue.reset();
+        }}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Study Material
         </Button>
 
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">
-            Exercise {currentExerciseIndex + 1} of {content.exercises.length}
-          </h3>
-          <Badge>
-            {completedExercises.size} / {content.exercises.length} Completed
-          </Badge>
-        </div>
-
-        <GamifiedExercise
-          exercise={content.exercises[currentExerciseIndex]}
-          onComplete={() => handleExerciseComplete(
-            content.exercises[currentExerciseIndex].id,
-            content.exercises[currentExerciseIndex].xp_reward,
-            content.exercises[currentExerciseIndex].difficulty
-          )}
-        />
+        {/* Render different game types based on exercise_type */}
+        {currentQ.exercise_type === 'mcq' && (
+          <MCQGame
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onNext={handleNextQuestion}
+            onComplete={() => markTopicComplete()}
+            hasMoreQuestions={questionQueue.hasMoreQuestions}
+            currentQuestionNum={questionQueue.currentIndex + 1}
+            totalQuestions={questionQueue.totalQuestions}
+          />
+        )}
+        
+        {/* Fallback for other types */}
+        {currentQ.exercise_type !== 'mcq' && (
+          <GamifiedExercise
+            exercise={currentQ}
+            onComplete={() => {
+              handleCorrectAnswer();
+              handleNextQuestion();
+            }}
+          />
+        )}
       </div>
     );
   }

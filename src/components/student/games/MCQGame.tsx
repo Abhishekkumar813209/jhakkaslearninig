@@ -5,10 +5,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Lightbulb } from "lucide-react";
+import { Check, X, Lightbulb, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
+import { Progress } from "@/components/ui/progress";
 
 interface MCQGameData {
   question: string;
@@ -24,9 +25,22 @@ interface MCQGameProps {
   onCorrect: () => void;
   onWrong: () => void;
   onComplete: () => void;
+  onNext?: () => void; // Optional: called when Continue is clicked
+  hasMoreQuestions?: boolean; // If true, shows "Next" instead of completing
+  currentQuestionNum?: number; // For progress display
+  totalQuestions?: number; // For progress display
 }
 
-export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGameProps) {
+export function MCQGame({ 
+  gameData, 
+  onCorrect, 
+  onWrong, 
+  onComplete,
+  onNext,
+  hasMoreQuestions = false,
+  currentQuestionNum,
+  totalQuestions
+}: MCQGameProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -44,7 +58,17 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
     if (selectedAnswer === null) return;
 
     setHasSubmitted(true);
-    const correct = selectedAnswer === gameData.correct_answer;
+    
+    // Phase 2: Defensive check for correct answer normalization
+    let correctAnswerIndex: number = gameData.correct_answer;
+    if (typeof gameData.correct_answer === 'object' && gameData.correct_answer !== null) {
+      const answerObj = gameData.correct_answer as any;
+      correctAnswerIndex = answerObj.value ?? answerObj.index ?? 0;
+    } else if (typeof gameData.correct_answer !== 'number') {
+      correctAnswerIndex = 0;
+    }
+    
+    const correct = selectedAnswer === correctAnswerIndex;
     setIsCorrect(correct);
 
     if (correct) {
@@ -68,7 +92,12 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
   };
 
   const handleContinue = () => {
-    onComplete();
+    // Phase 3: If more questions exist, call onNext, otherwise onComplete
+    if (hasMoreQuestions && onNext) {
+      onNext();
+    } else {
+      onComplete();
+    }
   };
 
   const getOptionLabel = (index: number) => {
@@ -77,6 +106,21 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
+      {/* Progress Bar (Phase 4) */}
+      {totalQuestions && totalQuestions > 1 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-muted-foreground">
+              Question {currentQuestionNum || 1} of {totalQuestions}
+            </span>
+            <span className="text-primary font-semibold">
+              {Math.round(((currentQuestionNum || 1) / totalQuestions) * 100)}% Complete
+            </span>
+          </div>
+          <Progress value={((currentQuestionNum || 1) / totalQuestions) * 100} className="h-2" />
+        </div>
+      )}
+      
       {/* Question Card */}
       <Card className="border-2 border-primary/20">
         <CardContent className="p-6">
@@ -198,7 +242,14 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
                 onClick={handleContinue}
                 className="min-w-[150px]"
               >
-                Continue
+                {hasMoreQuestions ? (
+                  <>
+                    Next Question
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                ) : (
+                  'Complete'
+                )}
               </Button>
             )}
           </div>

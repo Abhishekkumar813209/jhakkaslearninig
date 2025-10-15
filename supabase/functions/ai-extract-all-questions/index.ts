@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { file_content, subject, chapter, topic } = await req.json();
+    const { file_content, subject, chapter, topic, skip_validation = false } = await req.json();
 
     if (!file_content) {
       throw new Error('File content is required');
@@ -269,7 +269,15 @@ ${file_content}
       extractedContent = extractedContent.replace(/^```\n/, '').replace(/\n```$/, '');
     }
 
-    const extractedData = JSON.parse(extractedContent);
+    let extractedData: any;
+    try {
+      extractedData = JSON.parse(extractedContent);
+    } catch (parseError) {
+      console.error('❌ JSON parse failed. Content head:', extractedContent.slice(0, 500));
+      throw new Error('AI returned invalid JSON. Please retry or check document format.');
+    }
+
+    const questionsArr = Array.isArray(extractedData?.questions) ? extractedData.questions : [];
 
     console.log('🤖 AI Raw Response:', {
       total_questions: extractedData.total_found || extractedData.questions?.length || 0,
@@ -285,99 +293,103 @@ ${file_content}
       let hallucinated = 0;
       let autocorrected = 0;
       
-      for (const q of data.questions || []) {
+      for (const qRaw of (Array.isArray(data?.questions) ? data.questions : [])) {
+        const q = { ...qRaw };
+        
+        // Basic validation - skip questions without text
+        const qTextStr = typeof q.question_text === 'string' ? q.question_text.trim() : '';
+        if (!qTextStr) {
+          console.warn('⚠️ Skipping question without question_text');
+          continue;
+        }
+        
+        const qText = qTextStr.toLowerCase();
+        const qNum = (q.question_number ?? '').toString().trim();
+        const options = Array.isArray(q.options) ? q.options : [];
+        
         // Check 1: Anti-hallucination - Multi-strategy validation
         let foundInDocument = false;
         
         // Strategy 1: Check for [QUESTION_num] marker (primary method)
-        const markerPattern = new RegExp(`\\[QUESTION_${q.question_number}\\]`, 'g');
-        if (markerPattern.test(originalText)) {
-          foundInDocument = true;
+        if (qNum) {
+          const markerPattern = new RegExp(`\\[QUESTION_${qNum}\\]`, 'g');
+          if (markerPattern.test(originalText)) {
+            foundInDocument = true;
+          }
+          
+          // Strategy 2: Flexible number detection if marker not found
+          if (!foundInDocument) {
+            const flexPattern1 = new RegExp(
+              `(?:^|\\n)\\s*(?:Q(?:uestion)?\\s*)?${qNum}\\s*[.\\)\\-:|]?\\s+(?=\\S)`, 
+              'mi'
+            );
+            if (flexPattern1.test(originalText)) {
+              foundInDocument = true;
+            }
+          }
+          
+          // Strategy 3: Number alone on a line (DOCX common pattern)
+          if (!foundInDocument) {
+            const flexPattern2 = new RegExp(
+              `(?:^|\\n)\\s*${qNum}\\s*(?:\\n|\\r|$)`, 
+              'mi'
+            );
+            if (flexPattern2.test(originalText)) {
+              foundInDocument = true;
+            }
+          }
         }
         
-        // Strategy 2: Flexible number detection if marker not found
+        // Fallback: Fuzzy match using text head if no number or patterns failed
         if (!foundInDocument) {
-          // A) Number with optional separator on same line: "1.", "Q1:", "Question 1 "
-          const flexPattern1 = new RegExp(
-            `(?:^|\\n)\\s*(?:Q(?:uestion)?\\s*)?${q.question_number}\\s*[.\\)\\-:|]?\\s+(?=\\S)`, 
-            'mi'
-          );
-          if (flexPattern1.test(originalText)) {
+          const head = qTextStr.slice(0, 80).toLowerCase();
+          if (head.length >= 10 && originalText.toLowerCase().includes(head)) {
             foundInDocument = true;
           }
         }
         
-        // Strategy 3: Number alone on a line (DOCX common pattern)
         if (!foundInDocument) {
-          const flexPattern2 = new RegExp(
-            `(?:^|\\n)\\s*${q.question_number}\\s*(?:\\n|\\r|$)`, 
-            'mi'
-          );
-          if (flexPattern2.test(originalText)) {
-            foundInDocument = true;
-          }
-        }
-        
-        if (!foundInDocument) {
-          console.warn(`❌ Q${q.question_number} not found in document - SKIPPING (hallucinated)`);
+          console.warn(`❌ Question not found in document - SKIPPING`);
           hallucinated++;
           continue;
         }
-        
-        const qText = q.question_text.toLowerCase();
         let corrected = false;
         
         // Check 2: Auto-fix MCQ wrongly marked as assertion-reason
-        if (q.question_type === 'mcq' && 
-            (qText.includes('assertion') || qText.includes('reason')) &&
-            qText.includes('assertion') && qText.includes('reason')) {
-          console.log(`🔧 Q${q.question_number}: MCQ → assertion_reason`);
-          q.question_type = 'assertion_reason';
+        if (q.question_type === 'mcq') {
+          const isAssertion = qText.includes('assertion');
+          const isReason = qText.includes('reason');
           
-          // Try to extract assertion and reason
-          const assertionMatch = q.question_text.match(/Assertion.*?\(A\).*?:(.*?)(?=Reason)/is);
-          const reasonMatch = q.question_text.match(/Reason.*?\(R\).*?:(.*?)(?=a\)|$)/is);
-          
-          if (assertionMatch) q.assertion = assertionMatch[1].trim();
-          if (reasonMatch) q.reason = reasonMatch[1].trim();
-          corrected = true;
-          autocorrected++;
-        }
-        
-        // Check 3: Auto-fix MCQ marked as match column
-        if (q.question_type === 'mcq' && 
-            (qText.includes('match') && (qText.includes('column') || qText.includes('following')))) {
-          console.log(`🔧 Q${q.question_number}: MCQ → match_column`);
-          q.question_type = 'match_column';
-          corrected = true;
-          autocorrected++;
-        }
-        
-        // Check 4: Auto-fix MCQ marked as fill blank (detect 2+ underscores or long dashes)
-        if (q.question_type === 'mcq' && 
-            (q.question_text.match(/_{2,}/g) || q.question_text.match(/—{2,}/g) || 
-             q.question_text.match(/-{5,}/g) || qText.includes('fill in the blank'))) {
-          console.log(`🔧 Q${q.question_number}: MCQ → fill_blank`);
-          q.question_type = 'fill_blank';
-          // Better blank counting (multiple patterns)
-          const underscores = (q.question_text.match(/_{2,}/g) || []).length;
-          const emdashes = (q.question_text.match(/—{2,}/g) || []).length;
-          const longdashes = (q.question_text.match(/-{5,}/g) || []).length;
-          q.blanks_count = underscores + emdashes + longdashes;
-          delete q.options; // Remove MCQ options
-          corrected = true;
-          autocorrected++;
-        }
-        
-        // Check 5: Auto-fix MCQ without options to short_answer
-        if (q.question_type === 'mcq' && 
-            (!q.options || q.options.length === 0) &&
-            (qText.includes('explain') || qText.includes('derive') || 
-             qText.includes('calculate') || qText.includes('prove'))) {
-          console.log(`🔧 Q${q.question_number}: MCQ → short_answer (no options)`);
-          q.question_type = 'short_answer';
-          corrected = true;
-          autocorrected++;
+          if (isAssertion && isReason) {
+            console.log(`🔧 MCQ → assertion_reason`);
+            q.question_type = 'assertion_reason';
+            
+            // Try to extract assertion and reason
+            const assertionMatch = qTextStr.match(/Assertion.*?\(A\).*?:(.*?)(?=Reason)/is);
+            const reasonMatch = qTextStr.match(/Reason.*?\(R\).*?:(.*?)(?=a\)|$)/is);
+            
+            if (assertionMatch) q.assertion = assertionMatch[1].trim();
+            if (reasonMatch) q.reason = reasonMatch[1].trim();
+            corrected = true;
+            autocorrected++;
+          } else if (qText.includes('match') && (qText.includes('column') || qText.includes('following'))) {
+            console.log(`🔧 MCQ → match_column`);
+            q.question_type = 'match_column';
+            corrected = true;
+            autocorrected++;
+          } else if (qTextStr.match(/_{2,}/g) || qTextStr.match(/—{2,}/g) || qTextStr.match(/-{5,}/g) || qText.includes('fill in the blank')) {
+            console.log(`🔧 MCQ → fill_blank`);
+            q.question_type = 'fill_blank';
+            q.blanks_count = (qTextStr.match(/_{2,}/g) || []).length + (qTextStr.match(/—{2,}/g) || []).length + (qTextStr.match(/-{5,}/g) || []).length;
+            delete q.options;
+            corrected = true;
+            autocorrected++;
+          } else if ((!options || options.length === 0) && (qText.includes('explain') || qText.includes('derive') || qText.includes('calculate') || qText.includes('prove'))) {
+            console.log(`🔧 MCQ → short_answer (no options)`);
+            q.question_type = 'short_answer';
+            corrected = true;
+            autocorrected++;
+          }
         }
         
         if (corrected) {
@@ -396,7 +408,7 @@ ${file_content}
       };
 
       console.log(`✅ Validation Complete:`, {
-        original_count: data.questions?.length || 0,
+        original_count: questionsArr.length,
         validated_count: validated.length,
         hallucinated_removed: hallucinated,
         auto_corrected: autocorrected,
@@ -411,12 +423,12 @@ ${file_content}
       return validated;
     };
 
-    // Apply validation
-    const validatedQuestions = validateAndFixQuestions(extractedData, file_content);
+    // Apply validation (or skip if legacy mode requested)
+    const outputQuestions = skip_validation ? questionsArr : validateAndFixQuestions(extractedData, file_content);
 
     console.log('📊 Final Output:', {
-      total_questions: validatedQuestions.length,
-      by_type: validatedQuestions.reduce((acc: any, q: any) => {
+      total_questions: outputQuestions.length,
+      by_type: outputQuestions.reduce((acc: any, q: any) => {
         acc[q.question_type] = (acc[q.question_type] || 0) + 1;
         return acc;
       }, {})
@@ -425,8 +437,8 @@ ${file_content}
     return new Response(
       JSON.stringify({
         success: true,
-        total_questions: validatedQuestions.length,
-        questions: validatedQuestions,
+        total_questions: outputQuestions.length,
+        questions: outputQuestions,
         metadata: {
           file_name: 'document',
           extraction_time: new Date().toISOString(),

@@ -143,14 +143,22 @@ export const SmartQuestionExtractorNew = ({
       }
       console.log('📤 Sending to AI (first 100 chars):', extractedText.slice(0, 100));
 
-      // Call AI to extract questions
+      // Session check before API call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please log in first');
+        return;
+      }
+
+      // Call AI to extract questions (legacy mode for now)
       const aiData = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
         name: 'ai-extract-all-questions',
         body: {
           file_content: extractedText,
           subject: selectedSubject || null,
           chapter: selectedChapter || null,
-          topic: selectedTopic || null
+          topic: selectedTopic || null,
+          skip_validation: true // Restore old behavior temporarily
         }
       });
       console.log('AI extract response:', aiData);
@@ -165,9 +173,10 @@ export const SmartQuestionExtractorNew = ({
       } else {
         toast.error('No questions found in the document');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Extraction error:', error);
-      toast.error('Failed to extract questions');
+      const errorMsg = error?.message || error?.error || 'Failed to extract questions';
+      toast.error(errorMsg);
     } finally {
       setExtracting(false);
     }

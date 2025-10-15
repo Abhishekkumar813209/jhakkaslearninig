@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter } from "lucide-react";
-import Tesseract from 'tesseract.js';
+import { getDocument } from 'pdfjs-dist';
 
 interface ExtractedQuestion {
   id: string;
@@ -40,6 +40,50 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   const [filterType, setFilterType] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
 
+  // Enhanced text extraction for better structure preservation
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    const maxPages = Math.min(pdf.numPages, 50); // Limit to 50 pages
+    
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      
+      // Preserve layout structure
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += `\n--- PAGE ${i} ---\n${pageText}\n`;
+    }
+    
+    return fullText;
+  };
+
+  // Add structure markers to help AI detect question types
+  const enhanceTextForAI = (text: string): string => {
+    let enhanced = text;
+    
+    // Mark question numbers clearly
+    enhanced = enhanced.replace(/(\d+)\.\s+/g, '\n\n[QUESTION_$1]\n');
+    
+    // Mark match column questions
+    enhanced = enhanced.replace(/(Match.*column.*II)/gi, '\n[MATCH_COLUMN]\n$1\n');
+    enhanced = enhanced.replace(/(Match.*the.*following)/gi, '\n[MATCH_COLUMN]\n$1\n');
+    
+    // Mark assertion-reason questions
+    enhanced = enhanced.replace(/(Assertion.*?\(A\).*?:)/gi, '\n[ASSERTION_REASON]\nAssertion (A):');
+    enhanced = enhanced.replace(/(Reason.*?\(R\).*?:)/gi, 'Reason (R):');
+    
+    // Mark fill in the blanks
+    enhanced = enhanced.replace(/(.*?_____.*?)/g, '[FILL_BLANK]$1');
+    
+    return enhanced;
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -58,33 +102,30 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
 
       // Extract text based on file type
       if (file.type === 'application/pdf') {
-        // Convert PDF pages to images and OCR them
-        const arrayBuffer = await file.arrayBuffer();
-        const images = await convertPdfToImages(arrayBuffer);
-        
-        toast.info("Extracting text from PDF...", { duration: 3000 });
-        
-        for (let i = 0; i < Math.min(images.length, 20); i++) { // Limit to 20 pages
-          const { data: { text } } = await Tesseract.recognize(images[i], 'eng', {
-            logger: m => {
-              if (m.status === 'recognizing text') {
-                console.log(`OCR Page ${i + 1}: ${Math.round(m.progress * 100)}%`);
-              }
-            }
-          });
-          fileContent += text + '\n\n';
-        }
+        toast.info("Extracting text from PDF with advanced parsing...", { duration: 3000 });
+        fileContent = await extractTextFromPDF(file);
       } else {
-        // For Word docs, read as text (simplified)
+        // For Word docs, read as text
         fileContent = await file.text();
       }
 
-      console.log('Extracted file content length:', fileContent.length);
+      // Enhance text with structure markers
+      const enhancedContent = enhanceTextForAI(fileContent);
+
+      console.log('📄 Document Analysis:', {
+        original_length: fileContent.length,
+        enhanced_length: enhancedContent.length,
+        first_200_chars: enhancedContent.substring(0, 200),
+        question_markers: (enhancedContent.match(/\[QUESTION_/g) || []).length,
+        assertion_markers: (enhancedContent.match(/\[ASSERTION_REASON\]/g) || []).length,
+        match_markers: (enhancedContent.match(/\[MATCH_COLUMN\]/g) || []).length,
+        fill_blank_markers: (enhancedContent.match(/\[FILL_BLANK\]/g) || []).length
+      });
 
       // Call AI extraction edge function
       const { data, error } = await supabase.functions.invoke('ai-extract-all-questions', {
         body: {
-          file_content: fileContent,
+          file_content: enhancedContent,
           subject: 'General',
           chapter: '',
           topic: ''
@@ -100,7 +141,8 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       // Add unique IDs to questions
       const questionsWithIds = data.questions.map((q: any, index: number) => ({
         ...q,
-        id: `q-${Date.now()}-${index}`
+        id: `q-${Date.now()}-${index}`,
+        auto_corrected: q.auto_corrected || false
       }));
 
       setExtractedQuestions(questionsWithIds);
@@ -113,12 +155,6 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       setIsUploading(false);
       setIsExtracting(false);
     }
-  };
-
-  const convertPdfToImages = async (arrayBuffer: ArrayBuffer): Promise<string[]> => {
-    // This is a simplified version - in production, you'd use pdf.js properly
-    // For now, we'll use a single image approach
-    return []; // Return empty for now, will be handled by OCR directly on PDF
   };
 
   const toggleSelection = (id: string) => {

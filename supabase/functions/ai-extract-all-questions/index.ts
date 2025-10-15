@@ -20,94 +20,135 @@ serve(async (req) => {
       throw new Error('File content is required');
     }
 
-    console.log('Extracting questions from document, content length:', file_content.length);
+    console.log('📄 Extracting questions from document, content length:', file_content.length);
+    console.log('📄 First 300 chars:', file_content.substring(0, 300));
 
-    const systemPrompt = `You are an expert educational content analyzer specialized in extracting questions from documents.
+    const systemPrompt = `You are an expert question extraction system for Indian educational content (CBSE, JEE, NEET).
 
-EXTRACTION RULES:
-1. Identify ALL questions in the document (look for Q1, 1., Question 1, etc.)
-2. Auto-detect question type based on structure:
-   - MCQ: Has options like a), b), c), d) or (A), (B), (C), (D)
-   - Match Column: Contains "Match column I with II" or table format with two columns to match
-   - Assertion-Reason: Has "Assertion (A):" and "Reason (R):" statements
-   - Fill in the Blanks: Contains _____ or "fill in the blank"
-   - True/False: Options are True/False or T/F
-   - Short Answer: Paragraph/descriptive questions without specific options
+🚨 CRITICAL ANTI-HALLUCINATION RULES:
+1. ONLY extract questions that EXIST in the document
+2. DO NOT create, rephrase, or invent questions
+3. Copy EXACT text from document - word for word
+4. If you can't find a question number in the text, SKIP IT
+5. Each question MUST have a visible number marker (1., Q1, Question 1, etc.)
 
-3. Extract complete question text preserving formatting
-4. For MCQ: extract all options (usually 4)
-5. For Match Column: extract left column items and right column items as separate arrays
-6. For Assertion-Reason: separate assertion text and reason text
-7. For Fill Blanks: identify number of blanks and their positions
-8. Preserve mathematical symbols, chemical formulas, and special formatting
+📋 STRICT PRIORITY ORDER FOR TYPE DETECTION (Check in this order):
 
-9. Assign difficulty based on complexity:
-   - easy: Direct recall, simple concepts
-   - medium: Application, 2-step problems
-   - hard: Analysis, multi-step problems, complex reasoning
+Priority 1: ASSERTION-REASON (Check FIRST before MCQ)
+✓ Pattern: Contains both "Assertion (A):" AND "Reason (R):"
+✓ Usually has 4 options after assertion and reason
+Example:
+"""
+15. Assertion (A): The value of acceleration due to gravity is independent of mass of the object.
+Reason (R): The acceleration due to gravity depends on the mass of the Earth.
+a) Both Assertion and Reason are true, Reason is correct explanation
+b) Both true, Reason is NOT correct explanation
+c) Assertion true, Reason false
+d) Assertion false, Reason true
+"""
+→ question_type: "assertion_reason"
+→ Extract: assertion, reason, AND options array
 
-10. Assign marks based on question type and difficulty:
-    - MCQ easy: 1 mark
-    - MCQ medium/hard: 2 marks
-    - Match Column: 2-3 marks
-    - Fill Blanks: 1 mark per blank
-    - Short Answer: 2-5 marks
+Priority 2: MATCH THE COLUMN
+✓ Pattern: Contains "Match column" OR "Match the following"
+✓ Has two lists/tables to match
+Example:
+"""
+3. Match column I with column II:
+Column I          Column II
+A. Mass          i. kg m/s²
+B. Force         ii. kg
+"""
+→ question_type: "match_column"
+→ Extract: left_column[], right_column[]
 
-OUTPUT REQUIREMENTS:
-Return a valid JSON object with this EXACT structure:
+Priority 3: FILL IN THE BLANKS
+✓ Pattern: Contains "___" OR "fill in the blank"
+Example:
+"""
+22. The gravitational constant G has a value of _____ in SI units.
+"""
+→ question_type: "fill_blank"
+→ Count blanks: blanks_count
+
+Priority 4: TRUE/FALSE
+✓ Pattern: Options are only "True/False" or "T/F" or "Correct/Incorrect"
+Example:
+"""
+64. State whether true or false:
+a) g is same everywhere on Earth (T/F)
+b) G is a universal constant (T/F)
+"""
+→ question_type: "true_false"
+
+Priority 5: SHORT ANSWER / NUMERICAL
+✓ Pattern: NO options provided, asks to "Explain", "Derive", "Calculate", "Prove"
+✓ Usually worth 2+ marks
+Example:
+"""
+26. Explain Newton's law of universal gravitation.
+"""
+→ question_type: "short_answer"
+
+Priority 6: MCQ (ONLY if none of the above match)
+✓ Pattern: Has options a), b), c), d) AND is NOT Assertion-Reason
+✓ Must have clear options
+Example:
+"""
+1. There is no atmosphere on moon as:
+a) it gets light from sun
+b) it is closer to the earth
+c) it revolves round the earth
+d) gases escape easily
+"""
+→ question_type: "mcq"
+
+⚠️ CRITICAL VALIDATION STEP:
+For each question, ask yourself:
+- Does this question number exist in the document? YES/NO
+- If NO → DELETE from output (it's hallucinated)
+- Is the text EXACTLY from document? YES/NO
+- If NO → Copy exact text again
+
+📝 OUTPUT FORMAT (Strict JSON):
 {
   "questions": [
     {
       "question_number": "1",
       "question_type": "mcq",
-      "question_text": "Complete question text here",
-      "options": ["a) First option", "b) Second option", "c) Third option", "d) Fourth option"],
+      "question_text": "EXACT text from document",
+      "options": ["a) ...", "b) ...", "c) ...", "d) ..."],
       "marks": 1,
       "difficulty": "easy"
     },
     {
-      "question_number": "3",
-      "question_type": "match_column",
-      "question_text": "Match column I with column II",
-      "left_column": ["Item 1", "Item 2", "Item 3"],
-      "right_column": ["Match A", "Match B", "Match C"],
-      "marks": 3,
-      "difficulty": "medium"
-    },
-    {
-      "question_number": "17",
+      "question_number": "15",
       "question_type": "assertion_reason",
-      "question_text": "Assertion and Reason type question",
-      "assertion": "Assertion (A): Complete assertion text",
-      "reason": "Reason (R): Complete reason text",
+      "question_text": "Full question text",
+      "assertion": "Assertion (A): Exact text",
+      "reason": "Reason (R): Exact text",
+      "options": ["a) Both true, R explains A", "b) Both true, R doesn't explain A", "c) A true, R false", "d) A false, R true"],
       "marks": 1,
       "difficulty": "medium"
     },
     {
       "question_number": "22",
       "question_type": "fill_blank",
-      "question_text": "The gravitational constant G has a value of _____ in SI units.",
+      "question_text": "Text with _____ blanks",
       "blanks_count": 1,
       "marks": 1,
       "difficulty": "easy"
-    },
-    {
-      "question_number": "25",
-      "question_type": "true_false",
-      "question_text": "The value of g is same at all places on earth.",
-      "marks": 1,
-      "difficulty": "easy"
-    },
-    {
-      "question_number": "26",
-      "question_type": "short_answer",
-      "question_text": "Explain Newton's law of universal gravitation.",
-      "marks": 3,
-      "difficulty": "medium"
     }
   ],
-  "total_found": 41
+  "total_found": 64
 }
+
+🎯 MARKS ASSIGNMENT:
+- MCQ/True-False: 1 mark
+- Assertion-Reason: 1 mark
+- Fill Blanks: 1 mark per blank
+- Match Column: 2-3 marks
+- Short Answer: 2-5 marks (based on "Explain"=2, "Derive"=3, "Prove"=5)
 
 CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanations.`;
 
@@ -115,12 +156,12 @@ CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanations.`
 
 ${file_content}
 
-Remember to:
-- Find ALL questions (don't miss any)
-- Correctly identify each question type
-- Extract complete text
-- Preserve formatting and symbols
-- Return valid JSON only`;
+🚨 CRITICAL REMINDERS:
+- DO NOT create fake questions
+- ONLY extract questions that exist in the document
+- Copy EXACT text (no paraphrasing)
+- Check type priority: Assertion-Reason FIRST, then Match, then Fill Blank, then MCQ
+- Return valid JSON only (no markdown)`;
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -134,8 +175,8 @@ Remember to:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 8000
+        temperature: 0.1, // Reduced for deterministic output
+        max_tokens: 12000 // Increased for longer documents
       }),
     });
 
@@ -181,16 +222,113 @@ Remember to:
 
     const extractedData = JSON.parse(extractedContent);
 
-    console.log('Extracted:', {
+    console.log('🤖 AI Raw Response:', {
       total_questions: extractedData.total_found || extractedData.questions?.length || 0,
-      types: extractedData.questions?.map((q: any) => q.question_type) || []
+      types_distribution: extractedData.questions?.reduce((acc: any, q: any) => {
+        acc[q.question_type] = (acc[q.question_type] || 0) + 1;
+        return acc;
+      }, {})
+    });
+
+    // Phase 3: Post-processing validation and auto-correction
+    const validateAndFixQuestions = (data: any, originalText: string) => {
+      const validated = [];
+      let hallucinated = 0;
+      let autocorrected = 0;
+      
+      for (const q of data.questions || []) {
+        // Check 1: Anti-hallucination - Does question number exist?
+        const qNumPattern = new RegExp(`\\b${q.question_number}[.\\)]`, 'g');
+        if (!qNumPattern.test(originalText)) {
+          console.warn(`❌ Q${q.question_number} not found in document - SKIPPING (hallucinated)`);
+          hallucinated++;
+          continue;
+        }
+        
+        const qText = q.question_text.toLowerCase();
+        let corrected = false;
+        
+        // Check 2: Auto-fix MCQ wrongly marked as assertion-reason
+        if (q.question_type === 'mcq' && 
+            (qText.includes('assertion') || qText.includes('reason')) &&
+            qText.includes('assertion') && qText.includes('reason')) {
+          console.log(`🔧 Q${q.question_number}: MCQ → assertion_reason`);
+          q.question_type = 'assertion_reason';
+          
+          // Try to extract assertion and reason
+          const assertionMatch = q.question_text.match(/Assertion.*?\(A\).*?:(.*?)(?=Reason)/is);
+          const reasonMatch = q.question_text.match(/Reason.*?\(R\).*?:(.*?)(?=a\)|$)/is);
+          
+          if (assertionMatch) q.assertion = assertionMatch[1].trim();
+          if (reasonMatch) q.reason = reasonMatch[1].trim();
+          corrected = true;
+          autocorrected++;
+        }
+        
+        // Check 3: Auto-fix MCQ marked as match column
+        if (q.question_type === 'mcq' && 
+            (qText.includes('match') && (qText.includes('column') || qText.includes('following')))) {
+          console.log(`🔧 Q${q.question_number}: MCQ → match_column`);
+          q.question_type = 'match_column';
+          corrected = true;
+          autocorrected++;
+        }
+        
+        // Check 4: Auto-fix MCQ marked as fill blank
+        if (q.question_type === 'mcq' && 
+            (q.question_text.includes('___') || qText.includes('fill in the blank'))) {
+          console.log(`🔧 Q${q.question_number}: MCQ → fill_blank`);
+          q.question_type = 'fill_blank';
+          q.blanks_count = (q.question_text.match(/___/g) || []).length;
+          delete q.options; // Remove MCQ options
+          corrected = true;
+          autocorrected++;
+        }
+        
+        // Check 5: Auto-fix MCQ without options to short_answer
+        if (q.question_type === 'mcq' && 
+            (!q.options || q.options.length === 0) &&
+            (qText.includes('explain') || qText.includes('derive') || 
+             qText.includes('calculate') || qText.includes('prove'))) {
+          console.log(`🔧 Q${q.question_number}: MCQ → short_answer (no options)`);
+          q.question_type = 'short_answer';
+          corrected = true;
+          autocorrected++;
+        }
+        
+        if (corrected) {
+          q.auto_corrected = true;
+        }
+        
+        validated.push(q);
+      }
+      
+      console.log(`✅ Validation Complete:`, {
+        original_count: data.questions?.length || 0,
+        validated_count: validated.length,
+        hallucinated_removed: hallucinated,
+        auto_corrected: autocorrected
+      });
+      
+      return validated;
+    };
+
+    // Apply validation
+    const validatedQuestions = validateAndFixQuestions(extractedData, file_content);
+
+    console.log('📊 Final Output:', {
+      total_questions: validatedQuestions.length,
+      by_type: validatedQuestions.reduce((acc: any, q: any) => {
+        acc[q.question_type] = (acc[q.question_type] || 0) + 1;
+        return acc;
+      }, {})
     });
 
     return new Response(
       JSON.stringify({
         success: true,
-        total_questions: extractedData.total_found || extractedData.questions?.length || 0,
-        questions: extractedData.questions || [],
+        total_questions: validatedQuestions.length,
+        questions: validatedQuestions,
         metadata: {
           file_name: 'document',
           extraction_time: new Date().toISOString(),

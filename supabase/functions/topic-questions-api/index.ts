@@ -230,19 +230,34 @@ serve(async (req) => {
 
         insertedQuestions.push(inserted);
 
-        // Create topic_content_mapping
-        const { error: mappingError } = await supabaseClient
+        // Create topic_content_mapping with proper order and capture mapping id
+        let mappingId: string | null = null;
+        // Determine next order number for this topic
+        const { count, error: countError } = await supabaseClient
+          .from('topic_content_mapping')
+          .select('*', { count: 'exact', head: true })
+          .eq('topic_id', topic_id);
+        if (countError) {
+          console.warn('⚠️ Could not fetch existing mapping count:', countError);
+        }
+        const nextOrder = (count ?? 0) + 1;
+
+        const { data: mapping, error: mappingError } = await supabaseClient
           .from('topic_content_mapping')
           .insert({
             topic_id,
             question_id: inserted.id,
-            content_type: q.question_type === 'mcq' ? 'quiz' : 'game'
-          });
+            content_type: q.question_type === 'mcq' ? 'quiz' : 'game',
+            order_num: nextOrder
+          })
+          .select('id')
+          .single();
 
         if (mappingError) {
           console.error('❌ Error creating mapping:', mappingError);
         } else {
-          createdMappings.push(inserted.id);
+          mappingId = mapping?.id ?? null;
+          createdMappings.push(mappingId || inserted.id);
         }
 
         // Create gamified_exercise with normalized game_data
@@ -279,7 +294,7 @@ serve(async (req) => {
         const { error: exerciseError } = await supabaseClient
           .from('gamified_exercises')
           .insert({
-            topic_content_id: inserted.id, // Using question_id as content_id
+            topic_content_id: mappingId ?? inserted.id, // Use mapping id as content reference
             exercise_type: gameType,
             exercise_data: exerciseData,
             correct_answer: normalizedAnswer,
@@ -292,7 +307,7 @@ serve(async (req) => {
         if (exerciseError) {
           console.error('❌ Error creating exercise:', exerciseError);
         } else {
-          createdExercises.push(inserted.id);
+          createdExercises.push(mappingId ?? inserted.id);
         }
 
         // Add to approval queue

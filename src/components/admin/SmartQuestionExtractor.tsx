@@ -96,6 +96,59 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     }
   }, [extractedQuestions, setHasUnsavedChanges]);
 
+  // Auto-load questions for selected topic from database
+  useEffect(() => {
+    const loadTopicQuestions = async () => {
+      if (!selectedTopic) return;
+      
+      console.log('🔍 Auto-loading questions for topic:', selectedTopic);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('topic-questions-api', {
+          body: {
+            action: 'get_by_topic',
+            topic_id: selectedTopic
+          }
+        });
+        
+        if (error) throw error;
+        
+        if (data?.success && data.questions && data.questions.length > 0) {
+          console.log(`✅ Loaded ${data.questions.length} questions from database`);
+          
+          // Transform DB questions to ExtractedQuestion format
+          const transformedQuestions: ExtractedQuestion[] = data.questions.map((q: any, index: number) => ({
+            id: q.id,
+            question_number: String(index + 1),
+            question_type: q.question_type || 'mcq',
+            question_text: q.question_text || '',
+            options: q.options || [],
+            marks: q.marks || 1,
+            difficulty: q.difficulty || 'medium',
+            correct_answer: q.correct_answer,
+            explanation: q.explanation,
+            auto_corrected: q.is_approved,
+            confidence: q.is_approved ? 'high' : 'medium'
+          }));
+          
+          setExtractedQuestions(transformedQuestions);
+          toast.success(`Loaded ${transformedQuestions.length} questions for this topic`);
+        } else {
+          console.log('ℹ️ No existing questions found for this topic');
+          // Clear questions if switching to a topic with no questions
+          if (extractedQuestions.length > 0) {
+            setExtractedQuestions([]);
+          }
+        }
+      } catch (error: any) {
+        console.error('❌ Error loading topic questions:', error);
+        toast.error('Failed to load existing questions: ' + error.message);
+      }
+    };
+    
+    loadTopicQuestions();
+  }, [selectedTopic]);
+
   // Show restore toast on mount if data exists
   useEffect(() => {
     if (extractedQuestions.length > 0) {

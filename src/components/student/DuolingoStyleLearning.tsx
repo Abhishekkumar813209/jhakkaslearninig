@@ -48,7 +48,7 @@ interface DuolingoStyleLearningProps {
 
 export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: DuolingoStyleLearningProps) {
   const { toast } = useToast();
-  const [hearts, setHearts] = useState(5);
+  // ❌ REMOVED: Hearts system completely
   const [currentXP, setCurrentXP] = useState(0);
   const [streak, setStreak] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
@@ -74,17 +74,8 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
 
-    // Fetch hearts
-    const { data: heartsData } = await supabase
-      .from('student_hearts')
-      .select('current_hearts')
-      .eq('student_id', user.user.id)
-      .single();
+    // ❌ REMOVED: Hearts fetching
     
-    if (heartsData) {
-      setHearts(heartsData.current_hearts);
-    }
-
     // Fetch XP and streak
     const { data: xpData } = await supabase
       .from('student_gamification')
@@ -115,55 +106,36 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     }
   };
 
-  const loseHeart = async () => {
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return;
+  // ❌ REMOVED: loseHeart and handleSkip functions (heart system removed)
 
-    const newHearts = Math.max(0, hearts - 1);
-    setHearts(newHearts);
-
-    await supabase
-      .from('student_hearts')
-      .update({ 
-        current_hearts: newHearts,
-        last_heart_lost_at: new Date().toISOString()
-      })
-      .eq('student_id', user.user.id);
-
-    if (newHearts === 0) {
-      toast({
-        title: "Out of Hearts!",
-        description: "Practice or wait for hearts to refill",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleSkip = async () => {
-    if (hearts <= 0) {
-      toast({
-        title: "No Hearts Left",
-        description: "You need hearts to skip",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    await loseHeart();
-    handleContinue();
-  };
-
-  const handleCorrectAnswer = () => {
-    // Play success sound
+  const handleCorrectAnswer = async () => {
+    // ✅ Play success sound
     playSound('correct');
     
-    // Trigger confetti
+    // ✅ Trigger confetti
     confetti({
       particleCount: 150,
       spread: 100,
       origin: { y: 0.6 },
       colors: ['#FFD700', '#FFA500', '#FF6347']
     });
+
+    // ✅ AWARD XP HERE (only on correct answer)
+    const { data: user } = await supabase.auth.getUser();
+    if (user.user) {
+      const xpToAward = lesson.xp_reward || 10;
+      
+      await supabase.functions.invoke('xp-coin-reward-system', {
+        body: {
+          action: 'add',
+          xp_earned: xpToAward,
+          coins_earned: 0
+        }
+      });
+
+      setEarnedXP(xpToAward);
+      playSound('xp_gain');
+    }
 
     setShowCelebration(true);
     setTimeout(() => {
@@ -173,14 +145,13 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const handleWrongAnswer = async () => {
-    // Play wrong sound and heart loss
+    // ❌ NO XP on wrong answer, just feedback
     playSound('wrong');
-    playSound('heart_loss');
     
     setShowWrongAnswer(true);
-    await loseHeart();
     setTimeout(() => {
       setShowWrongAnswer(false);
+      // ❌ Continue button still works, no heart penalty
     }, 2000);
   };
 
@@ -196,36 +167,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
 
-    // Award XP (Jhakkas Points)
-    const { data: xpData } = await supabase
-      .from('student_gamification')
-      .select('*')
-      .eq('student_id', user.user.id)
-      .single();
-
-    if (xpData) {
-      const newXP = xpData.total_xp + lesson.xp_reward;
-
-      await supabase
-        .from('student_gamification')
-        .update({
-          total_xp: newXP,
-        })
-        .eq('student_id', user.user.id);
-
-      setEarnedXP(lesson.xp_reward);
-      setEarnedCoins(lesson.xp_reward); // Using XP for display
-
-      // Check for level up
-      const oldLevel = Math.floor(xpData.total_xp / 100);
-      const newLevel = Math.floor(newXP / 100);
-      if (newLevel > oldLevel) {
-        playSound('level_up');
-        setShowLevelUp(true);
-      } else {
-        playSound('xp_gain');
-      }
-    }
+    // ❌ REMOVED: XP awarding from here (now happens in handleCorrectAnswer only)
 
     // Mark lesson as complete
     await supabase
@@ -347,23 +289,20 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     }
 
     return (
-      <div className="space-y-6">
-        <SvgComponent
-          svgData={lesson.svg_data}
-          onComplete={() => {
-            handleCorrectAnswer();
-            setTimeout(completeLesson, 1000);
-          }}
-        />
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={handleSkip} disabled={hearts <= 0}>
-            <SkipForward className="h-4 w-4 mr-2" /> Skip (-1 ❤️)
-          </Button>
-          <Button size="lg" onClick={handleCorrectAnswer} className="gap-2">
-            I Understand <ArrowRight className="h-5 w-5" />
-          </Button>
+        <div className="space-y-6">
+          <SvgComponent
+            svgData={lesson.svg_data}
+            onComplete={() => {
+              handleCorrectAnswer();
+              setTimeout(completeLesson, 1000);
+            }}
+          />
+          <div className="flex justify-end">
+            <Button size="lg" onClick={handleCorrectAnswer} className="gap-2">
+              I Understand <ArrowRight className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
-      </div>
     );
   };
 
@@ -376,7 +315,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     const isCorrect = answer === checkpoint.correct_answer;
     
     setCheckpointAnswers({ ...checkpointAnswers, [sectionIdx]: answer });
-    setCheckpointCorrect({ ...checkpointCorrect, [sectionIdx]: isCorrect });
+      setCheckpointCorrect({ ...checkpointCorrect, [sectionIdx]: isCorrect });
 
     if (isCorrect) {
       playSound('correct');
@@ -406,7 +345,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       }, 1500);
     } else {
       playSound('wrong');
-      loseHeart();
+      // ❌ REMOVED: loseHeart() - no heart penalty
     }
   };
 
@@ -583,23 +522,12 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       <div className="sticky top-0 z-50 bg-card border-b shadow-sm">
         <div className="container max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-2">
-            {/* Hearts */}
-            <div className="flex items-center gap-1">
-              {[...Array(5)].map((_, i) => (
-                <Heart
-                  key={i}
-                  className={cn(
-                    "h-6 w-6",
-                    i < hearts ? "fill-red-500 text-red-500" : "text-gray-300"
-                  )}
-                />
-              ))}
-            </div>
+            {/* ❌ REMOVED: Hearts display */}
 
             {/* XP and Streak */}
             <div className="flex items-center gap-3">
               <Badge variant="secondary" className="text-xs font-semibold">
-                This lesson: {lesson.xp_reward || 1} XP
+                Earn {lesson.xp_reward || 1} XP
               </Badge>
               <div className="flex items-center gap-1 text-sm font-semibold">
                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
@@ -678,7 +606,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           <div className="text-center py-8">
             <div className="text-6xl mb-4">😢</div>
             <h2 className="text-2xl font-bold mb-2">Not quite right</h2>
-            <p className="text-muted-foreground">-1 Heart. Try again!</p>
+            <p className="text-muted-foreground">Try again! (No XP for wrong answers)</p>
           </div>
         </DialogContent>
       </Dialog>

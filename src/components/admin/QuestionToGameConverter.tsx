@@ -215,13 +215,18 @@ export const QuestionToGameConverter = () => {
     setSaving(true);
 
     try {
+      // ✅ Normalize correct answer before saving
+      const normalizedAnswer = typeof generatedExercise.correct_answer === 'number'
+        ? { type: 'index', value: generatedExercise.correct_answer, options: options ? options.split('\n').filter(o => o.trim()) : null }
+        : generatedExercise.correct_answer;
+
       const { error: questionError } = await supabase
         .from('generated_questions')
         .insert({
           question_text: questionText,
           question_type: selectedGameType,
           options: options ? options.split('\n').filter(o => o.trim()) : null,
-          correct_answer: generatedExercise.correct_answer || "N/A",
+          correct_answer: normalizedAnswer,
           subject,
           chapter_name: chapterName,
           topic_name: topicName,
@@ -364,13 +369,20 @@ export const QuestionToGameConverter = () => {
       const generatedQuestions = bulkQuestions.filter(q => q.status === 'generated');
       
       for (const question of generatedQuestions) {
+        // ✅ Normalize correct answer
+        const normalizedAnswer = question.game_data?.correct_answer !== undefined
+          ? (typeof question.game_data.correct_answer === 'number' 
+              ? { type: 'index', value: question.game_data.correct_answer, options: question.options }
+              : question.game_data.correct_answer)
+          : { type: 'index', value: 0, options: question.options };
+
         await supabase
           .from('generated_questions')
           .insert({
             question_text: question.question_text,
             question_type: question.suggested_game || 'mcq',
             options: question.options,
-            correct_answer: "N/A",
+            correct_answer: normalizedAnswer,
             subject: question.subject,
             chapter_name: question.chapter_name,
             topic_name: question.topic_name,

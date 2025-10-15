@@ -869,14 +869,16 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('save-extracted-questions', {
+      // ✅ Use new topic-questions-api to save AND link to topic
+      const { data, error } = await supabase.functions.invoke('topic-questions-api', {
         body: {
-          questions: selected,
+          action: 'save_extracted_and_link',
+          topic_id: selectedTopic,
           subject: 'General',
           chapter_name: null,
           topic_name: selectedTopic || null,
-          source_id: null
-        }
+          questions: selected,
+        },
       });
 
       if (error) throw error;
@@ -885,15 +887,15 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         throw new Error('Failed to save questions');
       }
 
-      toast.success(`Saved ${data.count} questions to database!`, {
-        description: "Questions remain in extractor for further edits"
+      toast.success(`✅ Saved ${data.count} questions to database!`, {
+        description: `${data.mappings_created} linked to topic, ${data.exercises_created} games created`
       });
       
       // ✅ Questions stay in UI - don't clear them
       // ✅ Selection stays active - user can manually clear with "Clear All" button
       
     } catch (error) {
-      console.error('Save error:', error);
+      console.error('❌ Save error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save questions');
     }
   };

@@ -21,6 +21,8 @@ const Login = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [forgotPhonePassword, setForgotPhonePassword] = useState(false);
+  const [resetPhone, setResetPhone] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -257,13 +259,49 @@ const Login = () => {
         title: 'Login Failed',
         description: errorMessage,
         action: isPasswordError ? (
-          <Button variant="outline" size="sm" onClick={() => setForgotPassword(true)}>
+          <Button variant="outline" size="sm" onClick={() => setForgotPhonePassword(true)}>
             Forgot Password?
           </Button>
         ) : undefined
       });
     }
 
+    setLoading(false);
+  };
+
+  const handleParentForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPhone || resetPhone.length !== 10) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Phone',
+        description: 'Please enter a valid 10-digit phone number.',
+      });
+      return;
+    }
+
+    setLoading(true);
+    // Convert phone to parent email
+    const parentEmail = `${resetPhone}@parent.app`;
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(parentEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Reset Failed',
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: 'Reset Email Sent!',
+        description: 'Check the email associated with this phone number for password reset instructions.',
+      });
+      setForgotPhonePassword(false);
+      setResetPhone('');
+    }
     setLoading(false);
   };
 
@@ -386,47 +424,95 @@ const Login = () => {
                 </TabsContent>
 
                 <TabsContent value="phone" className="space-y-4">
-                  <form onSubmit={handlePhoneLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          type="tel"
-                          placeholder="Phone Number (10 digits)"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          className="pl-10"
-                          maxLength={10}
-                          required
-                        />
+                  {forgotPhonePassword ? (
+                    <form onSubmit={handleParentForgotPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Enter your registered phone number to receive password reset instructions.
+                        </p>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="tel"
+                            placeholder="Phone Number (10 digits)"
+                            value={resetPhone}
+                            onChange={(e) => setResetPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            className="pl-10"
+                            maxLength={10}
+                            required
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          type={showPhonePassword ? "text" : "password"}
-                          placeholder="Password"
-                          value={phonePassword}
-                          onChange={(e) => setPhonePassword(e.target.value)}
-                          className="pl-10 pr-10"
-                          required
-                        />
+                      <div className="flex gap-2">
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-1 top-1 h-8 w-8"
-                          onClick={() => setShowPhonePassword(!showPhonePassword)}
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setForgotPhonePassword(false);
+                            setResetPhone('');
+                          }}
                         >
-                          {showPhonePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          Back to Login
+                        </Button>
+                        <Button type="submit" className="flex-1" disabled={loading}>
+                          {loading ? 'Sending...' : 'Send Reset Link'}
                         </Button>
                       </div>
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Signing in...' : 'Login with Phone'}
-                    </Button>
-                  </form>
+                    </form>
+                  ) : (
+                    <form onSubmit={handlePhoneLogin} className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="tel"
+                            placeholder="Phone Number (10 digits)"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            className="pl-10"
+                            maxLength={10}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type={showPhonePassword ? "text" : "password"}
+                            placeholder="Password"
+                            value={phonePassword}
+                            onChange={(e) => setPhonePassword(e.target.value)}
+                            className="pl-10 pr-10"
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1 h-8 w-8"
+                            onClick={() => setShowPhonePassword(!showPhonePassword)}
+                          >
+                            {showPhonePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="p-0 h-auto text-sm"
+                          onClick={() => setForgotPhonePassword(true)}
+                        >
+                          Forgot Password?
+                        </Button>
+                      </div>
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? 'Signing in...' : 'Login with Phone'}
+                      </Button>
+                    </form>
+                  )}
                 </TabsContent>
               </Tabs>
 

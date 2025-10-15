@@ -346,12 +346,18 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     for (const raw of lines) {
       const line = raw.trim();
       const qm = line.match(qRegex);
-      if (qm) { currentQ = qm[1]; continue; }
+      if (qm) { 
+        // Normalize the marker number - extract only digits to match later lookup
+        const rawNum = qm[1];
+        currentQ = rawNum; // Store normalized version
+        continue; 
+      }
       const fm = line.match(figureRegex);
       if (fm && currentQ) {
         const id = fm[1];
         const img = imageIdMap[id];
         if (img) {
+          // Use normalized currentQ as key
           imagesByQuestion[currentQ] = imagesByQuestion[currentQ] || [];
           imagesByQuestion[currentQ].push({ url: img.url, ocr: img.ocr });
         }
@@ -359,7 +365,11 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     }
     (window as any).__questionImages = imagesByQuestion;
     const totalFigures = Object.values(imagesByQuestion).reduce((a, arr) => a + arr.length, 0);
-    console.log('🧩 Figure mapping complete', { questions_with_figures: Object.keys(imagesByQuestion).length, total_figures: totalFigures });
+    console.log('🧩 Figure mapping complete', { 
+      questions_with_figures: Object.keys(imagesByQuestion).length, 
+      total_figures: totalFigures,
+      mapping: Object.entries(imagesByQuestion).map(([q, imgs]) => `Q${q}: ${imgs.length} img(s)`).join(', ')
+    });
     return imagesByQuestion;
   };
 

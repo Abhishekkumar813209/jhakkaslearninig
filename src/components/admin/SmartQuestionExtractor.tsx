@@ -73,23 +73,54 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     return result.value;
   };
 
+  // Normalize text for better processing
+  const normalizeText = (text: string): string => {
+    let normalized = text;
+    
+    // Convert CRLF to LF
+    normalized = normalized.replace(/\r\n/g, '\n');
+    
+    // Convert non-breaking spaces to regular spaces
+    normalized = normalized.replace(/\u00A0/g, ' ');
+    
+    // Collapse multiple spaces (but keep newlines)
+    normalized = normalized.replace(/ {2,}/g, ' ');
+    
+    // Collapse excessive newlines (max 2 consecutive)
+    normalized = normalized.replace(/\n{3,}/g, '\n\n');
+    
+    return normalized;
+  };
+
   // Add structure markers to help AI detect question types
   const enhanceTextForAI = (text: string): string => {
-    let enhanced = text;
+    let enhanced = normalizeText(text);
     
-    // Mark question numbers clearly
-    enhanced = enhanced.replace(/(\d+)\.\s+/g, '\n\n[QUESTION_$1]\n');
+    // === QUESTION NUMBERING DETECTION (Multiple Strategies) ===
+    
+    // Strategy 1: Number followed by separator on same line (e.g., "1. ", "Q1:", "Question 1-")
+    enhanced = enhanced.replace(/(?:^|\n)\s*(?:Q(?:uestion)?\s*)?(\d+)\s*[.)\-:|]\s+(?=\S)/gmi, '\n\n[QUESTION_$1]\n');
+    
+    // Strategy 2: Number standing alone on its own line (common in DOCX)
+    enhanced = enhanced.replace(/(?:^|\n)\s*(?:Q(?:uestion)?\s*)?(\d+)\s*(?:\n|$)/gmi, '\n[QUESTION_$1]\n');
+    
+    // Strategy 3: "Q1" / "Question 1" variants without separator
+    enhanced = enhanced.replace(/(?:^|\n)\s*(?:Q(?:uestion)\s+)(\d+)(?=\s+[A-Z])/gmi, '\n\n[QUESTION_$1]\n');
+    
+    // === TYPE MARKERS ===
+    
+    // Mark assertion-reason questions (tolerant of spacing and separators)
+    enhanced = enhanced.replace(/Assertion\s*\(?\s*A\s*\)?\s*[:\-–]\s*/gi, '\n[ASSERTION_REASON]\nAssertion (A): ');
+    enhanced = enhanced.replace(/Reason\s*\(?\s*R\s*\)?\s*[:\-–]\s*/gi, 'Reason (R): ');
     
     // Mark match column questions
-    enhanced = enhanced.replace(/(Match.*column.*II)/gi, '\n[MATCH_COLUMN]\n$1\n');
-    enhanced = enhanced.replace(/(Match.*the.*following)/gi, '\n[MATCH_COLUMN]\n$1\n');
+    enhanced = enhanced.replace(/Match\s+(?:the\s+)?(?:column|columns|following)/gi, (match) => `\n[MATCH_COLUMN]\n${match}`);
     
-    // Mark assertion-reason questions
-    enhanced = enhanced.replace(/(Assertion.*?\(A\).*?:)/gi, '\n[ASSERTION_REASON]\nAssertion (A):');
-    enhanced = enhanced.replace(/(Reason.*?\(R\).*?:)/gi, 'Reason (R):');
+    // Mark fill in the blanks (2+ underscores or dashes)
+    enhanced = enhanced.replace(/^(.*(_{2,}|—{2,}|-{5,}).*)$/gm, '[FILL_BLANK]$1');
     
-    // Mark fill in the blanks
-    enhanced = enhanced.replace(/(.*?_____.*?)/g, '[FILL_BLANK]$1');
+    // Mark true/false questions
+    enhanced = enhanced.replace(/(True\s*\/\s*False|T\s*\/\s*F)/gi, (match) => `[TRUE_FALSE]${match}`);
     
     return enhanced;
   };
@@ -124,15 +155,26 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       // Enhance text with structure markers
       const enhancedContent = enhanceTextForAI(fileContent);
 
-      console.log('📄 Document Analysis:', {
-        original_length: fileContent.length,
-        enhanced_length: enhancedContent.length,
-        first_200_chars: enhancedContent.substring(0, 200),
+      const markerCounts = {
         question_markers: (enhancedContent.match(/\[QUESTION_/g) || []).length,
         assertion_markers: (enhancedContent.match(/\[ASSERTION_REASON\]/g) || []).length,
         match_markers: (enhancedContent.match(/\[MATCH_COLUMN\]/g) || []).length,
-        fill_blank_markers: (enhancedContent.match(/\[FILL_BLANK\]/g) || []).length
+        fill_blank_markers: (enhancedContent.match(/\[FILL_BLANK\]/g) || []).length,
+        true_false_markers: (enhancedContent.match(/\[TRUE_FALSE\]/g) || []).length
+      };
+
+      console.log('📄 Document Analysis:', {
+        original_length: fileContent.length,
+        enhanced_length: enhancedContent.length,
+        first_300_chars: enhancedContent.substring(0, 300),
+        ...markerCounts
       });
+
+      // Warning if marker detection seems low
+      if (markerCounts.question_markers < 10) {
+        console.warn('⚠️ Low question markers detected. Document formatting may be unusual. Trying tolerant parsing...');
+        toast.info("Document formatting detected. Using advanced parsing...", { duration: 3000 });
+      }
 
       // Call AI extraction edge function
       const { data, error } = await supabase.functions.invoke('ai-extract-all-questions', {

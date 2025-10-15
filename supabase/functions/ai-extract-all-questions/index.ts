@@ -237,9 +237,39 @@ ${file_content}
       let autocorrected = 0;
       
       for (const q of data.questions || []) {
-        // Check 1: Anti-hallucination - Does question number exist?
-        const qNumPattern = new RegExp(`\\b${q.question_number}[.\\)]`, 'g');
-        if (!qNumPattern.test(originalText)) {
+        // Check 1: Anti-hallucination - Multi-strategy validation
+        let foundInDocument = false;
+        
+        // Strategy 1: Check for [QUESTION_num] marker (primary method)
+        const markerPattern = new RegExp(`\\[QUESTION_${q.question_number}\\]`, 'g');
+        if (markerPattern.test(originalText)) {
+          foundInDocument = true;
+        }
+        
+        // Strategy 2: Flexible number detection if marker not found
+        if (!foundInDocument) {
+          // A) Number with optional separator on same line: "1.", "Q1:", "Question 1 "
+          const flexPattern1 = new RegExp(
+            `(?:^|\\n)\\s*(?:Q(?:uestion)?\\s*)?${q.question_number}\\s*[.\\)\\-:|]?\\s+(?=\\S)`, 
+            'mi'
+          );
+          if (flexPattern1.test(originalText)) {
+            foundInDocument = true;
+          }
+        }
+        
+        // Strategy 3: Number alone on a line (DOCX common pattern)
+        if (!foundInDocument) {
+          const flexPattern2 = new RegExp(
+            `(?:^|\\n)\\s*${q.question_number}\\s*(?:\\n|\\r|$)`, 
+            'mi'
+          );
+          if (flexPattern2.test(originalText)) {
+            foundInDocument = true;
+          }
+        }
+        
+        if (!foundInDocument) {
           console.warn(`❌ Q${q.question_number} not found in document - SKIPPING (hallucinated)`);
           hallucinated++;
           continue;
@@ -274,12 +304,17 @@ ${file_content}
           autocorrected++;
         }
         
-        // Check 4: Auto-fix MCQ marked as fill blank
+        // Check 4: Auto-fix MCQ marked as fill blank (detect 2+ underscores or long dashes)
         if (q.question_type === 'mcq' && 
-            (q.question_text.includes('___') || qText.includes('fill in the blank'))) {
+            (q.question_text.match(/_{2,}/g) || q.question_text.match(/—{2,}/g) || 
+             q.question_text.match(/-{5,}/g) || qText.includes('fill in the blank'))) {
           console.log(`🔧 Q${q.question_number}: MCQ → fill_blank`);
           q.question_type = 'fill_blank';
-          q.blanks_count = (q.question_text.match(/___/g) || []).length;
+          // Better blank counting (multiple patterns)
+          const underscores = (q.question_text.match(/_{2,}/g) || []).length;
+          const emdashes = (q.question_text.match(/—{2,}/g) || []).length;
+          const longdashes = (q.question_text.match(/-{5,}/g) || []).length;
+          q.blanks_count = underscores + emdashes + longdashes;
           delete q.options; // Remove MCQ options
           corrected = true;
           autocorrected++;
@@ -303,12 +338,26 @@ ${file_content}
         validated.push(q);
       }
       
+      // Log marker statistics from originalText
+      const markerStats = {
+        question_markers: (originalText.match(/\[QUESTION_/g) || []).length,
+        assertion_markers: (originalText.match(/\[ASSERTION_REASON\]/g) || []).length,
+        match_markers: (originalText.match(/\[MATCH_COLUMN\]/g) || []).length,
+        fill_blank_markers: (originalText.match(/\[FILL_BLANK\]/g) || []).length
+      };
+
       console.log(`✅ Validation Complete:`, {
         original_count: data.questions?.length || 0,
         validated_count: validated.length,
         hallucinated_removed: hallucinated,
-        auto_corrected: autocorrected
+        auto_corrected: autocorrected,
+        marker_stats: markerStats
       });
+
+      // Warning if over-filtered
+      if (markerStats.question_markers >= 30 && validated.length < 10) {
+        console.warn(`⚠️ WARNING: High markers (${markerStats.question_markers}) but low validated (${validated.length}). Possible over-filtering.`);
+      }
       
       return validated;
     };

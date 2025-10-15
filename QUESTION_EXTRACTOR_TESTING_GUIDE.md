@@ -1,4 +1,45 @@
-# Question Extractor Testing Guide
+# Question Extractor Testing Guide - UPDATED ✨
+
+## 🆕 Latest Improvements (Implemented)
+
+### Phase 1: Better Text Extraction
+- ✅ Replaced Tesseract with `pdfjs-dist` for PDFs
+- ✅ Added `mammoth.js` for Word documents (.docx)
+- ✅ **Text normalization**: CRLF → LF, non-breaking spaces → regular spaces, collapse excessive whitespace
+- ✅ Preserves document structure with page markers
+
+### Phase 2: Enhanced Question Detection
+- ✅ **Multi-strategy question numbering** (detects all common formats):
+  - Strategy 1: Number + separator on same line (`1.`, `Q1:`, `Question 1-`, etc.)
+  - Strategy 2: **Number standalone on its own line** (common in DOCX formatting)
+  - Strategy 3: "Q1" / "Question 1" variants without separator
+- ✅ **Enhanced type markers** with flexible pattern matching:
+  - Assertion-Reason (tolerates spacing: `Assertion (A):`, `Assertion(A) :`, etc.)
+  - Match Column (flexible: `Match column`, `Match the following`)
+  - Fill Blanks (detects: `__`, `——`, `-----`, 2+ underscores/dashes)
+  - True/False markers
+
+### Phase 3: Tolerant Validation (Anti-Hallucination)
+- ✅ **Multi-strategy validation** in backend edge function:
+  - **First** checks for `[QUESTION_num]` markers
+  - **Fallback** to flexible number patterns if marker not found
+  - **Prevents false positives** (questions marked as hallucinated when they exist)
+- ✅ **Better blank detection**: counts `__`, `——`, `-----` patterns separately
+- ✅ **Auto-correction improvements** for misclassified types
+
+### Phase 4: Enhanced Logging & Debugging
+- ✅ Frontend console logs: marker counts, first 300 chars preview, warnings if low markers
+- ✅ Backend edge function logs: marker statistics, validation details, over-filtering warnings
+- ✅ Warning if marker counts seem low (<10 questions detected)
+- ✅ Warning if high markers but low validated (possible over-filtering)
+
+### Phase 5: UI Improvements
+- ✅ Auto-corrected badges (yellow highlight)
+- ✅ Confidence indicators (medium/low shown)
+- ✅ Summary stats: "X auto-corrected • Y accurate"
+- ✅ Preview dialog shows correction status
+
+---
 
 ## Test Document: Gravitation_WS_1.docx
 

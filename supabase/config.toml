@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-payment-invoice]
 verify_jwt = false
+
+[functions.ai-extract-all-questions]
+verify_jwt = true

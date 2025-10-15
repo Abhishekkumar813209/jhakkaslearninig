@@ -8,6 +8,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Heart, Star, Flame, ArrowRight, SkipForward, Award, Trophy, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import confetti from "canvas-confetti";
+import { playSound } from "@/lib/soundEffects";
 import { MatchPairsGame } from "./games/MatchPairsGame";
 import { DragDropSequence } from "./games/DragDropSequence";
 import { TypingRaceGame } from "./games/TypingRaceGame";
@@ -142,6 +144,17 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const handleCorrectAnswer = () => {
+    // Play success sound
+    playSound('correct');
+    
+    // Trigger confetti
+    confetti({
+      particleCount: 150,
+      spread: 100,
+      origin: { y: 0.6 },
+      colors: ['#FFD700', '#FFA500', '#FF6347']
+    });
+
     setShowCelebration(true);
     setTimeout(() => {
       setShowCelebration(false);
@@ -150,6 +163,10 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const handleWrongAnswer = async () => {
+    // Play wrong sound and heart loss
+    playSound('wrong');
+    playSound('heart_loss');
+    
     setShowWrongAnswer(true);
     await loseHeart();
     setTimeout(() => {
@@ -193,7 +210,10 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       const oldLevel = Math.floor(xpData.total_xp / 100);
       const newLevel = Math.floor(newXP / 100);
       if (newLevel > oldLevel) {
+        playSound('level_up');
         setShowLevelUp(true);
+      } else {
+        playSound('xp_gain');
       }
     }
 

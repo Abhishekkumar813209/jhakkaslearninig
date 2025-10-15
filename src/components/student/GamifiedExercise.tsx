@@ -6,8 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Trophy, Coins } from "lucide-react";
+import { CheckCircle2, XCircle, Trophy, Coins, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
+import confetti from "canvas-confetti";
+import { playSound } from "@/lib/soundEffects";
 
 interface Exercise {
   id: string;
@@ -22,6 +25,8 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
   const [answer, setAnswer] = useState<string>("");
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [showXpPopup, setShowXpPopup] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = () => {
@@ -38,11 +43,33 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
     setSubmitted(true);
 
     if (correct) {
+      // Play success sound
+      playSound('correct');
+      
+      // Trigger confetti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      // Show XP popup
+      setShowXpPopup(true);
+      setTimeout(() => setShowXpPopup(false), 2000);
+
       toast({
         title: "🎉 Correct!",
-        description: `+${exercise.xp_reward} XP`
+        description: `+${exercise.xp_reward} XP`,
+        duration: 3000
       });
     } else {
+      // Play wrong sound
+      playSound('wrong');
+
+      // Shake animation
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+
       toast({
         title: "Not quite right",
         description: "Review the explanation and try again",
@@ -140,49 +167,79 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Exercise</CardTitle>
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Trophy className="h-3 w-3" />
-            {exercise.xp_reward} XP
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {renderExercise()}
-
-        {submitted && (
-          <div className={`p-4 rounded-lg border ${isCorrect ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"}`}>
-            <div className="flex items-start gap-2">
-              {isCorrect ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
-              )}
-              <div>
-                <p className="font-medium mb-1">
-                  {isCorrect ? "Correct!" : "Not quite right"}
-                </p>
-                <p className="text-sm">{exercise.explanation}</p>
+    <>
+      {/* XP Popup Animation */}
+      <AnimatePresence>
+        {showXpPopup && (
+          <motion.div
+            initial={{ scale: 0, y: 50, opacity: 0 }}
+            animate={{ 
+              scale: [0, 1.3, 1],
+              y: [50, -20, 0],
+              opacity: [0, 1, 1]
+            }}
+            exit={{ opacity: 0, y: -50 }}
+            transition={{ duration: 0.6 }}
+            className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none"
+          >
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-8 py-4 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <Star className="w-8 h-8 text-white fill-white animate-pulse" />
+                <span className="text-3xl font-bold text-white">+{exercise.xp_reward} XP</span>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        <div className="flex gap-2">
-          {!submitted ? (
-            <Button onClick={handleSubmit} className="flex-1">
-              Submit Answer
-            </Button>
-          ) : (
-            <Button onClick={handleNext} className="flex-1">
-              {isCorrect ? "Next Exercise" : "Try Again"}
-            </Button>
+      <Card className={isShaking ? 'animate-[shake_0.5s_ease-in-out]' : ''}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl">Exercise</CardTitle>
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Trophy className="h-3 w-3" />
+              {exercise.xp_reward} XP
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {renderExercise()}
+
+          {submitted && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-4 rounded-lg border ${isCorrect ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"}`}
+            >
+              <div className="flex items-start gap-2">
+                {isCorrect ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                )}
+                <div>
+                  <p className="font-medium mb-1">
+                    {isCorrect ? "Correct!" : "Not quite right"}
+                  </p>
+                  <p className="text-sm">{exercise.explanation}</p>
+                </div>
+              </div>
+            </motion.div>
           )}
-        </div>
-      </CardContent>
-    </Card>
+
+          <div className="flex gap-2">
+            {!submitted ? (
+              <Button onClick={handleSubmit} className="flex-1">
+                Submit Answer
+              </Button>
+            ) : (
+              <Button onClick={handleNext} className="flex-1">
+                {isCorrect ? "Next Exercise" : "Try Again"}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 };

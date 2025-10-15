@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,6 @@ interface SmartQuestionExtractorProps {
 export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewQuestion, setPreviewQuestion] = useState<ExtractedQuestion | null>(null);
   const [previewLesson, setPreviewLesson] = useState<any>(null);
   const [filterType, setFilterType] = useState<string>('all');
@@ -67,6 +66,37 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     [],
     24 // 24 hours expiry
   );
+
+  // Auto-save selectedIds to localStorage with debounce
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('question-extractor-selected');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save selectedIds whenever it changes (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem('question-extractor-selected', JSON.stringify(selectedIds));
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [selectedIds]);
+
+  // Auto-save extractedQuestions whenever it changes (debounced)
+  useEffect(() => {
+    if (extractedQuestions.length > 0) {
+      const timeoutId = setTimeout(() => {
+        setHasUnsavedChanges(true);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [extractedQuestions, setHasUnsavedChanges]);
+
+  // Show restore toast on mount if data exists
+  useEffect(() => {
+    if (extractedQuestions.length > 0) {
+      toast(`Restored ${extractedQuestions.length} questions from previous session`);
+    }
+  }, []);
 
   // Helper: Extract only digits from question number (handles "54.", "Q54", "54)" etc.)
   const getNormalizedQNumber = (qn: any, fallback: number): string => {
@@ -172,7 +202,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       game_data: gameData,
       content_order: 1,
       estimated_time_minutes: 5,
-      xp_reward: (q.marks || 1) * 10,
+      xp_reward: q.marks || 1,
       generated_by: 'extractor',
       human_reviewed: false
     };
@@ -1001,9 +1031,9 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                           </Badge>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Q{question.question_number} • {question.marks || 1} mark(s)
-                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        Q{question.question_number} • {question.marks || 1} Marks | {question.marks || 1} XP
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -1074,8 +1104,8 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                     {previewQuestion.difficulty}
                   </Badge>
                 )}
-                <Badge variant="outline">
-                  {previewQuestion?.marks || 1} mark(s)
+                <Badge variant="outline" className="bg-primary/10">
+                  {previewQuestion?.marks || 1} Marks | {previewQuestion?.marks || 1} XP
                 </Badge>
                 {previewQuestion?.auto_corrected && (
                   <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">

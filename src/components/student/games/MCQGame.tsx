@@ -81,21 +81,27 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
       <Card className="border-2 border-primary/20">
         <CardContent className="p-6">
           <div className="flex items-start justify-between mb-6">
-            <h3 className="text-xl font-semibold text-foreground flex-1">
+            <h3 className="text-xl font-semibold text-foreground flex-1 whitespace-pre-wrap break-words">
               {gameData.question}
             </h3>
-            {gameData.difficulty && (
-              <Badge 
-                variant={
-                  gameData.difficulty === 'easy' ? 'default' : 
-                  gameData.difficulty === 'medium' ? 'secondary' : 
-                  'destructive'
-                }
-                className="ml-4"
-              >
-                {gameData.difficulty}
-              </Badge>
-            )}
+            <div className="flex gap-2 ml-4 flex-shrink-0">
+              {gameData.marks && (
+                <Badge variant="outline" className="bg-primary/10">
+                  {gameData.marks} {gameData.marks === 1 ? 'Mark' : 'Marks'} | {gameData.marks} XP
+                </Badge>
+              )}
+              {gameData.difficulty && (
+                <Badge 
+                  variant={
+                    gameData.difficulty === 'easy' ? 'default' : 
+                    gameData.difficulty === 'medium' ? 'secondary' : 
+                    'destructive'
+                  }
+                >
+                  {gameData.difficulty}
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Options */}
@@ -243,7 +249,9 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
             )}
           >
             <p className="text-white font-bold text-lg">
-              {isCorrect ? "🎉 Correct Answer!" : "❌ Wrong Answer"}
+              {isCorrect 
+                ? `🎉 Correct! You earned ${gameData.marks || 1} XP!` 
+                : "❌ Wrong Answer"}
             </p>
           </motion.div>
         )}

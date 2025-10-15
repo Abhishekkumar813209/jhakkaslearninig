@@ -125,6 +125,16 @@ export function LessonContentBuilder() {
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
   
+  // Persist active tab across sessions
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    return localStorage.getItem('lesson-builder-active-tab') || 'lesson-library';
+  });
+
+  // Save active tab whenever it changes
+  useEffect(() => {
+    localStorage.setItem('lesson-builder-active-tab', activeTab);
+  }, [activeTab]);
+  
   // Domain selection
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   
@@ -840,7 +850,7 @@ export function LessonContentBuilder() {
           theory_text: lessonType === 'theory' ? q.question_text : null,
           content_order: lessons.length + lessonsToInsert.length + 1,
           estimated_time_minutes: 3,
-          xp_reward: q.marks ? q.marks * 5 : 10,
+          xp_reward: q.marks || 1,
           generated_by: 'ai',
           human_reviewed: false
         });
@@ -976,7 +986,7 @@ export function LessonContentBuilder() {
           </Card>
 
           {/* Tabs for different builder modes */}
-          <Tabs defaultValue="lesson-library" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-6">
               <TabsTrigger value="lesson-library">📚 Lesson Library</TabsTrigger>
               <TabsTrigger value="ai-workflow">🤖 AI Workflow</TabsTrigger>

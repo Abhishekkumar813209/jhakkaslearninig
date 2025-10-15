@@ -2591,6 +2591,74 @@ export type Database = {
           },
         ]
       }
+      student_checkpoint_progress: {
+        Row: {
+          attempts: number | null
+          checkpoint_answered: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          is_correct: boolean | null
+          lesson_id: string | null
+          section_index: number
+          student_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          checkpoint_answered?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          lesson_id?: string | null
+          section_index: number
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          checkpoint_answered?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          lesson_id?: string | null
+          section_index?: number
+          student_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_checkpoint_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "topic_learning_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_checkpoint_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_checkpoint_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_checkpoint_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       student_course_history: {
         Row: {
           course_id: string
@@ -3947,6 +4015,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          checkpoint_config: Json | null
           coin_reward: number | null
           content_order: number
           created_at: string | null
@@ -3964,6 +4033,7 @@ export type Database = {
           svg_data: Json | null
           svg_type: string | null
           theory_html: string | null
+          theory_language: string | null
           theory_text: string | null
           topic_id: string | null
           updated_at: string | null
@@ -3972,6 +4042,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          checkpoint_config?: Json | null
           coin_reward?: number | null
           content_order: number
           created_at?: string | null
@@ -3989,6 +4060,7 @@ export type Database = {
           svg_data?: Json | null
           svg_type?: string | null
           theory_html?: string | null
+          theory_language?: string | null
           theory_text?: string | null
           topic_id?: string | null
           updated_at?: string | null
@@ -3997,6 +4069,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          checkpoint_config?: Json | null
           coin_reward?: number | null
           content_order?: number
           created_at?: string | null
@@ -4014,6 +4087,7 @@ export type Database = {
           svg_data?: Json | null
           svg_type?: string | null
           theory_html?: string | null
+          theory_language?: string | null
           theory_text?: string | null
           topic_id?: string | null
           updated_at?: string | null

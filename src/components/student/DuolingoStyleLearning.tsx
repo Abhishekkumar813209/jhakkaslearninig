@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Heart, Star, Flame, ArrowRight, SkipForward, Award, Trophy, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +26,8 @@ interface Lesson {
   lesson_type: string;
   theory_text?: string;
   theory_html?: string;
+  theory_language?: string;
+  checkpoint_config?: any;
   svg_type?: string;
   svg_data?: any;
   game_type?: string;
@@ -54,6 +56,12 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [earnedXP, setEarnedXP] = useState(0);
   const [earnedCoins, setEarnedCoins] = useState(0);
+  
+  // Checkpoint states
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [checkpointAnswers, setCheckpointAnswers] = useState<Record<number, any>>({});
+  const [checkpointCorrect, setCheckpointCorrect] = useState<Record<number, boolean>>({});
+  const [selectedCheckpointAnswer, setSelectedCheckpointAnswer] = useState<any>(null);
 
   useEffect(() => {
     fetchUserData();
@@ -353,13 +361,175 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     );
   };
 
+  const handleCheckpointAnswer = async (sectionIdx: number, answer: any) => {
+    const sections = lesson.checkpoint_config?.sections || [];
+    const checkpoint = sections[sectionIdx]?.checkpoint;
+    if (!checkpoint) return;
+
+    setSelectedCheckpointAnswer(answer);
+    const isCorrect = answer === checkpoint.correct_answer;
+    
+    setCheckpointAnswers({ ...checkpointAnswers, [sectionIdx]: answer });
+    setCheckpointCorrect({ ...checkpointCorrect, [sectionIdx]: isCorrect });
+
+    if (isCorrect) {
+      playSound('correct');
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      
+      // Save checkpoint progress
+      const { data: user } = await supabase.auth.getUser();
+      if (user.user) {
+        await supabase.from('student_checkpoint_progress').upsert({
+          student_id: user.user.id,
+          lesson_id: lesson.id,
+          section_index: sectionIdx,
+          checkpoint_answered: true,
+          is_correct: true,
+          attempts: (checkpointAnswers[sectionIdx] ? 1 : 0) + 1,
+          completed_at: new Date().toISOString()
+        });
+      }
+
+      setTimeout(() => {
+        if (sectionIdx < sections.length - 1) {
+          setCurrentSectionIndex(sectionIdx + 1);
+          setSelectedCheckpointAnswer(null);
+        } else {
+          completeLesson();
+        }
+      }, 1500);
+    } else {
+      playSound('wrong');
+      loseHeart();
+    }
+  };
+
+  const renderTheoryWithCheckpoints = () => {
+    const sections = lesson.checkpoint_config?.sections || [];
+    
+    if (sections.length === 0) {
+      // Fallback to regular theory
+      return (
+        <div className="prose prose-lg max-w-none">
+          <div className="bg-card rounded-lg p-6">
+            <div dangerouslySetInnerHTML={{ __html: lesson.theory_html || lesson.theory_text || '' }} />
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button size="lg" onClick={handleContinue} className="gap-2">
+              Continue <ArrowRight className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    const currentSection = sections[currentSectionIndex];
+    
+    return (
+      <div className="space-y-6">
+        {/* Theory Section */}
+        <Card className="p-6">
+          <div className="prose prose-lg max-w-none">
+            <div dangerouslySetInnerHTML={{ __html: `<p>${currentSection.section_text}</p>` }} />
+          </div>
+        </Card>
+
+        {/* Checkpoint Question */}
+        {currentSection.checkpoint && (
+          <Card className="border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-blue-500 rounded-full">
+                  <span className="text-white text-sm font-bold">✓</span>
+                </div>
+                <h3 className="text-lg font-semibold text-blue-700 dark:text-blue-400">
+                  Quick Check: Samajh mein aaya?
+                </h3>
+              </div>
+              
+              <p className="text-base font-medium mb-4">{currentSection.checkpoint.question_text}</p>
+
+              {currentSection.checkpoint.question_type === 'mcq' && (
+                <div className="space-y-2">
+                  {currentSection.checkpoint.options?.map((opt: string, i: number) => {
+                    const isSelected = selectedCheckpointAnswer === i;
+                    const isAnswered = checkpointAnswers[currentSectionIndex] !== undefined;
+                    const isCorrectAnswer = i === currentSection.checkpoint.correct_answer;
+                    const showResult = isAnswered && isSelected;
+
+                    return (
+                      <Button
+                        key={i}
+                        variant={isSelected ? "default" : "outline"}
+                        className={cn(
+                          "w-full text-left justify-start h-auto py-3 px-4",
+                          showResult && checkpointCorrect[currentSectionIndex] && "bg-green-500 hover:bg-green-600",
+                          showResult && !checkpointCorrect[currentSectionIndex] && "bg-red-500 hover:bg-red-600"
+                        )}
+                        onClick={() => !isAnswered && handleCheckpointAnswer(currentSectionIndex, i)}
+                        disabled={isAnswered}
+                      >
+                        <span className="font-semibold mr-3">{String.fromCharCode(65 + i)}.</span>
+                        {opt}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Feedback */}
+              {checkpointAnswers[currentSectionIndex] !== undefined && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "mt-4 p-4 rounded-lg",
+                    checkpointCorrect[currentSectionIndex]
+                      ? "bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-400"
+                      : "bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400"
+                  )}
+                >
+                  <p className="font-semibold flex items-center gap-2">
+                    {checkpointCorrect[currentSectionIndex] ? "✅ Sahi hai!" : "❌ Galat, try again!"}
+                  </p>
+                  <p className="text-sm mt-1">{currentSection.checkpoint.explanation}</p>
+                </motion.div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Continue button (only show if no checkpoint or checkpoint answered correctly) */}
+        {(!currentSection.checkpoint || checkpointCorrect[currentSectionIndex]) && (
+          <div className="flex justify-end">
+            <Button
+              size="lg"
+              onClick={() => {
+                if (currentSectionIndex < sections.length - 1) {
+                  setCurrentSectionIndex(currentSectionIndex + 1);
+                  setSelectedCheckpointAnswer(null);
+                } else {
+                  completeLesson();
+                }
+              }}
+              className="gap-2"
+            >
+              {currentSectionIndex < sections.length - 1 ? "Next Section" : "Complete Lesson"}
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (lesson.lesson_type) {
       case 'theory':
-        return (
+        return lesson.checkpoint_config ? renderTheoryWithCheckpoints() : (
           <div className="prose prose-lg max-w-none">
             <div className="bg-card rounded-lg p-6">
-              <p className="text-lg leading-relaxed">{lesson.theory_text}</p>
+              <div dangerouslySetInnerHTML={{ __html: lesson.theory_html || lesson.theory_text || '' }} />
             </div>
             <div className="mt-6 flex justify-end">
               <Button size="lg" onClick={handleContinue} className="gap-2">

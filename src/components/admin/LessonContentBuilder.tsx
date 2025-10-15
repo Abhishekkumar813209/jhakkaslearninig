@@ -22,6 +22,8 @@ import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { EnhancedLessonWorkflow } from "./EnhancedLessonWorkflow";
 import { QuestionToGameConverter } from "./QuestionToGameConverter";
 import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
+import { LessonPreviewDialog } from "./LessonPreviewDialog";
+import { TheoryCheckpointBuilder } from "./TheoryCheckpointBuilder";
 import * as LucideIcons from "lucide-react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
@@ -35,6 +37,8 @@ interface Lesson {
   content_order: number;
   theory_text?: string;
   theory_html?: string;
+  theory_language?: string;
+  checkpoint_config?: any;
   svg_type?: SvgType;
   svg_data?: any;
   game_type?: GameType;
@@ -104,8 +108,9 @@ function SortableLesson({ lesson, onEdit, onDelete }: { lesson: Lesson; onEdit: 
           </div>
         </div>
 
-        <Button variant="outline" size="sm" onClick={onEdit}>
-          <Eye className="h-4 w-4" />
+        <Button variant="ghost" size="sm" onClick={onEdit}>
+          <Eye className="h-4 w-4 mr-1" />
+          Preview
         </Button>
         <Button variant="destructive" size="sm" onClick={onDelete}>
           <Trash2 className="h-4 w-4" />
@@ -143,6 +148,7 @@ export function LessonContentBuilder() {
     xp_reward: 10,
     generated_by: 'manual',
     human_reviewed: false,
+    theory_language: 'english',
   });
 
   // Multi-file upload and flexible content states
@@ -152,6 +158,16 @@ export function LessonContentBuilder() {
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<any>(null);
   const [generatedGames, setGeneratedGames] = useState<any>(null);
+  
+  // Preview and checkpoint states
+  const [previewLesson, setPreviewLesson] = useState<Lesson | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [theorySections, setTheorySections] = useState<any[]>([{
+    section_order: 0,
+    section_text: '',
+    has_checkpoint: false
+  }]);
+  const [extractedQuestionsForCheckpoints, setExtractedQuestionsForCheckpoints] = useState<any[]>([]);
 
 
   const sensors = useSensors(
@@ -417,6 +433,7 @@ export function LessonContentBuilder() {
       xp_reward: 10,
       generated_by: 'manual',
       human_reviewed: false,
+      theory_language: 'english',
       game_type: undefined,
       game_data: undefined,
       svg_type: undefined,
@@ -427,6 +444,11 @@ export function LessonContentBuilder() {
     setUseJsonFormat(false);
     setAiSuggestions(null);
     setGeneratedGames(null);
+    setTheorySections([{
+      section_order: 0,
+      section_text: '',
+      has_checkpoint: false
+    }]);
     
     // Clear localStorage
     if (selectedBatch && selectedSubject && selectedChapter && selectedTopic) {
@@ -552,6 +574,22 @@ export function LessonContentBuilder() {
       content_order: lessons.length + 1,
       created_by: user.user.id,
     } as any;
+
+    // Handle theory with checkpoints
+    if (lessonData.lesson_type === 'theory' && theorySections.length > 0) {
+      // Combine all section texts
+      lessonData.theory_text = theorySections.map(s => s.section_text).join('\n\n');
+      lessonData.theory_html = theorySections.map(s => `<p>${s.section_text}</p>`).join('');
+      
+      // Save checkpoint configuration
+      lessonData.checkpoint_config = {
+        sections: theorySections.map(s => ({
+          section_order: s.section_order,
+          section_text: s.section_text,
+          ...(s.has_checkpoint && s.checkpoint ? { checkpoint: s.checkpoint } : {})
+        }))
+      };
+    }
 
     // Clean data based on lesson type to avoid constraint violations
     if (lessonData.lesson_type !== 'game') {
@@ -697,6 +735,9 @@ export function LessonContentBuilder() {
       toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
       return;
     }
+
+    // Store questions for checkpoint builder
+    setExtractedQuestionsForCheckpoints(questions);
 
     setLoading(true);
     toast({ title: "Adding Questions", description: `Converting ${questions.length} questions to games...` });
@@ -1070,6 +1111,44 @@ export function LessonContentBuilder() {
                                   </Select>
                                 </div>
 
+                                {/* Language Selector for Theory */}
+                                {newLesson.lesson_type === 'theory' && (
+                                  <div className="space-y-2">
+                                    <Label>Theory Language</Label>
+                                    <Select
+                                      value={newLesson.theory_language || 'english'}
+                                      onValueChange={(val) => setNewLesson({...newLesson, theory_language: val})}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="english">English</SelectItem>
+                                        <SelectItem value="hinglish">Hinglish (Hindi + English)</SelectItem>
+                                        <SelectItem value="hindi">Hindi</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+
+                                {/* Theory with Checkpoints Builder */}
+                                {newLesson.lesson_type === 'theory' && (
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-base font-semibold">Theory Content with Learning Checkpoints</Label>
+                                      <Badge variant="secondary">
+                                        {theorySections.length} Section{theorySections.length !== 1 ? 's' : ''}
+                                      </Badge>
+                                    </div>
+                                    <TheoryCheckpointBuilder
+                                      sections={theorySections}
+                                      onChange={setTheorySections}
+                                      extractedQuestions={extractedQuestionsForCheckpoints}
+                                      language={newLesson.theory_language || 'english'}
+                                    />
+                                  </div>
+                                )}
+
                                 {/* Multi-File Upload Zone */}
                                 <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                                   <input
@@ -1367,7 +1446,10 @@ export function LessonContentBuilder() {
                           <SortableLesson
                             key={lesson.id}
                             lesson={lesson}
-                            onEdit={() => handleApproveLesson(lesson.id!)}
+                            onEdit={() => {
+                              setPreviewLesson(lesson);
+                              setShowPreview(true);
+                            }}
                             onDelete={() => handleDeleteLesson(lesson.id!)}
                           />
                         ))}
@@ -1440,6 +1522,13 @@ export function LessonContentBuilder() {
           </Tabs>
         </>
       )}
+
+      {/* Preview Dialog */}
+      <LessonPreviewDialog
+        lesson={previewLesson}
+        open={showPreview}
+        onOpenChange={setShowPreview}
+      />
     </div>
   );
 }

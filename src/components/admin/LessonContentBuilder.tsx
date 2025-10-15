@@ -27,7 +27,7 @@ import { TheoryCheckpointBuilder } from "./TheoryCheckpointBuilder";
 import * as LucideIcons from "lucide-react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
-type GameType = 'mcq' | 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order';
+type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
 interface Lesson {
@@ -767,9 +767,8 @@ export function LessonContentBuilder() {
 
         switch(q.question_type) {
           case 'mcq':
-            gameType = 'typing_race';
+            gameType = 'mcq';
             gameData = {
-              original_type: 'mcq',
               question: q.question_text,
               options: q.options || [],
               correct_answer: 0,
@@ -810,9 +809,8 @@ export function LessonContentBuilder() {
             break;
           
           case 'true_false':
-            gameType = 'typing_race';
+            gameType = 'true_false';
             gameData = {
-              original_type: 'true_false',
               question: q.question_text,
               options: ['True', 'False'],
               correct_answer: 0,
@@ -824,9 +822,8 @@ export function LessonContentBuilder() {
             break;
           
           case 'assertion_reason':
-            gameType = 'typing_race';
+            gameType = 'assertion_reason';
             gameData = {
-              original_type: 'assertion_reason',
               question: `Assertion (A): ${q.assertion || ''}\n\nReason (R): ${q.reason || ''}`,
               options: [
                 'Both A and R are true, R is correct explanation of A',
@@ -848,9 +845,8 @@ export function LessonContentBuilder() {
             break;
 
           default:
-            gameType = 'typing_race';
+            gameType = 'mcq';
             gameData = {
-              original_type: q.question_type,
               question: q.question_text,
               options: ['Option A', 'Option B'],
               correct_answer: 0,

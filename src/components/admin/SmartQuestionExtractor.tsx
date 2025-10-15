@@ -335,42 +335,112 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     return enhanced;
   };
 
-  // Map figures to questions using [QUESTION_n] markers present in enhanced content
+  // Map figures to questions using position-aware two-pass algorithm
   const mapFiguresToQuestions = (enhanced: string) => {
     const imageIdMap: Record<string, { url: string; ocr?: string }> = (window as any).__imageIdMap || {};
     const imagesByQuestion: Record<string, Array<{ url: string; ocr?: string }>> = {};
     const lines = enhanced.split(/\r?\n/);
-    let currentQ = '';
+    
     const figureRegex = /^\s*\[FIGURE\s+id=(img_\d+)\]\s*$/i;
     const qRegex = /^\s*\[QUESTION_(\d+)\]\s*$/i;
-    for (const raw of lines) {
-      const line = raw.trim();
+    
+    // Constants for proximity thresholds
+    const PREV_WITHIN = 8;  // Max lines to look back for a question
+    const NEXT_WITHIN = 5;  // Max lines to look forward for a question
+    
+    // PASS 1: Collect all questions and figures with their line indices
+    const questions: Array<{ num: string; index: number }> = [];
+    const figures: Array<{ id: string; index: number }> = [];
+    
+    lines.forEach((line, index) => {
       const qm = line.match(qRegex);
-      if (qm) { 
-        // Normalize the marker number - extract only digits to match later lookup
-        const rawNum = qm[1];
-        currentQ = rawNum; // Store normalized version
-        continue; 
+      if (qm) {
+        questions.push({ num: qm[1], index });
       }
       const fm = line.match(figureRegex);
-      if (fm && currentQ) {
-        const id = fm[1];
-        const img = imageIdMap[id];
-        if (img) {
-          // Use normalized currentQ as key
-          imagesByQuestion[currentQ] = imagesByQuestion[currentQ] || [];
-          imagesByQuestion[currentQ].push({ url: img.url, ocr: img.ocr });
+      if (fm) {
+        figures.push({ id: fm[1], index });
+      }
+    });
+    
+    console.log('📊 Pass 1: Collected', { 
+      total_questions: questions.length,
+      total_figures: figures.length,
+      questions: questions.map(q => `Q${q.num}@L${q.index}`).join(', '),
+      figures: figures.map(f => `${f.id}@L${f.index}`).join(', ')
+    });
+    
+    // PASS 2: For each figure, find the nearest question
+    const linkDecisions: string[] = [];
+    let linkedCount = 0;
+    const unlinkedFigures: string[] = [];
+    
+    figures.forEach(fig => {
+      const img = imageIdMap[fig.id];
+      if (!img) {
+        console.warn(`⚠️ Figure ${fig.id} not in imageIdMap`);
+        return;
+      }
+      
+      // Find nearest previous question within threshold
+      let bestPrev: { num: string; distance: number } | null = null;
+      for (let i = questions.length - 1; i >= 0; i--) {
+        const q = questions[i];
+        if (q.index < fig.index) {
+          const distance = fig.index - q.index;
+          if (distance <= PREV_WITHIN) {
+            bestPrev = { num: q.num, distance };
+            break; // Found the closest previous question
+          }
         }
       }
-    }
+      
+      // Find nearest next question within threshold
+      let bestNext: { num: string; distance: number } | null = null;
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (q.index > fig.index) {
+          const distance = q.index - fig.index;
+          if (distance <= NEXT_WITHIN) {
+            bestNext = { num: q.num, distance };
+            break; // Found the closest next question
+          }
+        }
+      }
+      
+      // Decide which question to link to
+      let linkedTo: string | null = null;
+      if (bestPrev) {
+        linkedTo = bestPrev.num;
+        linkDecisions.push(`${fig.id} → Q${linkedTo} (prev, +${bestPrev.distance} lines)`);
+      } else if (bestNext) {
+        linkedTo = bestNext.num;
+        linkDecisions.push(`${fig.id} → Q${linkedTo} (next, -${bestNext.distance} lines)`);
+      } else {
+        linkDecisions.push(`${fig.id} → UNLINKED (no question within range)`);
+        unlinkedFigures.push(fig.id);
+      }
+      
+      // Store in imagesByQuestion using normalized key
+      if (linkedTo) {
+        imagesByQuestion[linkedTo] = imagesByQuestion[linkedTo] || [];
+        imagesByQuestion[linkedTo].push({ url: img.url, ocr: img.ocr });
+        linkedCount++;
+      }
+    });
+    
     (window as any).__questionImages = imagesByQuestion;
-    const totalFigures = Object.values(imagesByQuestion).reduce((a, arr) => a + arr.length, 0);
-    console.log('🧩 Figure mapping complete', { 
+    
+    console.log('🔗 Link decisions:', linkDecisions.join(' | '));
+    console.log('🧩 Figure mapping complete:', { 
       questions_with_figures: Object.keys(imagesByQuestion).length, 
-      total_figures: totalFigures,
+      total_figures_linked: linkedCount,
+      total_figures_unlinked: unlinkedFigures.length,
+      unlinked_ids: unlinkedFigures.join(', '),
       mapping: Object.entries(imagesByQuestion).map(([q, imgs]) => `Q${q}: ${imgs.length} img(s)`).join(', ')
     });
-    return imagesByQuestion;
+    
+    return { imagesByQuestion, linkedCount, totalFigures: figures.length };
   };
 
   // Basic OCR parser for match-the-column when AI leaves columns empty
@@ -459,11 +529,17 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       }
 
       // Map figures to questions before invoking AI
-      const imgMap = mapFiguresToQuestions(enhancedContent);
-      const hasFigures = Object.keys((window as any).__imageIdMap || {}).length > 0;
-      const mappedCount = Object.values(imgMap || {}).reduce((a: number, arr: any[]) => a + arr.length, 0);
-      if (hasFigures && mappedCount === 0) {
-        toast.message('Figures detected but not linked to any question. We will still include OCR text where possible.');
+      const mappingResult = mapFiguresToQuestions(enhancedContent);
+      const { linkedCount, totalFigures } = mappingResult;
+      
+      if (totalFigures > 0) {
+        if (linkedCount === 0) {
+          toast.message('Figures detected but not linked to any question. OCR text added where possible.');
+        } else if (linkedCount < totalFigures) {
+          toast.success(`Linked ${linkedCount}/${totalFigures} figures to questions. Some figures remained unlinked; OCR text added where possible.`);
+        } else {
+          toast.success(`Successfully linked all ${linkedCount} figures to questions!`);
+        }
       }
 
       // Call AI extraction edge function

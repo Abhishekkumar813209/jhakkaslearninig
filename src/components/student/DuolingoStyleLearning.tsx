@@ -16,6 +16,7 @@ import { TypingRaceGame } from "./games/TypingRaceGame";
 import { InteractiveBlanks } from "./games/InteractiveBlanks";
 import { ConceptPuzzle } from "./games/ConceptPuzzle";
 import { PhysicsSimulator } from "./games/PhysicsSimulator";
+import { MCQGame } from "./games/MCQGame";
 import { MathGraphAnimation } from "./svg-animations/MathGraphAnimation";
 import { PhysicsMotionAnimation } from "./svg-animations/PhysicsMotionAnimation";
 import { ChemistryMoleculeAnimation } from "./svg-animations/ChemistryMoleculeAnimation";
@@ -272,6 +273,8 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
 
   const getGameComponent = (gameType: string | undefined) => {
     switch (gameType) {
+      case 'mcq':
+        return MCQGame;
       case 'match_pairs':
         return MatchPairsGame;
       case 'drag_drop':

@@ -14,6 +14,7 @@ import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
 import { useFormPersistence } from "@/hooks/useFormPersistence";
+import { LessonPreviewDialog } from "./LessonPreviewDialog";
 
 interface ExtractedQuestion {
   id: string;
@@ -45,6 +46,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   const [isExtracting, setIsExtracting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewQuestion, setPreviewQuestion] = useState<ExtractedQuestion | null>(null);
+  const [previewLesson, setPreviewLesson] = useState<any>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
   const [enableOcr, setEnableOcr] = useState(true);
@@ -82,6 +84,98 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       seen.add(key);
       return true;
     });
+  };
+
+  // Helper: Convert ExtractedQuestion to Lesson for preview
+  const convertQuestionToLesson = (q: ExtractedQuestion): any => {
+    let gameType = 'mcq';
+    let gameData: any = {};
+    
+    switch(q.question_type) {
+      case 'mcq':
+        gameType = 'mcq';
+        gameData = {
+          question: q.question_text,
+          options: q.options || [],
+          correct_answer: 0, // Can be enhanced with AI detection
+          explanation: "Check your textbook for detailed explanation",
+          difficulty: q.difficulty,
+          marks: q.marks
+        };
+        break;
+        
+      case 'match_column':
+        gameType = 'match_pairs';
+        gameData = {
+          pairs: (q.left_column || []).map((left, idx) => ({
+            id: `pair_${idx}`,
+            left,
+            right: q.right_column?.[idx] || ''
+          })),
+          max_attempts: 10,
+          time_limit: 120
+        };
+        break;
+
+      case 'fill_blank':
+        gameType = 'fill_blanks';
+        gameData = {
+          text: q.question_text,
+          blanks_count: q.blanks_count || 1,
+          difficulty: q.difficulty || 'medium'
+        };
+        break;
+        
+      case 'true_false':
+        gameType = 'mcq';
+        gameData = {
+          question: q.question_text,
+          options: ['True', 'False'],
+          correct_answer: 0,
+          explanation: "Review the concept in your textbook",
+          difficulty: q.difficulty || 'easy'
+        };
+        break;
+        
+      case 'assertion_reason':
+        gameType = 'mcq';
+        gameData = {
+          question: `Assertion (A): ${q.assertion}\n\nReason (R): ${q.reason}`,
+          options: [
+            'Both A and R are true, R is correct explanation of A',
+            'Both A and R are true, R is not correct explanation of A',
+            'A is true, R is false',
+            'A is false, R is true'
+          ],
+          correct_answer: 0,
+          explanation: "Analyze both statements carefully",
+          difficulty: q.difficulty || 'medium'
+        };
+        break;
+        
+      default:
+        gameType = 'mcq';
+        gameData = {
+          question: q.question_text,
+          options: q.options || ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+          correct_answer: 0,
+          explanation: "Review this topic",
+          difficulty: q.difficulty || 'medium'
+        };
+    }
+    
+    return {
+      id: 'preview',
+      topic_id: selectedTopic || 'preview',
+      lesson_type: 'game',
+      game_type: gameType,
+      game_data: gameData,
+      content_order: 1,
+      estimated_time_minutes: 5,
+      xp_reward: (q.marks || 1) * 10,
+      generated_by: 'extractor',
+      human_reviewed: false
+    };
   };
 
   // Enhanced text extraction for better structure preservation
@@ -923,7 +1017,8 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                     className="w-full"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setPreviewQuestion(question);
+                      const lesson = convertQuestionToLesson(question);
+                      setPreviewLesson(lesson);
                     }}
                   >
                     <Eye className="h-3 w-3 mr-1" />
@@ -955,7 +1050,14 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         </>
       )}
 
-      {/* Preview Dialog */}
+      {/* Lesson Preview Dialog - Student View */}
+      <LessonPreviewDialog
+        lesson={previewLesson}
+        open={!!previewLesson}
+        onOpenChange={(open) => !open && setPreviewLesson(null)}
+      />
+
+      {/* Preview Dialog - Details View */}
       <Dialog open={!!previewQuestion} onOpenChange={() => setPreviewQuestion(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>

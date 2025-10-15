@@ -27,7 +27,7 @@ import { TheoryCheckpointBuilder } from "./TheoryCheckpointBuilder";
 import * as LucideIcons from "lucide-react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
-type GameType = 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order';
+type GameType = 'mcq' | 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
 interface Lesson {
@@ -755,12 +755,14 @@ export function LessonContentBuilder() {
 
         switch(q.question_type) {
           case 'mcq':
-            gameType = 'match_pairs'; // Using match_pairs as generic game type
+            gameType = 'mcq' as GameType;
             gameData = {
               question: q.question_text,
               options: q.options || [],
-              type: 'mcq',
-              difficulty: q.difficulty || 'medium'
+              correct_answer: 0, // Default to first option, can be enhanced
+              explanation: "Review your textbook for detailed explanation",
+              difficulty: q.difficulty || 'medium',
+              marks: q.marks
             };
             break;
           
@@ -776,33 +778,40 @@ export function LessonContentBuilder() {
           case 'match_column':
             gameType = 'match_pairs';
             gameData = {
-              leftItems: q.left_column || [],
-              rightItems: q.right_column || [],
+              pairs: (q.left_column || []).map((left, idx) => ({
+                id: `pair_${idx}`,
+                left,
+                right: q.right_column?.[idx] || ''
+              })),
+              max_attempts: 10,
+              time_limit: 120,
               difficulty: q.difficulty || 'medium'
             };
             break;
           
           case 'true_false':
-            gameType = 'match_pairs';
+            gameType = 'mcq' as GameType;
             gameData = {
               question: q.question_text,
               options: ['True', 'False'],
-              type: 'true_false',
+              correct_answer: 0,
+              explanation: "Review the concept to understand why",
               difficulty: q.difficulty || 'easy'
             };
             break;
           
           case 'assertion_reason':
-            gameType = 'match_pairs';
+            gameType = 'mcq' as GameType;
             gameData = {
-              question: `${q.assertion}\n\n${q.reason}`,
+              question: `Assertion (A): ${q.assertion || ''}\n\nReason (R): ${q.reason || ''}`,
               options: [
-                'Both A and R are true, R is correct explanation',
-                'Both A and R are true, R is not correct explanation',
+                'Both A and R are true, R is correct explanation of A',
+                'Both A and R are true, R is not correct explanation of A',
                 'A is true, R is false',
                 'A is false, R is true'
               ],
-              type: 'assertion_reason',
+              correct_answer: 0,
+              explanation: "Analyze both statements carefully",
               difficulty: q.difficulty || 'medium'
             };
             break;

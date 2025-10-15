@@ -832,7 +832,7 @@ export function LessonContentBuilder() {
           content_order: lessons.length + lessonsToInsert.length + 1,
           estimated_time_minutes: 3,
           xp_reward: q.marks ? q.marks * 5 : 10,
-          generated_by: 'ai_extractor',
+          generated_by: 'ai',
           human_reviewed: false
         });
       }

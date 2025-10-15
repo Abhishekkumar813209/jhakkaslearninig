@@ -81,9 +81,11 @@ export function MCQGame({ gameData, onCorrect, onWrong, onComplete }: MCQGamePro
       <Card className="border-2 border-primary/20">
         <CardContent className="p-6">
           <div className="flex items-start justify-between mb-6">
-            <h3 className="text-xl font-semibold text-foreground flex-1 whitespace-pre-wrap break-words">
-              {gameData.question}
-            </h3>
+            <div className="flex-1 max-h-[400px] overflow-y-auto pr-4">
+              <h3 className="text-xl font-semibold text-foreground whitespace-pre-wrap break-words">
+                {gameData.question}
+              </h3>
+            </div>
             <div className="flex gap-2 ml-4 flex-shrink-0">
               {gameData.marks && (
                 <>

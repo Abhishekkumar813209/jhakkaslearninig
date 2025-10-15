@@ -75,7 +75,7 @@ interface Topic {
   chapter_id: string;
 }
 
-function SortableLesson({ lesson, onEdit, onDelete }: { lesson: Lesson; onEdit: () => void; onDelete: () => void }) {
+function SortableLesson({ lesson, onEdit, onDelete, onApprove }: { lesson: Lesson; onEdit: () => void; onDelete: () => void; onApprove: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id || '' });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -110,13 +110,28 @@ function SortableLesson({ lesson, onEdit, onDelete }: { lesson: Lesson; onEdit: 
           </div>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          <Eye className="h-4 w-4 mr-1" />
-          Preview
-        </Button>
-        <Button variant="destructive" size="sm" onClick={onDelete}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            <Eye className="h-4 w-4 mr-1" />
+            Preview
+          </Button>
+          
+          {!lesson.human_reviewed && (
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={onApprove}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Approve
+            </Button>
+          )}
+          
+          <Button variant="destructive" size="sm" onClick={onDelete}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -742,6 +757,45 @@ export function LessonContentBuilder() {
     }
   };
 
+  // Validation helper for game data
+  const validateGameData = (gameData: any, questionType: string, questionNumber: string): boolean => {
+    // Check question text
+    if (!gameData.question || gameData.question.trim() === '') {
+      toast({ 
+        title: "Validation Error", 
+        description: `Question ${questionNumber}: Question text is empty!`,
+        variant: "destructive" 
+      });
+      return false;
+    }
+
+    // Check options for MCQ-type questions
+    if (['mcq', 'true_false', 'assertion_reason'].includes(questionType)) {
+      if (!gameData.options || gameData.options.length < 2) {
+        toast({ 
+          title: "Validation Error", 
+          description: `Question ${questionNumber}: Need at least 2 options! Found: ${gameData.options?.length || 0}`,
+          variant: "destructive" 
+        });
+        return false;
+      }
+    }
+
+    // Check pairs for match_column
+    if (questionType === 'match_column') {
+      if (!gameData.pairs || gameData.pairs.length < 2) {
+        toast({ 
+          title: "Validation Error", 
+          description: `Question ${questionNumber}: Match column needs at least 2 pairs!`,
+          variant: "destructive" 
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleExtractedQuestions = async (questions: any[]) => {
     if (!selectedTopic) {
       toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
@@ -765,110 +819,146 @@ export function LessonContentBuilder() {
         let gameData: any;
         let lessonType: LessonType = 'game';
 
-        switch(q.question_type) {
-          case 'mcq':
-            gameType = 'mcq';
-            gameData = {
-              question: q.question_text,
-              options: q.options || [],
-              correct_answer: 0,
-              explanation: "Review your textbook for detailed explanation",
-              difficulty: q.difficulty || 'medium',
-              marks: q.marks || 1,
-              question_number: q.question_number
-            };
-            break;
-          
-          case 'fill_blank':
-            gameType = 'fill_blanks';
-            gameData = {
-              original_type: 'fill_blank',
-              text: q.question_text,
-              blanks_count: q.blanks_count || 1,
-              difficulty: q.difficulty || 'medium',
-              marks: q.marks || 1,
-              question_number: q.question_number
-            };
-            break;
-          
-          case 'match_column':
-            gameType = 'match_pairs';
-            gameData = {
-              original_type: 'match_column',
-              pairs: (q.left_column || []).map((left, idx) => ({
-                id: `pair_${idx}`,
-                left,
-                right: q.right_column?.[idx] || ''
-              })),
-              max_attempts: 10,
-              time_limit: 120,
-              difficulty: q.difficulty || 'medium',
-              marks: q.marks || 1,
-              question_number: q.question_number
-            };
-            break;
-          
-          case 'true_false':
-            gameType = 'true_false';
-            gameData = {
-              question: q.question_text,
-              options: ['True', 'False'],
-              correct_answer: 0,
-              explanation: "Review the concept to understand why",
-              difficulty: q.difficulty || 'easy',
-              marks: q.marks || 1,
-              question_number: q.question_number
-            };
-            break;
-          
-          case 'assertion_reason':
-            gameType = 'assertion_reason';
-            gameData = {
-              question: `Assertion (A): ${q.assertion || ''}\n\nReason (R): ${q.reason || ''}`,
-              options: [
-                'Both A and R are true, R is correct explanation of A',
-                'Both A and R are true, R is not correct explanation of A',
-                'A is true, R is false',
-                'A is false, R is true'
-              ],
-              correct_answer: 0,
-              explanation: "Analyze both statements carefully",
-              difficulty: q.difficulty || 'medium',
-              marks: q.marks || 1,
-              question_number: q.question_number
-            };
-            break;
+        try {
+          switch(q.question_type) {
+            case 'mcq':
+              gameType = 'mcq';
+              gameData = {
+                question: q.question_text?.trim() || '',
+                options: q.options || [],
+                correct_answer: 0,
+                explanation: q.explanation || "Review your textbook for detailed explanation",
+                difficulty: q.difficulty || 'medium',
+                marks: q.marks || 1,
+                question_number: q.question_number
+              };
+              break;
+            
+            case 'fill_blank':
+              gameType = 'fill_blanks';
+              gameData = {
+                original_type: 'fill_blank',
+                text: q.question_text?.trim() || '',
+                blanks_count: q.blanks_count || 1,
+                difficulty: q.difficulty || 'medium',
+                marks: q.marks || 1,
+                question_number: q.question_number
+              };
+              break;
+            
+            case 'match_column':
+              gameType = 'match_pairs';
+              gameData = {
+                original_type: 'match_column',
+                pairs: (q.left_column || []).map((left, idx) => ({
+                  id: `pair_${idx}`,
+                  left,
+                  right: q.right_column?.[idx] || ''
+                })),
+                max_attempts: 10,
+                time_limit: 120,
+                difficulty: q.difficulty || 'medium',
+                marks: q.marks || 1,
+                question_number: q.question_number
+              };
+              break;
+            
+            case 'true_false':
+              gameType = 'true_false';
+              gameData = {
+                question: q.question_text?.trim() || '',
+                options: ['True', 'False'],
+                correct_answer: 0,
+                explanation: q.explanation || "Review the concept to understand why",
+                difficulty: q.difficulty || 'easy',
+                marks: q.marks || 1,
+                question_number: q.question_number
+              };
+              break;
+            
+            case 'assertion_reason':
+              gameType = 'assertion_reason';
+              gameData = {
+                question: `Assertion (A): ${q.assertion?.trim() || ''}\n\nReason (R): ${q.reason?.trim() || ''}`,
+                options: [
+                  'Both A and R are true, R is correct explanation of A',
+                  'Both A and R are true, R is not correct explanation of A',
+                  'A is true, R is false',
+                  'A is false, R is true'
+                ],
+                correct_answer: 0,
+                explanation: q.explanation || "Analyze both statements carefully",
+                difficulty: q.difficulty || 'medium',
+                marks: q.marks || 1,
+                question_number: q.question_number
+              };
+              break;
 
-          case 'short_answer':
-            lessonType = 'theory';
-            gameData = null;
-            break;
+            case 'short_answer':
+              lessonType = 'theory';
+              gameData = null;
+              break;
 
-          default:
-            gameType = 'mcq';
-            gameData = {
-              question: q.question_text,
-              options: ['Option A', 'Option B'],
-              correct_answer: 0,
-              difficulty: q.difficulty || 'medium',
-              marks: q.marks || 1,
-              question_number: q.question_number
-            };
+            default:
+              gameType = 'mcq';
+              gameData = {
+                question: q.question_text?.trim() || '',
+                options: ['Option A', 'Option B'],
+                correct_answer: 0,
+                explanation: q.explanation || "Review this topic",
+                difficulty: q.difficulty || 'medium',
+                marks: q.marks || 1,
+                question_number: q.question_number
+              };
+          }
+
+          // Validate before inserting (CRITICAL)
+          if (lessonType === 'game') {
+            if (!validateGameData(gameData, q.question_type, q.question_number)) {
+              console.warn(`Skipping invalid question ${q.question_number}`);
+              continue; // Skip this question
+            }
+          }
+
+          lessonsToInsert.push({
+            topic_id: selectedTopic,
+            lesson_type: lessonType,
+            game_type: lessonType === 'game' ? gameType : null,
+            game_data: lessonType === 'game' ? gameData : null,
+            theory_text: lessonType === 'theory' ? q.question_text : null,
+            content_order: lessons.length + lessonsToInsert.length + 1,
+            estimated_time_minutes: 3,
+            xp_reward: q.marks || 1,
+            generated_by: 'ai',
+            human_reviewed: false
+          });
+
+        } catch (error: any) {
+          console.error(`Error converting question ${q.question_number}:`, error);
+          toast({ 
+            title: "Conversion Error", 
+            description: `Question ${q.question_number} failed: ${error.message}`,
+            variant: "destructive" 
+          });
+          continue; // Skip failed questions
         }
-
-        lessonsToInsert.push({
-          topic_id: selectedTopic,
-          lesson_type: lessonType,
-          game_type: lessonType === 'game' ? gameType : null,
-          game_data: lessonType === 'game' ? gameData : null,
-          theory_text: lessonType === 'theory' ? q.question_text : null,
-          content_order: lessons.length + lessonsToInsert.length + 1,
-          estimated_time_minutes: 3,
-          xp_reward: q.marks || 1,
-          generated_by: 'ai',
-          human_reviewed: false
-        });
       }
+
+      // Final check before insert
+      if (lessonsToInsert.length === 0) {
+        toast({ 
+          title: "No Valid Questions", 
+          description: "All questions failed validation. Please check the extracted data.",
+          variant: "destructive" 
+        });
+        setLoading(false);
+        return;
+      }
+
+      toast({ 
+        title: "Validation Complete", 
+        description: `${lessonsToInsert.length} of ${questions.length} questions are valid and ready to insert`
+      });
 
       const { error } = await supabase
         .from('topic_learning_content')
@@ -1484,6 +1574,7 @@ export function LessonContentBuilder() {
                               setShowPreview(true);
                             }}
                             onDelete={() => handleDeleteLesson(lesson.id!)}
+                            onApprove={() => handleApproveLesson(lesson.id!)}
                           />
                         ))}
                       </SortableContext>

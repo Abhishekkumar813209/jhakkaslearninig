@@ -66,7 +66,7 @@ export function LessonPreviewDialog({ lesson, open, onOpenChange }: LessonPrevie
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-5xl min-h-[70vh] max-h-[85vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Student View Preview
@@ -80,7 +80,9 @@ export function LessonPreviewDialog({ lesson, open, onOpenChange }: LessonPrevie
             This is how the lesson will appear to students
           </DialogDescription>
         </DialogHeader>
-        {renderPreviewContent()}
+        <ScrollArea className="flex-1 overflow-y-auto">
+          {renderPreviewContent()}
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon } from "lucide-react";
@@ -1041,19 +1042,52 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                   <p className="text-sm line-clamp-3 mb-3">
                     {question.question_text}
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const lesson = convertQuestionToLesson(question);
-                      setPreviewLesson(lesson);
-                    }}
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    Preview
-                  </Button>
+                  <div className="flex gap-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1" onClick={(e) => e.stopPropagation()}>
+                          <Eye className="h-3 w-3 mr-1" />
+                          View Full
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Question {question.question_number}</DialogTitle>
+                          <DialogDescription>
+                            {getQuestionTypeLabel(question.question_type)} • {question.marks || 1} marks • {question.difficulty || 'medium'}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <ScrollArea className="max-h-[60vh] overflow-y-auto">
+                          <div className="prose prose-sm max-w-none whitespace-pre-wrap break-words p-4">
+                            {question.question_text}
+                          </div>
+                          {question.options && (
+                            <div className="mt-4 space-y-2 p-4">
+                              <p className="font-semibold text-sm text-muted-foreground mb-2">Options:</p>
+                              {question.options.map((opt, idx) => (
+                                <div key={idx} className="p-3 border rounded-md bg-muted/30">
+                                  <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span> {opt}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </ScrollArea>
+                      </DialogContent>
+                    </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const lesson = convertQuestionToLesson(question);
+                        setPreviewLesson(lesson);
+                      }}
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      Preview
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}

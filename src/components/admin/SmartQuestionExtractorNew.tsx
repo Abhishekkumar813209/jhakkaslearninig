@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invokeWithAuth } from "@/lib/invokeWithAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,12 @@ export const SmartQuestionExtractorNew = ({
   // Auto-load draft questions when topic changes
   useEffect(() => {
     if (selectedTopic) {
-      loadDraftQuestions();
+      // Only load if we have a valid session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          loadDraftQuestions();
+        }
+      });
     } else {
       setQuestions([]);
     }
@@ -119,7 +125,12 @@ export const SmartQuestionExtractorNew = ({
       // Call AI to extract questions
       const aiData = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
         name: 'ai-extract-all-questions',
-        body: { text: extractedText }
+        body: {
+          file_content: extractedText,
+          subject: selectedSubject || null,
+          chapter: selectedChapter || null,
+          topic: selectedTopic || null
+        }
       });
 
       if (aiData.success && aiData.questions?.length > 0) {

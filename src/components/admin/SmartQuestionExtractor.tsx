@@ -13,6 +13,7 @@ import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as 
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
+import { useFormPersistence } from "@/hooks/useFormPersistence";
 
 interface ExtractedQuestion {
   id: string;
@@ -42,12 +43,28 @@ interface SmartQuestionExtractorProps {
 export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractedQuestions, setExtractedQuestions] = useState<ExtractedQuestion[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewQuestion, setPreviewQuestion] = useState<ExtractedQuestion | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
   const [enableOcr, setEnableOcr] = useState(true);
+
+  // Persist extracted questions across page refreshes
+  const {
+    data: extractedQuestions,
+    setData: setExtractedQuestions,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    showResumeDialog,
+    resumeProgress,
+    startFresh,
+    clearProgress,
+    savedProgress
+  } = useFormPersistence<ExtractedQuestion[]>(
+    'smart-question-extractor-questions',
+    [],
+    24 // 24 hours expiry
+  );
 
   // Enhanced text extraction for better structure preservation
   const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -466,6 +483,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       });
 
       setExtractedQuestions(questionsWithIds);
+      setHasUnsavedChanges(true);
       toast.success(`Found ${data.total_questions} questions! Select the ones you want to add.`);
 
     } catch (error) {
@@ -519,8 +537,9 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     onQuestionsAdded(selected);
     toast.success(`Adding ${selected.length} questions to lesson builder...`);
     
-    // Clear selection
+    // Clear selection and saved progress after successful addition
     setSelectedIds([]);
+    clearProgress();
   };
 
   const getQuestionTypeLabel = (type: string) => {
@@ -560,6 +579,29 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
 
   return (
     <div className="space-y-4">
+      {/* Resume Dialog */}
+      {showResumeDialog && (
+        <Dialog open={showResumeDialog} onOpenChange={(open) => !open && startFresh()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Resume Previous Work?</DialogTitle>
+              <DialogDescription>
+                You have {savedProgress?.length || 0} previously extracted questions. 
+                Would you like to resume or start fresh?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={startFresh}>
+                Start Fresh
+              </Button>
+              <Button onClick={resumeProgress}>
+                Resume ({savedProgress?.length || 0} questions)
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Upload Section */}
       {extractedQuestions.length === 0 && (
         <Card>

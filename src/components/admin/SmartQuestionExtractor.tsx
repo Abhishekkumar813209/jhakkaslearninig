@@ -817,7 +817,12 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
           <div className="space-y-4">
             <div>
               <h4 className="font-medium mb-2">Question:</h4>
-              <p className="text-sm whitespace-pre-wrap">{previewQuestion?.question_text}</p>
+              <p className="text-sm whitespace-pre-wrap">
+                {previewQuestion?.question_type === 'mcq' && previewQuestion?.options && previewQuestion.options.length > 0
+                  ? previewQuestion.question_text.split(/\n[a-d]\)/).filter(Boolean)[0].trim()
+                  : previewQuestion?.question_text
+                }
+              </p>
             </div>
 
             {previewQuestion?.options && previewQuestion.options.length > 0 && previewQuestion?.question_type !== 'match_column' && (

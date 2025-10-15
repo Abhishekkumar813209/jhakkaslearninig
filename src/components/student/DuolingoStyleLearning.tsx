@@ -294,7 +294,15 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const renderGameContent = () => {
-    const GameComponent = getGameComponent(lesson.game_type);
+    // Check original_type first for MCQ-based questions
+    const originalType = lesson.game_data?.original_type;
+    
+    let GameComponent;
+    if (originalType === 'mcq' || originalType === 'true_false' || originalType === 'assertion_reason') {
+      GameComponent = MCQGame;
+    } else {
+      GameComponent = getGameComponent(lesson.game_type);
+    }
     
     if (!GameComponent || !lesson.game_data) {
       return (

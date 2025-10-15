@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DuolingoStyleLearning } from "@/components/student/DuolingoStyleLearning";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -76,6 +76,9 @@ export function LessonPreviewDialog({ lesson, open, onOpenChange }: LessonPrevie
               </span>
             )}
           </DialogTitle>
+          <DialogDescription>
+            This is how the lesson will appear to students
+          </DialogDescription>
         </DialogHeader>
         {renderPreviewContent()}
       </DialogContent>

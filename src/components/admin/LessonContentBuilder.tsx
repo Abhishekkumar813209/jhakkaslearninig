@@ -767,7 +767,7 @@ export function LessonContentBuilder() {
 
         switch(q.question_type) {
           case 'mcq':
-            gameType = 'mcq' as GameType;
+            gameType = 'typing_race';
             gameData = {
               original_type: 'mcq',
               question: q.question_text,
@@ -810,7 +810,7 @@ export function LessonContentBuilder() {
             break;
           
           case 'true_false':
-            gameType = 'mcq' as GameType;
+            gameType = 'typing_race';
             gameData = {
               original_type: 'true_false',
               question: q.question_text,
@@ -824,7 +824,7 @@ export function LessonContentBuilder() {
             break;
           
           case 'assertion_reason':
-            gameType = 'mcq' as GameType;
+            gameType = 'typing_race';
             gameData = {
               original_type: 'assertion_reason',
               question: `Assertion (A): ${q.assertion || ''}\n\nReason (R): ${q.reason || ''}`,
@@ -848,7 +848,7 @@ export function LessonContentBuilder() {
             break;
 
           default:
-            gameType = 'mcq' as GameType;
+            gameType = 'typing_race';
             gameData = {
               original_type: q.question_type,
               question: q.question_text,

@@ -21,6 +21,7 @@ import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { EnhancedLessonWorkflow } from "./EnhancedLessonWorkflow";
 import { QuestionToGameConverter } from "./QuestionToGameConverter";
+import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
 import * as LucideIcons from "lucide-react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
@@ -691,6 +692,135 @@ export function LessonContentBuilder() {
     }
   };
 
+  const handleExtractedQuestions = async (questions: any[]) => {
+    if (!selectedTopic) {
+      toast({ title: "Error", description: "Please select a topic first", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    toast({ title: "Adding Questions", description: `Converting ${questions.length} questions to games...` });
+
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error('Not authenticated');
+
+      const lessonsToInsert = [];
+
+      for (const q of questions) {
+        let gameType: GameType;
+        let gameData: any;
+        let lessonType: LessonType = 'game';
+
+        switch(q.question_type) {
+          case 'mcq':
+            gameType = 'match_pairs'; // Using match_pairs as generic game type
+            gameData = {
+              question: q.question_text,
+              options: q.options || [],
+              type: 'mcq',
+              difficulty: q.difficulty || 'medium'
+            };
+            break;
+          
+          case 'fill_blank':
+            gameType = 'fill_blanks';
+            gameData = {
+              text: q.question_text,
+              blanks_count: q.blanks_count || 1,
+              difficulty: q.difficulty || 'medium'
+            };
+            break;
+          
+          case 'match_column':
+            gameType = 'match_pairs';
+            gameData = {
+              leftItems: q.left_column || [],
+              rightItems: q.right_column || [],
+              difficulty: q.difficulty || 'medium'
+            };
+            break;
+          
+          case 'true_false':
+            gameType = 'match_pairs';
+            gameData = {
+              question: q.question_text,
+              options: ['True', 'False'],
+              type: 'true_false',
+              difficulty: q.difficulty || 'easy'
+            };
+            break;
+          
+          case 'assertion_reason':
+            gameType = 'match_pairs';
+            gameData = {
+              question: `${q.assertion}\n\n${q.reason}`,
+              options: [
+                'Both A and R are true, R is correct explanation',
+                'Both A and R are true, R is not correct explanation',
+                'A is true, R is false',
+                'A is false, R is true'
+              ],
+              type: 'assertion_reason',
+              difficulty: q.difficulty || 'medium'
+            };
+            break;
+
+          case 'short_answer':
+            lessonType = 'theory';
+            gameData = {
+              question: q.question_text,
+              type: 'short_answer'
+            };
+            break;
+
+          default:
+            gameType = 'match_pairs';
+            gameData = {
+              question: q.question_text,
+              type: 'generic'
+            };
+        }
+
+        lessonsToInsert.push({
+          topic_id: selectedTopic,
+          lesson_type: lessonType,
+          game_type: lessonType === 'game' ? gameType : null,
+          game_data: gameData,
+          theory_text: lessonType === 'theory' ? q.question_text : null,
+          content_order: lessons.length + lessonsToInsert.length + 1,
+          estimated_time_minutes: 3,
+          xp_reward: q.marks ? q.marks * 5 : 10,
+          generated_by: 'ai_extractor',
+          human_reviewed: false
+        });
+      }
+
+      const { error } = await supabase
+        .from('topic_learning_content')
+        .insert(lessonsToInsert);
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Success!", 
+        description: `Added ${questions.length} questions to lesson builder`
+      });
+      
+      fetchLessons();
+
+    } catch (error: any) {
+      console.error('Error adding questions:', error);
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to add questions",
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -797,10 +927,11 @@ export function LessonContentBuilder() {
 
           {/* Tabs for different builder modes */}
           <Tabs defaultValue="lesson-library" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-5 mb-6">
               <TabsTrigger value="lesson-library">📚 Lesson Library</TabsTrigger>
               <TabsTrigger value="ai-workflow">🤖 AI Workflow</TabsTrigger>
               <TabsTrigger value="game-builder">🎮 Game Builder</TabsTrigger>
+              <TabsTrigger value="question-extractor">📄 Question Extractor</TabsTrigger>
               <TabsTrigger value="analytics">📊 Analytics</TabsTrigger>
             </TabsList>
 
@@ -1273,6 +1404,25 @@ export function LessonContentBuilder() {
             {/* Game Builder Tab */}
             <TabsContent value="game-builder" className="space-y-4">
               <QuestionToGameConverter />
+            </TabsContent>
+
+            {/* Question Extractor Tab */}
+            <TabsContent value="question-extractor" className="space-y-4">
+              {selectedTopic ? (
+                <SmartQuestionExtractor
+                  selectedTopic={selectedTopic}
+                  onQuestionsAdded={handleExtractedQuestions}
+                />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Select Topic First</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">Please select a topic from the lesson library to use the question extractor.</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Analytics Tab */}

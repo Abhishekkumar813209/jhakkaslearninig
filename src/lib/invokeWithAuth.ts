@@ -22,6 +22,8 @@ export async function invokeWithAuth<TBody = unknown, TResp = unknown>({
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
   if (sessionError || !session) {
+    // Auto-redirect to login
+    window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
     throw {
       code: 401,
       message: "Please log in to continue",
@@ -34,6 +36,8 @@ export async function invokeWithAuth<TBody = unknown, TResp = unknown>({
   if (error) {
     // Normalize error responses
     if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      // Auto-redirect to login on session expiry
+      window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
       throw {
         code: 401,
         message: "Session expired. Please log in again.",

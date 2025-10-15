@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle } from "lucide-react";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
@@ -54,6 +54,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   const [filterType, setFilterType] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
   const [enableOcr, setEnableOcr] = useState(true);
+  const [authError, setAuthError] = useState(false);
 
   // Persist extracted questions across page refreshes
   const {
@@ -117,6 +118,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       
       // STEP 3: Fetch from database
       try {
+        setAuthError(false);
         const data = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
           name: 'topic-questions-api',
           body: {
@@ -160,7 +162,11 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         }
       } catch (error: any) {
         console.error('❌ Error loading topic questions:', error);
-        toast.error('Failed to load existing questions: ' + error.message);
+        if (error.code === 401) {
+          setAuthError(true);
+        } else {
+          toast.error('Failed to load existing questions: ' + error.message);
+        }
       }
     };
     
@@ -217,6 +223,28 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       seen.add(key);
       return true;
     });
+  };
+
+  // Copy cURL for debugging
+  const copyCurl = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Not authenticated. Please log in first');
+        return;
+      }
+
+      const curl = `curl -X POST "https://qajmtfcphpncqwcrzphm.supabase.co/functions/v1/topic-questions-api" \\
+  -H "Authorization: Bearer ${session.access_token}" \\
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFham10ZmNwaHBuY3F3Y3J6cGhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMDM3MTEsImV4cCI6MjA3MzU3OTcxMX0.VzMpGU85jw4OQZmKVYfH3M5NquhV5YMuFGzlzOU6v6s" \\
+  -H "Content-Type: application/json" \\
+  -d '{"action":"get_by_topic","topic_id":"${selectedTopic || 'YOUR_TOPIC_ID'}"}'`;
+
+      await navigator.clipboard.writeText(curl);
+      toast.success('cURL copied! Paste in terminal to debug');
+    } catch (error) {
+      toast.error('Failed to copy cURL command');
+    }
   };
 
   // Helper: Convert ExtractedQuestion to Lesson for preview
@@ -1047,6 +1075,30 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
 
   return (
     <div className="space-y-4">
+      {/* Auth Error Alert */}
+      {authError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>Please log in to load or save questions</span>
+            <Button variant="outline" size="sm" onClick={() => window.location.href = '/login'}>
+              Go to Login
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Debug cURL button - only show when topic selected */}
+      {selectedTopic && !authError && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={copyCurl}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copy cURL (Debug)
+          </Button>
+        </div>
+      )}
+
       {/* Resume Dialog */}
       {showResumeDialog && (
         <Dialog open={showResumeDialog} onOpenChange={(open) => !open && startFresh()}>
@@ -1071,7 +1123,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       )}
 
       {/* Upload Section */}
-      {extractedQuestions.length === 0 && (
+      {extractedQuestions.length === 0 && !authError && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

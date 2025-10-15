@@ -893,7 +893,9 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                     </div>
                   ))}
                 </div>
-            </div>
+              </div>
+            )}
+
             <details className="mt-4">
               <summary className="text-sm cursor-pointer">Quick Edit</summary>
               <div className="mt-3 space-y-3">
@@ -941,7 +943,6 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                 </div>
               </div>
             </details>
-            )}
           </div>
         </DialogContent>
       </Dialog>

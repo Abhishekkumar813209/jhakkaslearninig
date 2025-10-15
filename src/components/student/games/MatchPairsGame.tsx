@@ -30,11 +30,16 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
   const [selectedRight, setSelectedRight] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(gameData.time_limit || 60);
+  const [timeLeft, setTimeLeft] = useState(gameData?.time_limit || 60);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
 
   useEffect(() => {
     // Initialize and shuffle items
+    if (!gameData?.pairs || !Array.isArray(gameData.pairs)) {
+      console.warn('MatchPairsGame: Invalid or missing pairs data');
+      return;
+    }
+    
     const left = gameData.pairs.map(p => ({ id: p.id, text: p.left, matched: false }));
     const right = gameData.pairs.map(p => ({ id: p.id, text: p.right, matched: false }))
       .sort(() => Math.random() - 0.5);
@@ -86,7 +91,7 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       }
 
       // Check max attempts
-      if (gameData.max_attempts && attempts + 1 >= gameData.max_attempts) {
+      if (gameData?.max_attempts && attempts + 1 >= gameData.max_attempts) {
         setGameStatus('lost');
       }
 
@@ -112,12 +117,12 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="text-lg font-semibold">
-          Score: {score}/{gameData.pairs.length}
+          Score: {score}/{gameData?.pairs?.length || 0}
         </div>
         <div className="text-lg font-semibold">
           Time: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
         </div>
-        {gameData.max_attempts && (
+        {gameData?.max_attempts && (
           <div className="text-lg font-semibold">
             Attempts: {attempts}/{gameData.max_attempts}
           </div>

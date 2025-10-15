@@ -115,6 +115,21 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     };
   }, []);
 
+  // Force save to localStorage when unmounting (tab switch protection)
+  useEffect(() => {
+    return () => {
+      if (extractedQuestions.length > 0) {
+        console.log('🔴 Force saving on unmount:', extractedQuestions.length);
+        const persistedData = {
+          data: extractedQuestions,
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem('smart-question-extractor-questions', JSON.stringify(persistedData));
+        localStorage.setItem('question-extractor-selected', JSON.stringify(selectedIds));
+      }
+    };
+  }, [extractedQuestions, selectedIds]);
+
   // Helper: Extract only digits from question number (handles "54.", "Q54", "54)" etc.)
   const getNormalizedQNumber = (qn: any, fallback: number): string => {
     const str = (qn ?? '').toString();
@@ -870,11 +885,12 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         throw new Error('Failed to save questions');
       }
 
-      toast.success(`Saved ${data.count} questions to database!`);
+      toast.success(`Saved ${data.count} questions to database!`, {
+        description: "Questions remain in extractor for further edits"
+      });
       
-      // Remove saved questions from extractor
-      setExtractedQuestions(prev => prev.filter(q => !selectedIds.includes(q.id)));
-      setSelectedIds([]);
+      // ✅ Questions stay in UI - don't clear them
+      // ✅ Selection stays active - user can manually clear with "Clear All" button
       
     } catch (error) {
       console.error('Save error:', error);
@@ -1125,6 +1141,21 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                   <Button variant="outline" size="sm" onClick={handleUploadMore}>
                     <Plus className="h-4 w-4 mr-1" />
                     Upload More PDFs
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Delete all extracted questions? This cannot be undone.')) {
+                        setExtractedQuestions([]);
+                        setSelectedIds([]);
+                        clearProgress();
+                        toast.success('All questions cleared');
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Clear All
                   </Button>
                   {selectedIds.length > 0 && (
                     <Button variant="default" size="sm" onClick={handleSaveToDatabase}>

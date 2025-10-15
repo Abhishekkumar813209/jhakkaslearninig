@@ -17,7 +17,7 @@ export const useFormPersistence = <T>(
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [savedProgress, setSavedProgress] = useState<T | null>(null);
 
-  // Load saved progress on mount or when dialog opens
+  // Auto-load saved progress on mount (no dialog)
   useEffect(() => {
     if (!isOpen) return;
     
@@ -32,10 +32,13 @@ export const useFormPersistence = <T>(
         const hoursDiff = (now - savedTime) / (1000 * 60 * 60);
 
         if (hoursDiff < expiryHours) {
-          setSavedProgress(parsed.data);
-          setShowResumeDialog(true);
+          // ✅ AUTO-RESTORE immediately (no dialog)
+          setData(parsed.data);
+          setHasUnsavedChanges(true);
+          console.log('✅ Auto-restored data from localStorage');
         } else {
           localStorage.removeItem(storageKey);
+          console.log('⏰ Expired data removed');
         }
       } catch (error) {
         console.error('Failed to load saved progress:', error);
@@ -43,7 +46,7 @@ export const useFormPersistence = <T>(
     };
 
     loadSavedProgress();
-  }, [storageKey, expiryHours, isOpen]);
+  }, [storageKey, expiryHours, isOpen, setData, setHasUnsavedChanges]);
 
   // Auto-save to localStorage
   useEffect(() => {

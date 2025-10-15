@@ -24,6 +24,8 @@ interface ExtractedQuestion {
   question_type: string;
   question_text: string;
   options?: string[];
+  left_column?: string[];
+  right_column?: string[];
   marks?: number;
   difficulty?: string;
   correct_answer?: any;
@@ -235,6 +237,8 @@ export const SmartQuestionExtractorNew = ({
           exam_domain: selectedExamDomain,
           exam_name: selectedExamName,
           subject: selectedSubject,
+          chapter_name: selectedChapter,
+          topic_name: selectedTopic,
           questions: unsavedQuestions.map(q => ({
             question_text: q.question_text,
             question_type: q.question_type,
@@ -315,14 +319,18 @@ export const SmartQuestionExtractorNew = ({
     // Validate all selected questions have answers
     const missingAnswers = selectedQuestions.filter(q => !validateAnswer(q));
     if (missingAnswers.length > 0) {
-      toast.error(`${missingAnswers.length} question(s) are missing valid answers`);
+      const missingNums = missingAnswers.map(q => q.question_number || '?').join(', ');
+      toast.error(
+        `${missingAnswers.length} question(s) missing answers`,
+        { description: `Questions #${missingNums} need answers before adding to library` }
+      );
       return;
     }
 
     // Call parent callback
     if (onQuestionsAdded) {
       onQuestionsAdded(selectedQuestions);
-      toast.success(`Adding ${selectedQuestions.length} questions to Lesson Library...`);
+      toast.success(`Added ${selectedQuestions.length} questions to Lesson Library`);
       setSelectedIds(new Set()); // Clear selections
     } else {
       toast.error('Cannot add to Lesson Library: callback not configured');
@@ -624,17 +632,48 @@ export const SmartQuestionExtractorNew = ({
                         </div>
                       )}
 
-                      {/* Answer Input (always show for questions with IDs) */}
-                      {q.id && (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <QuestionAnswerInput
-                            questionType={q.question_type}
-                            options={q.options}
-                            currentAnswer={q.correct_answer}
-                            onChange={(answer) => handleAnswerUpdate(q.id!, answer)}
-                          />
-                        </div>
-                      )}
+                       {/* Answer Input (always show for questions with IDs) */}
+                      {q.id && (() => {
+                        // Parse matching columns if missing
+                        if (q.question_type === 'match_column' && (!q.left_column || !q.right_column)) {
+                          const parseMatchingQuestion = (text: string) => {
+                            const columnIMatch = text.match(/Column I[:\s]*\n?([\s\S]*?)(?=Column II|$)/i);
+                            const columnIIMatch = text.match(/Column II[:\s]*\n?([\s\S]*?)$/i);
+                            
+                            const parseColumn = (colText: string) => {
+                              const items = [];
+                              const lines = colText.split('\n').filter(l => l.trim());
+                              for (const line of lines) {
+                                const match = line.match(/^\s*[A-Za-z0-9][\.\)]\s*(.+)/);
+                                if (match) items.push(match[1].trim());
+                              }
+                              return items;
+                            };
+                            
+                            return {
+                              leftColumn: columnIMatch ? parseColumn(columnIMatch[1]) : [],
+                              rightColumn: columnIIMatch ? parseColumn(columnIIMatch[1]) : []
+                            };
+                          };
+                          
+                          const { leftColumn, rightColumn } = parseMatchingQuestion(q.question_text);
+                          q.left_column = leftColumn;
+                          q.right_column = rightColumn;
+                        }
+                        
+                        return (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <QuestionAnswerInput
+                              questionType={q.question_type}
+                              options={q.options}
+                              leftColumn={q.left_column}
+                              rightColumn={q.right_column}
+                              currentAnswer={q.correct_answer}
+                              onChange={(answer) => handleAnswerUpdate(q.id!, answer)}
+                            />
+                          </div>
+                        );
+                      })()}
 
                       {/* Answer Status */}
                       {q.id && validateAnswer(q) && (

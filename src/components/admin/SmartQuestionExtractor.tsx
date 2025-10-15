@@ -99,10 +99,22 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
   // Auto-load questions for selected topic from database
   useEffect(() => {
     const loadTopicQuestions = async () => {
-      if (!selectedTopic) return;
+      if (!selectedTopic) {
+        setExtractedQuestions([]);
+        return;
+      }
       
       console.log('🔍 Auto-loading questions for topic:', selectedTopic);
       
+      // STEP 1: Clear existing questions immediately
+      setExtractedQuestions([]);
+      setSelectedIds([]);
+      
+      // STEP 2: Clear localStorage to prevent auto-restore of old topic
+      localStorage.removeItem('smartQuestionExtractor_extractedQuestions');
+      localStorage.removeItem('smartQuestionExtractor_selectedIds');
+      
+      // STEP 3: Fetch from database
       try {
         const { data, error } = await supabase.functions.invoke('topic-questions-api', {
           body: {
@@ -135,10 +147,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
           toast.success(`Loaded ${transformedQuestions.length} questions for this topic`);
         } else {
           console.log('ℹ️ No existing questions found for this topic');
-          // Clear questions if switching to a topic with no questions
-          if (extractedQuestions.length > 0) {
-            setExtractedQuestions([]);
-          }
+          toast.info('No existing questions for this topic. Upload a PDF to extract questions.');
         }
       } catch (error: any) {
         console.error('❌ Error loading topic questions:', error);

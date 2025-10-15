@@ -11,12 +11,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus } from "lucide-react";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
 import { useFormPersistence } from "@/hooks/useFormPersistence";
 import { LessonPreviewDialog } from "./LessonPreviewDialog";
+import { QuestionAnswerInput } from "./QuestionAnswerInput";
 
 interface ExtractedQuestion {
   id: string;
@@ -36,6 +37,7 @@ interface ExtractedQuestion {
   images?: string[];
   ocr_text?: string[];
   edited?: boolean;
+  correct_answer?: any;
 }
 
 interface SmartQuestionExtractorProps {
@@ -754,9 +756,16 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         return base;
       });
 
-      setExtractedQuestions(questionsWithIds);
+      // APPEND instead of REPLACE to allow multi-upload
+      setExtractedQuestions(prev => [...prev, ...questionsWithIds]);
       setHasUnsavedChanges(true);
-      toast.success(`Found ${data.total_questions} questions! Select the ones you want to add.`);
+      
+      const totalNow = extractedQuestions.length + questionsWithIds.length;
+      if (extractedQuestions.length > 0) {
+        toast.success(`Added ${data.total_questions} more questions! Total: ${totalNow}`);
+      } else {
+        toast.success(`Found ${data.total_questions} questions! Select and add answers.`);
+      }
 
     } catch (error) {
       console.error('Extraction error:', error);
@@ -799,10 +808,105 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     return filtered;
   };
 
+  const handleDeleteQuestion = (questionId: string) => {
+    setExtractedQuestions(prev => prev.filter(q => q.id !== questionId));
+    setSelectedIds(prev => prev.filter(id => id !== questionId));
+    toast.success('Question deleted');
+  };
+
+  const handleUpdateAnswer = (questionId: string, answer: any) => {
+    setExtractedQuestions(prev => prev.map(q => 
+      q.id === questionId ? { ...q, correct_answer: answer } : q
+    ));
+  };
+
+  const validateAnswer = (question: ExtractedQuestion): boolean => {
+    const answer = question.correct_answer;
+    switch (question.question_type) {
+      case 'mcq':
+      case 'assertion_reason':
+        return typeof answer?.index === 'number' && answer.index >= 0;
+      case 'true_false':
+        return typeof answer?.value === 'boolean';
+      case 'fill_blank':
+        return !!answer?.text && answer.text.trim().length > 0;
+      case 'match_column':
+        return Array.isArray(answer?.pairs) && answer.pairs.length > 0;
+      case 'short_answer':
+        return true; // Short answer doesn't need validation
+      default:
+        return false;
+    }
+  };
+
+  const handleSaveToDatabase = async () => {
+    const selected = extractedQuestions.filter(q => selectedIds.includes(q.id));
+    if (selected.length === 0) {
+      toast.error("Please select at least one question");
+      return;
+    }
+
+    // Check if all selected questions have valid answers
+    const invalidQuestions = selected.filter(q => !validateAnswer(q));
+    if (invalidQuestions.length > 0) {
+      toast.error(`${invalidQuestions.length} question(s) missing correct answers. Please provide answers for all selected questions.`);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('save-extracted-questions', {
+        body: {
+          questions: selected,
+          subject: 'General',
+          chapter_name: null,
+          topic_name: selectedTopic || null,
+          source_id: null
+        }
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error('Failed to save questions');
+      }
+
+      toast.success(`Saved ${data.count} questions to database!`);
+      
+      // Remove saved questions from extractor
+      setExtractedQuestions(prev => prev.filter(q => !selectedIds.includes(q.id)));
+      setSelectedIds([]);
+      
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save questions');
+    }
+  };
+
+  const handleUploadMore = () => {
+    // Don't clear, just allow adding more
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx';
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await handleFileUpload({ target: { files: [file] } } as any);
+      }
+    };
+    input.click();
+  };
+
   const handleAddToGames = () => {
     const selected = extractedQuestions.filter(q => selectedIds.includes(q.id));
     if (selected.length === 0) {
       toast.error("Please select at least one question");
+      return;
+    }
+
+    // Check if all selected questions have valid answers
+    const invalidQuestions = selected.filter(q => !validateAnswer(q));
+    if (invalidQuestions.length > 0) {
+      toast.error(`${invalidQuestions.length} question(s) missing correct answers. Please provide answers before adding.`);
       return;
     }
 
@@ -1017,13 +1121,17 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                     </Badge>
                   )}
                 </div>
-                <div className="flex gap-3 text-xs">
-                  <span className="text-blue-600">
-                    ✓ {extractedQuestions.filter(q => q.auto_corrected).length} auto-corrected
-                  </span>
-                  <span className="text-green-600">
-                    ✓ {extractedQuestions.filter(q => !q.auto_corrected).length} accurate
-                  </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleUploadMore}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Upload More PDFs
+                  </Button>
+                  {selectedIds.length > 0 && (
+                    <Button variant="default" size="sm" onClick={handleSaveToDatabase}>
+                      <Database className="h-4 w-4 mr-1" />
+                      Save to Database ({selectedIds.length})
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -1046,7 +1154,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                       onCheckedChange={() => toggleSelection(question.id)}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Badge className={getQuestionTypeColor(question.question_type)}>
                           {getQuestionTypeLabel(question.question_type)}
@@ -1076,12 +1184,37 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                         Q{question.question_number} • {question.marks || 1} Marks | {question.marks || 1} XP
                       </Badge>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteQuestion(question.id);
+                      }}
+                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent onClick={(e) => e.stopPropagation()}>
                   <p className="text-sm line-clamp-3 mb-3">
                     {question.question_text}
                   </p>
+                  
+                  {/* Correct Answer Input */}
+                  <div className="mb-4 border-t pt-3">
+                    <QuestionAnswerInput
+                      questionType={question.question_type}
+                      options={question.options}
+                      leftColumn={question.left_column}
+                      rightColumn={question.right_column}
+                      currentAnswer={question.correct_answer}
+                      onChange={(answer) => handleUpdateAnswer(question.id, answer)}
+                      blanksCount={question.blanks_count}
+                    />
+                  </div>
+
                   <div className="flex gap-2">
                     <Dialog>
                       <DialogTrigger asChild>

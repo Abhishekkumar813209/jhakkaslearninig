@@ -32,6 +32,37 @@ serve(async (req) => {
 4. If you can't find a question number in the text, SKIP IT
 5. Each question MUST have a visible number marker (1., Q1, Question 1, etc.)
 
+🔥 CRITICAL MCQ EXTRACTION RULES:
+1. For MCQ questions, extract ONLY the question stem (text BEFORE the options start)
+2. DO NOT include option labels (a), b), c), d)) in the question_text field
+3. Extract each option WITHOUT its letter prefix - clean text only
+4. Remove "a)", "b)", etc. from both question_text AND options array
+5. Question text should end before options begin
+
+EXAMPLE:
+Input: "There is no atmosphere on moon as
+a) it gets light from sun.
+b) it is closer to the earth.
+c) it revolves round the earth.
+d) the gases have less requirement..."
+
+CORRECT Output:
+{
+  "question_text": "There is no atmosphere on moon as",
+  "options": [
+    "it gets light from sun.",
+    "it is closer to the earth.",
+    "it revolves round the earth.",
+    "the gases have less requirement of velocity or energy to escape from its surface."
+  ]
+}
+
+WRONG Output (DO NOT DO THIS):
+{
+  "question_text": "There is no atmosphere on moon as\na) it gets light from sun.\nb) it is closer to the earth.",
+  "options": ["a) it gets light from sun.", "b) it is closer to the earth."]
+}
+
 📷 IMAGE & OCR HANDLING:
 - Input may contain [FIGURE id=...] tokens indicating embedded images
 - Input may contain [IMAGE_OCR id=...]: text extracted from images via OCR

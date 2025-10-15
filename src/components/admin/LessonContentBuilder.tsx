@@ -21,7 +21,7 @@ import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { EnhancedLessonWorkflow } from "./EnhancedLessonWorkflow";
 import { QuestionToGameConverter } from "./QuestionToGameConverter";
-import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
+import { SmartQuestionExtractorNew } from "./SmartQuestionExtractorNew";
 import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { TheoryCheckpointBuilder } from "./TheoryCheckpointBuilder";
 import * as LucideIcons from "lucide-react";
@@ -1618,8 +1618,14 @@ export function LessonContentBuilder() {
             {/* Question Extractor Tab */}
             <TabsContent value="question-extractor" className="space-y-4">
               {selectedTopic ? (
-                <SmartQuestionExtractor
+                <SmartQuestionExtractorNew
                   selectedTopic={selectedTopic}
+                  selectedChapter={selectedChapter}
+                  selectedSubject={selectedSubject}
+                  selectedBatch={selectedBatch}
+                  selectedRoadmap={batches.find(b => b.id === selectedBatch)?.linked_roadmap_id || null}
+                  selectedExamDomain={batches.find(b => b.id === selectedBatch)?.exam_type || null}
+                  selectedExamName={batches.find(b => b.id === selectedBatch)?.exam_name || null}
                   onQuestionsAdded={handleExtractedQuestions}
                 />
               ) : (

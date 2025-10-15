@@ -129,19 +129,28 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
           console.log(`✅ Loaded ${data.questions.length} questions from database`);
           
           // Transform DB questions to ExtractedQuestion format
-          const transformedQuestions: ExtractedQuestion[] = data.questions.map((q: any, index: number) => ({
-            id: q.id,
-            question_number: String(index + 1),
-            question_type: q.question_type || 'mcq',
-            question_text: q.question_text || '',
-            options: q.options || [],
-            marks: q.marks || 1,
-            difficulty: q.difficulty || 'medium',
-            correct_answer: q.correct_answer,
-            explanation: q.explanation,
-            auto_corrected: q.is_approved,
-            confidence: q.is_approved ? 'high' : 'medium'
-          }));
+          const transformedQuestions: ExtractedQuestion[] = data.questions.map((q: any, index: number) => {
+            let correctAnswer = q.correct_answer;
+            
+            // Parse correct_answer if it's still JSONB object (defensive check)
+            if (q.question_type === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
+              correctAnswer = correctAnswer.value ?? correctAnswer.index ?? 0;
+            }
+            
+            return {
+              id: q.id,
+              question_number: String(index + 1),
+              question_type: q.question_type || 'mcq',
+              question_text: q.question_text || '',
+              options: q.options || [],
+              marks: q.marks || 1,
+              difficulty: q.difficulty || 'medium',
+              correct_answer: correctAnswer, // Now guaranteed to be a number for MCQ
+              explanation: q.explanation,
+              auto_corrected: q.is_approved,
+              confidence: q.is_approved ? 'high' : 'medium'
+            };
+          });
           
           setExtractedQuestions(transformedQuestions);
           toast.success(`Loaded ${transformedQuestions.length} questions for this topic`);

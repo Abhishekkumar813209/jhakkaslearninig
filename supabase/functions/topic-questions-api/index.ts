@@ -123,12 +123,31 @@ serve(async (req) => {
 
       if (questionsError) throw questionsError;
 
-      console.log(`✅ Found ${questions?.length || 0} questions for topic ${topic_id}`);
+      // Normalize correct_answer for frontend consumption
+      const normalizedQuestions = (questions || []).map(q => {
+        let normalizedCorrectAnswer = q.correct_answer;
+        
+        // If it's JSONB with {type, value} structure, extract value for MCQ
+        if (q.question_type === 'mcq' && typeof q.correct_answer === 'object' && q.correct_answer !== null) {
+          if ('value' in q.correct_answer) {
+            normalizedCorrectAnswer = q.correct_answer.value; // Extract numeric index
+          } else if ('index' in q.correct_answer) {
+            normalizedCorrectAnswer = q.correct_answer.index;
+          }
+        }
+        
+        return {
+          ...q,
+          correct_answer: normalizedCorrectAnswer
+        };
+      });
+
+      console.log(`✅ Found ${normalizedQuestions.length} questions for topic ${topic_id}`);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          questions: questions || [],
+          questions: normalizedQuestions,
           mapping_count: mappings.length
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

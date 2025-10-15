@@ -116,6 +116,20 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       
       // STEP 3: Fetch from database
       try {
+        // Check authentication before making API call
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.error('❌ Not authenticated');
+          toast.error('Please log in to load questions');
+          return;
+        }
+        
+        console.log('🔐 Current auth status:', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          topicId: selectedTopic
+        });
+        
         const { data, error } = await supabase.functions.invoke('topic-questions-api', {
           body: {
             action: 'get_by_topic',

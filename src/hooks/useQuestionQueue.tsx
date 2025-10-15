@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { invokeWithAuth } from "@/lib/invokeWithAuth";
 
 interface Question {
   id: string;
@@ -26,38 +27,31 @@ export const useQuestionQueue = (topicId: string) => {
     try {
       setLoading(true);
       
-      // Fetch all questions for this topic
-      const { data: mappings, error: mappingError } = await supabase
-        .from('topic_content_mapping')
-        .select('question_id')
-        .eq('topic_id', topicId);
+      // Fetch questions via authenticated Edge Function
+      const data = await invokeWithAuth<any, { success: boolean; questions: Question[] }>({
+        name: 'topic-questions-api',
+        body: {
+          action: 'get_by_topic',
+          topic_id: topicId
+        }
+      });
 
-      if (mappingError) throw mappingError;
-
-      if (!mappings || mappings.length === 0) {
-        setQuestions([]);
-        setLoading(false);
-        return;
-      }
-
-      const questionIds = mappings.map(m => m.question_id);
-
-      // Fetch gamified exercises for these questions
-      const { data: exercises, error: exercisesError } = await supabase
-        .from('gamified_exercises')
-        .select('*')
-        .in('topic_content_id', questionIds);
-
-      if (exercisesError) throw exercisesError;
-
-      setQuestions(exercises || []);
+      setQuestions(data.questions || []);
     } catch (error: any) {
       console.error('Error fetching questions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load questions",
-        variant: "destructive"
-      });
+      if (error.code === 401) {
+        toast({
+          title: "Authentication Required",
+          description: error.message || "Please log in to load questions",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load questions",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }

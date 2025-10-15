@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,30 +117,15 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       
       // STEP 3: Fetch from database
       try {
-        // Check authentication before making API call
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          console.error('❌ Not authenticated');
-          toast.error('Please log in to load questions');
-          return;
-        }
-        
-        console.log('🔐 Current auth status:', {
-          hasSession: !!session,
-          userId: session?.user?.id,
-          topicId: selectedTopic
-        });
-        
-        const { data, error } = await supabase.functions.invoke('topic-questions-api', {
+        const data = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
+          name: 'topic-questions-api',
           body: {
             action: 'get_by_topic',
             topic_id: selectedTopic
           }
         });
         
-        if (error) throw error;
-        
-        if (data?.success && data.questions && data.questions.length > 0) {
+        if (data.success && data.questions && data.questions.length > 0) {
           console.log(`✅ Loaded ${data.questions.length} questions from database`);
           
           // Transform DB questions to ExtractedQuestion format
@@ -955,7 +941,8 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
 
     try {
       // ✅ Use new topic-questions-api to save AND link to topic
-      const { data, error } = await supabase.functions.invoke('topic-questions-api', {
+      const data = await invokeWithAuth<any, { success: boolean; count: number; mappings_created: number; exercises_created: number }>({
+        name: 'topic-questions-api',
         body: {
           action: 'save_extracted_and_link',
           topic_id: selectedTopic,
@@ -965,8 +952,6 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
           questions: selected,
         },
       });
-
-      if (error) throw error;
 
       if (!data.success) {
         throw new Error('Failed to save questions');
@@ -979,9 +964,13 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       // ✅ Questions stay in UI - don't clear them
       // ✅ Selection stays active - user can manually clear with "Clear All" button
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Save error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save questions');
+      if (error.code === 401) {
+        toast.error(error.message || "Please log in to save questions");
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to save questions');
+      }
     }
   };
 

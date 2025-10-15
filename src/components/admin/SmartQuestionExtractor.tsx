@@ -24,6 +24,8 @@ interface ExtractedQuestion {
   blanks_count?: number;
   marks?: number;
   difficulty?: 'easy' | 'medium' | 'hard';
+  auto_corrected?: boolean;
+  confidence?: 'high' | 'medium' | 'low';
 }
 
 interface SmartQuestionExtractorProps {
@@ -343,8 +345,16 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                 </div>
               </div>
 
-              <div className="mt-3 text-sm text-muted-foreground">
-                Found {extractedQuestions.length} questions • Selected {selectedIds.length}
+              <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+                <span>Found {extractedQuestions.length} questions • Selected {selectedIds.length}</span>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-blue-600">
+                    ✓ {extractedQuestions.filter(q => q.auto_corrected).length} auto-corrected
+                  </span>
+                  <span className="text-green-600">
+                    ✓ {extractedQuestions.filter(q => !q.auto_corrected).length} accurate
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -367,13 +377,23 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                       onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Badge className={getQuestionTypeColor(question.question_type)}>
                           {getQuestionTypeLabel(question.question_type)}
                         </Badge>
                         {question.difficulty && (
                           <Badge variant="outline" className={getDifficultyColor(question.difficulty)}>
                             {question.difficulty}
+                          </Badge>
+                        )}
+                        {question.auto_corrected && (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                            ✓ Auto-corrected
+                          </Badge>
+                        )}
+                        {question.confidence && question.confidence !== 'high' && (
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-xs">
+                            {question.confidence} confidence
                           </Badge>
                         )}
                       </div>
@@ -433,7 +453,7 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
               Question {previewQuestion?.question_number} Preview
             </DialogTitle>
             <DialogDescription>
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 <Badge className={getQuestionTypeColor(previewQuestion?.question_type || '')}>
                   {getQuestionTypeLabel(previewQuestion?.question_type || '')}
                 </Badge>
@@ -445,6 +465,16 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                 <Badge variant="outline">
                   {previewQuestion?.marks || 1} mark(s)
                 </Badge>
+                {previewQuestion?.auto_corrected && (
+                  <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                    ✓ Type Auto-corrected by AI
+                  </Badge>
+                )}
+                {previewQuestion?.confidence && (
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                    {previewQuestion.confidence} confidence
+                  </Badge>
+                )}
               </div>
             </DialogDescription>
           </DialogHeader>

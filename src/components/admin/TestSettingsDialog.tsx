@@ -30,6 +30,9 @@ interface TestSettings {
   target_class: string;
   target_board: string;
   is_free: boolean;
+  base_xp_reward: number;
+  xp_per_mark: number;
+  bonus_xp_on_perfect: number;
 }
 
 const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
@@ -48,7 +51,10 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
     instructions: '',
     target_class: '',
     target_board: '',
-    is_free: false
+    is_free: false,
+    base_xp_reward: 50,
+    xp_per_mark: 2,
+    bonus_xp_on_perfect: 50
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -295,6 +301,76 @@ const TestSettingsDialog: React.FC<TestSettingsDialogProps> = ({
                   instructions: e.target.value
                 }))}
               />
+            </div>
+
+            {/* XP Rewards Configuration */}
+            <div className="space-y-3 p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
+              <div className="flex items-center gap-2">
+                <Label className="text-base font-semibold">XP Rewards Configuration</Label>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Configure how students earn XP (experience points) for completing this test
+              </p>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="base_xp_reward">Base XP Reward</Label>
+                  <Input
+                    id="base_xp_reward"
+                    type="number"
+                    min="0"
+                    value={settings.base_xp_reward}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      base_xp_reward: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Base XP awarded for attempting the test
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="xp_per_mark">XP per Mark Obtained</Label>
+                  <Input
+                    id="xp_per_mark"
+                    type="number"
+                    min="0"
+                    value={settings.xp_per_mark}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      xp_per_mark: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    XP awarded for each mark the student scores
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bonus_xp_on_perfect">Perfect Score Bonus XP</Label>
+                  <Input
+                    id="bonus_xp_on_perfect"
+                    type="number"
+                    min="0"
+                    value={settings.bonus_xp_on_perfect}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      bonus_xp_on_perfect: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Bonus XP awarded for scoring 100%
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 p-3 bg-white/50 dark:bg-black/20 rounded-lg border">
+                <p className="text-xs font-medium mb-1">Total XP Formula:</p>
+                <p className="text-xs text-muted-foreground">
+                  Base XP + (Marks Obtained × XP per Mark) + Perfect Score Bonus (if 100%)
+                </p>
+              </div>
             </div>
 
             {/* Free Test Toggle */}

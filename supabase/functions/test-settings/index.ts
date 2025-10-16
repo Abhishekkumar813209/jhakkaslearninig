@@ -61,7 +61,10 @@ serve(async (req) => {
               instructions: test.instructions,
               target_class: test.target_class,
               target_board: test.target_board,
-              is_free: test.is_free
+              is_free: test.is_free,
+              base_xp_reward: test.base_xp_reward || 50,
+              xp_per_mark: test.xp_per_mark || 2,
+              bonus_xp_on_perfect: test.bonus_xp_on_perfect || 50
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -80,7 +83,10 @@ serve(async (req) => {
             instructions: settings.instructions,
             target_class: settings.target_class,
             target_board: settings.target_board,
-            is_free: settings.is_free
+            is_free: settings.is_free,
+            base_xp_reward: settings.base_xp_reward || 50,
+            xp_per_mark: settings.xp_per_mark || 2,
+            bonus_xp_on_perfect: settings.bonus_xp_on_perfect || 50
           })
           .eq('id', testId)
           .select()

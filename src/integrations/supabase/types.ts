@@ -2116,6 +2116,7 @@ export type Database = {
           tags: string[] | null
           test_id: string
           word_limit: number | null
+          xp_reward: number | null
         }
         Insert: {
           allow_multiple_correct?: boolean | null
@@ -2136,6 +2137,7 @@ export type Database = {
           tags?: string[] | null
           test_id: string
           word_limit?: number | null
+          xp_reward?: number | null
         }
         Update: {
           allow_multiple_correct?: boolean | null
@@ -2156,6 +2158,7 @@ export type Database = {
           tags?: string[] | null
           test_id?: string
           word_limit?: number | null
+          xp_reward?: number | null
         }
         Relationships: [
           {
@@ -4135,6 +4138,8 @@ export type Database = {
       tests: {
         Row: {
           allow_retakes: boolean | null
+          base_xp_reward: number | null
+          bonus_xp_on_perfect: number | null
           class: string | null
           course_id: string | null
           created_at: string | null
@@ -4158,9 +4163,12 @@ export type Database = {
           title: string
           total_marks: number
           updated_at: string | null
+          xp_per_mark: number | null
         }
         Insert: {
           allow_retakes?: boolean | null
+          base_xp_reward?: number | null
+          bonus_xp_on_perfect?: number | null
           class?: string | null
           course_id?: string | null
           created_at?: string | null
@@ -4184,9 +4192,12 @@ export type Database = {
           title: string
           total_marks: number
           updated_at?: string | null
+          xp_per_mark?: number | null
         }
         Update: {
           allow_retakes?: boolean | null
+          base_xp_reward?: number | null
+          bonus_xp_on_perfect?: number | null
           class?: string | null
           course_id?: string | null
           created_at?: string | null
@@ -4210,6 +4221,7 @@ export type Database = {
           title?: string
           total_marks?: number
           updated_at?: string | null
+          xp_per_mark?: number | null
         }
         Relationships: [
           {

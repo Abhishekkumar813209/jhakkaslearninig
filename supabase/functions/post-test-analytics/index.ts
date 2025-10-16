@@ -40,12 +40,15 @@ serve(async (req) => {
       .eq('id', studentId)
       .single();
 
-    // Get test attempt details
+    // Get test attempt details along with test XP configuration
     const { data: testAttempt } = await supabase
       .from('test_attempts')
       .select(`
         id, score, total_marks, percentage, time_taken_minutes, rank,
-        tests (id, title, subject, difficulty)
+        tests (
+          id, title, subject, difficulty, duration_minutes,
+          base_xp_reward, xp_per_mark, bonus_xp_on_perfect
+        )
       `)
       .eq('test_id', testId)
       .eq('student_id', studentId)
@@ -194,13 +197,19 @@ serve(async (req) => {
       insights.push("You're performing better than 90% of all students!");
     }
 
-    // Calculate XP rewards
-    const baseXP = 50;
-    const performanceBonus = Math.floor((testAttempt?.percentage || 0) / 10) * 10;
-    const testDuration = (testAttempt?.tests as any)?.duration_minutes || 60;
+    // Get test configuration for XP calculation
+    const testConfig = testAttempt?.tests as any;
+    const baseXP = testConfig?.base_xp_reward || 50;
+    const xpPerMark = testConfig?.xp_per_mark || 2;
+    const perfectBonus = testConfig?.bonus_xp_on_perfect || 50;
+    
+    // Calculate XP rewards using configured values
+    const marksEarned = testAttempt?.score || 0;
+    const performanceBonus = marksEarned * xpPerMark;
+    const testDuration = testConfig?.duration_minutes || 60;
     const timeTaken = testAttempt?.time_taken_minutes || 0;
     const speedBonus = (timeTaken > 0 && timeTaken < testDuration * 0.5) ? 20 : 0;
-    const perfectScoreBonus = (testAttempt?.percentage === 100) ? 50 : 0;
+    const perfectScoreBonus = (testAttempt?.percentage === 100) ? perfectBonus : 0;
     const totalXP = baseXP + performanceBonus + speedBonus + perfectScoreBonus;
 
     // Award XP through jhakkas-points-system

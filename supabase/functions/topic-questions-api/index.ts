@@ -130,8 +130,8 @@ serve(async (req) => {
       const errors = [];
       
       for (const q of questions) {
-        const { data: inserted, error } = await serviceClient
-          .from('generated_questions')
+      const { data: inserted, error } = await serviceClient
+          .from('question_bank')
           .insert({
             batch_id: batch_id || null,
             roadmap_id: roadmap_id || null,
@@ -184,10 +184,9 @@ serve(async (req) => {
       if (!topic_id) throw new Error('Missing topic_id');
 
       const { data: questions, error } = await serviceClient
-        .from('generated_questions')
+        .from('question_bank')
         .select('*')
         .eq('topic_id', topic_id)
-        .eq('admin_reviewed', false)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -211,7 +210,7 @@ serve(async (req) => {
       }
 
       const { data: question } = await serviceClient
-        .from('generated_questions')
+        .from('question_bank')
         .select('*')
         .eq('id', question_id)
         .single();
@@ -221,7 +220,7 @@ serve(async (req) => {
       const normalized = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
       
       const { error } = await serviceClient
-        .from('generated_questions')
+        .from('question_bank')
         .update({
           correct_answer: normalized,
           explanation: explanation || null,
@@ -248,7 +247,7 @@ serve(async (req) => {
 
       // Mark as approved
       await serviceClient
-        .from('generated_questions')
+        .from('question_bank')
         .update({
           is_approved: true,
           approved_by: user.id,
@@ -257,7 +256,7 @@ serve(async (req) => {
         .in('id', question_ids);
 
       const { data: questions } = await serviceClient
-        .from('generated_questions')
+        .from('question_bank')
         .select('*')
         .in('id', question_ids);
 
@@ -325,7 +324,7 @@ serve(async (req) => {
       }
 
       const { data: questions } = await serviceClient
-        .from('generated_questions')
+        .from('question_bank')
         .select('*')
         .in('id', mappings.map(m => m.question_id))
         .order('created_at', { ascending: false });

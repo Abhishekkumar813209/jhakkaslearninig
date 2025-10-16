@@ -128,167 +128,6 @@ export const SmartQuestionExtractorNew = ({
     }
   };
 
-  const extractTextFromPDF = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const pageText = content.items.map((item: any) => item.str).join(' ');
-      fullText += pageText + '\n';
-    }
-    
-    return fullText;
-  };
-
-  const extractTextFromWord = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!selectedTopic) {
-      toast.error('Please select a topic before uploading');
-      return;
-    }
-
-    setExtracting(true);
-    try {
-      let extractedText = '';
-      if (file.name.endsWith('.pdf')) {
-        extractedText = await extractTextFromPDF(file);
-      } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
-        extractedText = await extractTextFromWord(file);
-      } else {
-        toast.error('Only PDF and Word files are supported');
-        return;
-      }
-
-      if (!extractedText || extractedText.trim().length === 0) {
-        toast.error('No readable text detected in this document');
-        return;
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please log in first');
-        return;
-      }
-
-      const aiData = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
-        name: 'ai-extract-all-questions',
-        body: {
-          file_content: extractedText,
-          subject: selectedSubject || null,
-          chapter: selectedChapter || null,
-          topic: selectedTopic || null,
-          skip_validation: true
-        }
-      });
-
-      if (aiData.success && aiData.questions?.length > 0) {
-        setQuestions(prev => [...prev, ...aiData.questions.map((q: any) => ({
-          ...q,
-          id: undefined, // Mark as unsaved
-          admin_reviewed: false
-        }))]);
-        toast.success(`Extracted ${aiData.questions.length} questions from ${file.name}`);
-      } else {
-        toast.error('No questions found in the document');
-      }
-    } catch (error: any) {
-      console.error('Extraction error:', error);
-      toast.error(error?.message || 'Failed to extract questions');
-    } finally {
-      setExtracting(false);
-      // Reset file input
-      e.target.value = '';
-    }
-  };
-
-  const saveDraftQuestions = async () => {
-    const unsavedQuestions = questions.filter(q => !q.id);
-    
-    if (unsavedQuestions.length === 0) {
-      toast.error('No new questions to save');
-      return;
-    }
-
-    if (!selectedTopic) {
-      toast.error('Please select a topic');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const data = await invokeWithAuth<any, { success: boolean; saved_count: number }>({
-        name: 'topic-questions-api',
-        body: {
-          action: 'save_draft_questions',
-          batch_id: selectedBatch,
-          roadmap_id: selectedRoadmap,
-          chapter_id: selectedChapter,
-          topic_id: selectedTopic,
-          exam_domain: selectedExamDomain,
-          exam_name: selectedExamName,
-          subject: selectedSubject,
-          chapter_name: selectedChapter,
-          topic_name: selectedTopic,
-          questions: unsavedQuestions.map(q => ({
-            question_text: q.question_text,
-            question_type: q.question_type,
-            options: q.options,
-            marks: q.marks,
-            difficulty: q.difficulty
-          }))
-        }
-      });
-
-      if (data.success) {
-        const savedCount = data.saved_count || 0;
-        const attemptedCount = unsavedQuestions.length;
-
-        if (savedCount < attemptedCount) {
-          toast.warning(
-            `Saved ${savedCount}/${attemptedCount} questions`,
-            { description: 'Some questions failed to save. Check browser console for details.' }
-          );
-        } else {
-          toast.success(`Saved ${savedCount} questions as drafts`);
-        }
-        
-        await loadDraftQuestions(); // Reload to get IDs
-      }
-    } catch (error: any) {
-      console.error('Error saving drafts:', error);
-      const errorMessage = error.message || 'Unknown error occurred';
-      
-      if (errorMessage.includes('Admin role required')) {
-        toast.error('Admin access required', {
-          description: 'Only admins can save questions to the database'
-        });
-      } else if (errorMessage.includes('Authentication required') || errorMessage.includes('Please log in')) {
-        toast.error('Please log in', {
-          description: 'You must be logged in as admin to save questions'
-        });
-      } else if (errorMessage.includes('Missing chapter_name or topic_name')) {
-        toast.error('Missing information', {
-          description: 'Please ensure both chapter and topic are selected'
-        });
-      } else {
-        toast.error('Failed to save questions', {
-          description: errorMessage
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAnswerUpdate = async (questionId: string, answer: any, explanation?: string) => {
     setLoading(true);
@@ -421,7 +260,6 @@ export const SmartQuestionExtractorNew = ({
 
   const totalCount = questions.length;
   const selectedCount = selectedIds.size;
-  const unsavedCount = questions.filter(q => !q.id).length;
   const reviewedCount = questions.filter(q => q.admin_reviewed && validateAnswer(q)).length;
 
   return (
@@ -440,9 +278,9 @@ export const SmartQuestionExtractorNew = ({
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Question Extractor</CardTitle>
+                <CardTitle>📚 Question Bank Fetcher</CardTitle>
                 <CardDescription>
-                  Extract questions from PDFs, edit answers, and add to Lesson Library
+                  Fetch questions from database, edit answers, and add to Lesson Library
                 </CardDescription>
               </div>
               <div className="flex gap-2">
@@ -450,8 +288,8 @@ export const SmartQuestionExtractorNew = ({
                 {selectedCount > 0 && (
                   <Badge variant="default">{selectedCount} Selected</Badge>
                 )}
-                {unsavedCount > 0 && (
-                  <Badge variant="secondary">{unsavedCount} Unsaved</Badge>
+                {reviewedCount > 0 && (
+                  <Badge variant="secondary">{reviewedCount} Reviewed</Badge>
                 )}
               </div>
             </div>
@@ -460,39 +298,6 @@ export const SmartQuestionExtractorNew = ({
           <CardContent className="space-y-4">
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                disabled={extracting}
-                onClick={() => document.getElementById('file-upload')?.click()}
-              >
-                {extracting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Extracting...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Upload PDF/Word
-                  </>
-                )}
-              </Button>
-              
-              <input
-                id="file-upload"
-                type="file"
-                accept=".pdf,.doc,.docx"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-
-              {unsavedCount > 0 && (
-                <Button onClick={saveDraftQuestions} disabled={loading} variant="secondary">
-                  <Save className="mr-2 h-4 w-4" />
-                  Save {unsavedCount} as Drafts
-                </Button>
-              )}
-
               {selectedCount > 0 && (
                 <Button 
                   onClick={handleAddToLessonLibrary} 

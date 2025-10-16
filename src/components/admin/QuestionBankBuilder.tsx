@@ -1,33 +1,15 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, FileText, Check, Loader2, ChevronRight, ArrowLeft, Save, Trash2 } from "lucide-react";
-import * as mammoth from "mammoth";
-import * as pdfjsLib from "pdfjs-dist";
+import { ChevronRight, ArrowLeft } from "lucide-react";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
+import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
 import * as LucideIcons from "lucide-react";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-interface ExtractedQuestion {
-  question_text: string;
-  question_type: string;
-  options: any[];
-  correct_answer: string;
-  explanation?: string;
-  marks: number;
-  difficulty: string;
-  tempId: string;
-}
 
 interface Batch {
   id: string;
@@ -69,16 +51,6 @@ export const QuestionBankBuilder = () => {
   // Chapter selection (Step 5)
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-  
-  // File upload (Step 6)
-  const [file, setFile] = useState<File | null>(null);
-  const [extracting, setExtracting] = useState(false);
-  
-  // Questions review (Step 7)
-  const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
-  
-  // Saving (Step 8)
-  const [saving, setSaving] = useState(false);
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -198,141 +170,15 @@ export const QuestionBankBuilder = () => {
     setCurrentStep(3); // Move to batch selection
   };
 
-  const extractTextFromPDF = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = "";
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(" ");
-      fullText += pageText + "\n";
-    }
-    
-    return fullText;
-  };
-
-  const extractTextFromWord = async (file: File): Promise<string> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
-  };
-
-  const extractQuestions = async () => {
-    if (!file || !selectedChapter) {
-      toast({ title: "Missing Information", description: "Please upload a file", variant: "destructive" });
-      return;
-    }
-
-    setExtracting(true);
-    try {
-      let fileContent = "";
-      
-      if (file.type === "application/pdf") {
-        fileContent = await extractTextFromPDF(file);
-      } else if (file.type.includes("word") || file.name.endsWith(".docx")) {
-        fileContent = await extractTextFromWord(file);
-      } else {
-        throw new Error("Unsupported file type");
-      }
-
-      const { data, error } = await supabase.functions.invoke("ai-extract-all-questions", {
-        body: {
-          file_content: fileContent,
-          subject: selectedSubject,
-          chapter: selectedChapter.chapter_name,
-          skip_validation: false
-        }
-      });
-
-      if (error) throw error;
-
-      const extractedQuestions = (data.questions || []).map((q: any, idx: number) => ({
-        question_text: q.question || q.question_text || "",
-        question_type: q.type || q.question_type || "mcq",
-        options: q.options || [],
-        correct_answer: q.correct_answer || q.answer || "",
-        explanation: q.explanation || "",
-        marks: q.marks || 1,
-        difficulty: q.difficulty || "medium",
-        tempId: `temp-${Date.now()}-${idx}`
-      }));
-
-      setQuestions(extractedQuestions);
-      setCurrentStep(7);
-      toast({ title: "Success", description: `Extracted ${extractedQuestions.length} questions` });
-    } catch (error: any) {
-      console.error("Extraction error:", error);
-      toast({ title: "Extraction Failed", description: error.message, variant: "destructive" });
-    } finally {
-      setExtracting(false);
-    }
-  };
-
-  const updateQuestion = (tempId: string, field: string, value: any) => {
-    setQuestions(prev => prev.map(q => 
-      q.tempId === tempId ? { ...q, [field]: value } : q
-    ));
-  };
-
-  const deleteQuestion = (tempId: string) => {
-    setQuestions(prev => prev.filter(q => q.tempId !== tempId));
-  };
-
-  const saveToDatabase = async () => {
-    if (questions.length === 0) {
-      toast({ title: "No Questions", description: "Please extract questions first", variant: "destructive" });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { data: user } = await supabase.auth.getUser();
-      const batch = batches.find(b => b.id === selectedBatch);
-      
-      const questionsToSave = questions.map(q => ({
-        chapter_id: selectedChapter?.id,
-        subject: selectedSubject,
-        batch_id: selectedBatch,
-        exam_domain: selectedDomain,
-        exam_name: batch?.exam_name || selectedDomain,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        options: q.options,
-        correct_answer: q.correct_answer,
-        explanation: q.explanation || "",
-        marks: q.marks,
-        difficulty: q.difficulty,
-        is_published: false,
-        created_by: user.user?.id,
-        source_file_name: file?.name || "manual"
-      }));
-
-      const { data, error } = await supabase
-        .from("question_bank")
-        .insert(questionsToSave)
-        .select();
-
-      if (error) throw error;
-
-      toast({ title: "Success", description: `Saved ${data.length} questions to Question Bank` });
-      
-      // Reset and go back to start
-      setCurrentStep(1);
-      setSelectedDomain(null);
-      resetBoardClass();
-      setSelectedBatch("");
-      setSelectedSubject("");
-      setSelectedChapter(null);
-      setFile(null);
-      setQuestions([]);
-    } catch (error: any) {
-      console.error("Save error:", error);
-      toast({ title: "Save Failed", description: error.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+  const handleQuestionsComplete = () => {
+    // Reset and go back to start after successful save
+    toast({ title: "Success", description: "Questions saved to Question Bank" });
+    setCurrentStep(1);
+    setSelectedDomain(null);
+    resetBoardClass();
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter(null);
   };
 
   const renderBreadcrumbs = () => {
@@ -499,7 +345,7 @@ export const QuestionBankBuilder = () => {
                 No subjects found in the batch roadmap.
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {subjects.map((subject) => (
                   <Card
                     key={subject}
@@ -511,7 +357,7 @@ export const QuestionBankBuilder = () => {
                       setCurrentStep(5);
                     }}
                   >
-                    <CardContent className="p-4 text-center">
+                    <CardContent className="p-6 text-center">
                       <div className="font-semibold">{subject}</div>
                     </CardContent>
                   </Card>
@@ -540,7 +386,7 @@ export const QuestionBankBuilder = () => {
                 No chapters found for this subject.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {chapters.map((chapter) => (
                   <Card
                     key={chapter.id}
@@ -554,6 +400,7 @@ export const QuestionBankBuilder = () => {
                   >
                     <CardContent className="p-4">
                       <div className="font-semibold">{chapter.chapter_name}</div>
+                      <div className="text-sm text-muted-foreground">{chapter.subject}</div>
                     </CardContent>
                   </Card>
                 ))}
@@ -563,12 +410,14 @@ export const QuestionBankBuilder = () => {
         </Card>
       )}
 
-      {/* Step 6: File Upload */}
-      {currentStep === 6 && (
+      {/* Step 6: Smart Question Extractor */}
+      {currentStep === 6 && selectedChapter && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 6: Upload PDF or Word File</CardTitle>
-            <CardDescription>Upload the document containing questions</CardDescription>
+            <CardTitle>Step 6: Extract & Review Questions</CardTitle>
+            <CardDescription>
+              Upload PDF/Word file and extract questions for: {selectedChapter.chapter_name} ({selectedSubject})
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button variant="outline" onClick={() => setCurrentStep(5)} className="mb-4">
@@ -576,157 +425,16 @@ export const QuestionBankBuilder = () => {
               Back to Chapter
             </Button>
             
-            <div>
-              <Label htmlFor="file-upload">Select File (PDF or Word)</Label>
-              <Input
-                id="file-upload"
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="mt-2"
-              />
-              {file && (
-                <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {file.name}
-                </p>
-              )}
-            </div>
-
-            <Button onClick={extractQuestions} disabled={!file || extracting} className="w-full">
-              {extracting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Extracting Questions...
-                </>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Extract Questions with AI
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 7: Review Questions */}
-      {currentStep === 7 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Step 7: Review & Edit Questions ({questions.length})</CardTitle>
-            <CardDescription>Check and correct the extracted questions before saving</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline" onClick={() => setCurrentStep(6)} className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Upload
-            </Button>
-            
-            <div className="max-h-[600px] overflow-y-auto space-y-3">
-              {questions.map((q, idx) => (
-                <div key={q.tempId} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="font-semibold text-lg">Q{idx + 1}</span>
-                    <div className="flex gap-2">
-                      <Badge variant="secondary">{q.question_type}</Badge>
-                      <Badge variant="outline">{q.marks} marks</Badge>
-                      <Badge>{q.difficulty}</Badge>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => deleteQuestion(q.tempId)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Question Text</Label>
-                    <Textarea
-                      value={q.question_text}
-                      onChange={(e) => updateQuestion(q.tempId, "question_text", e.target.value)}
-                      className="min-h-[80px] mt-1"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label>Type</Label>
-                      <Select value={q.question_type} onValueChange={(val) => updateQuestion(q.tempId, "question_type", val)}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="mcq">MCQ</SelectItem>
-                          <SelectItem value="true_false">True/False</SelectItem>
-                          <SelectItem value="fill_blank">Fill in Blank</SelectItem>
-                          <SelectItem value="subjective">Subjective</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Marks</Label>
-                      <Input
-                        type="number"
-                        value={q.marks}
-                        onChange={(e) => updateQuestion(q.tempId, "marks", parseInt(e.target.value) || 1)}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label>Difficulty</Label>
-                      <Select value={q.difficulty} onValueChange={(val) => updateQuestion(q.tempId, "difficulty", val)}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="easy">Easy</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="hard">Hard</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Correct Answer</Label>
-                    <Input
-                      value={q.correct_answer}
-                      onChange={(e) => updateQuestion(q.tempId, "correct_answer", e.target.value)}
-                      placeholder="Enter correct answer"
-                      className="mt-1"
-                    />
-                  </div>
-
-                  {q.explanation && (
-                    <div>
-                      <Label>Explanation (Optional)</Label>
-                      <Textarea
-                        value={q.explanation}
-                        onChange={(e) => updateQuestion(q.tempId, "explanation", e.target.value)}
-                        className="min-h-[60px] mt-1"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <Button onClick={saveToDatabase} disabled={saving || questions.length === 0} className="w-full mt-4">
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving to Database...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save {questions.length} Questions to Question Bank
-                </>
-              )}
-            </Button>
+            <SmartQuestionExtractor
+              mode="question-bank"
+              chapterId={selectedChapter.id}
+              chapterName={selectedChapter.chapter_name}
+              subjectName={selectedSubject}
+              batchId={selectedBatch}
+              examDomain={selectedDomain || ''}
+              examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+              onQuestionsAdded={handleQuestionsComplete}
+            />
           </CardContent>
         </Card>
       )}

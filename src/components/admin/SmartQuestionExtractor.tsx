@@ -39,14 +39,37 @@ interface ExtractedQuestion {
   ocr_text?: string[];
   edited?: boolean;
   correct_answer?: any;
+  explanation?: string;
 }
 
 interface SmartQuestionExtractorProps {
   selectedTopic?: string;
   onQuestionsAdded: (questions: ExtractedQuestion[]) => void;
+  // Question Bank Builder integration props
+  preloadedQuestions?: ExtractedQuestion[];
+  chapterId?: string;
+  chapterName?: string;
+  subjectName?: string;
+  batchId?: string;
+  examDomain?: string;
+  examName?: string;
+  sourceFileName?: string;
+  mode?: 'lesson-builder' | 'question-bank';
 }
 
-export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: SmartQuestionExtractorProps) => {
+export const SmartQuestionExtractor = ({ 
+  selectedTopic, 
+  onQuestionsAdded,
+  preloadedQuestions,
+  chapterId,
+  chapterName,
+  subjectName,
+  batchId,
+  examDomain,
+  examName,
+  sourceFileName,
+  mode = 'lesson-builder'
+}: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState<ExtractedQuestion | null>(null);
@@ -98,8 +121,20 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
     }
   }, [extractedQuestions, setHasUnsavedChanges]);
 
-  // Auto-load questions for selected topic from database
+  // Initialize with preloaded questions from Question Bank Builder
   useEffect(() => {
+    if (mode === 'question-bank' && preloadedQuestions && preloadedQuestions.length > 0) {
+      console.log('🔵 Initializing with preloaded questions:', preloadedQuestions.length);
+      setExtractedQuestions(preloadedQuestions);
+      setSelectedIds(preloadedQuestions.map(q => q.id));
+      return;
+    }
+  }, [preloadedQuestions, mode]);
+
+  // Auto-load questions for selected topic from database (lesson-builder mode only)
+  useEffect(() => {
+    if (mode === 'question-bank') return; // Skip for question bank mode
+    
     const loadTopicQuestions = async () => {
       if (!selectedTopic) {
         setExtractedQuestions([]);
@@ -960,37 +995,82 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
       return;
     }
 
-    // Check if all selected questions have valid answers
-    const invalidQuestions = selected.filter(q => !validateAnswer(q));
-    if (invalidQuestions.length > 0) {
-      toast.error(`${invalidQuestions.length} question(s) missing correct answers. Please provide answers for all selected questions.`);
-      return;
+    // For Question Bank mode, allow saving without answers (admin can fill later)
+    if (mode === 'lesson-builder') {
+      // Check if all selected questions have valid answers
+      const invalidQuestions = selected.filter(q => !validateAnswer(q));
+      if (invalidQuestions.length > 0) {
+        toast.error(`${invalidQuestions.length} question(s) missing correct answers. Please provide answers for all selected questions.`);
+        return;
+      }
     }
 
     try {
-      // ✅ Use new topic-questions-api to save AND link to topic
-      const data = await invokeWithAuth<any, { success: boolean; count: number; mappings_created: number; exercises_created: number }>({
-        name: 'topic-questions-api',
-        body: {
-          action: 'save_extracted_and_link',
-          topic_id: selectedTopic,
-          subject: 'General',
-          chapter_name: null,
-          topic_name: selectedTopic || null,
-          questions: selected,
-        },
-      });
+      if (mode === 'question-bank') {
+        // Save to question_bank table with chapter metadata
+        const { data: user } = await supabase.auth.getUser();
+        
+        const questionsToSave = selected.map(q => ({
+          chapter_id: chapterId,
+          subject: subjectName,
+          batch_id: batchId,
+          exam_domain: examDomain,
+          exam_name: examName,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          options: q.options || null,
+          correct_answer: q.correct_answer || null,
+          explanation: q.explanation || null,
+          marks: q.marks || 1,
+          difficulty: q.difficulty || 'medium',
+          is_published: false,
+          created_by: user.user?.id,
+          source_file_name: sourceFileName || 'uploaded'
+        }));
 
-      if (!data.success) {
-        throw new Error('Failed to save questions');
+        const { data, error } = await supabase
+          .from("question_bank")
+          .insert(questionsToSave)
+          .select();
+
+        if (error) throw error;
+
+        toast.success(`✅ Saved ${data.length} questions to Question Bank!`, {
+          description: `Chapter: ${chapterName} • Subject: ${subjectName}`
+        });
+        
+        // Clear session after successful save
+        clearProgress();
+        setExtractedQuestions([]);
+        setSelectedIds([]);
+        
+        // Notify parent component
+        onQuestionsAdded(selected);
+        
+      } else {
+        // Lesson Builder mode - use topic-questions-api
+        const data = await invokeWithAuth<any, { success: boolean; count: number; mappings_created: number; exercises_created: number }>({
+          name: 'topic-questions-api',
+          body: {
+            action: 'save_extracted_and_link',
+            topic_id: selectedTopic,
+            subject: 'General',
+            chapter_name: null,
+            topic_name: selectedTopic || null,
+            questions: selected,
+          },
+        });
+
+        if (!data.success) {
+          throw new Error('Failed to save questions');
+        }
+
+        toast.success(`✅ Saved ${data.count} questions to database!`, {
+          description: `${data.mappings_created} linked to topic, ${data.exercises_created} games created`
+        });
+        
+        // Questions stay in UI for lesson builder
       }
-
-      toast.success(`✅ Saved ${data.count} questions to database!`, {
-        description: `${data.mappings_created} linked to topic, ${data.exercises_created} games created`
-      });
-      
-      // ✅ Questions stay in UI - don't clear them
-      // ✅ Selection stays active - user can manually clear with "Clear All" button
       
     } catch (error: any) {
       console.error('❌ Save error:', error);
@@ -1122,8 +1202,8 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
         </Dialog>
       )}
 
-      {/* Upload Section */}
-      {extractedQuestions.length === 0 && !authError && (
+      {/* Upload Section - hide if in question-bank mode with preloaded questions */}
+      {extractedQuestions.length === 0 && !authError && !(mode === 'question-bank' && preloadedQuestions) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1435,9 +1515,16 @@ export const SmartQuestionExtractor = ({ selectedTopic, onQuestionsAdded }: Smar
                       <CheckCircle2 className="h-5 w-5 text-blue-500" />
                       <span className="font-medium">{selectedIds.length} selected</span>
                     </div>
-                    <Button onClick={handleAddToGames} size="lg">
-                      Add to Lesson Builder ({selectedIds.length})
-                    </Button>
+                     {mode === 'question-bank' ? (
+                      <Button onClick={handleSaveToDatabase} size="lg">
+                        <Database className="h-4 w-4 mr-2" />
+                        Save to Question Bank ({selectedIds.length})
+                      </Button>
+                    ) : (
+                      <Button onClick={handleAddToGames} size="lg">
+                        Add to Lesson Builder ({selectedIds.length})
+                      </Button>
+                    )}
                     <Button 
                       variant="outline" 
                       size="sm" 

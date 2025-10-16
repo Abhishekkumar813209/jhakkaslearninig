@@ -25,24 +25,33 @@ const TopicDetailPage = () => {
         return;
       }
 
+      console.log("Fetching first game for topic:", topicId);
+      
       // Get first unlocked game
       const firstGameId = await getFirstUnlockedGameId(user.id, topicId);
       
       if (firstGameId) {
+        console.log("Navigating to first game:", firstGameId);
         // Auto-navigate to game
         navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${firstGameId}`);
       } else {
+        console.log("No games found for topic:", topicId);
         // No games available
         toast({
-          title: "No games available",
-          description: "This topic doesn't have any exercises yet",
+          title: "No exercises available",
+          description: "This topic doesn't have any exercises yet. Please contact your instructor.",
           variant: "destructive"
         });
         navigate(`/student/roadmap/${roadmapId}`);
       }
     } catch (error) {
       console.error("Error starting games:", error);
-      setLoading(false);
+      toast({
+        title: "Error loading exercises",
+        description: "Failed to load exercises. Please try again.",
+        variant: "destructive"
+      });
+      navigate(`/student/roadmap/${roadmapId}`);
     }
   };
 

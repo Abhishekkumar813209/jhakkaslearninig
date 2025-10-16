@@ -11,10 +11,29 @@ export async function getAdjacentGames(
   topicId: string,
   currentGameId: string
 ): Promise<GameNavigationInfo> {
+  // First get mapping IDs for this topic
+  const { data: mappings } = await supabase
+    .from('topic_content_mapping')
+    .select('id')
+    .eq('topic_id', topicId);
+  
+  const mappingIds = mappings?.map(m => m.id) || [];
+  
+  if (mappingIds.length === 0) {
+    console.error("No content mappings found for topic:", topicId);
+    return {
+      prevGameId: null,
+      nextGameId: null,
+      currentGameNum: 1,
+      totalGames: 0
+    };
+  }
+  
+  // Then get games using those mapping IDs
   const { data: games, error } = await supabase
     .from('gamified_exercises')
     .select('id, game_order')
-    .eq('topic_content_id', topicId)
+    .in('topic_content_id', mappingIds)
     .order('game_order', { ascending: true });
   
   if (error || !games) {
@@ -57,11 +76,21 @@ export async function isGameUnlocked(
   topicId: string, 
   gameId: string
 ): Promise<boolean> {
+  // First get mapping IDs for this topic
+  const { data: mappings } = await supabase
+    .from('topic_content_mapping')
+    .select('id')
+    .eq('topic_id', topicId);
+  
+  const mappingIds = mappings?.map(m => m.id) || [];
+  
+  if (mappingIds.length === 0) return false;
+  
   // Get all games for this topic in order
   const { data: games } = await supabase
     .from('gamified_exercises')
     .select('id, game_order')
-    .eq('topic_content_id', topicId)
+    .in('topic_content_id', mappingIds)
     .order('game_order', { ascending: true });
   
   if (!games || games.length === 0) return false;
@@ -92,13 +121,29 @@ export async function getFirstUnlockedGameId(
   studentId: string,
   topicId: string
 ): Promise<string | null> {
+  // First get mapping IDs for this topic
+  const { data: mappings } = await supabase
+    .from('topic_content_mapping')
+    .select('id')
+    .eq('topic_id', topicId);
+  
+  const mappingIds = mappings?.map(m => m.id) || [];
+  
+  if (mappingIds.length === 0) {
+    console.error("No content mappings found for topic:", topicId);
+    return null;
+  }
+  
   const { data: games } = await supabase
     .from('gamified_exercises')
     .select('id, game_order')
-    .eq('topic_content_id', topicId)
+    .in('topic_content_id', mappingIds)
     .order('game_order', { ascending: true });
   
-  if (!games || games.length === 0) return null;
+  if (!games || games.length === 0) {
+    console.log("No games found for topic mappings:", mappingIds);
+    return null;
+  }
   
   // Get progress
   const { data: progress } = await supabase

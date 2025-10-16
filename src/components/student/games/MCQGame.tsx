@@ -91,9 +91,14 @@ export function MCQGame({
     }, 500);
   };
 
+  // Derive hasMore from currentQuestionNum and totalQuestions if available
+  const derivedHasMore = (typeof currentQuestionNum === 'number' && typeof totalQuestions === 'number')
+    ? currentQuestionNum < totalQuestions
+    : hasMoreQuestions;
+
   const handleContinue = () => {
-    // Phase 3: If more questions exist, call onNext, otherwise onComplete
-    if (hasMoreQuestions && onNext) {
+    console.log('[MCQGame] handleContinue - derivedHasMore:', derivedHasMore, 'currentQ:', currentQuestionNum, 'total:', totalQuestions);
+    if (derivedHasMore && onNext) {
       onNext();
     } else {
       onComplete();
@@ -242,7 +247,7 @@ export function MCQGame({
                 onClick={handleContinue}
                 className="min-w-[150px]"
               >
-                {hasMoreQuestions ? (
+                {derivedHasMore ? (
                   <>
                     Next Question
                     <ArrowRight className="ml-2 h-4 w-4" />

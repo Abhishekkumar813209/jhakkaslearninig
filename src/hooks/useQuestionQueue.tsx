@@ -36,7 +36,9 @@ export const useQuestionQueue = (topicId: string) => {
         }
       });
 
-      setQuestions(data.questions || []);
+      const loadedQuestions = data.questions || [];
+      console.log('[QQ] Loaded questions:', loadedQuestions.length, loadedQuestions.map(q => q.id));
+      setQuestions(loadedQuestions);
     } catch (error: any) {
       console.error('Error fetching questions:', error);
       if (error.code === 401) {
@@ -58,6 +60,7 @@ export const useQuestionQueue = (topicId: string) => {
   };
 
   const nextQuestion = () => {
+    console.log('[QQ] nextQuestion called: from index', currentIndex, 'of', questions.length);
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(prev => prev + 1);
       return true; // Has more questions

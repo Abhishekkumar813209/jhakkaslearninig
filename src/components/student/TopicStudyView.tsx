@@ -473,16 +473,19 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
         {/* Render different game types based on exercise_type */}
         {currentQ.exercise_type === 'mcq' && (
-          <MCQGame
-            gameData={currentQ.exercise_data}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onNext={handleNextQuestion}
-            onComplete={markTopicComplete}
-            hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
-            currentQuestionNum={questionQueue.currentIndex + 1}
-            totalQuestions={questionQueue.totalQuestions}
-          />
+          <>
+            {console.log('[TSV] Rendering MCQGame - index/total:', questionQueue.currentIndex, '/', questionQueue.totalQuestions)}
+            <MCQGame
+              gameData={currentQ.exercise_data}
+              onCorrect={handleCorrectAnswer}
+              onWrong={handleWrongAnswer}
+              onNext={handleNextQuestion}
+              onComplete={markTopicComplete}
+              hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
+              currentQuestionNum={questionQueue.currentIndex + 1}
+              totalQuestions={questionQueue.totalQuestions}
+            />
+          </>
         )}
         
         {/* Fallback for other types */}

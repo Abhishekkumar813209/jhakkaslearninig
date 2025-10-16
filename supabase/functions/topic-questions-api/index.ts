@@ -385,39 +385,72 @@ serve(async (req) => {
       );
     }
 
-    // ========== get_by_topic (for approved questions) ==========
+    // ========== get_by_topic (for students - returns all linked exercises) ==========
     if (action === 'get_by_topic') {
       const { topic_id } = body;
       if (!topic_id) throw new Error('topic_id required');
 
-      const { data: mappings } = await serviceClient
-        .from('topic_content_mapping')
-        .select('question_id')
-        .eq('topic_id', topic_id);
+      console.log(`📖 get_by_topic for topic: ${topic_id}`);
 
-      if (!mappings || mappings.length === 0) {
+      // Join topic_content_mapping with gamified_exercises to get all linked questions in order
+      const { data: exercises, error } = await serviceClient
+        .from('topic_content_mapping')
+        .select(`
+          id,
+          order_num,
+          gamified_exercises (
+            id,
+            exercise_type,
+            exercise_data,
+            correct_answer,
+            explanation,
+            xp_reward,
+            difficulty
+          )
+        `)
+        .eq('topic_id', topic_id)
+        .order('order_num', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error fetching exercises:', error);
+        throw error;
+      }
+
+      if (!exercises || exercises.length === 0) {
+        console.log('⚠️ No exercises found for topic');
         return new Response(
           JSON.stringify({ success: true, questions: [] }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const { data: questions } = await serviceClient
-        .from('question_bank')
-        .select('*')
-        .in('id', mappings.map(m => m.question_id))
-        .order('created_at', { ascending: false });
+      // Flatten and normalize to Question interface shape
+      const questions = exercises
+        .filter(ex => ex.gamified_exercises && ex.gamified_exercises.length > 0)
+        .map(ex => {
+          const ge = ex.gamified_exercises[0]; // Should be 1:1 relationship
+          let answer = ge.correct_answer;
+          
+          // Normalize MCQ answer to simple index number
+          if (ge.exercise_type === 'mcq' && typeof answer === 'object' && answer !== null) {
+            answer = answer.value ?? answer.index ?? 0;
+          }
+          
+          return {
+            id: ge.id,
+            exercise_type: ge.exercise_type,
+            exercise_data: ge.exercise_data,
+            correct_answer: answer,
+            explanation: ge.explanation,
+            xp_reward: ge.xp_reward,
+            difficulty: ge.difficulty
+          };
+        });
 
-      const normalized = (questions || []).map(q => {
-        let answer = q.correct_answer;
-        if (q.question_type === 'mcq' && typeof answer === 'object' && answer !== null) {
-          answer = answer.value ?? answer.index ?? 0;
-        }
-        return { ...q, correct_answer: answer };
-      });
+      console.log(`✅ Returning ${questions.length} questions for students`);
 
       return new Response(
-        JSON.stringify({ success: true, questions: normalized }),
+        JSON.stringify({ success: true, questions }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

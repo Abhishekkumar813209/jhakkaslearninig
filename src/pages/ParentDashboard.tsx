@@ -403,12 +403,12 @@ export default function ParentDashboard() {
               </Card>
             </div>
 
-            {/* Subject Performance - Card View with Roadmap */}
+            {/* Test Progress - Card View with Roadmap */}
             {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Student Roadmap - Card View</CardTitle>
-                  <CardDescription>Double-click any chapter to mark as complete (Green)</CardDescription>
+                  <CardTitle>Test Progress</CardTitle>
+                  <CardDescription>Double-click any chapter to mark as complete</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <RoadmapCardView

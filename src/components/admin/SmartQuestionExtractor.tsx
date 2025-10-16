@@ -174,24 +174,33 @@ export const SmartQuestionExtractor = ({
           
           // Transform DB questions to ExtractedQuestion format
           const transformedQuestions: ExtractedQuestion[] = data.questions.map((q: any, index: number) => {
-            let correctAnswer = q.correct_answer;
+            // Handle both question_bank and gamified_exercises structures
+            const questionData = q.exercise_data || q;
+            const questionText = questionData.question || q.question_text || '';
+            const questionType = q.exercise_type || q.question_type || 'mcq';
+            const options = questionData.options || q.options || [];
+            const marks = questionData.marks || q.marks || 1;
+            const difficulty = questionData.difficulty || q.difficulty || 'medium';
+            const explanation = questionData.explanation || q.explanation || '';
+            
+            let correctAnswer = questionData.correct_answer ?? q.correct_answer;
             
             // Parse correct_answer if it's still JSONB object (defensive check)
-            if (q.question_type === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
+            if (questionType === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
               correctAnswer = correctAnswer.value ?? correctAnswer.index ?? 0;
             }
             
             return {
               id: q.id,
               question_number: String(index + 1),
-              question_type: q.question_type || 'mcq',
-              question_text: q.question_text || '',
-              options: q.options || [],
-              marks: q.marks || 1,
-              difficulty: q.difficulty || 'medium',
-              correct_answer: correctAnswer, // Now guaranteed to be a number for MCQ
-              explanation: q.explanation,
-              auto_corrected: q.is_approved,
+              question_type: questionType,
+              question_text: questionText,
+              options: options,
+              marks: marks,
+              difficulty: difficulty,
+              correct_answer: correctAnswer,
+              explanation: explanation,
+              auto_corrected: q.is_approved || false,
               confidence: q.is_approved ? 'high' : 'medium'
             };
           });

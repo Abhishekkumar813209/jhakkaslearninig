@@ -129,6 +129,7 @@ interface SortableChapterCardProps {
   onEdit?: (chapterId: string) => void;
   onDelete?: (chapterId: string) => void;
   onClick?: (chapterId: string, chapterName: string, topics: any[]) => void;
+  onDoubleClick?: (chapterId: string) => void;
 }
 
 const SortableChapterCard = ({ 
@@ -136,7 +137,8 @@ const SortableChapterCard = ({
   isEditable, 
   onEdit, 
   onDelete, 
-  onClick 
+  onClick,
+  onDoubleClick
 }: SortableChapterCardProps) => {
   const [showTopics, setShowTopics] = useState(false);
   
@@ -157,11 +159,14 @@ const SortableChapterCard = ({
 
   const hasTopics = chapter.topics && chapter.topics.length > 0;
 
+  const bgColor = chapter.progress === 100 ? 'bg-green-50' : chapter.progress === 0 ? 'bg-red-50' : 'bg-card';
+
   return (
     <div 
       ref={setNodeRef} 
       style={style}
-      className="border rounded-lg p-3 space-y-2 bg-card hover:shadow-md transition-all"
+      className={`border rounded-lg p-3 space-y-2 ${bgColor} hover:shadow-md transition-all`}
+      onDoubleClick={() => onDoubleClick?.(chapter.id)}
     >
       <div className="flex items-center justify-between">
         <div 
@@ -287,6 +292,7 @@ interface SubjectCardProps {
   onChapterEdit?: (chapterId: string) => void;
   onChapterDelete?: (chapterId: string) => void;
   onChapterReorder: (subjectName: string, reorderedChapterIds: string[]) => void;
+  onChapterDoubleClick?: (chapterId: string) => void;
 }
 
 const SubjectCard = ({ 
@@ -295,7 +301,8 @@ const SubjectCard = ({
   onChapterClick,
   onChapterEdit,
   onChapterDelete,
-  onChapterReorder 
+  onChapterReorder,
+  onChapterDoubleClick
 }: SubjectCardProps) => {
   const [localChapters, setLocalChapters] = useState(subject.chapters);
 
@@ -382,6 +389,7 @@ const SubjectCard = ({
                   onEdit={onChapterEdit}
                   onDelete={onChapterDelete}
                   onClick={onChapterClick}
+                  onDoubleClick={onChapterDoubleClick}
                 />
               ))}
             </div>
@@ -502,6 +510,7 @@ export const RoadmapCardView = ({
             onChapterEdit={handleEditClick}
             onChapterDelete={onChapterDelete}
             onChapterReorder={onChapterReorder}
+            onChapterDoubleClick={onChapterEdit}
           />
         ))}
       </div>

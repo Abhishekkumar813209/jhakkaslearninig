@@ -12,7 +12,8 @@ import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 import { SubjectChapterTestAnalysis } from "@/components/parent/SubjectChapterTestAnalysis";
-import { StudentRoadmapCalendar } from "@/components/student/StudentRoadmapCalendar";
+import { ParentRoadmapCalendar } from "@/components/parent/ParentRoadmapCalendar";
+import { RoadmapCardView } from "@/components/RoadmapCardView";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
 import { RaceTypeSelector } from "@/components/student/racing/RaceTypeSelector";
@@ -63,6 +64,7 @@ export default function ParentDashboard() {
   const [selectedRace, setSelectedRace] = useState<RaceType>('class');
   const [testAnalysis, setTestAnalysis] = useState<any>({});
   const [roadmapCalendar, setRoadmapCalendar] = useState<any>(null);
+  const [chapterStatuses, setChapterStatuses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     checkParentRole();
@@ -223,6 +225,19 @@ export default function ParentDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleChapterStatus = (chapterId: string) => {
+    setChapterStatuses(prev => {
+      const newStatus = !prev[chapterId];
+      toast.success(newStatus ? "✅ Chapter marked as Done" : "❌ Chapter marked as Not Done", {
+        description: "Status updated locally (not saved to backend)"
+      });
+      return {
+        ...prev,
+        [chapterId]: newStatus
+      };
+    });
   };
 
   const currentStudent = linkedStudents.find(s => s.student_id === selectedStudent);
@@ -388,73 +403,51 @@ export default function ParentDashboard() {
               </Card>
             </div>
 
-            {/* Subject Performance */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Subject-wise Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {progress?.subjectAnalytics?.length > 0 ? (
-                  <Accordion type="single" collapsible className="w-full">
-                    {progress.subjectAnalytics.map((subject: any) => (
-                      <AccordionItem key={subject.subject} value={subject.subject}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex items-center justify-between w-full pr-4">
-                            <div className="flex items-center gap-3">
-                              <span className="font-semibold">{subject.subject}</span>
-                              <Badge variant={
-                                subject.mastery_level === 'master' ? 'default' :
-                                subject.mastery_level === 'advanced' ? 'secondary' :
-                                subject.mastery_level === 'intermediate' ? 'outline' :
-                                'destructive'
-                              }>
-                                {subject.mastery_level}
-                              </Badge>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold">{subject.average_score?.toFixed(1)}%</p>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="space-y-3 pt-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Average Score</span>
-                              <span className="font-medium">{subject.average_score?.toFixed(1)}%</span>
-                            </div>
-                            <Progress value={subject.average_score} className="h-2" />
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Tests Attempted</span>
-                              <span className="font-medium">{subject.tests_taken}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Best Score</span>
-                              <span className="font-medium">{subject.best_score?.toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">
-                    No subject data available yet
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            {/* Subject Performance - Card View with Roadmap */}
+            {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Student Roadmap - Card View</CardTitle>
+                  <CardDescription>Double-click any chapter to mark as complete (Green)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RoadmapCardView
+                    roadmapId={roadmapCalendar.roadmapId || 'parent-view'}
+                    subjects={roadmapCalendar.subjectsData.map((subject: any) => ({
+                      ...subject,
+                      chapters: subject.chapters.map((chapter: any) => ({
+                        ...chapter,
+                        // Override background based on manual status
+                        progress: chapterStatuses[chapter.id] ? 100 : 0
+                      }))
+                    }))}
+                    isEditable={false}
+                    onChapterClick={(chapterId) => {
+                      // No action on single click
+                    }}
+                    onChapterEdit={(chapterId) => {
+                      // Double-click to toggle
+                      toggleChapterStatus(chapterId);
+                    }}
+                    onChapterReorder={() => {}}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Subject-wise Test Analysis */}
             {Object.keys(testAnalysis).length > 0 && (
               <SubjectChapterTestAnalysis testAnalysis={testAnalysis} />
             )}
 
-            {/* Daily Roadmap Calendar */}
-            {roadmapCalendar && roadmapCalendar.subjectsData?.length > 0 && (
-              <StudentRoadmapCalendar 
+            {/* Roadmap Calendar - Parent View with Manual Tracking */}
+            {roadmapCalendar && (
+              <ParentRoadmapCalendar
                 startDate={new Date(roadmapCalendar.startDate)}
                 totalDays={roadmapCalendar.totalDays}
                 subjectsData={roadmapCalendar.subjectsData}
+                chapterStatuses={chapterStatuses}
+                onChapterDoubleClick={toggleChapterStatus}
               />
             )}
 

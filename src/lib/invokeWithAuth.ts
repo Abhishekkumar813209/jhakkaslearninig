@@ -30,13 +30,28 @@ export async function invokeWithAuth<TBody = unknown, TResp = unknown>({
     } as EdgeFunctionError;
   }
 
-  // Invoke the function with authenticated session
+  // Refresh the session to ensure token is valid
+  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+  
+  if (refreshError || !refreshData.session) {
+    console.error('Session refresh failed:', refreshError);
+    // Session is invalid, redirect to login
+    window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
+    throw {
+      code: 401,
+      message: "Session expired. Please log in again.",
+    } as EdgeFunctionError;
+  }
+
+  // Invoke the function with authenticated session (using refreshed token)
   const { data, error } = await supabase.functions.invoke(name, { body });
 
   if (error) {
+    console.error(`Edge function ${name} error:`, error);
+    
     // Normalize error responses
-    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-      // Auto-redirect to login on session expiry
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('Invalid authentication token')) {
+      // Token is invalid even after refresh, force re-login
       window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
       throw {
         code: 401,

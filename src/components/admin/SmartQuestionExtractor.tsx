@@ -107,6 +107,7 @@ export const SmartQuestionExtractor = ({
     const saved = localStorage.getItem('question-extractor-selected');
     return saved ? JSON.parse(saved) : [];
   });
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Save selectedIds whenever it changes (debounced)
   useEffect(() => {
@@ -154,9 +155,9 @@ export const SmartQuestionExtractor = ({
       setExtractedQuestions([]);
       setSelectedIds([]);
       
-      // STEP 2: Clear localStorage to prevent auto-restore of old topic
-      localStorage.removeItem('smartQuestionExtractor_extractedQuestions');
-      localStorage.removeItem('smartQuestionExtractor_selectedIds');
+      // STEP 2: Clear persisted progress to prevent restore of old topic
+      clearProgress();
+      setHasUnsavedChanges(false);
       
       // STEP 3: Fetch from database
       try {
@@ -223,7 +224,7 @@ export const SmartQuestionExtractor = ({
     };
     
     loadTopicQuestions();
-  }, [selectedTopic, topicId, mode]);
+  }, [selectedTopic, topicId, mode, reloadKey]);
 
   // Show restore toast on mount if data exists
   useEffect(() => {
@@ -974,10 +975,12 @@ export const SmartQuestionExtractor = ({
     return filtered;
   };
 
+  const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
   const handleDeleteQuestion = async (questionId: string) => {
     try {
       const questionToDelete = extractedQuestions.find(q => q.id === questionId);
-      if (questionToDelete && questionToDelete.id && questionToDelete.id.includes('-')) {
+      if (questionToDelete && isUUID(questionToDelete.id)) {
         if (mode === 'question-bank') {
           const { error } = await supabase.from('question_bank').delete().eq('id', questionId);
           if (error) throw error;
@@ -993,6 +996,7 @@ export const SmartQuestionExtractor = ({
       });
       setSelectedIds(prev => prev.filter(id => id !== questionId));
       toast.success('Question deleted');
+      setReloadKey((k) => k + 1);
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Failed to delete question');
@@ -1008,7 +1012,7 @@ export const SmartQuestionExtractor = ({
     // Update in database if question exists
     try {
       const questionToUpdate = extractedQuestions.find(q => q.id === questionId);
-      if (questionToUpdate && questionToUpdate.id && questionToUpdate.id.includes('-')) {
+      if (questionToUpdate && isUUID(questionToUpdate.id)) {
         await invokeWithAuth({
           name: 'topic-questions-api',
           body: {
@@ -1022,6 +1026,7 @@ export const SmartQuestionExtractor = ({
         });
         
         toast.success('Answer saved to database');
+        setReloadKey((k) => k + 1);
       }
     } catch (error) {
       console.error('Error updating answer in database:', error);

@@ -38,11 +38,36 @@ const GamePlayerPage = () => {
 
     setLoading(true);
     try {
-      const [game, navigation] = await Promise.all([
-        loadGameById(gameId),
-        getAdjacentGames(topicId, gameId)
-      ]);
+      let game = await loadGameById(gameId);
+      
+      // Fallback: If gameId is actually a topic_content_mapping.id, try to find the game
+      if (!game) {
+        const { data: exerciseData } = await supabase
+          .from('gamified_exercises')
+          .select('*')
+          .eq('topic_content_id', gameId)
+          .order('game_order', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        
+        if (exerciseData) {
+          game = exerciseData;
+          // Navigate to correct game ID to update URL
+          navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${exerciseData.id}`, { replace: true });
+        }
+      }
 
+      if (!game) {
+        toast({
+          title: "Game not found",
+          description: "This game doesn't exist or hasn't been created yet.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      const navigation = await getAdjacentGames(topicId, game.id);
       setGameData(game);
       setNavInfo(navigation);
     } catch (error) {

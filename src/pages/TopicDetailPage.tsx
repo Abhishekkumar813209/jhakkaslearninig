@@ -6,6 +6,7 @@ import { DuolingoLessonPath } from "@/components/student/DuolingoLessonPath";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { getFirstUnlockedGameId } from "@/lib/gameNavigation";
 
 const TopicDetailPage = () => {
   const { roadmapId, topicId } = useParams();
@@ -55,16 +56,32 @@ const TopicDetailPage = () => {
   const handleLessonClick = async (lesson: any) => {
     // Navigate to the game player page based on lesson type
     if (lesson.lesson_type === 'game') {
-      // For games from topic_content_mapping
-      const { data: mappingData } = await supabase
-        .from('topic_content_mapping')
-        .select('id')
-        .eq('topic_id', topicId)
-        .eq('content_id', lesson.id)
-        .single();
-      
-      if (mappingData) {
-        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${mappingData.id}`);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+
+        // Get the first unlocked game for this topic
+        const firstGameId = await getFirstUnlockedGameId(user.id, topicId!);
+        
+        if (firstGameId) {
+          navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${firstGameId}`);
+        } else {
+          toast({
+            title: "No games available",
+            description: "No games found for this topic yet.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error opening game:", error);
+        toast({
+          title: "Error",
+          description: "Failed to open game",
+          variant: "destructive"
+        });
       }
     }
   };

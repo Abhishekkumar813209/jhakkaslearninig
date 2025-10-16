@@ -12,7 +12,7 @@ import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 import { SubjectChapterTestAnalysis } from "@/components/parent/SubjectChapterTestAnalysis";
-import { RoadmapCalendarGrid } from "@/components/parent/RoadmapCalendarGrid";
+import { StudentRoadmapCalendar } from "@/components/student/StudentRoadmapCalendar";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
 import { RaceTypeSelector } from "@/components/student/racing/RaceTypeSelector";
@@ -62,7 +62,7 @@ export default function ParentDashboard() {
   const [racingData, setRacingData] = useState<any>(null);
   const [selectedRace, setSelectedRace] = useState<RaceType>('class');
   const [testAnalysis, setTestAnalysis] = useState<any>({});
-  const [roadmapCalendar, setRoadmapCalendar] = useState<any>({});
+  const [roadmapCalendar, setRoadmapCalendar] = useState<any>(null);
 
   useEffect(() => {
     checkParentRole();
@@ -163,7 +163,7 @@ export default function ParentDashboard() {
           headers: { Authorization: `Bearer ${session.access_token}` }
         }),
         supabase.functions.invoke('parent-portal', {
-          body: { action: 'getRoadmapDailyProgress', studentId },
+          body: { action: 'getRoadmapCalendarView', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
         })
       ]);
@@ -180,7 +180,7 @@ export default function ParentDashboard() {
       setFees(feesData.data);
       setZoneData(zoneStatusData.data?.zoneStatus || null);
       setTestAnalysis(testAnalysisData.data?.testAnalysis || {});
-      setRoadmapCalendar(calendarData.data?.dailyProgress || {});
+      setRoadmapCalendar(calendarData.data || null);
       
       // Handle racing data with proper fallback
       if (racingResult.data?.success) {
@@ -450,8 +450,12 @@ export default function ParentDashboard() {
             )}
 
             {/* Daily Roadmap Calendar */}
-            {Object.keys(roadmapCalendar).length > 0 && (
-              <RoadmapCalendarGrid dailyProgress={roadmapCalendar} />
+            {roadmapCalendar && roadmapCalendar.subjectsData?.length > 0 && (
+              <StudentRoadmapCalendar 
+                startDate={new Date(roadmapCalendar.startDate)}
+                totalDays={roadmapCalendar.totalDays}
+                subjectsData={roadmapCalendar.subjectsData}
+              />
             )}
 
             {/* Topic-wise Breakdown */}

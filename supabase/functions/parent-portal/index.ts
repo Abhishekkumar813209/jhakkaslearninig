@@ -628,6 +628,163 @@ serve(async (req) => {
         );
       }
 
+      case 'getRoadmapCalendarView': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Get student's active roadmap
+        const { data: studentRoadmap } = await supabase
+          .from('student_roadmaps')
+          .select('batch_roadmap_id')
+          .eq('student_id', studentId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!studentRoadmap) {
+          return new Response(
+            JSON.stringify({ 
+              startDate: new Date().toISOString(),
+              totalDays: 0,
+              subjectsData: []
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get roadmap details
+        const { data: roadmapDetails } = await supabase
+          .from('batch_roadmaps')
+          .select('start_date, end_date, total_days')
+          .eq('id', studentRoadmap.batch_roadmap_id)
+          .single();
+
+        if (!roadmapDetails) {
+          return new Response(
+            JSON.stringify({ 
+              startDate: new Date().toISOString(),
+              totalDays: 0,
+              subjectsData: []
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get all chapters with topics
+        const { data: chapters } = await supabase
+          .from('roadmap_chapters')
+          .select(`
+            id,
+            chapter_name,
+            subject,
+            day_start,
+            day_end
+          `)
+          .eq('roadmap_id', studentRoadmap.batch_roadmap_id)
+          .order('day_start', { ascending: true });
+
+        if (!chapters || chapters.length === 0) {
+          return new Response(
+            JSON.stringify({ 
+              startDate: roadmapDetails.start_date,
+              totalDays: roadmapDetails.total_days || 0,
+              subjectsData: []
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const chapterIds = chapters.map(c => c.id);
+
+        // Get all topics for these chapters
+        const { data: topics } = await supabase
+          .from('roadmap_topics')
+          .select('id, topic_name, chapter_id')
+          .in('chapter_id', chapterIds)
+          .order('day_number', { ascending: true });
+
+        // Get topic completion status
+        const topicIds = (topics || []).map(t => t.id);
+        const { data: completionData } = await supabase
+          .from('student_topic_game_progress')
+          .select('topic_id, is_completed, completed_game_ids')
+          .eq('student_id', studentId)
+          .in('topic_id', topicIds);
+
+        const completionMap = new Map(
+          (completionData || []).map(c => [c.topic_id, {
+            is_completed: c.is_completed,
+            games_completed: c.completed_game_ids?.length || 0
+          }])
+        );
+
+        // Group topics by chapter
+        const topicsByChapter = (topics || []).reduce((acc: any, topic: any) => {
+          if (!acc[topic.chapter_id]) acc[topic.chapter_id] = [];
+          const completion = completionMap.get(topic.id);
+          acc[topic.chapter_id].push({
+            id: topic.id,
+            topic_name: topic.topic_name,
+            status: completion?.is_completed ? 'completed' : 'unlocked',
+            progress_percentage: completion?.is_completed ? 100 : 0
+          });
+          return acc;
+        }, {});
+
+        // Calculate chapter progress
+        const chaptersWithTopics = chapters.map((chapter: any) => {
+          const chapterTopics = topicsByChapter[chapter.id] || [];
+          const completedTopics = chapterTopics.filter((t: any) => t.status === 'completed').length;
+          const totalTopics = chapterTopics.length;
+          
+          return {
+            id: chapter.id,
+            chapter_name: chapter.chapter_name,
+            subject: chapter.subject,
+            day_start: chapter.day_start,
+            day_end: chapter.day_end,
+            progress: totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0,
+            topics: chapterTopics
+          };
+        });
+
+        // Group by subject
+        const subjectMap = chaptersWithTopics.reduce((acc: any, chapter: any) => {
+          if (!acc[chapter.subject]) {
+            acc[chapter.subject] = {
+              name: chapter.subject,
+              chapters: []
+            };
+          }
+          acc[chapter.subject].chapters.push(chapter);
+          return acc;
+        }, {});
+
+        const subjectsData = Object.values(subjectMap);
+
+        return new Response(
+          JSON.stringify({ 
+            startDate: roadmapDetails.start_date,
+            totalDays: roadmapDetails.total_days || 0,
+            subjectsData
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         throw new Error('Invalid action');
     }

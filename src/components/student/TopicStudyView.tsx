@@ -467,6 +467,9 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         title: `🎮 Game Complete! +${xpAmount} XP`,
         description: `${gameDifficulty.toUpperCase()} difficulty conquered!`
       });
+
+      // Trigger XP refresh
+      window.dispatchEvent(new Event('xp-updated'));
     } catch (error) {
       console.error("Error completing game:", error);
       toast({

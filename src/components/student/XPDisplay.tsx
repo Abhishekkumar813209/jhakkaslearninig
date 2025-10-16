@@ -56,10 +56,10 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
       )
       .subscribe();
 
-    // Listen for manual XP update events
+    // Listen for manual XP update events with immediate re-fetch
     const handleXPUpdate = () => {
-      console.log('Manual XP update triggered');
-      fetchXP();
+      console.log('Manual XP update triggered - immediate refresh');
+      setTimeout(() => fetchXP(), 100); // Small delay to ensure DB update completes
     };
     window.addEventListener('xp-updated', handleXPUpdate);
 

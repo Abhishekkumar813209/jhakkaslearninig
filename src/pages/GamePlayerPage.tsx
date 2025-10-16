@@ -155,6 +155,9 @@ const GamePlayerPage = () => {
           student_id: user.id,
           xp_amount: xpAmount
         });
+
+        // Trigger XP refresh
+        window.dispatchEvent(new Event('xp-updated'));
       }
 
       // Mark game as completed in progress table

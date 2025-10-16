@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,11 +54,6 @@ export const QuestionBankBuilder = () => {
   const [chapters, setChapters] = useState<any[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
 
-  // Load batches on mount
-  useState(() => {
-    loadBatches();
-  });
-
   const loadBatches = async () => {
     const { data } = await supabase.from("batches").select("*").eq("is_active", true);
     if (data) setBatches(data);
@@ -107,6 +102,11 @@ export const QuestionBankBuilder = () => {
     
     if (data) setTopics(data);
   };
+
+  // Load batches on mount
+  useEffect(() => {
+    loadBatches();
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];

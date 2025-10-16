@@ -479,7 +479,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onNext={handleNextQuestion}
-            onComplete={() => markTopicComplete()}
+            onComplete={() => {}}
             hasMoreQuestions={questionQueue.hasMoreQuestions}
             currentQuestionNum={questionQueue.currentIndex + 1}
             totalQuestions={questionQueue.totalQuestions}

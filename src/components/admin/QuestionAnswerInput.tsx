@@ -35,9 +35,13 @@ export const QuestionAnswerInput = ({
   useEffect(() => {
     // Validate answer
     let valid = false;
+    const safeOptions = options || [];
+    const safeLeftColumn = leftColumn || [];
+    const safeRightColumn = rightColumn || [];
+    
     switch (questionType) {
       case 'mcq':
-        valid = typeof localAnswer?.index === 'number' && localAnswer.index >= 0 && localAnswer.index < options.length;
+        valid = typeof localAnswer?.index === 'number' && localAnswer.index >= 0 && localAnswer.index < safeOptions.length;
         break;
       case 'true_false':
         valid = typeof localAnswer?.value === 'boolean';
@@ -58,7 +62,7 @@ export const QuestionAnswerInput = ({
         valid = false;
     }
     setIsValid(valid);
-  }, [localAnswer, questionType, options.length]);
+  }, [localAnswer, questionType, options, leftColumn, rightColumn]);
 
   const handleChange = (newAnswer: any) => {
     setLocalAnswer(newAnswer);
@@ -74,7 +78,7 @@ export const QuestionAnswerInput = ({
           'A is true, R is false',
           'A is false, R is true'
         ]
-      : options;
+      : (options || []);
 
     return (
       <div className="space-y-3">
@@ -228,7 +232,7 @@ export const QuestionAnswerInput = ({
           )}
         </div>
         <div className="space-y-2">
-          {leftColumn.map((leftItem, leftIdx) => (
+          {(leftColumn || []).map((leftItem, leftIdx) => (
             <div key={leftIdx} className="flex items-center gap-2 border rounded-lg p-3">
               <div className="flex-1">
                 <Badge variant="outline">{String.fromCharCode(65 + leftIdx)}</Badge>
@@ -248,7 +252,7 @@ export const QuestionAnswerInput = ({
                 }}
               >
                 <option value="">Select match...</option>
-                {rightColumn.map((rightItem, rightIdx) => (
+                {(rightColumn || []).map((rightItem, rightIdx) => (
                   <option key={rightIdx} value={rightIdx}>
                     {String.fromCharCode(105 + rightIdx)}. {rightItem}
                   </option>

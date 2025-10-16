@@ -973,16 +973,63 @@ export const SmartQuestionExtractor = ({
     return filtered;
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
+  const handleDeleteQuestion = async (questionId: string) => {
+    // Delete from database first (if question exists in DB)
+    try {
+      const questionToDelete = extractedQuestions.find(q => q.id === questionId);
+      if (questionToDelete && questionToDelete.id && questionToDelete.id.includes('-')) {
+        // Only delete if it's a real UUID (from database), not a temporary ID
+        const { error } = await supabase
+          .from('gamified_exercises')
+          .delete()
+          .eq('id', questionId);
+        
+        if (error) {
+          console.error('Error deleting from database:', error);
+          toast.error('Failed to delete from database');
+          return;
+        }
+        
+        toast.success('Question deleted from database');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete question');
+      return;
+    }
+    
+    // Update local state
     setExtractedQuestions(prev => prev.filter(q => q.id !== questionId));
     setSelectedIds(prev => prev.filter(id => id !== questionId));
-    toast.success('Question deleted');
   };
 
-  const handleUpdateAnswer = (questionId: string, answer: any) => {
+  const handleUpdateAnswer = async (questionId: string, answer: any) => {
+    // Update local state immediately for responsiveness
     setExtractedQuestions(prev => prev.map(q => 
       q.id === questionId ? { ...q, correct_answer: answer } : q
     ));
+    
+    // Update in database if question exists
+    try {
+      const questionToUpdate = extractedQuestions.find(q => q.id === questionId);
+      if (questionToUpdate && questionToUpdate.id && questionToUpdate.id.includes('-')) {
+        // Call API to update correct_answer in database
+        await invokeWithAuth({
+          name: 'topic-questions-api',
+          body: {
+            action: 'update_question_answer',
+            question_id: questionId,
+            correct_answer: answer,
+            explanation: questionToUpdate.explanation
+          }
+        });
+        
+        console.log('✅ Updated answer in database for question:', questionId);
+      }
+    } catch (error) {
+      console.error('Error updating answer in database:', error);
+      toast.error('Failed to save answer to database');
+    }
   };
 
   const validateAnswer = (question: ExtractedQuestion): boolean => {

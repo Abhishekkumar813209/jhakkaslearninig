@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked, Gamepad2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DuolingoLessonPath } from "./DuolingoLessonPath";
-import { DuolingoStyleLearning } from "./DuolingoStyleLearning";
+// Removed old lesson path imports - now using direct game navigation
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,8 +36,6 @@ export const ChapterTopicListView = ({
   onBack 
 }: ChapterTopicListViewProps) => {
   const [sortedTopics, setSortedTopics] = useState<Topic[]>([]);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
-  const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [topicUnlockStatus, setTopicUnlockStatus] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
@@ -112,44 +109,6 @@ export const ChapterTopicListView = ({
   const totalProgress = sortedTopics.length > 0 
     ? (completedCount / sortedTopics.length) * 100 
     : 0;
-
-  // Show learning interface if lesson selected
-  if (selectedLesson && selectedTopicId) {
-    return (
-      <DuolingoStyleLearning
-        lesson={selectedLesson}
-        topicId={selectedTopicId}
-        onComplete={() => {
-          setSelectedLesson(null);
-          setSelectedTopicId(null);
-        }}
-        onExit={() => {
-          setSelectedLesson(null);
-          setSelectedTopicId(null);
-        }}
-      />
-    );
-  }
-
-  // Show lesson path if topic selected
-  if (selectedTopicId) {
-    return (
-      <div className="space-y-6">
-        <Button 
-          variant="ghost" 
-          onClick={() => setSelectedTopicId(null)}
-          className="hover:bg-primary/10"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Topics
-        </Button>
-        <DuolingoLessonPath
-          topicId={selectedTopicId}
-          onLessonClick={(lesson) => setSelectedLesson(lesson)}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 animate-fade-in">

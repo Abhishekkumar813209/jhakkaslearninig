@@ -3285,6 +3285,56 @@ export type Database = {
           },
         ]
       }
+      student_question_attempts: {
+        Row: {
+          attempt_number: number | null
+          created_at: string | null
+          id: string
+          is_correct: boolean | null
+          question_id: string
+          selected_answer: Json | null
+          status: string | null
+          student_id: string
+          time_spent_seconds: number | null
+          topic_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempt_number?: number | null
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          question_id: string
+          selected_answer?: Json | null
+          status?: string | null
+          student_id: string
+          time_spent_seconds?: number | null
+          topic_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempt_number?: number | null
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          question_id?: string
+          selected_answer?: Json | null
+          status?: string | null
+          student_id?: string
+          time_spent_seconds?: number | null
+          topic_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "gamified_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_quests: {
         Row: {
           coin_reward: number | null
@@ -3535,6 +3585,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      student_topic_game_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_question_index: number | null
+          id: string
+          is_completed: boolean | null
+          last_active_at: string | null
+          questions_completed: number | null
+          questions_correct: number | null
+          session_state: Json | null
+          started_at: string | null
+          student_id: string
+          topic_id: string
+          total_questions: number
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_question_index?: number | null
+          id?: string
+          is_completed?: boolean | null
+          last_active_at?: string | null
+          questions_completed?: number | null
+          questions_correct?: number | null
+          session_state?: Json | null
+          started_at?: string | null
+          student_id: string
+          topic_id: string
+          total_questions: number
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_question_index?: number | null
+          id?: string
+          is_completed?: boolean | null
+          last_active_at?: string | null
+          questions_completed?: number | null
+          questions_correct?: number | null
+          session_state?: Json | null
+          started_at?: string | null
+          student_id?: string
+          topic_id?: string
+          total_questions?: number
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       student_topic_progress: {
         Row: {

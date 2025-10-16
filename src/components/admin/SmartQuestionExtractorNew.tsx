@@ -111,17 +111,17 @@ export const SmartQuestionExtractorNew = ({
     try {
       const data = await invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
         name: 'topic-questions-api',
-        body: { action: 'get_draft_questions', topic_id: selectedTopic }
+        body: { action: 'get_topic_questions', topic_id: selectedTopic }
       });
 
       if (data.success && data.questions?.length > 0) {
         setQuestions(data.questions);
-        toast.success(`Loaded ${data.questions.length} draft questions`);
+        toast.success(`Loaded ${data.questions.length} questions from database`);
       }
     } catch (error: any) {
       console.error('loadDraftQuestions error:', error);
       if (error.code !== 401) {
-        toast.error('Failed to load questions');
+        toast.error('Failed to load questions from database');
       }
     } finally {
       setLoading(false);
@@ -397,9 +397,9 @@ export const SmartQuestionExtractorNew = ({
               </div>
             ) : filteredQuestions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <Upload className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                <p className="font-medium">No questions yet</p>
-                <p className="text-sm mt-1">Upload a PDF or Word document to extract questions</p>
+                <AlertCircle className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                <p className="font-medium">No questions found in database</p>
+                <p className="text-sm mt-1">Questions will appear here once saved to the question bank</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

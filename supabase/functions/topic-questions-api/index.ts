@@ -178,7 +178,41 @@ serve(async (req) => {
       );
     }
 
-    // ========== NEW: get_draft_questions ==========
+    // ========== get_topic_questions: Load all questions from question_bank for a topic ==========
+    if (action === 'get_topic_questions') {
+      const { topic_id } = body;
+      if (!topic_id) {
+        console.error('❌ Missing topic_id in get_topic_questions');
+        throw new Error('Missing topic_id');
+      }
+
+      console.log(`📚 Fetching questions for topic: ${topic_id}`);
+
+      const { data: questions, error } = await serviceClient
+        .from('question_bank')
+        .select('*')
+        .eq('topic_id', topic_id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('❌ Database error:', error);
+        throw error;
+      }
+
+      console.log(`✅ Found ${questions?.length || 0} questions in question_bank`);
+
+      const normalized = (questions || []).map(q => ({
+        ...q,
+        correct_answer: q.correct_answer ? normalizeCorrectAnswer(q.question_type, q.correct_answer, q.options) : null
+      }));
+
+      return new Response(
+        JSON.stringify({ success: true, questions: normalized }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== get_draft_questions (deprecated, kept for compatibility) ==========
     if (action === 'get_draft_questions') {
       const { topic_id } = body;
       if (!topic_id) throw new Error('Missing topic_id');

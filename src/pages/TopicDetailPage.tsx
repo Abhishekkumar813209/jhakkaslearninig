@@ -1,23 +1,66 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { TopicStudyView } from "@/components/student/TopicStudyView";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
+import { getFirstUnlockedGameId } from "@/lib/gameNavigation";
+import { useToast } from "@/hooks/use-toast";
 
 const TopicDetailPage = () => {
   const { roadmapId, topicId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
-  return (
-    <div className="min-h-screen">
-      <Navbar />
-      <div className="container py-8">
-        <TopicStudyView
-          topicId={topicId!}
-          topicName=""
-          onBack={() => navigate(`/student/roadmap/${roadmapId}`)}
-        />
+  useEffect(() => {
+    autoStartGames();
+  }, [topicId]);
+
+  const autoStartGames = async () => {
+    if (!topicId) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      // Get first unlocked game
+      const firstGameId = await getFirstUnlockedGameId(user.id, topicId);
+      
+      if (firstGameId) {
+        // Auto-navigate to game
+        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${firstGameId}`);
+      } else {
+        // No games available
+        toast({
+          title: "No games available",
+          description: "This topic doesn't have any exercises yet",
+          variant: "destructive"
+        });
+        navigate(`/student/roadmap/${roadmapId}`);
+      }
+    } catch (error) {
+      console.error("Error starting games:", error);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="container py-8 flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading games...</p>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 };
 
 export default TopicDetailPage;

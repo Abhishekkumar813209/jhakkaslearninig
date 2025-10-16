@@ -308,14 +308,8 @@ export function MCQGame({
                 onClick={handleContinue}
                 className="min-w-[150px]"
               >
-                {derivedHasMore ? (
-                  <>
-                    Next Question
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                ) : (
-                  'Complete'
-                )}
+                Next Question
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
           </div>
@@ -374,14 +368,8 @@ export function MCQGame({
                       onClick={handleContinue}
                       className="gap-2"
                     >
-                      {derivedHasMore ? (
-                        <>
-                          Next
-                          <ChevronRight className="h-4 w-4" />
-                        </>
-                      ) : (
-                        'Complete Topic'
-                      )}
+                      Next
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 )}

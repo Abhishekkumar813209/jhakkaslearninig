@@ -3301,6 +3301,7 @@ export type Database = {
           time_spent_seconds: number | null
           topic_id: string
           updated_at: string | null
+          xp_awarded: boolean | null
         }
         Insert: {
           attempt_number?: number | null
@@ -3314,6 +3315,7 @@ export type Database = {
           time_spent_seconds?: number | null
           topic_id: string
           updated_at?: string | null
+          xp_awarded?: boolean | null
         }
         Update: {
           attempt_number?: number | null
@@ -3327,6 +3329,7 @@ export type Database = {
           time_spent_seconds?: number | null
           topic_id?: string
           updated_at?: string | null
+          xp_awarded?: boolean | null
         }
         Relationships: [
           {
@@ -3592,6 +3595,7 @@ export type Database = {
       student_topic_game_progress: {
         Row: {
           completed_at: string | null
+          completed_game_ids: string[] | null
           created_at: string | null
           current_question_index: number | null
           id: string
@@ -3608,6 +3612,7 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          completed_game_ids?: string[] | null
           created_at?: string | null
           current_question_index?: number | null
           id?: string
@@ -3624,6 +3629,7 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          completed_game_ids?: string[] | null
           created_at?: string | null
           current_question_index?: number | null
           id?: string
@@ -4816,6 +4822,14 @@ export type Database = {
       increment_promo_usage: {
         Args: { code: string }
         Returns: undefined
+      }
+      increment_student_xp: {
+        Args: { student_id: string; xp_amount: number }
+        Returns: undefined
+      }
+      is_topic_fully_completed: {
+        Args: { p_student_id: string; p_topic_id: string }
+        Returns: boolean
       }
       lock_credits_for_withdrawal: {
         Args: { p_amount: number; p_student_id: string }

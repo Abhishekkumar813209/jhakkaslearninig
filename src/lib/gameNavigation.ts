@@ -51,3 +51,72 @@ export async function loadGameById(gameId: string) {
   
   return data;
 }
+
+export async function isGameUnlocked(
+  studentId: string,
+  topicId: string, 
+  gameId: string
+): Promise<boolean> {
+  // Get all games for this topic in order
+  const { data: games } = await supabase
+    .from('gamified_exercises')
+    .select('id, game_order')
+    .eq('topic_content_id', topicId)
+    .order('game_order', { ascending: true });
+  
+  if (!games || games.length === 0) return false;
+  
+  const gameIndex = games.findIndex(g => g.id === gameId);
+  if (gameIndex === -1) return false;
+  
+  // First game is always unlocked
+  if (gameIndex === 0) return true;
+  
+  // Check if previous game is completed
+  const previousGameId = games[gameIndex - 1].id;
+  
+  const { data: progress } = await supabase
+    .from('student_topic_game_progress')
+    .select('completed_game_ids')
+    .eq('student_id', studentId)
+    .eq('topic_id', topicId)
+    .maybeSingle();
+  
+  if (!progress) return false;
+  
+  // Check if previous game is in completed list
+  return progress.completed_game_ids?.includes(previousGameId) ?? false;
+}
+
+export async function getFirstUnlockedGameId(
+  studentId: string,
+  topicId: string
+): Promise<string | null> {
+  const { data: games } = await supabase
+    .from('gamified_exercises')
+    .select('id, game_order')
+    .eq('topic_content_id', topicId)
+    .order('game_order', { ascending: true });
+  
+  if (!games || games.length === 0) return null;
+  
+  // Get progress
+  const { data: progress } = await supabase
+    .from('student_topic_game_progress')
+    .select('completed_game_ids')
+    .eq('student_id', studentId)
+    .eq('topic_id', topicId)
+    .maybeSingle();
+  
+  const completedIds = progress?.completed_game_ids || [];
+  
+  // Find first incomplete game
+  for (const game of games) {
+    if (!completedIds.includes(game.id)) {
+      return game.id;
+    }
+  }
+  
+  // All completed? Return last game (for review)
+  return games[games.length - 1].id;
+}

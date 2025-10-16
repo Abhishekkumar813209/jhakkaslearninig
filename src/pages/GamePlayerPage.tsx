@@ -52,19 +52,83 @@ const GamePlayerPage = () => {
     }
   };
 
+  const markGameCompleted = async (studentId: string, topicId: string, gameId: string) => {
+    const { data: progress } = await supabase
+      .from('student_topic_game_progress')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('topic_id', topicId)
+      .maybeSingle();
+
+    if (!progress) {
+      // Create new progress record
+      await supabase.from('student_topic_game_progress').insert({
+        student_id: studentId,
+        topic_id: topicId,
+        completed_game_ids: [gameId],
+        questions_completed: 1,
+        questions_correct: 1,
+        total_questions: 1
+      });
+    } else {
+      // Update existing progress
+      const completedIds = progress.completed_game_ids || [];
+      if (!completedIds.includes(gameId)) {
+        await supabase
+          .from('student_topic_game_progress')
+          .update({
+            completed_game_ids: [...completedIds, gameId],
+            questions_completed: progress.questions_completed + 1,
+            questions_correct: progress.questions_correct + 1
+          })
+          .eq('id', progress.id);
+      }
+    }
+  };
+
   const handleCorrectAnswer = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      await supabase.from('student_question_attempts').insert([{
+      // Check if this is first correct attempt (for XP)
+      const { data: existingAttempts } = await supabase
+        .from('student_question_attempts')
+        .select('xp_awarded, is_correct')
+        .eq('student_id', user.id)
+        .eq('question_id', gameData.id);
+
+      const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct && a.xp_awarded);
+      const isFirstCorrect = !hasCorrectAttempt;
+      
+      // Get attempt number
+      const attemptNumber = (existingAttempts?.length || 0) + 1;
+      
+      // Insert attempt record
+      await supabase.from('student_question_attempts').insert({
         student_id: user.id,
         question_id: gameData.id,
         topic_id: topicId!,
         is_correct: true,
         status: 'completed',
-        time_spent_seconds: 0
-      }]);
+        time_spent_seconds: 0,
+        xp_awarded: isFirstCorrect,
+        attempt_number: attemptNumber
+      });
+
+      // Award XP only if first time correct
+      if (isFirstCorrect) {
+        const xpAmount = gameData.xp_reward || 10;
+        
+        // Update student XP in profiles table
+        await supabase.rpc('increment_student_xp', {
+          student_id: user.id,
+          xp_amount: xpAmount
+        });
+      }
+
+      // Mark game as completed in progress table
+      await markGameCompleted(user.id, topicId!, gameData.id);
 
     } catch (error) {
       console.error("Error saving progress:", error);
@@ -76,14 +140,25 @@ const GamePlayerPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      await supabase.from('student_question_attempts').insert([{
+      // Get attempt number
+      const { data: existingAttempts } = await supabase
+        .from('student_question_attempts')
+        .select('id')
+        .eq('student_id', user.id)
+        .eq('question_id', gameData.id);
+
+      const attemptNumber = (existingAttempts?.length || 0) + 1;
+
+      await supabase.from('student_question_attempts').insert({
         student_id: user.id,
         question_id: gameData.id,
         topic_id: topicId!,
         is_correct: false,
         status: 'attempted',
-        time_spent_seconds: 0
-      }]);
+        time_spent_seconds: 0,
+        xp_awarded: false,
+        attempt_number: attemptNumber
+      });
     } catch (error) {
       console.error("Error tracking wrong answer:", error);
     }

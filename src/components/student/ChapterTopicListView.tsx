@@ -7,6 +7,8 @@ import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked, Gamepad2 } fr
 import { cn } from "@/lib/utils";
 import { DuolingoLessonPath } from "./DuolingoLessonPath";
 import { DuolingoStyleLearning } from "./DuolingoStyleLearning";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Topic {
   id: string;
@@ -37,20 +39,49 @@ export const ChapterTopicListView = ({
   const [sortedTopics, setSortedTopics] = useState<Topic[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [topicUnlockStatus, setTopicUnlockStatus] = useState<{ [key: string]: boolean }>({});
+  const { toast } = useToast();
 
   useEffect(() => {
     // Sort topics by day_number
     const sorted = [...topics].sort((a, b) => a.day_number - b.day_number);
     setSortedTopics(sorted);
+    checkTopicUnlockStatus(sorted);
   }, [topics]);
+
+  const checkTopicUnlockStatus = async (sortedTopics: Topic[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const unlockMap: { [key: string]: boolean } = {};
+    
+    for (let i = 0; i < sortedTopics.length; i++) {
+      const topic = sortedTopics[i];
+      
+      // First topic is always unlocked
+      if (i === 0) {
+        unlockMap[topic.id] = true;
+        continue;
+      }
+      
+      // Check if previous topic is fully completed (all games done)
+      const prevTopicId = sortedTopics[i - 1].id;
+      const { data: isComplete } = await supabase.rpc('is_topic_fully_completed', {
+        p_student_id: user.id,
+        p_topic_id: prevTopicId
+      });
+      
+      unlockMap[topic.id] = isComplete || false;
+    }
+    
+    setTopicUnlockStatus(unlockMap);
+  };
 
   const getTopicStatus = (index: number, topic: Topic) => {
     if (topic.status === "completed") return "completed";
-    if (index === 0) return "unlocked"; // First topic is always unlocked
     
-    // Check if previous topic is completed
-    const prevTopic = sortedTopics[index - 1];
-    if (prevTopic && prevTopic.status === "completed") return "unlocked";
+    // Check unlock status from our map
+    if (topicUnlockStatus[topic.id]) return "unlocked";
     
     return "locked";
   };
@@ -176,7 +207,17 @@ export const ChapterTopicListView = ({
                 getStatusColor(status),
                 isClickable && "card-interactive"
               )}
-              onClick={() => isClickable && setSelectedTopicId(topic.id)}
+              onClick={() => {
+                if (isClickable) {
+                  onTopicClick(topic.id, topic.topic_name);
+                } else {
+                  toast({
+                    title: "🔒 Topic Locked",
+                    description: "Complete all games in the previous topic to unlock this one",
+                    variant: "destructive"
+                  });
+                }
+              }}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">

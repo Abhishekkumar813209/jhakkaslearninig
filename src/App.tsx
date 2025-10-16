@@ -36,6 +36,7 @@ import ParentDashboard from "./pages/ParentDashboard";
 import StudentRoadmapView from "./pages/StudentRoadmapView";
 import TopicDetailPage from "./pages/TopicDetailPage";
 import GamePlayerPage from "./pages/GamePlayerPage";
+import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
 
 const queryClient = new QueryClient();
 
@@ -124,6 +125,12 @@ const App = () => (
             <Route path="/test/:testId/results" element={
               <ProtectedRoute>
                 <TestResults />
+              </ProtectedRoute>
+            } />
+            {/* Backward compatibility for older links: /test-results/:attemptId */}
+            <Route path="/test-results/:attemptId" element={
+              <ProtectedRoute>
+                <LegacyTestResultsRedirect />
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={

@@ -162,16 +162,21 @@ serve(async (req) => {
     const isAdmin = roleData?.role === 'admin';
     console.log('👤 Admin role check:', isAdmin ? '✅ Authorized' : '❌ Not admin');
     
-    if (!isAdmin) {
+    // Admin enforcement is action-scoped below; not enforced globally here
+
+
+    const body = await req.json();
+    const { action } = body;
+    console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
+
+    // Enforce admin only for specific actions
+    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link'];
+    if (adminActions.includes(action) && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const body = await req.json();
-    const { action } = body;
-    console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // ========== get_topic_questions: Load all questions from question_bank for a topic ==========
     if (action === 'get_topic_questions') {
@@ -405,7 +410,8 @@ serve(async (req) => {
             correct_answer,
             explanation,
             xp_reward,
-            difficulty
+            difficulty,
+            created_at
           )
         `)
         .eq('topic_id', topic_id)
@@ -424,33 +430,45 @@ serve(async (req) => {
         );
       }
 
-      // Flatten and normalize to Question interface shape
-      const questions = exercises
-        .filter(ex => ex.gamified_exercises && ex.gamified_exercises.length > 0)
-        .map(ex => {
-          const ge = ex.gamified_exercises[0]; // Should be 1:1 relationship
+      // Flatten all exercises and normalize; keep order by mapping.order_num then exercise.created_at
+      let totalExercises = 0;
+      const questions: any[] = [];
+      for (const m of (exercises as any[])) {
+        const list = (m.gamified_exercises || []) as any[];
+        totalExercises += list.length;
+        for (const ge of list) {
           let answer = ge.correct_answer;
-          
           // Normalize MCQ answer to simple index number
           if (ge.exercise_type === 'mcq' && typeof answer === 'object' && answer !== null) {
-            answer = answer.value ?? answer.index ?? 0;
+            answer = ('value' in answer ? answer.value : ('index' in answer ? answer.index : 0));
           }
-          
-          return {
+          questions.push({
             id: ge.id,
             exercise_type: ge.exercise_type,
             exercise_data: ge.exercise_data,
             correct_answer: answer,
             explanation: ge.explanation,
             xp_reward: ge.xp_reward,
-            difficulty: ge.difficulty
-          };
-        });
+            difficulty: ge.difficulty,
+            _order_num: m.order_num,
+            _created_at: ge.created_at
+          });
+        }
+      }
 
-      console.log(`✅ Returning ${questions.length} questions for students`);
+      // Sort by mapping order, then by creation time for stability
+      questions.sort((a, b) => {
+        if (a._order_num !== b._order_num) return a._order_num - b._order_num;
+        return new Date(a._created_at).getTime() - new Date(b._created_at).getTime();
+      });
+
+      // Remove helper fields
+      const sanitized = questions.map(({ _order_num, _created_at, ...rest }) => rest);
+
+      console.log(`✅ Mappings: ${exercises.length}, total exercises: ${totalExercises}, returning: ${sanitized.length}`);
 
       return new Response(
-        JSON.stringify({ success: true, questions }),
+        JSON.stringify({ success: true, questions: sanitized }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

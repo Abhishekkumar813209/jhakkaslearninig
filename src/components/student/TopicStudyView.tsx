@@ -180,12 +180,35 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
   };
 
   const handleCorrectAnswer = async () => {
-    if (!questionQueue.currentQuestion) return;
+    const currentQ = questionQueue.currentQuestion;
+    if (!currentQ) return;
     
-    const difficulty = (questionQueue.currentQuestion.difficulty || 'medium') as Difficulty;
+    const difficulty = (currentQ.difficulty || 'medium') as Difficulty;
     const xpAmount = calculateXP('exercise', difficulty);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Track question attempt in database
+      await supabase.from('student_question_attempts').insert({
+        student_id: user.id,
+        question_id: currentQ.id,
+        topic_id: topicId,
+        selected_answer: currentQ.correct_answer,
+        is_correct: true,
+        status: 'completed',
+        time_spent_seconds: 0
+      });
+
+      // 2. Update topic game progress
+      await questionQueue.saveProgress(
+        questionQueue.currentIndex,
+        questionQueue.currentIndex + 1,
+        questionQueue.currentIndex + 1
+      );
+
+      // 3. Award XP
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       
@@ -193,7 +216,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         body: { 
           action: "add",
           xp_amount: xpAmount,
-          activity_type: "exercise_completed",
+          activity_type: "question_answered",
           metadata: { difficulty, topic_id: topicId }
         },
         headers
@@ -208,13 +231,31 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     }
   };
   
-  const handleWrongAnswer = () => {
-    // Wrong answers don't award XP, just for tracking
+  const handleWrongAnswer = async () => {
+    const currentQ = questionQueue.currentQuestion;
+    if (!currentQ) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Track wrong answer attempt
+      await supabase.from('student_question_attempts').insert({
+        student_id: user.id,
+        question_id: currentQ.id,
+        topic_id: topicId,
+        selected_answer: null,
+        is_correct: false,
+        status: 'attempted',
+        time_spent_seconds: 0
+      });
+    } catch (error) {
+      console.error("Error tracking wrong answer:", error);
+    }
   };
   
   const handleNextQuestion = () => {
     questionQueue.nextQuestion();
-    // Don't auto-complete, let user click "Complete" button from MCQGame
   };
   
   const handleExerciseComplete = async (exerciseId: string, xpReward: number, difficulty?: Difficulty) => {
@@ -256,6 +297,9 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
   const markTopicComplete = async () => {
     try {
+      // Mark progress as complete
+      await questionQueue.markComplete();
+
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       

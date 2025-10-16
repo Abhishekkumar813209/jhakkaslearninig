@@ -568,6 +568,9 @@ serve(async (req) => {
           .in('chapter_id', chapterIds)
           .order('day_number', { ascending: true });
 
+        console.log(`[getRoadmapDailyProgress] Found ${roadmapTopics?.length || 0} topics`);
+        console.log(`[getRoadmapDailyProgress] Unique subjects:`, [...new Set(roadmapTopics?.map(t => t.subject) || [])]);
+
         if (!roadmapTopics || roadmapTopics.length === 0) {
           return new Response(
             JSON.stringify({ dailyProgress: {} }),

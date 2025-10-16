@@ -5,13 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, FileText, Check, X, Save, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Upload, FileText, Check, Loader2, ChevronRight, ArrowLeft, Save, Trash2 } from "lucide-react";
 import * as mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist";
+import { useExamTypes } from "@/hooks/useExamTypes";
+import { BoardClassSelector } from "./BoardClassSelector";
+import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
+import * as LucideIcons from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -26,93 +29,173 @@ interface ExtractedQuestion {
   tempId: string;
 }
 
+interface Batch {
+  id: string;
+  name: string;
+  exam_type: string;
+  exam_name: string;
+  linked_roadmap_id: string;
+  target_board?: string;
+  target_class?: string;
+  current_strength: number;
+}
+
+interface Chapter {
+  id: string;
+  chapter_name: string;
+  subject: string;
+  roadmap_id: string;
+}
+
 export const QuestionBankBuilder = () => {
   const { toast } = useToast();
-  const [step, setStep] = useState(1);
+  const { examTypes } = useExamTypes();
+  const { selectedBoard, selectedClass, setBoard, setClass, reset: resetBoardClass } = useBoardClassHierarchy();
   
-  // Step 1: Topic Selection
-  const [selectedBatch, setSelectedBatch] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedChapter, setSelectedChapter] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState("");
-  const [topicId, setTopicId] = useState("");
+  // Step tracking
+  const [currentStep, setCurrentStep] = useState(1);
   
-  // Step 2: File Upload
+  // Domain selection (Step 1)
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  
+  // Batch selection (Step 3)
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<string>("");
+  
+  // Subject selection (Step 4)
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  
+  // Chapter selection (Step 5)
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  
+  // File upload (Step 6)
   const [file, setFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   
-  // Step 3: Questions Review
+  // Questions review (Step 7)
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
   
-  // Step 4: Save & Publish
+  // Saving (Step 8)
   const [saving, setSaving] = useState(false);
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
 
-  const [batches, setBatches] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [chapters, setChapters] = useState<any[]>([]);
-  const [topics, setTopics] = useState<any[]>([]);
-
-  const loadBatches = async () => {
-    const { data } = await supabase.from("batches").select("*").eq("is_active", true);
-    if (data) setBatches(data);
+  const iconMap: Record<string, any> = {
+    GraduationCap: LucideIcons.GraduationCap,
+    BookOpen: LucideIcons.BookOpen,
+    Briefcase: LucideIcons.Briefcase,
+    Building2: LucideIcons.Building2,
+    Globe: LucideIcons.Globe,
+    Shield: LucideIcons.Shield,
+    Zap: LucideIcons.Zap,
+    Award: LucideIcons.Award,
+    Pencil: LucideIcons.Pencil,
   };
 
-  const loadSubjects = async (batchId: string) => {
-    const { data } = await supabase
-      .from("batch_roadmaps")
-      .select("selected_subjects")
-      .eq("batch_id", batchId)
-      .single();
-    
-    if (data?.selected_subjects) {
-      const subjectsArray = Array.isArray(data.selected_subjects) 
-        ? data.selected_subjects.filter((s): s is string => typeof s === 'string')
-        : [];
-      setSubjects(subjectsArray);
-    }
-  };
-
-  const loadChapters = async (batchId: string, subject: string) => {
-    const { data: roadmap } = await supabase
-      .from("batch_roadmaps")
-      .select("id")
-      .eq("batch_id", batchId)
-      .single();
-
-    if (roadmap) {
-      const { data } = await supabase
-        .from("roadmap_chapters")
-        .select("*")
-        .eq("roadmap_id", roadmap.id)
-        .eq("subject", subject)
-        .order("order_num");
-      
-      if (data) setChapters(data);
-    }
-  };
-
-  const loadTopics = async (chapterId: string) => {
-    const { data } = await supabase
-      .from("roadmap_topics")
-      .select("*")
-      .eq("chapter_id", chapterId)
-      .order("order_num");
-    
-    if (data) setTopics(data);
-  };
-
-  // Load batches on mount
+  // Fetch batches when domain/board/class changes
   useEffect(() => {
-    loadBatches();
-  }, []);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFile = e.target.files?.[0];
-    if (uploadedFile) {
-      setFile(uploadedFile);
+    if (selectedDomain) {
+      fetchBatches();
     }
+  }, [selectedDomain, selectedBoard, selectedClass]);
+
+  // Fetch subjects when batch changes
+  useEffect(() => {
+    if (selectedBatch) {
+      fetchSubjects();
+    }
+  }, [selectedBatch]);
+
+  // Fetch chapters when subject changes
+  useEffect(() => {
+    if (selectedSubject) {
+      fetchChapters();
+    }
+  }, [selectedSubject]);
+
+  const fetchBatches = async () => {
+    if (!selectedDomain) return;
+
+    let query = supabase
+      .from("batches")
+      .select("id, name, exam_type, exam_name, linked_roadmap_id, target_board, target_class, current_strength")
+      .eq("is_active", true)
+      .eq("exam_type", selectedDomain)
+      .not("linked_roadmap_id", "is", null);
+
+    const { data, error } = await query.order("name");
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to load batches", variant: "destructive" });
+      return;
+    }
+
+    // Filter by board and class for school domain
+    let filteredData = data || [];
+    if (selectedDomain === 'school') {
+      filteredData = filteredData.filter(b => 
+        (!selectedBoard || b.target_board === selectedBoard) &&
+        (!selectedClass || b.target_class === selectedClass)
+      );
+    }
+
+    setBatches(filteredData);
+  };
+
+  const fetchSubjects = async () => {
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch?.linked_roadmap_id) return;
+
+    const { data, error } = await supabase
+      .from('roadmap_chapters')
+      .select('subject')
+      .eq('roadmap_id', batch.linked_roadmap_id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to load subjects", variant: "destructive" });
+      return;
+    }
+
+    const uniqueSubjects = Array.from(new Set(data.map(d => d.subject)));
+    setSubjects(uniqueSubjects);
+  };
+
+  const fetchChapters = async () => {
+    const batch = batches.find(b => b.id === selectedBatch);
+    if (!batch?.linked_roadmap_id || !selectedSubject) return;
+
+    const { data, error } = await supabase
+      .from("roadmap_chapters")
+      .select("id, chapter_name, subject, roadmap_id")
+      .eq("roadmap_id", batch.linked_roadmap_id)
+      .eq("subject", selectedSubject)
+      .order("order_num");
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to load chapters", variant: "destructive" });
+      return;
+    }
+
+    setChapters(data || []);
+  };
+
+  const handleDomainSelect = (domain: string) => {
+    setSelectedDomain(domain);
+    resetBoardClass();
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter(null);
+    
+    const examType = examTypes.find(t => t.code === domain);
+    if (examType?.requires_board) {
+      setCurrentStep(2); // Go to board/class selection
+    } else {
+      setCurrentStep(3); // Skip directly to batch selection
+    }
+  };
+
+  const handleBoardClassComplete = () => {
+    setCurrentStep(3); // Move to batch selection
   };
 
   const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -137,8 +220,8 @@ export const QuestionBankBuilder = () => {
   };
 
   const extractQuestions = async () => {
-    if (!file || !topicId) {
-      toast({ title: "Missing Information", description: "Please select a topic and upload a file", variant: "destructive" });
+    if (!file || !selectedChapter) {
+      toast({ title: "Missing Information", description: "Please upload a file", variant: "destructive" });
       return;
     }
 
@@ -158,8 +241,7 @@ export const QuestionBankBuilder = () => {
         body: {
           file_content: fileContent,
           subject: selectedSubject,
-          chapter: selectedChapter,
-          topic: selectedTopic,
+          chapter: selectedChapter.chapter_name,
           skip_validation: false
         }
       });
@@ -178,7 +260,7 @@ export const QuestionBankBuilder = () => {
       }));
 
       setQuestions(extractedQuestions);
-      setStep(3);
+      setCurrentStep(7);
       toast({ title: "Success", description: `Extracted ${extractedQuestions.length} questions` });
     } catch (error: any) {
       console.error("Extraction error:", error);
@@ -194,6 +276,10 @@ export const QuestionBankBuilder = () => {
     ));
   };
 
+  const deleteQuestion = (tempId: string) => {
+    setQuestions(prev => prev.filter(q => q.tempId !== tempId));
+  };
+
   const saveToDatabase = async () => {
     if (questions.length === 0) {
       toast({ title: "No Questions", description: "Please extract questions first", variant: "destructive" });
@@ -203,9 +289,14 @@ export const QuestionBankBuilder = () => {
     setSaving(true);
     try {
       const { data: user } = await supabase.auth.getUser();
+      const batch = batches.find(b => b.id === selectedBatch);
       
       const questionsToSave = questions.map(q => ({
-        topic_id: topicId,
+        chapter_id: selectedChapter?.id,
+        subject: selectedSubject,
+        batch_id: selectedBatch,
+        exam_domain: selectedDomain,
+        exam_name: batch?.exam_name || selectedDomain,
         question_text: q.question_text,
         question_type: q.question_type,
         options: q.options,
@@ -225,8 +316,17 @@ export const QuestionBankBuilder = () => {
 
       if (error) throw error;
 
-      toast({ title: "Success", description: `Saved ${data.length} questions to database` });
-      setStep(4);
+      toast({ title: "Success", description: `Saved ${data.length} questions to Question Bank` });
+      
+      // Reset and go back to start
+      setCurrentStep(1);
+      setSelectedDomain(null);
+      resetBoardClass();
+      setSelectedBatch("");
+      setSelectedSubject("");
+      setSelectedChapter(null);
+      setFile(null);
+      setQuestions([]);
     } catch (error: any) {
       console.error("Save error:", error);
       toast({ title: "Save Failed", description: error.message, variant: "destructive" });
@@ -235,215 +335,327 @@ export const QuestionBankBuilder = () => {
     }
   };
 
-  const toggleQuestionSelection = (tempId: string) => {
-    const newSet = new Set(selectedQuestionIds);
-    if (newSet.has(tempId)) {
-      newSet.delete(tempId);
-    } else {
-      newSet.add(tempId);
+  const renderBreadcrumbs = () => {
+    const crumbs = [];
+    
+    if (selectedDomain) {
+      const examType = examTypes.find(t => t.code === selectedDomain);
+      crumbs.push(examType?.display_name || selectedDomain);
     }
-    setSelectedQuestionIds(newSet);
-  };
-
-  const publishSelected = async () => {
-    if (selectedQuestionIds.size === 0) {
-      toast({ title: "No Selection", description: "Please select questions to publish", variant: "destructive" });
-      return;
+    if (selectedBoard) crumbs.push(selectedBoard);
+    if (selectedClass) crumbs.push(`Class ${selectedClass}`);
+    if (selectedBatch) {
+      const batch = batches.find(b => b.id === selectedBatch);
+      crumbs.push(batch?.name || "Batch");
     }
-
-    try {
-      const selectedTempIds = Array.from(selectedQuestionIds);
-      const questionsToPublish = questions.filter(q => selectedTempIds.includes(q.tempId));
-      
-      // This would need the actual IDs after saving - simplified for now
-      toast({ title: "Success", description: `Published ${selectedQuestionIds.size} questions` });
-      setSelectedQuestionIds(new Set());
-    } catch (error: any) {
-      toast({ title: "Publish Failed", description: error.message, variant: "destructive" });
-    }
+    if (selectedSubject) crumbs.push(selectedSubject);
+    if (selectedChapter) crumbs.push(selectedChapter.chapter_name);
+    
+    return crumbs.length > 0 ? (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+        {crumbs.map((crumb, idx) => (
+          <span key={idx} className="flex items-center gap-2">
+            {crumb}
+            {idx < crumbs.length - 1 && <ChevronRight className="h-4 w-4" />}
+          </span>
+        ))}
+      </div>
+    ) : null;
   };
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold">Question Bank Builder</h2>
-          <p className="text-muted-foreground">Simple workflow to extract and manage questions</p>
-        </div>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4].map(s => (
-            <Badge key={s} variant={step >= s ? "default" : "outline"}>
-              Step {s}
-            </Badge>
-          ))}
-        </div>
+      <div>
+        <h2 className="text-3xl font-bold">Question Bank Builder</h2>
+        <p className="text-muted-foreground">Extract questions from PDFs/Word docs organized by Domain → Board → Class → Batch → Subject → Chapter</p>
       </div>
 
-      {/* Step 1: Topic Selection */}
-      {step === 1 && (
+      {renderBreadcrumbs()}
+
+      {/* Step 1: Domain Selection */}
+      {currentStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 1: Select Topic</CardTitle>
-            <CardDescription>Choose batch, subject, chapter, and topic</CardDescription>
+            <CardTitle>Step 1: Select Exam Domain</CardTitle>
+            <CardDescription>Choose the exam type to organize questions</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Batch</Label>
-              <Select value={selectedBatch} onValueChange={(val) => {
-                setSelectedBatch(val);
-                loadSubjects(val);
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select batch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {batches.map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {examTypes.filter(t => t.is_active).map((examType) => {
+                const IconComponent = examType.icon_name ? iconMap[examType.icon_name] : LucideIcons.BookOpen;
+                return (
+                  <Card
+                    key={examType.id}
+                    className="cursor-pointer hover:border-primary transition-all"
+                    onClick={() => handleDomainSelect(examType.code)}
+                  >
+                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+                      {IconComponent && <IconComponent className="h-8 w-8 text-primary" />}
+                      <div>
+                        <div className="font-semibold">{examType.display_name}</div>
+                        <div className="text-xs text-muted-foreground">{examType.category}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-
-            {subjects.length > 0 && (
-              <div>
-                <Label>Subject</Label>
-                <Select value={selectedSubject} onValueChange={(val) => {
-                  setSelectedSubject(val);
-                  loadChapters(selectedBatch, val);
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {chapters.length > 0 && (
-              <div>
-                <Label>Chapter</Label>
-                <Select value={selectedChapter} onValueChange={(val) => {
-                  const chapter = chapters.find(c => c.id === val);
-                  setSelectedChapter(chapter?.chapter_name || "");
-                  loadTopics(val);
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select chapter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {chapters.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.chapter_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {topics.length > 0 && (
-              <div>
-                <Label>Topic</Label>
-                <Select value={topicId} onValueChange={(val) => {
-                  const topic = topics.find(t => t.id === val);
-                  setTopicId(val);
-                  setSelectedTopic(topic?.topic_name || "");
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select topic" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {topics.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.topic_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <Button onClick={() => setStep(2)} disabled={!topicId}>
-              Next: Upload File
-            </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 2: File Upload */}
-      {step === 2 && (
+      {/* Step 2: Board & Class Selection (Only for School) */}
+      {currentStep === 2 && selectedDomain === 'school' && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 2: Upload PDF or Word File</CardTitle>
+            <CardTitle>Step 2: Select Board & Class</CardTitle>
+            <CardDescription>Choose the educational board and class</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="outline" onClick={() => setCurrentStep(1)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Domain
+            </Button>
+            
+            <BoardClassSelector
+              examType={selectedDomain || ''}
+              selectedBoard={selectedBoard}
+              selectedClass={selectedClass}
+              onBoardSelect={setBoard}
+              onClassSelect={setClass}
+              onReset={resetBoardClass}
+            />
+            
+            {selectedBoard && selectedClass && (
+              <Button onClick={handleBoardClassComplete} className="mt-4">
+                Next: Select Batch
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 3: Batch Selection */}
+      {currentStep === 3 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Step 3: Select Batch</CardTitle>
+            <CardDescription>Choose a batch with a linked roadmap</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="outline" onClick={() => setCurrentStep(selectedDomain === 'school' ? 2 : 1)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            
+            {batches.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No batches found for this selection. Please create a batch with a linked roadmap first.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {batches.map((batch) => (
+                  <Card
+                    key={batch.id}
+                    className={`cursor-pointer hover:border-primary transition-all ${
+                      selectedBatch === batch.id ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedBatch(batch.id);
+                      setCurrentStep(4);
+                    }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="font-semibold">{batch.name}</div>
+                      <div className="text-sm text-muted-foreground">{batch.exam_name}</div>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Strength: {batch.current_strength}
+                      </div>
+                      <Badge variant="secondary" className="mt-2">Has Roadmap</Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 4: Subject Selection */}
+      {currentStep === 4 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Step 4: Select Subject</CardTitle>
+            <CardDescription>Choose the subject for questions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="outline" onClick={() => setCurrentStep(3)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Batch
+            </Button>
+            
+            {subjects.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No subjects found in the batch roadmap.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {subjects.map((subject) => (
+                  <Card
+                    key={subject}
+                    className={`cursor-pointer hover:border-primary transition-all ${
+                      selectedSubject === subject ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedSubject(subject);
+                      setCurrentStep(5);
+                    }}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <div className="font-semibold">{subject}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 5: Chapter Selection */}
+      {currentStep === 5 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Step 5: Select Chapter</CardTitle>
+            <CardDescription>Choose the chapter for questions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="outline" onClick={() => setCurrentStep(4)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Subject
+            </Button>
+            
+            {chapters.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No chapters found for this subject.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {chapters.map((chapter) => (
+                  <Card
+                    key={chapter.id}
+                    className={`cursor-pointer hover:border-primary transition-all ${
+                      selectedChapter?.id === chapter.id ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedChapter(chapter);
+                      setCurrentStep(6);
+                    }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="font-semibold">{chapter.chapter_name}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 6: File Upload */}
+      {currentStep === 6 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Step 6: Upload PDF or Word File</CardTitle>
             <CardDescription>Upload the document containing questions</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Button variant="outline" onClick={() => setCurrentStep(5)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Chapter
+            </Button>
+            
             <div>
               <Label htmlFor="file-upload">Select File (PDF or Word)</Label>
               <Input
                 id="file-upload"
                 type="file"
                 accept=".pdf,.doc,.docx"
-                onChange={handleFileUpload}
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="mt-2"
               />
               {file && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  <FileText className="inline h-4 w-4 mr-1" />
+                <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
                   {file.name}
                 </p>
               )}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
-              <Button onClick={extractQuestions} disabled={!file || extracting}>
-                {extracting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Extracting...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Extract Questions
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button onClick={extractQuestions} disabled={!file || extracting} className="w-full">
+              {extracting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Extracting Questions...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Extract Questions with AI
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3: Review Questions */}
-      {step === 3 && (
+      {/* Step 7: Review Questions */}
+      {currentStep === 7 && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 3: Review & Edit Questions ({questions.length})</CardTitle>
-            <CardDescription>Check and correct the extracted questions</CardDescription>
+            <CardTitle>Step 7: Review & Edit Questions ({questions.length})</CardTitle>
+            <CardDescription>Check and correct the extracted questions before saving</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="max-h-[500px] overflow-y-auto space-y-3">
+            <Button variant="outline" onClick={() => setCurrentStep(6)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Upload
+            </Button>
+            
+            <div className="max-h-[600px] overflow-y-auto space-y-3">
               {questions.map((q, idx) => (
-                <div key={q.tempId} className="border rounded-lg p-4 space-y-2">
+                <div key={q.tempId} className="border rounded-lg p-4 space-y-3">
                   <div className="flex justify-between items-start">
-                    <span className="font-semibold">Q{idx + 1}</span>
+                    <span className="font-semibold text-lg">Q{idx + 1}</span>
                     <div className="flex gap-2">
                       <Badge variant="secondary">{q.question_type}</Badge>
                       <Badge variant="outline">{q.marks} marks</Badge>
+                      <Badge>{q.difficulty}</Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => deleteQuestion(q.tempId)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
                   
-                  <Textarea
-                    value={q.question_text}
-                    onChange={(e) => updateQuestion(q.tempId, "question_text", e.target.value)}
-                    className="min-h-[60px]"
-                  />
+                  <div>
+                    <Label>Question Text</Label>
+                    <Textarea
+                      value={q.question_text}
+                      onChange={(e) => updateQuestion(q.tempId, "question_text", e.target.value)}
+                      className="min-h-[80px] mt-1"
+                    />
+                  </div>
                   
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label>Type</Label>
                       <Select value={q.question_type} onValueChange={(val) => updateQuestion(q.tempId, "question_type", val)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -460,12 +672,13 @@ export const QuestionBankBuilder = () => {
                         type="number"
                         value={q.marks}
                         onChange={(e) => updateQuestion(q.tempId, "marks", parseInt(e.target.value) || 1)}
+                        className="mt-1"
                       />
                     </div>
                     <div>
                       <Label>Difficulty</Label>
                       <Select value={q.difficulty} onValueChange={(val) => updateQuestion(q.tempId, "difficulty", val)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -483,49 +696,37 @@ export const QuestionBankBuilder = () => {
                       value={q.correct_answer}
                       onChange={(e) => updateQuestion(q.tempId, "correct_answer", e.target.value)}
                       placeholder="Enter correct answer"
+                      className="mt-1"
                     />
                   </div>
+
+                  {q.explanation && (
+                    <div>
+                      <Label>Explanation (Optional)</Label>
+                      <Textarea
+                        value={q.explanation}
+                        onChange={(e) => updateQuestion(q.tempId, "explanation", e.target.value)}
+                        className="min-h-[60px] mt-1"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-              <Button onClick={saveToDatabase} disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save to Database
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 4: Publish */}
-      {step === 4 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Step 4: Publish Questions</CardTitle>
-            <CardDescription>Select which questions students can see</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Questions saved! Now select which ones to publish for students.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={() => setStep(1)}>Add More Questions</Button>
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                View Question Bank
-              </Button>
-            </div>
+            <Button onClick={saveToDatabase} disabled={saving || questions.length === 0} className="w-full mt-4">
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving to Database...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save {questions.length} Questions to Question Bank
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       )}

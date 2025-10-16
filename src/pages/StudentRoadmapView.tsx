@@ -13,7 +13,7 @@ const StudentRoadmapView = () => {
 
   useEffect(() => {
     const verifyRoadmapAccess = async () => {
-      if (!roadmapId) {
+      if (!roadmapId || roadmapId === "undefined") {
         navigate("/student");
         return;
       }

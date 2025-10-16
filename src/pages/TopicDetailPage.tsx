@@ -42,7 +42,11 @@ const TopicDetailPage = () => {
           description: "This topic doesn't have any exercises yet. Please contact your instructor.",
           variant: "destructive"
         });
-        navigate(`/student/roadmap/${roadmapId}`);
+        if (!roadmapId || roadmapId === "undefined") {
+          navigate("/student");
+        } else {
+          navigate(`/student/roadmap/${roadmapId}`);
+        }
       }
     } catch (error) {
       console.error("Error starting games:", error);
@@ -51,7 +55,11 @@ const TopicDetailPage = () => {
         description: "Failed to load exercises. Please try again.",
         variant: "destructive"
       });
-      navigate(`/student/roadmap/${roadmapId}`);
+      if (!roadmapId || roadmapId === "undefined") {
+        navigate("/student");
+      } else {
+        navigate(`/student/roadmap/${roadmapId}`);
+      }
     }
   };
 

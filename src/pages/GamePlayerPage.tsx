@@ -20,6 +20,11 @@ const GamePlayerPage = () => {
   const [autoAdvanceTimeout, setAutoAdvanceTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Guard against invalid params
+    if (!roadmapId || roadmapId === "undefined" || !topicId || !gameId) {
+      navigate("/student");
+      return;
+    }
     loadGameData();
     return () => {
       if (autoAdvanceTimeout) {
@@ -213,7 +218,11 @@ const GamePlayerPage = () => {
   };
 
   const handleExit = () => {
-    navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+    if (!roadmapId || roadmapId === "undefined") {
+      navigate("/student");
+    } else {
+      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+    }
   };
 
   if (loading) {
@@ -251,11 +260,19 @@ const GamePlayerPage = () => {
             <Home className="h-4 w-4" />
           </Button>
           <span>/</span>
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/student/roadmap/${roadmapId}`)}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => roadmapId && roadmapId !== "undefined" ? navigate(`/student/roadmap/${roadmapId}`) : navigate("/student")}
+          >
             Roadmap
           </Button>
           <span>/</span>
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`)}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => roadmapId && roadmapId !== "undefined" ? navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`) : navigate("/student")}
+          >
             Topic
           </Button>
           <span>/</span>

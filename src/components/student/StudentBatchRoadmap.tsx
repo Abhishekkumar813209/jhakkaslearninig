@@ -446,7 +446,7 @@ export const StudentBatchRoadmap = () => {
         chapterName={selectedChapter.name}
         topics={selectedChapter.topics}
         onTopicClick={(topicId, topicName) => {
-          navigate(`/student/roadmap/${roadmap?.roadmap_id}/topic/${topicId}`);
+          navigate(`/student/roadmap/${roadmap?.id}/topic/${topicId}`);
         }}
         onBack={() => {
           setSelectedChapter(null);
@@ -540,7 +540,7 @@ export const StudentBatchRoadmap = () => {
           totalDays={roadmap.total_days}
           subjectsData={roadmap.subjects}
           onTopicClick={(topicId, chapterName) => {
-            navigate(`/student/roadmap/${roadmap.roadmap_id}/topic/${topicId}`);
+            navigate(`/student/roadmap/${roadmap.id}/topic/${topicId}`);
           }}
         />
       ) : viewMode === 'cards' ? (

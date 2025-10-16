@@ -71,23 +71,27 @@ serve(async (req) => {
       );
     }
 
+    // Extract JWT token from Bearer header
+    const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+    console.log('🔑 JWT extracted (length:', jwt.length, ')');
+
     // Auth client for user validation
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Explicitly pass JWT to getUser() instead of relying on global headers
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
     if (userError || !user) {
-      console.error('❌ getUser() failed:', userError?.message || 'No user returned');
+      console.error('❌ getUser() failed:', userError?.message || 'Invalid JWT token');
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid authentication token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    console.log('✅ User authenticated:', user.id);
+    console.log('✅ User authenticated:', user.id, 'email:', user.email?.substring(0, 15) + '...');
 
     // Service role client for DB operations (bypasses RLS)
     const serviceClient = createClient(

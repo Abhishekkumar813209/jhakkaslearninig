@@ -2007,10 +2007,14 @@ export type Database = {
       }
       question_bank: {
         Row: {
-          correct_answer: string
+          batch_id: string | null
+          chapter_id: string | null
+          correct_answer: string | null
           created_at: string | null
           created_by: string | null
           difficulty: string | null
+          exam_domain: string | null
+          exam_name: string | null
           explanation: string | null
           id: string
           is_published: boolean | null
@@ -2019,14 +2023,19 @@ export type Database = {
           question_text: string
           question_type: string
           source_file_name: string | null
+          subject: string | null
           topic_id: string | null
           updated_at: string | null
         }
         Insert: {
-          correct_answer: string
+          batch_id?: string | null
+          chapter_id?: string | null
+          correct_answer?: string | null
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
+          exam_domain?: string | null
+          exam_name?: string | null
           explanation?: string | null
           id?: string
           is_published?: boolean | null
@@ -2035,14 +2044,19 @@ export type Database = {
           question_text: string
           question_type: string
           source_file_name?: string | null
+          subject?: string | null
           topic_id?: string | null
           updated_at?: string | null
         }
         Update: {
-          correct_answer?: string
+          batch_id?: string | null
+          chapter_id?: string | null
+          correct_answer?: string | null
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
+          exam_domain?: string | null
+          exam_name?: string | null
           explanation?: string | null
           id?: string
           is_published?: boolean | null
@@ -2051,10 +2065,25 @@ export type Database = {
           question_text?: string
           question_type?: string
           source_file_name?: string | null
+          subject?: string | null
           topic_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_bank_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_bank_topic_id_fkey"
             columns: ["topic_id"]

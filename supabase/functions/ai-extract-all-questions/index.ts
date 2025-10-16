@@ -305,7 +305,19 @@ ${file_content}
         
         const qText = qTextStr.toLowerCase();
         const qNum = (q.question_number ?? '').toString().trim();
-        const options = Array.isArray(q.options) ? q.options : [];
+        
+        // Fix nested options structure
+        let options = Array.isArray(q.options) ? q.options : [];
+        if (options.length > 0) {
+          options = options.map((opt: any) => {
+            if (typeof opt === 'string') return opt;
+            if (typeof opt === 'object' && opt !== null) {
+              return opt.text || opt.value || opt.label || JSON.stringify(opt);
+            }
+            return String(opt);
+          });
+          q.options = options;
+        }
         
         // Check 1: Anti-hallucination - Multi-strategy validation
         let foundInDocument = false;

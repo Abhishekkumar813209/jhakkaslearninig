@@ -97,10 +97,11 @@ serve(async (req) => {
       "question_number": "1",
       "question_type": "mcq",
       "question_text": "Exact text with [FIGURE id=...] if diagram needed",
-      "options": ["option 1", "option 2", "option 3", "option 4"],
+      "options": ["option 1 text only", "option 2 text only", "option 3 text only", "option 4 text only"],
+      "correct_answer": "option 3 text only",
       "marks": 1,
       "difficulty": "medium",
-      "confidence": "high", // high/medium/low
+      "confidence": "high",
       "has_image": true,
       "image_description": "Diagram showing force vectors",
       "ocr_text": "Text extracted from image if available"
@@ -112,6 +113,13 @@ serve(async (req) => {
     "notes": "All questions extracted successfully"
   }
 }
+
+🚨 CRITICAL OPTIONS RULE:
+- "options" field must be a FLAT ARRAY of strings ONLY
+- Each option should be PLAIN TEXT without any nested structure
+- Remove option labels like "a)", "b)" - extract only the text
+- Example: ["gravitational force", "electromagnetic force", "nuclear force", "weak force"]
+- NEVER use nested objects like [{"text": "option", "label": "a"}]
 
 QUESTION TYPES (in priority order):
 1. assertion_reason - Has both "Assertion (A):" AND "Reason (R):"
@@ -189,8 +197,24 @@ ${chunkContent}
         
         console.log(`✅ Chunk ${i + 1}: Extracted ${chunkQuestions.length} questions`);
         
-        allQuestions.push(...chunkQuestions);
-        totalProcessed += chunkQuestions.length;
+        // Fix nested options structure if present
+        const fixedQuestions = chunkQuestions.map((q: any) => {
+          if (q.options && Array.isArray(q.options)) {
+            q.options = q.options.map((opt: any) => {
+              // If option is already a string, keep it
+              if (typeof opt === 'string') return opt;
+              // If option is an object, extract the text value
+              if (typeof opt === 'object' && opt !== null) {
+                return opt.text || opt.value || opt.label || JSON.stringify(opt);
+              }
+              return String(opt);
+            });
+          }
+          return q;
+        });
+        
+        allQuestions.push(...fixedQuestions);
+        totalProcessed += fixedQuestions.length;
 
         // Rate limit: small delay between chunks
         if (i < chunks.length - 1) {

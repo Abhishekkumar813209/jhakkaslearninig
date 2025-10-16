@@ -185,9 +185,7 @@ serve(async (req) => {
         .update({
           correct_answer: normalized,
           explanation: explanation || null,
-          admin_reviewed: true,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id
+          updated_at: new Date().toISOString()
         })
         .eq('id', question_id);
 

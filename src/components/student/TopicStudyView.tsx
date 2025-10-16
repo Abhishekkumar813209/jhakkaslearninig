@@ -55,6 +55,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
   const [scrollPercent, setScrollPercent] = useState(0);
   const [theoryCompleted, setTheoryCompleted] = useState(false);
   const [completedGames, setCompletedGames] = useState<Set<number>>(new Set());
+  const [questionsCorrect, setQuestionsCorrect] = useState(0);
+  const [questionsAttempted, setQuestionsAttempted] = useState(0);
   const { toast } = useToast();
   
   // Phase 3: Question Queue System
@@ -190,6 +192,10 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Update local stats
+      setQuestionsCorrect(prev => prev + 1);
+      setQuestionsAttempted(prev => prev + 1);
+
       // 1. Track question attempt in database
       await supabase.from('student_question_attempts').insert({
         student_id: user.id,
@@ -205,7 +211,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       await questionQueue.saveProgress(
         questionQueue.currentIndex,
         questionQueue.currentIndex + 1,
-        questionQueue.currentIndex + 1
+        questionsCorrect + 1
       );
 
       // 3. Award XP
@@ -224,7 +230,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       
       toast({
         title: `✅ Correct! +${xpAmount} XP`,
-        description: `${difficulty.toUpperCase()} question completed!`,
+        description: `${questionsCorrect + 1}/${questionQueue.totalQuestions} correct`,
       });
     } catch (error) {
       console.error("Error awarding XP:", error);
@@ -239,6 +245,9 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Update local stats
+      setQuestionsAttempted(prev => prev + 1);
+
       // Track wrong answer attempt
       await supabase.from('student_question_attempts').insert({
         student_id: user.id,
@@ -249,6 +258,13 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         status: 'attempted',
         time_spent_seconds: 0
       });
+
+      // Update progress
+      await questionQueue.saveProgress(
+        questionQueue.currentIndex,
+        questionQueue.currentIndex + 1,
+        questionsCorrect
+      );
     } catch (error) {
       console.error("Error tracking wrong answer:", error);
     }
@@ -501,19 +517,46 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     );
   }
 
-  // Phase 3: Show Question Queue UI
+  // Phase 3: Show Question Queue UI with Enhanced Progress
   if (showExercises && questionQueue.currentQuestion) {
     const currentQ = questionQueue.currentQuestion;
+    const percentComplete = questionQueue.totalQuestions > 0 
+      ? Math.round((questionsAttempted / questionQueue.totalQuestions) * 100)
+      : 0;
+    const accuracy = questionsAttempted > 0
+      ? Math.round((questionsCorrect / questionsAttempted) * 100)
+      : 0;
     
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => {
-          setShowExercises(false);
-          questionQueue.reset();
-        }}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Study Material
-        </Button>
+        {/* Enhanced Header with Stats */}
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" onClick={() => {
+            setShowExercises(false);
+            questionQueue.reset();
+          }}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Study Material
+          </Button>
+          
+          {/* Progress Stats */}
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              {questionsCorrect}/{questionQueue.totalQuestions} Correct
+            </Badge>
+            <Badge 
+              variant={accuracy >= 70 ? "default" : accuracy >= 50 ? "secondary" : "destructive"}
+              className="gap-2"
+            >
+              <Trophy className="h-4 w-4" />
+              {accuracy}% Accuracy
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              {percentComplete}% Complete
+            </span>
+          </div>
+        </div>
 
         {/* Render different game types based on exercise_type */}
         {currentQ.exercise_type === 'mcq' && (

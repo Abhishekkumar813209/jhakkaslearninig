@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.ai-extract-all-questions]
 verify_jwt = true
 
+[functions.ai-extract-all-questions-chunked]
+verify_jwt = true
+
 [functions.save-extracted-questions]
 verify_jwt = true
 

@@ -161,10 +161,11 @@ export const SmartQuestionExtractor = ({
       // STEP 3: Fetch from database
       try {
         setAuthError(false);
+        const action = mode === 'question-bank' ? 'get_topic_questions' : 'get_by_topic';
         const data = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
           name: 'topic-questions-api',
           body: {
-            action: 'get_by_topic',
+            action,
             topic_id: activeTopicId
           }
         });
@@ -974,33 +975,28 @@ export const SmartQuestionExtractor = ({
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
-    // Delete from database first (if question exists in DB)
     try {
       const questionToDelete = extractedQuestions.find(q => q.id === questionId);
       if (questionToDelete && questionToDelete.id && questionToDelete.id.includes('-')) {
-        // Only delete if it's a real UUID (from database), not a temporary ID
-        const { error } = await supabase
-          .from('gamified_exercises')
-          .delete()
-          .eq('id', questionId);
-        
-        if (error) {
-          console.error('Error deleting from database:', error);
-          toast.error('Failed to delete from database');
-          return;
+        if (mode === 'question-bank') {
+          const { error } = await supabase.from('question_bank').delete().eq('id', questionId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('gamified_exercises').delete().eq('id', questionId);
+          if (error) throw error;
         }
-        
-        toast.success('Question deleted from database');
       }
+      // Update local state with re-numbering
+      setExtractedQuestions(prev => {
+        const filtered = prev.filter(q => q.id !== questionId);
+        return filtered.map((q, idx) => ({ ...q, question_number: String(idx + 1) }));
+      });
+      setSelectedIds(prev => prev.filter(id => id !== questionId));
+      toast.success('Question deleted');
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Failed to delete question');
-      return;
     }
-    
-    // Update local state
-    setExtractedQuestions(prev => prev.filter(q => q.id !== questionId));
-    setSelectedIds(prev => prev.filter(id => id !== questionId));
   };
 
   const handleUpdateAnswer = async (questionId: string, answer: any) => {
@@ -1013,18 +1009,19 @@ export const SmartQuestionExtractor = ({
     try {
       const questionToUpdate = extractedQuestions.find(q => q.id === questionId);
       if (questionToUpdate && questionToUpdate.id && questionToUpdate.id.includes('-')) {
-        // Call API to update correct_answer in database
         await invokeWithAuth({
           name: 'topic-questions-api',
           body: {
             action: 'update_question_answer',
             question_id: questionId,
+            question_type: questionToUpdate.question_type,
+            options: questionToUpdate.options || null,
             correct_answer: answer,
-            explanation: questionToUpdate.explanation
+            explanation: questionToUpdate.explanation || null
           }
         });
         
-        console.log('✅ Updated answer in database for question:', questionId);
+        toast.success('Answer saved to database');
       }
     } catch (error) {
       console.error('Error updating answer in database:', error);

@@ -159,7 +159,7 @@ const SortableChapterCard = ({
 
   const hasTopics = chapter.topics && chapter.topics.length > 0;
 
-  const bgColor = chapter.progress === 100 ? 'bg-green-50' : chapter.progress === 0 ? 'bg-red-50' : 'bg-card';
+  const bgColor = chapter.progress === 100 ? 'bg-green-600 text-white' : chapter.progress === 0 ? 'bg-red-600 text-white' : 'bg-card';
 
   return (
     <div 
@@ -184,12 +184,12 @@ const SortableChapterCard = ({
             </div>
           )}
           
-          <BookOpen className="h-4 w-4 text-primary" />
+          <BookOpen className={`h-4 w-4 ${chapter.progress === 100 || chapter.progress === 0 ? 'text-white' : 'text-primary'}`} />
           <span className="font-medium text-sm">{chapter.chapter_name}</span>
         </div>
         
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant={chapter.progress === 100 || chapter.progress === 0 ? "outline" : "secondary"} className={`text-xs ${chapter.progress === 100 ? 'bg-green-800 text-white border-green-400' : chapter.progress === 0 ? 'bg-red-800 text-white border-red-400' : ''}`}>
             Day {chapter.day_start}-{chapter.day_end}
           </Badge>
           
@@ -201,7 +201,7 @@ const SortableChapterCard = ({
                 e.stopPropagation();
                 setShowTopics(!showTopics);
               }}
-              className="h-6 px-2 text-xs text-primary hover:underline"
+              className={`h-6 px-2 text-xs ${chapter.progress === 100 || chapter.progress === 0 ? 'text-white hover:bg-white/20' : 'text-primary'} hover:underline`}
             >
               <FileText className="h-3 w-3 mr-1" />
               {chapter.topics!.length}

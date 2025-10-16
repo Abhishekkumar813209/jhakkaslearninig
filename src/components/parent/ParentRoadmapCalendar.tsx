@@ -77,24 +77,25 @@ const ChapterPill = ({
   const [showTopics, setShowTopics] = useState(false);
   const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
   
-  const bgColor = isCompleted ? 'bg-green-100' : 'bg-red-100';
+  const bgColor = isCompleted ? 'bg-green-600' : 'bg-red-600';
+  const textColor = 'text-white';
   const completedTopics = chapter.topics.filter(t => t.is_completed).length;
   const totalTopics = chapter.topics.length;
 
   return (
     <div 
-      className={`p-2 border rounded-lg ${bgColor} ${colorClass} relative mb-2 cursor-pointer select-none transition-colors hover:shadow-md`}
+      className={`p-2 border rounded-lg ${bgColor} ${textColor} ${colorClass} relative mb-2 cursor-pointer select-none transition-colors hover:shadow-md hover:opacity-90`}
       onDoubleClick={() => onDoubleClick(chapter.id)}
     >
       {/* Status badge */}
       <div className="absolute top-1 right-1">
-        <Badge variant={isCompleted ? "default" : "destructive"} className="text-xs">
+        <Badge variant={isCompleted ? "outline" : "outline"} className={`text-xs ${isCompleted ? 'bg-green-800 text-white border-green-400' : 'bg-red-800 text-white border-red-400'}`}>
           {isCompleted ? "✅ Done" : "❌ Not Done"}
         </Badge>
       </div>
 
       {/* Subject tag */}
-      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="text-xs font-semibold text-white/80 uppercase tracking-wide">
         {chapter.subject}
       </div>
 
@@ -111,7 +112,7 @@ const ChapterPill = ({
             e.stopPropagation();
             setShowTopics(!showTopics);
           }}
-          className="text-xs text-primary hover:underline mt-1 flex items-center gap-1"
+          className="text-xs text-white hover:underline mt-1 flex items-center gap-1"
         >
           <FileText className="h-3 w-3" />
           {showTopics ? 'Hide' : 'Show'} Topics ({totalTopics})
@@ -120,20 +121,20 @@ const ChapterPill = ({
 
       {/* Topics list */}
       {showTopics && totalTopics > 0 && (
-        <div className="mt-2 space-y-1 border-t pt-2">
+        <div className="mt-2 space-y-1 border-t border-white/20 pt-2">
           {chapter.topics.map((topic) => (
             <div
               key={topic.id}
-              className="w-full text-left text-xs p-1.5 rounded flex items-center gap-2 bg-white/50"
+              className="w-full text-left text-xs p-1.5 rounded flex items-center gap-2 bg-white/20 text-white"
             >
-              <div className="h-3 w-3 border border-muted-foreground rounded-full flex-shrink-0" />
+              <div className="h-3 w-3 border border-white rounded-full flex-shrink-0" />
               <span>{topic.topic_name}</span>
             </div>
           ))}
         </div>
       )}
       
-      <div className="mt-2 text-[10px] text-muted-foreground">
+      <div className="mt-2 text-[10px] text-white/70">
         💡 Double-click to toggle status
       </div>
     </div>
@@ -329,12 +330,12 @@ export const ParentRoadmapCalendar = ({
         <p className="font-semibold">📚 Legend:</p>
         <ul className="list-disc list-inside ml-2 space-y-1">
           <li className="flex items-center gap-2">
-            <div className="inline-block w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
-            <span>Not Done (Red) - Chapter not yet completed</span>
+            <div className="inline-block w-4 h-4 bg-red-600 border border-red-400 rounded"></div>
+            <span>Not Done (Dark Red) - Chapter not yet completed</span>
           </li>
           <li className="flex items-center gap-2">
-            <div className="inline-block w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
-            <span>Done (Green) - Chapter marked as completed</span>
+            <div className="inline-block w-4 h-4 bg-green-600 border border-green-400 rounded"></div>
+            <span>Done (Dark Green) - Chapter marked as completed</span>
           </li>
           <li>Double-click any chapter to toggle its status</li>
           <li>Status is tracked locally (not saved to backend yet)</li>

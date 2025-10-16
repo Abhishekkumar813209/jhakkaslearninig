@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 import confetti from "canvas-confetti";
+import { ATTEMPT_XP } from "@/lib/xpConfig";
 
 const GamePlayerPage = () => {
   const { roadmapId, topicId, gameId } = useParams();
@@ -121,15 +122,21 @@ const GamePlayerPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      // Check if this is first correct attempt (for XP)
+      // Check existing attempts to determine XP award
       const { data: existingAttempts } = await supabase
         .from('student_question_attempts')
         .select('xp_awarded, is_correct')
         .eq('student_id', user.id)
         .eq('question_id', gameData.id);
 
-      const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct && a.xp_awarded);
-      const isFirstCorrect = !hasCorrectAttempt;
+      const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct);
+      const hasWrongAttempts = existingAttempts?.some(a => !a.is_correct);
+      
+      // Determine XP amount: first correct = 10, correct after wrong = 5
+      let xpAmount = 0;
+      if (!hasCorrectAttempt) {
+        xpAmount = hasWrongAttempts ? ATTEMPT_XP.correct_retry : ATTEMPT_XP.correct_first;
+      }
       
       // Get attempt number
       const attemptNumber = (existingAttempts?.length || 0) + 1;
@@ -142,15 +149,12 @@ const GamePlayerPage = () => {
         is_correct: true,
         status: 'completed',
         time_spent_seconds: 0,
-        xp_awarded: isFirstCorrect,
+        xp_awarded: true,
         attempt_number: attemptNumber
       });
 
-      // Award XP only if first time correct
-      if (isFirstCorrect) {
-        const xpAmount = gameData.xp_reward || 10;
-        
-        // Update student XP in profiles table
+      // Award XP
+      if (xpAmount > 0) {
         await supabase.rpc('increment_student_xp', {
           student_id: user.id,
           xp_amount: xpAmount
@@ -182,6 +186,7 @@ const GamePlayerPage = () => {
 
       const attemptNumber = (existingAttempts?.length || 0) + 1;
 
+      // Insert wrong attempt
       await supabase.from('student_question_attempts').insert({
         student_id: user.id,
         question_id: gameData.id,
@@ -189,9 +194,19 @@ const GamePlayerPage = () => {
         is_correct: false,
         status: 'attempted',
         time_spent_seconds: 0,
-        xp_awarded: false,
+        xp_awarded: true,
         attempt_number: attemptNumber
       });
+
+      // Award participation XP for wrong attempt (2 XP)
+      await supabase.rpc('increment_student_xp', {
+        student_id: user.id,
+        xp_amount: ATTEMPT_XP.wrong_attempt
+      });
+
+      // Trigger XP refresh
+      window.dispatchEvent(new Event('xp-updated'));
+
     } catch (error) {
       console.error("Error tracking wrong answer:", error);
     }
@@ -313,7 +328,7 @@ const GamePlayerPage = () => {
           gameData={{
             question: gameData.exercise_data?.question || "Question text",
             options: gameData.exercise_data?.options || [],
-            correct_answer: gameData.exercise_data?.correctAnswerIndex || 0,
+            correct_answer: gameData.exercise_data?.correctAnswerIndex ?? gameData.correct_answer?.correctAnswerIndex ?? 0,
             explanation: gameData.explanation,
             marks: gameData.exercise_data?.marks || 1,
             difficulty: gameData.difficulty

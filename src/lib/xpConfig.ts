@@ -4,6 +4,12 @@ export const XP_REWARDS = {
   game: { easy: 30, medium: 40, hard: 50 }
 } as const;
 
+export const ATTEMPT_XP = {
+  wrong_attempt: 2,     // Small XP for wrong attempt (participation)
+  correct_first: 10,    // Full XP for first correct attempt
+  correct_retry: 5      // Half XP for correct after wrong attempts
+} as const;
+
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type ActivityType = 'theory' | 'exercise' | 'game';
 

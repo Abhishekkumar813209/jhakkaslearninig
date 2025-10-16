@@ -12,33 +12,69 @@ function normalizeCorrectAnswer(questionType: string, correctAnswer: any, option
   console.log('🔧 Normalizing answer:', { questionType, correctAnswer, options });
   
   if (questionType === 'mcq') {
+    // Handle object format first (from frontend: { index: 3 })
+    if (typeof correctAnswer === 'object' && correctAnswer !== null) {
+      // Handle { index: 3 } format from frontend
+      if ('index' in correctAnswer && typeof correctAnswer.index === 'number') {
+        console.log('✅ Normalized object { index } format:', correctAnswer.index);
+        return { type: 'index', value: correctAnswer.index, options };
+      }
+      // Handle already normalized { value: 3, type: 'index' } format
+      if ('value' in correctAnswer && typeof correctAnswer.value === 'number') {
+        console.log('✅ Normalized object { value } format:', correctAnswer.value);
+        return { type: 'index', value: correctAnswer.value, options };
+      }
+    }
+    
+    // Handle number format
     if (typeof correctAnswer === 'number') {
+      console.log('✅ Normalized number format:', correctAnswer);
       return { type: 'index', value: correctAnswer, options };
     }
     
+    // Handle string format
     if (typeof correctAnswer === 'string') {
+      // Try parsing as JSON first
+      try {
+        const parsed = JSON.parse(correctAnswer);
+        if (typeof parsed === 'object' && parsed !== null && 'index' in parsed) {
+          console.log('✅ Normalized JSON string format:', parsed.index);
+          return { type: 'index', value: parsed.index, options };
+        }
+      } catch {
+        // Not JSON, continue with other string parsing
+      }
+      
       const normalized = correctAnswer.trim().toUpperCase();
       
+      // Handle letter format (A, B, C, D)
       if (normalized.length === 1 && normalized >= 'A' && normalized <= 'Z') {
         const index = normalized.charCodeAt(0) - 65;
+        console.log('✅ Normalized letter format:', normalized, '→', index);
         return { type: 'index', value: index, options };
       }
       
+      // Handle exact text match
       if (options && options.length > 0) {
         const index = options.findIndex(opt => 
           opt.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
         );
         if (index !== -1) {
+          console.log('✅ Normalized text match format:', index);
           return { type: 'index', value: index, options };
         }
       }
       
+      // Handle numeric string
       const parsed = parseInt(correctAnswer);
       if (!isNaN(parsed)) {
+        console.log('✅ Normalized numeric string format:', parsed);
         return { type: 'index', value: parsed, options };
       }
     }
     
+    // Fallback
+    console.error('❌ Unhandled correctAnswer format:', correctAnswer);
     return { type: 'index', value: 0, options };
   }
   

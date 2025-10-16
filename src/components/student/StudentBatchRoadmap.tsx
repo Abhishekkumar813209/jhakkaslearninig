@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,6 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { TopicStudyView } from "./TopicStudyView";
 import { ChapterTopicListView } from "./ChapterTopicListView";
 import { StudentRoadmapCalendar } from "./StudentRoadmapCalendar";
 import { RoadmapCardView } from "../RoadmapCardView";
@@ -206,10 +206,11 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
 };
 
 export const StudentBatchRoadmap = () => {
+  const navigate = useNavigate();
+  const { roadmapId } = useParams();
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string; topics: any[] } | null>(null);
-  const [selectedTopic, setSelectedTopic] = useState<{ id: string; chapterName: string; name: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'cards'>('list');
   const { toast } = useToast();
 
@@ -438,19 +439,6 @@ export const StudentBatchRoadmap = () => {
     }
   };
 
-  if (selectedTopic) {
-    return (
-      <TopicStudyView 
-        topicId={selectedTopic.id} 
-        topicName={selectedTopic.name}
-        onBack={() => {
-          setSelectedTopic(null);
-          fetchRoadmap(); // Refetch fresh data after topic completion
-        }}
-      />
-    );
-  }
-
   if (selectedChapter) {
     return (
       <ChapterTopicListView
@@ -458,11 +446,11 @@ export const StudentBatchRoadmap = () => {
         chapterName={selectedChapter.name}
         topics={selectedChapter.topics}
         onTopicClick={(topicId, topicName) => {
-          setSelectedTopic({ id: topicId, chapterName: selectedChapter.name, name: topicName });
+          navigate(`/student/roadmap/${roadmap?.roadmap_id}/topic/${topicId}`);
         }}
         onBack={() => {
           setSelectedChapter(null);
-          fetchRoadmap(); // Refetch fresh data when navigating back
+          fetchRoadmap();
         }}
       />
     );
@@ -552,7 +540,7 @@ export const StudentBatchRoadmap = () => {
           totalDays={roadmap.total_days}
           subjectsData={roadmap.subjects}
           onTopicClick={(topicId, chapterName) => {
-            setSelectedTopic({ id: topicId, chapterName, name: '' });
+            navigate(`/student/roadmap/${roadmap.roadmap_id}/topic/${topicId}`);
           }}
         />
       ) : viewMode === 'cards' ? (

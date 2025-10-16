@@ -33,6 +33,9 @@ import LiveRacing from "./pages/LiveRacing";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import UIGuide from "./pages/UIGuide";
 import ParentDashboard from "./pages/ParentDashboard";
+import StudentRoadmapView from "./pages/StudentRoadmapView";
+import TopicDetailPage from "./pages/TopicDetailPage";
+import GamePlayerPage from "./pages/GamePlayerPage";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +69,21 @@ const App = () => (
             <Route path="/student" element={
               <ProtectedRoute>
                 <Student />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/roadmap/:roadmapId" element={
+              <ProtectedRoute>
+                <StudentRoadmapView />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/roadmap/:roadmapId/topic/:topicId" element={
+              <ProtectedRoute>
+                <TopicDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/roadmap/:roadmapId/topic/:topicId/game/:gameId" element={
+              <ProtectedRoute>
+                <GamePlayerPage />
               </ProtectedRoute>
             } />
         <Route path="/student/dashboard" element={

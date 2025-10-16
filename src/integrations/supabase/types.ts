@@ -1004,6 +1004,7 @@ export type Database = {
           exercise_data: Json
           exercise_type: Database["public"]["Enums"]["exercise_type"]
           explanation: string | null
+          game_order: number | null
           id: string
           topic_content_id: string
           xp_reward: number | null
@@ -1016,6 +1017,7 @@ export type Database = {
           exercise_data: Json
           exercise_type: Database["public"]["Enums"]["exercise_type"]
           explanation?: string | null
+          game_order?: number | null
           id?: string
           topic_content_id: string
           xp_reward?: number | null
@@ -1028,6 +1030,7 @@ export type Database = {
           exercise_data?: Json
           exercise_type?: Database["public"]["Enums"]["exercise_type"]
           explanation?: string | null
+          game_order?: number | null
           id?: string
           topic_content_id?: string
           xp_reward?: number | null

@@ -167,6 +167,7 @@ export function LessonContentBuilder() {
   const [selectedChapter, setSelectedChapter] = useState<string>("");
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number>>({});
   
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(false);
@@ -415,6 +416,27 @@ export function LessonContentBuilder() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setTopics(data || []);
+      // Fetch question counts for these topics
+      if (data && data.length > 0) {
+        fetchTopicQuestionCounts(data.map(t => t.id));
+      }
+    }
+  };
+
+  const fetchTopicQuestionCounts = async (topicIds: string[]) => {
+    const { data, error } = await supabase
+      .from('question_bank')
+      .select('topic_id')
+      .in('topic_id', topicIds)
+      .not('topic_id', 'is', null);
+    
+    if (!error && data) {
+      const counts: Record<string, number> = {};
+      topicIds.forEach(id => counts[id] = 0); // Initialize all to 0
+      data.forEach(q => {
+        counts[q.topic_id] = (counts[q.topic_id] || 0) + 1;
+      });
+      setTopicQuestionCounts(counts);
     }
   };
 
@@ -1184,7 +1206,7 @@ export function LessonContentBuilder() {
                         <SelectContent>
                           {topics.map((topic) => (
                             <SelectItem key={topic.id} value={topic.id}>
-                              {topic.topic_name}
+                              {topic.topic_name} ({topicQuestionCounts[topic.id] || 0} questions)
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1620,6 +1642,7 @@ export function LessonContentBuilder() {
               {selectedTopic ? (
                 <SmartQuestionExtractorNew
                   selectedTopic={selectedTopic}
+                  selectedTopicName={topics.find(t => t.id === selectedTopic)?.topic_name}
                   selectedChapter={selectedChapter}
                   selectedSubject={selectedSubject}
                   selectedBatch={selectedBatch}

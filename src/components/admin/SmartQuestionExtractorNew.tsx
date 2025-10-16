@@ -33,6 +33,7 @@ interface ExtractedQuestion {
 
 interface SmartQuestionExtractorNewProps {
   selectedTopic?: string;
+  selectedTopicName?: string;
   selectedChapter?: string;
   selectedSubject?: string;
   selectedBatch?: string;
@@ -44,6 +45,7 @@ interface SmartQuestionExtractorNewProps {
 
 export const SmartQuestionExtractorNew = ({
   selectedTopic,
+  selectedTopicName,
   selectedChapter,
   selectedSubject,
   selectedBatch,
@@ -112,12 +114,29 @@ export const SmartQuestionExtractorNew = ({
         body: { action: 'get_topic_questions', topic_id: selectedTopic }
       });
 
-      if (data.success && data.questions?.length > 0) {
-        setQuestions(data.questions);
-        toast.success(`Loaded ${data.questions.length} questions from database`);
+      if (data.success) {
+        const questions = data.questions || [];
+        setQuestions(questions);
+        
+        if (questions.length > 0) {
+          toast.success(`Loaded ${questions.length} questions from database`);
+        } else {
+          toast.info(
+            selectedTopicName 
+              ? `No questions found for "${selectedTopicName}"` 
+              : 'No questions found for this topic',
+            {
+              description: 'Add questions using the PDF extractor or question builder'
+            }
+          );
+        }
+      } else {
+        throw new Error('Edge function returned success: false');
       }
     } catch (error: any) {
       console.error('loadTopicQuestions error:', error);
+      setQuestions([]); // Reset to empty array on error
+      
       if (error.code === 401) {
         toast.error('Session expired. Please log in again.', {
           action: {
@@ -126,7 +145,7 @@ export const SmartQuestionExtractorNew = ({
           }
         });
       } else {
-        toast.error('Failed to load questions from database');
+        toast.error(`Failed to load questions: ${error.message || 'Unknown error'}`);
       }
     } finally {
       setLoading(false);
@@ -403,8 +422,12 @@ export const SmartQuestionExtractorNew = ({
             ) : filteredQuestions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <AlertCircle className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                <p className="font-medium">No questions found for this topic</p>
-                <p className="text-sm mt-1">Questions will appear here once added to the question bank</p>
+                <p className="font-medium">
+                  {selectedTopicName 
+                    ? `No questions found for "${selectedTopicName}"` 
+                    : 'No questions found for this topic'}
+                </p>
+                <p className="text-sm mt-1">Use the PDF Question Extractor or Question Builder to add questions</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

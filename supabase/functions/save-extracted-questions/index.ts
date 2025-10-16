@@ -13,20 +13,51 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Auth client for user validation
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      { global: { headers: { Authorization: authHeader } } }
     );
 
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
-      throw new Error('Unauthorized');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    // Service role client for DB operations (bypasses RLS)
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
+    );
+
+    // Check if user is admin
+    const { data: roleData } = await serviceClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!roleData || roleData.role !== 'admin') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`💾 User ${user.id} (role: ${roleData.role}) saving questions...`);
 
     const { questions, subject, chapter_name, topic_name, source_id } = await req.json();
 
@@ -39,7 +70,7 @@ serve(async (req) => {
     const insertedQuestions = [];
     const approvalQueueEntries = [];
 
-    // Insert questions into generated_questions table
+    // Insert questions into generated_questions table using service client
     for (const q of questions) {
       const questionData = {
         question_text: q.question_text,
@@ -56,8 +87,8 @@ serve(async (req) => {
         explanation: null // Can be added later
       };
 
-      // Insert into generated_questions
-      const { data: inserted, error: insertError } = await supabaseClient
+      // Insert into generated_questions using service client (bypasses RLS)
+      const { data: inserted, error: insertError } = await serviceClient
         .from('generated_questions')
         .insert(questionData)
         .select()
@@ -71,7 +102,7 @@ serve(async (req) => {
       insertedQuestions.push(inserted);
 
       // Add to content approval queue
-      const { error: approvalError } = await supabaseClient
+      const { error: approvalError } = await serviceClient
         .from('content_approval_queue')
         .insert({
           content_type: 'question',

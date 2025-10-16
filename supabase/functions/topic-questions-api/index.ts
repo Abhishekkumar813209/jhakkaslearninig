@@ -68,6 +68,7 @@ serve(async (req) => {
       );
     }
 
+    // Auth client for user validation
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -82,20 +83,54 @@ serve(async (req) => {
       );
     }
 
+    // Service role client for DB operations (bypasses RLS)
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
+    );
+
+    // Check if user is admin
+    const { data: roleData } = await serviceClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!roleData || roleData.role !== 'admin') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body = await req.json();
     const { action } = body;
-    console.log(`📥 topic-questions-api: action=${action}, user=${user.id}`);
+    console.log(`📥 topic-questions-api: action=${action}, user=${user.id}, role=${roleData.role}`);
 
     // ========== NEW: save_draft_questions ==========
     if (action === 'save_draft_questions') {
       const { batch_id, roadmap_id, chapter_id, topic_id, exam_domain, exam_name, subject, chapter_name, topic_name, questions } = body;
+      
       if (!topic_id || !questions || !Array.isArray(questions)) {
-        throw new Error('Missing required fields: topic_id, questions');
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing required fields: topic_id, questions' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!chapter_name || !topic_name) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing chapter_name or topic_name' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const savedQuestions = [];
+      const errors = [];
+      
       for (const q of questions) {
-        const { data: inserted, error } = await supabaseClient
+        const { data: inserted, error } = await serviceClient
           .from('generated_questions')
           .insert({
             batch_id: batch_id || null,
@@ -120,10 +155,23 @@ serve(async (req) => {
           .select()
           .single();
 
-        if (!error) savedQuestions.push(inserted);
+        if (error) {
+          console.error('Insert error:', error);
+          errors.push(error.message);
+        } else {
+          savedQuestions.push(inserted);
+        }
       }
 
-      console.log(`✅ Saved ${savedQuestions.length} draft questions`);
+      console.log(`✅ Saved ${savedQuestions.length}/${questions.length} draft questions`);
+      
+      if (savedQuestions.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to save questions: ${errors.join(', ')}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ success: true, saved_count: savedQuestions.length, questions: savedQuestions }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -135,7 +183,7 @@ serve(async (req) => {
       const { topic_id } = body;
       if (!topic_id) throw new Error('Missing topic_id');
 
-      const { data: questions, error } = await supabaseClient
+      const { data: questions, error } = await serviceClient
         .from('generated_questions')
         .select('*')
         .eq('topic_id', topic_id)
@@ -162,7 +210,7 @@ serve(async (req) => {
         throw new Error('Missing question_id or correct_answer');
       }
 
-      const { data: question } = await supabaseClient
+      const { data: question } = await serviceClient
         .from('generated_questions')
         .select('*')
         .eq('id', question_id)
@@ -172,7 +220,7 @@ serve(async (req) => {
 
       const normalized = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
       
-      const { error } = await supabaseClient
+      const { error } = await serviceClient
         .from('generated_questions')
         .update({
           correct_answer: normalized,
@@ -199,7 +247,7 @@ serve(async (req) => {
       }
 
       // Mark as approved
-      await supabaseClient
+      await serviceClient
         .from('generated_questions')
         .update({
           is_approved: true,
@@ -208,19 +256,19 @@ serve(async (req) => {
         })
         .in('id', question_ids);
 
-      const { data: questions } = await supabaseClient
+      const { data: questions } = await serviceClient
         .from('generated_questions')
         .select('*')
         .in('id', question_ids);
 
       let linkedCount = 0;
       for (const q of questions || []) {
-        const { count } = await supabaseClient
+        const { count } = await serviceClient
           .from('topic_content_mapping')
           .select('*', { count: 'exact', head: true })
           .eq('topic_id', topic_id);
 
-        const { data: mapping } = await supabaseClient
+        const { data: mapping } = await serviceClient
           .from('topic_content_mapping')
           .insert({
             topic_id,
@@ -237,7 +285,7 @@ serve(async (req) => {
           ? { question: q.question_text, options: q.options, correct_answer: q.correct_answer?.value, marks: q.marks }
           : { question: q.question_text, answer: q.correct_answer?.value, marks: q.marks };
 
-        await supabaseClient
+        await serviceClient
           .from('gamified_exercises')
           .insert({
             topic_content_id: mapping.id,
@@ -264,7 +312,7 @@ serve(async (req) => {
       const { topic_id } = body;
       if (!topic_id) throw new Error('topic_id required');
 
-      const { data: mappings } = await supabaseClient
+      const { data: mappings } = await serviceClient
         .from('topic_content_mapping')
         .select('question_id')
         .eq('topic_id', topic_id);
@@ -276,7 +324,7 @@ serve(async (req) => {
         );
       }
 
-      const { data: questions } = await supabaseClient
+      const { data: questions } = await serviceClient
         .from('generated_questions')
         .select('*')
         .in('id', mappings.map(m => m.question_id))

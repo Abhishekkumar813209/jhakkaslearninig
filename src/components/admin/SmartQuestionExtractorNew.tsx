@@ -250,11 +250,41 @@ export const SmartQuestionExtractorNew = ({
       });
 
       if (data.success) {
-        toast.success(`Saved ${data.saved_count} questions as drafts`);
+        const savedCount = data.saved_count || 0;
+        const attemptedCount = unsavedQuestions.length;
+
+        if (savedCount < attemptedCount) {
+          toast.warning(
+            `Saved ${savedCount}/${attemptedCount} questions`,
+            { description: 'Some questions failed to save. Check browser console for details.' }
+          );
+        } else {
+          toast.success(`Saved ${savedCount} questions as drafts`);
+        }
+        
         await loadDraftQuestions(); // Reload to get IDs
       }
-    } catch (error) {
-      toast.error('Failed to save questions');
+    } catch (error: any) {
+      console.error('Error saving drafts:', error);
+      const errorMessage = error.message || 'Unknown error occurred';
+      
+      if (errorMessage.includes('Admin role required')) {
+        toast.error('Admin access required', {
+          description: 'Only admins can save questions to the database'
+        });
+      } else if (errorMessage.includes('Authentication required') || errorMessage.includes('Please log in')) {
+        toast.error('Please log in', {
+          description: 'You must be logged in as admin to save questions'
+        });
+      } else if (errorMessage.includes('Missing chapter_name or topic_name')) {
+        toast.error('Missing information', {
+          description: 'Please ensure both chapter and topic are selected'
+        });
+      } else {
+        toast.error('Failed to save questions', {
+          description: errorMessage
+        });
+      }
     } finally {
       setLoading(false);
     }

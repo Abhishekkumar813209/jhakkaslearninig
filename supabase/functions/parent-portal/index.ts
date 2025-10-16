@@ -562,14 +562,16 @@ serve(async (req) => {
             day_number,
             subject,
             chapter:chapter_id (
-              chapter_name
+              chapter_name,
+              subject
             )
           `)
           .in('chapter_id', chapterIds)
           .order('day_number', { ascending: true });
 
+        const uniqueSubjects = [...new Set((roadmapTopics || []).map((t: any) => t.subject || t.chapter?.subject).filter(Boolean))];
         console.log(`[getRoadmapDailyProgress] Found ${roadmapTopics?.length || 0} topics`);
-        console.log(`[getRoadmapDailyProgress] Unique subjects:`, [...new Set(roadmapTopics?.map(t => t.subject) || [])]);
+        console.log(`[getRoadmapDailyProgress] Unique subjects:`, uniqueSubjects);
 
         if (!roadmapTopics || roadmapTopics.length === 0) {
           return new Response(
@@ -593,15 +595,17 @@ serve(async (req) => {
 
         // Build daily progress with dates
         const roadmapStart = new Date(roadmapDetails.start_date);
-        const dailyProgress = roadmapTopics.map(topic => {
+        const dailyProgress = roadmapTopics.map((topic: any) => {
           const completion = completionMap.get(topic.id);
           const scheduledDate = new Date(roadmapStart);
           scheduledDate.setDate(scheduledDate.getDate() + (topic.day_number - 1));
 
+          const subjectName = topic.subject || topic.chapter?.subject || 'General';
+
           return {
             date: scheduledDate.toISOString().split('T')[0],
             day_number: topic.day_number,
-            subject: topic.subject,
+            subject: subjectName,
             chapter: topic.chapter?.chapter_name || 'Unknown',
             topic_name: topic.topic_name,
             is_completed: completion?.is_completed || false,

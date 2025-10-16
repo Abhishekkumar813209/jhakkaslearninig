@@ -29,6 +29,13 @@ interface Chapter {
   roadmap_id: string;
 }
 
+interface Topic {
+  id: string;
+  topic_name: string;
+  chapter_id: string;
+  order_num: number;
+}
+
 export const QuestionBankBuilder = () => {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
@@ -51,6 +58,10 @@ export const QuestionBankBuilder = () => {
   // Chapter selection (Step 5)
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  
+  // Topic selection (Step 6)
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -84,6 +95,13 @@ export const QuestionBankBuilder = () => {
       fetchChapters();
     }
   }, [selectedSubject]);
+
+  // Fetch topics when chapter changes
+  useEffect(() => {
+    if (selectedChapter) {
+      fetchTopics();
+    }
+  }, [selectedChapter]);
 
   const fetchBatches = async () => {
     if (!selectedDomain) return;
@@ -151,12 +169,30 @@ export const QuestionBankBuilder = () => {
     setChapters(data || []);
   };
 
+  const fetchTopics = async () => {
+    if (!selectedChapter?.id) return;
+
+    const { data, error } = await supabase
+      .from("roadmap_topics")
+      .select("id, topic_name, chapter_id, order_num")
+      .eq("chapter_id", selectedChapter.id)
+      .order("order_num");
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to load topics", variant: "destructive" });
+      return;
+    }
+
+    setTopics(data || []);
+  };
+
   const handleDomainSelect = (domain: string) => {
     setSelectedDomain(domain);
     resetBoardClass();
     setSelectedBatch("");
     setSelectedSubject("");
     setSelectedChapter(null);
+    setSelectedTopic(null);
     
     const examType = examTypes.find(t => t.code === domain);
     if (examType?.requires_board) {
@@ -179,6 +215,7 @@ export const QuestionBankBuilder = () => {
     setSelectedBatch("");
     setSelectedSubject("");
     setSelectedChapter(null);
+    setSelectedTopic(null);
   };
 
   const renderBreadcrumbs = () => {
@@ -196,6 +233,7 @@ export const QuestionBankBuilder = () => {
     }
     if (selectedSubject) crumbs.push(selectedSubject);
     if (selectedChapter) crumbs.push(selectedChapter.chapter_name);
+    if (selectedTopic) crumbs.push(selectedTopic.topic_name);
     
     return crumbs.length > 0 ? (
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
@@ -213,7 +251,7 @@ export const QuestionBankBuilder = () => {
     <div className="space-y-6 p-6">
       <div>
         <h2 className="text-3xl font-bold">Question Bank Builder</h2>
-        <p className="text-muted-foreground">Extract questions from PDFs/Word docs organized by Domain → Board → Class → Batch → Subject → Chapter</p>
+        <p className="text-muted-foreground">Extract questions from PDFs/Word docs organized by Domain → Board → Class → Batch → Subject → Chapter → Topic</p>
       </div>
 
       {renderBreadcrumbs()}
@@ -410,14 +448,12 @@ export const QuestionBankBuilder = () => {
         </Card>
       )}
 
-      {/* Step 6: Smart Question Extractor */}
-      {currentStep === 6 && selectedChapter && (
+      {/* Step 6: Topic Selection */}
+      {currentStep === 6 && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 6: Extract & Review Questions</CardTitle>
-            <CardDescription>
-              Upload PDF/Word file and extract questions for: {selectedChapter.chapter_name} ({selectedSubject})
-            </CardDescription>
+            <CardTitle>Step 6: Select Topic</CardTitle>
+            <CardDescription>Choose the specific topic for questions</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button variant="outline" onClick={() => setCurrentStep(5)} className="mb-4">
@@ -425,18 +461,50 @@ export const QuestionBankBuilder = () => {
               Back to Chapter
             </Button>
             
-            <SmartQuestionExtractor
-              mode="question-bank"
-              chapterId={selectedChapter.id}
-              chapterName={selectedChapter.chapter_name}
-              subjectName={selectedSubject}
-              batchId={selectedBatch}
-              examDomain={selectedDomain || ''}
-              examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
-              onQuestionsAdded={handleQuestionsComplete}
-            />
+            {topics.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No topics found for this chapter.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {topics.map((topic) => (
+                  <Card
+                    key={topic.id}
+                    className={`cursor-pointer hover:border-primary transition-all ${
+                      selectedTopic?.id === topic.id ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedTopic(topic);
+                      setCurrentStep(7);
+                    }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="font-semibold">{topic.topic_name}</div>
+                      <div className="text-sm text-muted-foreground">Order: {topic.order_num}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Step 7: Smart Question Extractor */}
+      {currentStep === 7 && selectedTopic && selectedChapter && (
+        <SmartQuestionExtractor
+          mode="question-bank"
+          topicId={selectedTopic.id}
+          topicName={selectedTopic.topic_name}
+          chapterId={selectedChapter.id}
+          chapterName={selectedChapter.chapter_name}
+          subjectName={selectedSubject}
+          batchId={selectedBatch}
+          examDomain={selectedDomain || ''}
+          examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+          onQuestionsAdded={handleQuestionsComplete}
+          onBackClick={() => setCurrentStep(6)}
+        />
       )}
     </div>
   );

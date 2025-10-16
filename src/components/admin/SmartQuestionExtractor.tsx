@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft } from "lucide-react";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
@@ -47,6 +47,8 @@ interface SmartQuestionExtractorProps {
   onQuestionsAdded: (questions: ExtractedQuestion[]) => void;
   // Question Bank Builder integration props
   preloadedQuestions?: ExtractedQuestion[];
+  topicId?: string;
+  topicName?: string;
   chapterId?: string;
   chapterName?: string;
   subjectName?: string;
@@ -55,12 +57,15 @@ interface SmartQuestionExtractorProps {
   examName?: string;
   sourceFileName?: string;
   mode?: 'lesson-builder' | 'question-bank';
+  onBackClick?: () => void;
 }
 
 export const SmartQuestionExtractor = ({ 
   selectedTopic, 
   onQuestionsAdded,
   preloadedQuestions,
+  topicId,
+  topicName,
   chapterId,
   chapterName,
   subjectName,
@@ -68,7 +73,8 @@ export const SmartQuestionExtractor = ({
   examDomain,
   examName,
   sourceFileName,
-  mode = 'lesson-builder'
+  mode = 'lesson-builder',
+  onBackClick
 }: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -1007,10 +1013,11 @@ export const SmartQuestionExtractor = ({
 
     try {
       if (mode === 'question-bank') {
-        // Save to question_bank table with chapter metadata
+        // Save to question_bank table with topic metadata
         const { data: user } = await supabase.auth.getUser();
         
         const questionsToSave = selected.map(q => ({
+          topic_id: topicId,
           chapter_id: chapterId,
           subject: subjectName,
           batch_id: batchId,
@@ -1036,7 +1043,7 @@ export const SmartQuestionExtractor = ({
         if (error) throw error;
 
         toast.success(`✅ Saved ${data.length} questions to Question Bank!`, {
-          description: `Chapter: ${chapterName} • Subject: ${subjectName}`
+          description: `Topic: ${topicName} • Chapter: ${chapterName} • Subject: ${subjectName}`
         });
         
         // Clear session after successful save
@@ -1200,6 +1207,18 @@ export const SmartQuestionExtractor = ({
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Back Navigation for Question Bank Mode */}
+      {mode === 'question-bank' && onBackClick && (
+        <Button 
+          variant="outline" 
+          onClick={onBackClick}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Topic Selection
+        </Button>
       )}
 
       {/* Upload Section - hide if in question-bank mode with preloaded questions */}

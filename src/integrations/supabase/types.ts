@@ -2005,6 +2005,65 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank: {
+        Row: {
+          correct_answer: string
+          created_at: string | null
+          created_by: string | null
+          difficulty: string | null
+          explanation: string | null
+          id: string
+          is_published: boolean | null
+          marks: number
+          options: Json | null
+          question_text: string
+          question_type: string
+          source_file_name: string | null
+          topic_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string | null
+          created_by?: string | null
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          is_published?: boolean | null
+          marks?: number
+          options?: Json | null
+          question_text: string
+          question_type: string
+          source_file_name?: string | null
+          topic_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string | null
+          created_by?: string | null
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          is_published?: boolean | null
+          marks?: number
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          source_file_name?: string | null
+          topic_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questions: {
         Row: {
           allow_multiple_correct: boolean | null

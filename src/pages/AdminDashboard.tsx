@@ -19,6 +19,7 @@ import ZoneManagementNew from "@/components/admin/ZoneManagementNew";
 import SchoolManagement from "@/components/admin/SchoolManagement";
 import { ZoneSchoolAnalytics } from "@/components/admin/ZoneSchoolAnalytics";
 import RoadmapManagement from "@/components/admin/RoadmapManagement";
+import { QuestionBankBuilder } from "@/components/admin/QuestionBankBuilder";
 import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
 import UserRoleManagement from "@/components/admin/UserRoleManagement";
@@ -55,6 +56,7 @@ const AdminDashboard = () => {
     { value: "roadmaps", label: "Roadmaps", component: RoadmapManagement },
     { value: "manual-topics", label: "Add Topics", component: ManualTopicEditor },
     { value: "lessons", label: "Lesson Builder", component: LessonContentBuilder },
+    { value: "question-bank", label: "Question Bank", component: QuestionBankBuilder },
     { value: "zones", label: "Zones", component: ZoneManagementNew },
     { value: "schools", label: "Schools", component: SchoolManagement },
     { value: "zone-analytics", label: "Zone Analytics", component: ZoneSchoolAnalytics },

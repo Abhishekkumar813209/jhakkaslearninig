@@ -69,6 +69,7 @@ const menuGroups: MenuGroup[] = [
       { value: "roadmaps", label: "Roadmaps", icon: Map },
       { value: "manual-topics", label: "Add Topics", icon: BookText },
       { value: "lessons", label: "Lesson Builder", icon: BookOpen },
+      { value: "question-bank", label: "Question Bank", icon: FileText },
       { value: "exam-types", label: "Exam Types", icon: Target },
     ],
   },

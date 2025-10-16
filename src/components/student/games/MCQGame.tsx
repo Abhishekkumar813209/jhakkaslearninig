@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Lightbulb, ArrowRight } from "lucide-react";
+import { Check, X, Lightbulb, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
@@ -26,6 +26,7 @@ interface MCQGameProps {
   onWrong: () => void;
   onComplete: () => void;
   onNext?: () => void; // Optional: called when Continue is clicked
+  onPrevious?: () => void; // Optional: called when Previous is clicked
   hasMoreQuestions?: boolean; // If true, shows "Next" instead of completing
   currentQuestionNum?: number; // For progress display
   totalQuestions?: number; // For progress display
@@ -37,6 +38,7 @@ export function MCQGame({
   onWrong, 
   onComplete,
   onNext,
+  onPrevious,
   hasMoreQuestions = false,
   currentQuestionNum,
   totalQuestions
@@ -109,9 +111,12 @@ export function MCQGame({
     return String.fromCharCode(65 + index); // A, B, C, D...
   };
 
+  const canGoPrevious = (currentQuestionNum ?? 1) > 1;
+  const canGoNext = (currentQuestionNum ?? 1) < (totalQuestions ?? 1);
+
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
-      {/* Progress Bar (Phase 4) */}
+      {/* Progress Bar & Navigation (Phase 4) */}
       {totalQuestions && totalQuestions > 1 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -123,6 +128,30 @@ export function MCQGame({
             </span>
           </div>
           <Progress value={((currentQuestionNum || 1) / totalQuestions) * 100} className="h-2" />
+          
+          {/* Navigation Buttons */}
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPrevious}
+              disabled={!canGoPrevious || !onPrevious}
+              className="gap-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNext}
+              disabled={!canGoNext || !onNext}
+              className="gap-2"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
       

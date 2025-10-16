@@ -68,12 +68,33 @@ export const useQuestionQueue = (topicId: string) => {
     return false; // No more questions
   };
 
+  const previousQuestion = () => {
+    console.log('[QQ] previousQuestion called: from index', currentIndex);
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+      return true; // Has previous questions
+    }
+    return false; // No previous questions
+  };
+
+  const goToQuestion = (index: number) => {
+    if (index >= 0 && index < questions.length) {
+      setCurrentIndex(index);
+      return true;
+    }
+    return false;
+  };
+
   const getCurrentQuestion = () => {
     return questions[currentIndex] || null;
   };
 
   const hasMoreQuestions = () => {
     return currentIndex < questions.length - 1;
+  };
+
+  const hasPreviousQuestions = () => {
+    return currentIndex > 0;
   };
 
   const reset = () => {
@@ -87,7 +108,10 @@ export const useQuestionQueue = (topicId: string) => {
     totalQuestions: questions.length,
     loading,
     nextQuestion,
+    previousQuestion,
+    goToQuestion,
     hasMoreQuestions: hasMoreQuestions(),
+    hasPreviousQuestions: hasPreviousQuestions(),
     reset,
     refetch: fetchQuestions
   };

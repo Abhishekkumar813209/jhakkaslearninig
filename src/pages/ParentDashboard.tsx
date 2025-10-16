@@ -12,7 +12,7 @@ import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 import { SubjectChapterTestAnalysis } from "@/components/parent/SubjectChapterTestAnalysis";
-import { RoadmapDailyCalendar } from "@/components/parent/RoadmapDailyCalendar";
+import { RoadmapCalendarGrid } from "@/components/parent/RoadmapCalendarGrid";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
 import { RaceTypeSelector } from "@/components/student/racing/RaceTypeSelector";
@@ -451,7 +451,7 @@ export default function ParentDashboard() {
 
             {/* Daily Roadmap Calendar */}
             {Object.keys(roadmapCalendar).length > 0 && (
-              <RoadmapDailyCalendar dailyProgress={roadmapCalendar} />
+              <RoadmapCalendarGrid dailyProgress={roadmapCalendar} />
             )}
 
             {/* Topic-wise Breakdown */}

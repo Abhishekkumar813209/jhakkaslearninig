@@ -303,8 +303,8 @@ const OnlineTestInterface: React.FC = () => {
           description: `You scored ${data.score}/${data.totalMarks} (${data.percentage}%)`,
         });
 
-        // Navigate to results page
-        navigate(`/test-results/${attemptId}`);
+        // Navigate to results page with correct route format
+        navigate(`/test/${testId}/results`);
       }
     } catch (error) {
       console.error('Error submitting test:', error);

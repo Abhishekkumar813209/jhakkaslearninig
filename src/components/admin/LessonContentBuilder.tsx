@@ -201,6 +201,7 @@ export function LessonContentBuilder() {
   
   // Bulk operations state
   const [selectedLessonIds, setSelectedLessonIds] = useState<string[]>([]);
+  const [publishStats, setPublishStats] = useState<{ approved: number; published: number } | null>(null);
   
   const [newLesson, setNewLesson] = useState<Partial<Lesson>>({
     lesson_type: 'theory',
@@ -821,6 +822,160 @@ export function LessonContentBuilder() {
   const pendingSelectedCount = lessons.filter(l => 
     selectedLessonIds.includes(l.id!) && !l.human_reviewed
   ).length;
+
+  // Publish lessons to students
+  const publishLessons = async (lessonsToPublish: Lesson[]) => {
+    if (!selectedTopic) return;
+    
+    // Filter only approved game lessons
+    const approvedGames = lessonsToPublish.filter(l => 
+      l.lesson_type === 'game' && l.human_reviewed === true
+    );
+    
+    if (approvedGames.length === 0) {
+      toast({ 
+        title: "No Games to Publish", 
+        description: "No approved games found to publish to students.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    let published = 0;
+    const errors: string[] = [];
+    
+    try {
+      for (const lesson of approvedGames) {
+        // Check if already published using content_id
+        const { data: existing } = await supabase
+          .from('topic_content_mapping')
+          .select('id')
+          .eq('content_id', lesson.id)
+          .maybeSingle();
+        
+        if (existing) {
+          console.log(`Lesson ${lesson.id} already published, skipping`);
+          continue; // Skip duplicates
+        }
+        
+        // Insert into topic_content_mapping
+        const { data: mapping, error: mappingError } = await supabase
+          .from('topic_content_mapping')
+          .insert([{
+            topic_id: selectedTopic,
+            content_type: lesson.game_type as any,
+            order_num: lesson.content_order,
+            is_required: true,
+            xp_value: lesson.xp_reward || 10,
+            difficulty: lesson.game_data?.difficulty || 'medium',
+            content_id: lesson.id // Prevent future duplicates
+          }])
+          .select()
+          .single();
+        
+        if (mappingError) {
+          errors.push(`Mapping error for lesson ${lesson.id}: ${mappingError.message}`);
+          continue;
+        }
+        
+        // Insert into gamified_exercises
+        const { error: exerciseError } = await supabase
+          .from('gamified_exercises')
+          .insert([{
+            topic_content_id: mapping.id,
+            exercise_type: lesson.game_type as any,
+            exercise_data: lesson.game_data as any,
+            correct_answer: lesson.game_data?.correct_answer as any,
+            explanation: lesson.game_data?.explanation,
+            difficulty: lesson.game_data?.difficulty || 'medium',
+            xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
+            game_order: lesson.content_order
+          }]);
+        
+        if (exerciseError) {
+          errors.push(`Exercise error for lesson ${lesson.id}: ${exerciseError.message}`);
+          // Rollback mapping
+          await supabase.from('topic_content_mapping').delete().eq('id', mapping.id);
+          continue;
+        }
+        
+        published++;
+      }
+      
+      if (published > 0) {
+        toast({ 
+          title: "Published Successfully!", 
+          description: `Published ${published} game(s) to students. They can now see and play them.`
+        });
+        
+        // Update stats
+        setPublishStats({ 
+          approved: approvedGames.length, 
+          published 
+        });
+      }
+      
+      if (errors.length > 0) {
+        toast({ 
+          title: "Partial Success", 
+          description: `Published ${published} of ${approvedGames.length}. First error: ${errors[0]}`,
+          variant: "destructive"
+        });
+      }
+      
+    } catch (error: any) {
+      toast({ 
+        title: "Publish Failed", 
+        description: error.message || "Failed to publish lessons",
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePublishSelected = async () => {
+    const selectedLessons = lessons.filter(l => selectedLessonIds.includes(l.id!));
+    await publishLessons(selectedLessons);
+    clearSelection();
+  };
+
+  const handlePublishAllApproved = async () => {
+    if (!selectedTopic) return;
+    
+    setLoading(true);
+    
+    const { data: approvedLessons, error } = await supabase
+      .from('topic_learning_content')
+      .select('*')
+      .eq('topic_id', selectedTopic)
+      .eq('lesson_type', 'game')
+      .eq('human_reviewed', true)
+      .order('content_order');
+    
+    setLoading(false);
+    
+    if (error) {
+      toast({ 
+        title: "Error", 
+        description: error.message,
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (!approvedLessons || approvedLessons.length === 0) {
+      toast({ 
+        title: "No Approved Games", 
+        description: "No approved games found for this topic.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    await publishLessons(approvedLessons as Lesson[]);
+  };
 
   const handleBulkGenerateLessons = async () => {
     if (!selectedTopic) {
@@ -1703,6 +1858,32 @@ export function LessonContentBuilder() {
                     </div>
                   ) : (
                     <>
+                      {/* Unpublished Games Banner */}
+                      {(() => {
+                        const approvedGames = lessons.filter(l => 
+                          l.lesson_type === 'game' && l.human_reviewed === true
+                        );
+                        return approvedGames.length > 0 ? (
+                          <Alert className="mb-4 bg-blue-50 border-blue-200">
+                            <Sparkles className="h-4 w-4 text-blue-600" />
+                            <AlertDescription className="flex items-center justify-between">
+                              <span className="text-blue-900">
+                                {approvedGames.length} approved game(s) ready to publish to students
+                              </span>
+                              <Button 
+                                size="sm"
+                                onClick={handlePublishAllApproved}
+                                disabled={loading}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                Publish All Approved
+                              </Button>
+                            </AlertDescription>
+                          </Alert>
+                        ) : null;
+                      })()}
+
                       {/* Bulk Action Bar */}
                       {selectedLessonIds.length > 0 && (
                         <div className="bg-muted/50 border rounded-lg p-4 mb-4 flex items-center justify-between animate-fade-in">
@@ -1727,6 +1908,21 @@ export function LessonContentBuilder() {
                               >
                                 <Check className="h-4 w-4 mr-2" />
                                 Approve {pendingSelectedCount}
+                              </Button>
+                            )}
+                            
+                            {selectedLessonIds.some(id => {
+                              const lesson = lessons.find(l => l.id === id);
+                              return lesson?.lesson_type === 'game' && lesson?.human_reviewed;
+                            }) && (
+                              <Button 
+                                variant="default"
+                                onClick={handlePublishSelected}
+                                disabled={loading}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Publish Selected
                               </Button>
                             )}
                             

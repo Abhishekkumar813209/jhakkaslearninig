@@ -12,10 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Upload, Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library } from "lucide-react";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
-import { getDocument } from 'pdfjs-dist';
-import mammoth from 'mammoth';
 import { cn } from "@/lib/utils";
 
 interface ExtractedQuestion {
@@ -74,7 +72,7 @@ export const SmartQuestionExtractorNew = ({
     if (selectedTopic) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
-          loadDraftQuestions();
+          loadTopicQuestions();
         }
       });
     } else {
@@ -104,7 +102,7 @@ export const SmartQuestionExtractorNew = ({
     }
   }, [selectedIds, selectedTopic]);
 
-  const loadDraftQuestions = async () => {
+  const loadTopicQuestions = async () => {
     if (!selectedTopic) return;
     
     setLoading(true);
@@ -119,8 +117,15 @@ export const SmartQuestionExtractorNew = ({
         toast.success(`Loaded ${data.questions.length} questions from database`);
       }
     } catch (error: any) {
-      console.error('loadDraftQuestions error:', error);
-      if (error.code !== 401) {
+      console.error('loadTopicQuestions error:', error);
+      if (error.code === 401) {
+        toast.error('Session expired. Please log in again.', {
+          action: {
+            label: 'Log in',
+            onClick: () => window.location.href = '/login'
+          }
+        });
+      } else {
         toast.error('Failed to load questions from database');
       }
     } finally {
@@ -398,8 +403,8 @@ export const SmartQuestionExtractorNew = ({
             ) : filteredQuestions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <AlertCircle className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                <p className="font-medium">No questions found in database</p>
-                <p className="text-sm mt-1">Questions will appear here once saved to the question bank</p>
+                <p className="font-medium">No questions found for this topic</p>
+                <p className="text-sm mt-1">Questions will appear here once added to the question bank</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

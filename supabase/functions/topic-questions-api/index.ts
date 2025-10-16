@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, Authorization, x-client-info, apikey, content-type',
 };
 
 // Normalize correct answer to standard JSONB format
@@ -61,7 +61,10 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    console.log('🔐 Auth header present:', !!authHeader, authHeader ? `(length: ${authHeader.length})` : '(missing)');
+    
     if (!authHeader) {
+      console.error('❌ Missing Authorization header');
       return new Response(
         JSON.stringify({ success: false, error: 'Authentication required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -75,13 +78,16 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error('❌ getUser() failed:', userError?.message || 'No user returned');
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid authentication token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('✅ User authenticated:', user.id);
 
     // Service role client for DB operations (bypasses RLS)
     const serviceClient = createClient(
@@ -91,13 +97,24 @@ serve(async (req) => {
     );
 
     // Check if user is admin
-    const { data: roleData } = await serviceClient
+    const { data: roleData, error: roleError } = await serviceClient
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single();
 
-    if (!roleData || roleData.role !== 'admin') {
+    if (roleError) {
+      console.error('❌ Role check failed:', roleError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to verify admin role' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const isAdmin = roleData?.role === 'admin';
+    console.log('👤 Admin role check:', isAdmin ? '✅ Authorized' : '❌ Not admin');
+    
+    if (!isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -106,77 +123,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const { action } = body;
-    console.log(`📥 topic-questions-api: action=${action}, user=${user.id}, role=${roleData.role}`);
-
-    // ========== NEW: save_draft_questions ==========
-    if (action === 'save_draft_questions') {
-      const { batch_id, roadmap_id, chapter_id, topic_id, exam_domain, exam_name, subject, chapter_name, topic_name, questions } = body;
-      
-      if (!topic_id || !questions || !Array.isArray(questions)) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Missing required fields: topic_id, questions' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (!chapter_name || !topic_name) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Missing chapter_name or topic_name' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const savedQuestions = [];
-      const errors = [];
-      
-      for (const q of questions) {
-      const { data: inserted, error } = await serviceClient
-          .from('question_bank')
-          .insert({
-            batch_id: batch_id || null,
-            roadmap_id: roadmap_id || null,
-            chapter_id: chapter_id || null,
-            topic_id,
-            exam_domain: exam_domain || null,
-            exam_name: exam_name || null,
-            subject: subject || null,
-            chapter_name: chapter_name || null,
-            topic_name: topic_name || null,
-            question_text: q.question_text,
-            question_type: q.question_type,
-            options: q.options || null,
-            marks: q.marks || 1,
-            difficulty: q.difficulty || 'medium',
-            explanation: q.explanation || null,
-            correct_answer: null,
-            is_approved: false,
-            admin_reviewed: false
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Insert error:', error);
-          errors.push(error.message);
-        } else {
-          savedQuestions.push(inserted);
-        }
-      }
-
-      console.log(`✅ Saved ${savedQuestions.length}/${questions.length} draft questions`);
-      
-      if (savedQuestions.length === 0) {
-        return new Response(
-          JSON.stringify({ success: false, error: `Failed to save questions: ${errors.join(', ')}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ success: true, saved_count: savedQuestions.length, questions: savedQuestions }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // ========== get_topic_questions: Load all questions from question_bank for a topic ==========
     if (action === 'get_topic_questions') {
@@ -212,31 +159,7 @@ serve(async (req) => {
       );
     }
 
-    // ========== get_draft_questions (deprecated, kept for compatibility) ==========
-    if (action === 'get_draft_questions') {
-      const { topic_id } = body;
-      if (!topic_id) throw new Error('Missing topic_id');
-
-      const { data: questions, error } = await serviceClient
-        .from('question_bank')
-        .select('*')
-        .eq('topic_id', topic_id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const normalized = (questions || []).map(q => ({
-        ...q,
-        correct_answer: q.correct_answer ? normalizeCorrectAnswer(q.question_type, q.correct_answer, q.options) : null
-      }));
-
-      return new Response(
-        JSON.stringify({ success: true, questions: normalized }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // ========== NEW: update_question_answer ==========
+    // ========== update_question_answer ==========
     if (action === 'update_question_answer') {
       const { question_id, correct_answer, explanation } = body;
       if (!question_id || correct_answer === undefined) {
@@ -272,7 +195,7 @@ serve(async (req) => {
       );
     }
 
-    // ========== NEW: finalize_and_link ==========
+    // ========== finalize_and_link ==========
     if (action === 'finalize_and_link') {
       const { question_ids, topic_id } = body;
       if (!question_ids || !Array.isArray(question_ids) || !topic_id) {
@@ -340,7 +263,7 @@ serve(async (req) => {
       );
     }
 
-    // ========== EXISTING: get_by_topic (for approved questions) ==========
+    // ========== get_by_topic (for approved questions) ==========
     if (action === 'get_by_topic') {
       const { topic_id } = body;
       if (!topic_id) throw new Error('topic_id required');

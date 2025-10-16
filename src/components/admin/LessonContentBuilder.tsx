@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Eye, Sparkles, GripVertical, Check, X, Upload, FileText, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -75,13 +76,37 @@ interface Topic {
   chapter_id: string;
 }
 
-function SortableLesson({ lesson, onEdit, onDelete, onApprove }: { lesson: Lesson; onEdit: () => void; onDelete: () => void; onApprove: () => void }) {
+function SortableLesson({ 
+  lesson, 
+  onEdit, 
+  onDelete, 
+  onApprove,
+  isSelected,
+  onToggleSelection 
+}: { 
+  lesson: Lesson; 
+  onEdit: () => void; 
+  onDelete: () => void; 
+  onApprove: () => void;
+  isSelected: boolean;
+  onToggleSelection: (id: string) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lesson.id || '' });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-card border rounded-lg p-4 mb-2">
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`bg-card border rounded-lg p-4 mb-2 transition-colors ${isSelected ? 'border-primary bg-primary/5' : ''}`}
+    >
       <div className="flex items-center gap-3">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelection(lesson.id!)}
+          className="h-5 w-5"
+        />
+        
         <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
           <GripVertical className="h-5 w-5 text-muted-foreground" />
         </div>
@@ -173,6 +198,10 @@ export function LessonContentBuilder() {
   const [loading, setLoading] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [roadmapCounts, setRoadmapCounts] = useState<any>({ byBoard: {}, byClass: {} });
+  
+  // Bulk operations state
+  const [selectedLessonIds, setSelectedLessonIds] = useState<string[]>([]);
+  
   const [newLesson, setNewLesson] = useState<Partial<Lesson>>({
     lesson_type: 'theory',
     estimated_time_minutes: 5,
@@ -707,6 +736,91 @@ export function LessonContentBuilder() {
       fetchLessons();
     }
   };
+
+  // Bulk operations functions
+  const toggleLessonSelection = (id: string) => {
+    setSelectedLessonIds(prev => 
+      prev.includes(id) ? prev.filter(lessonId => lessonId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedLessonIds.length === lessons.length) {
+      setSelectedLessonIds([]);
+    } else {
+      setSelectedLessonIds(lessons.map(l => l.id!).filter(Boolean));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedLessonIds([]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLessonIds.length === 0) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedLessonIds.length} lesson(s)? This cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+    
+    setLoading(true);
+    
+    const { error } = await supabase
+      .from('topic_learning_content')
+      .delete()
+      .in('id', selectedLessonIds);
+    
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ 
+        title: "Success", 
+        description: `Deleted ${selectedLessonIds.length} lesson(s)` 
+      });
+      clearSelection();
+      fetchLessons();
+    }
+    
+    setLoading(false);
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedLessonIds.length === 0) return;
+    
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return;
+    
+    setLoading(true);
+    
+    const { error } = await supabase
+      .from('topic_learning_content')
+      .update({
+        human_reviewed: true,
+        approved_by: user.user.id,
+        approved_at: new Date().toISOString(),
+      })
+      .in('id', selectedLessonIds);
+    
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ 
+        title: "Success", 
+        description: `Approved ${selectedLessonIds.length} lesson(s)` 
+      });
+      clearSelection();
+      fetchLessons();
+    }
+    
+    setLoading(false);
+  };
+
+  const isAllSelected = selectedLessonIds.length === lessons.length && lessons.length > 0;
+  const pendingSelectedCount = lessons.filter(l => 
+    selectedLessonIds.includes(l.id!) && !l.human_reviewed
+  ).length;
 
   const handleBulkGenerateLessons = async () => {
     if (!selectedTopic) {
@@ -1588,22 +1702,72 @@ export function LessonContentBuilder() {
                       No lessons yet. Click "Add Lesson" or "AI Generate All" to create content.
                     </div>
                   ) : (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                      <SortableContext items={lessons.map((l) => l.id || '')} strategy={verticalListSortingStrategy}>
-                        {lessons.map((lesson) => (
-                          <SortableLesson
-                            key={lesson.id}
-                            lesson={lesson}
-                            onEdit={() => {
-                              setPreviewLesson(lesson);
-                              setShowPreview(true);
-                            }}
-                            onDelete={() => handleDeleteLesson(lesson.id!)}
-                            onApprove={() => handleApproveLesson(lesson.id!)}
-                          />
-                        ))}
-                      </SortableContext>
-                    </DndContext>
+                    <>
+                      {/* Bulk Action Bar */}
+                      {selectedLessonIds.length > 0 && (
+                        <div className="bg-muted/50 border rounded-lg p-4 mb-4 flex items-center justify-between animate-fade-in">
+                          <div className="flex items-center gap-3">
+                            <Checkbox 
+                              checked={isAllSelected}
+                              onCheckedChange={toggleSelectAll}
+                              className="h-5 w-5"
+                            />
+                            <span className="text-sm font-medium">
+                              {selectedLessonIds.length} lesson(s) selected
+                            </span>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            {pendingSelectedCount > 0 && (
+                              <Button 
+                                variant="default"
+                                onClick={handleBulkApprove}
+                                disabled={loading}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <Check className="h-4 w-4 mr-2" />
+                                Approve {pendingSelectedCount}
+                              </Button>
+                            )}
+                            
+                            <Button 
+                              variant="destructive"
+                              onClick={handleBulkDelete}
+                              disabled={loading}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Selected
+                            </Button>
+                            
+                            <Button 
+                              variant="ghost"
+                              onClick={clearSelection}
+                            >
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={lessons.map((l) => l.id || '')} strategy={verticalListSortingStrategy}>
+                          {lessons.map((lesson) => (
+                            <SortableLesson
+                              key={lesson.id}
+                              lesson={lesson}
+                              onEdit={() => {
+                                setPreviewLesson(lesson);
+                                setShowPreview(true);
+                              }}
+                              onDelete={() => handleDeleteLesson(lesson.id!)}
+                              onApprove={() => handleApproveLesson(lesson.id!)}
+                              isSelected={selectedLessonIds.includes(lesson.id!)}
+                              onToggleSelection={toggleLessonSelection}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+                    </>
                   )}
                   </>
                 )}

@@ -137,17 +137,18 @@ export const SmartQuestionExtractor = ({
     }
   }, [preloadedQuestions, mode]);
 
-  // Auto-load questions for selected topic from database (lesson-builder mode only)
+  // Auto-load questions for selected topic from database
   useEffect(() => {
-    if (mode === 'question-bank') return; // Skip for question bank mode
-    
     const loadTopicQuestions = async () => {
-      if (!selectedTopic) {
+      // Use topicId for question-bank mode, selectedTopic for lesson-builder mode
+      const activeTopicId = mode === 'question-bank' ? topicId : selectedTopic;
+      
+      if (!activeTopicId) {
         setExtractedQuestions([]);
         return;
       }
       
-      console.log('🔍 Auto-loading questions for topic:', selectedTopic);
+      console.log('🔍 Auto-loading questions for topic:', activeTopicId, 'mode:', mode);
       
       // STEP 1: Clear existing questions immediately
       setExtractedQuestions([]);
@@ -164,7 +165,7 @@ export const SmartQuestionExtractor = ({
           name: 'topic-questions-api',
           body: {
             action: 'get_by_topic',
-            topic_id: selectedTopic
+            topic_id: activeTopicId
           }
         });
         
@@ -212,7 +213,7 @@ export const SmartQuestionExtractor = ({
     };
     
     loadTopicQuestions();
-  }, [selectedTopic]);
+  }, [selectedTopic, topicId, mode]);
 
   // Show restore toast on mount if data exists
   useEffect(() => {

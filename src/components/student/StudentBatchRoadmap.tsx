@@ -247,6 +247,36 @@ export const StudentBatchRoadmap = () => {
     };
   }, [roadmap?.id]);
 
+  // Real-time sync for topic progress updates
+  useEffect(() => {
+    const syncTopicProgress = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const channel = supabase
+        .channel('topic-progress-sync')
+        .on('postgres_changes', 
+          { 
+            event: '*',
+            schema: 'public', 
+            table: 'student_topic_progress',
+            filter: `student_id=eq.${session.user.id}`
+          },
+          (payload) => {
+            console.log('Topic progress updated:', payload);
+            fetchRoadmap(); // Auto-refresh when topic status changes
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    syncTopicProgress();
+  }, []);
+
   const fetchRoadmap = async () => {
     try {
       setLoading(true);
@@ -413,7 +443,10 @@ export const StudentBatchRoadmap = () => {
       <TopicStudyView 
         topicId={selectedTopic.id} 
         topicName={selectedTopic.name}
-        onBack={() => setSelectedTopic(null)}
+        onBack={() => {
+          setSelectedTopic(null);
+          fetchRoadmap(); // Refetch fresh data after topic completion
+        }}
       />
     );
   }
@@ -427,7 +460,10 @@ export const StudentBatchRoadmap = () => {
         onTopicClick={(topicId, topicName) => {
           setSelectedTopic({ id: topicId, chapterName: selectedChapter.name, name: topicName });
         }}
-        onBack={() => setSelectedChapter(null)}
+        onBack={() => {
+          setSelectedChapter(null);
+          fetchRoadmap(); // Refetch fresh data when navigating back
+        }}
       />
     );
   }

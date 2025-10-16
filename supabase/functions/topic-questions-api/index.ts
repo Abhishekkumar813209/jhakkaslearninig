@@ -37,9 +37,17 @@ function normalizeCorrectAnswer(questionType: string, correctAnswer: any, option
       // Try parsing as JSON first
       try {
         const parsed = JSON.parse(correctAnswer);
-        if (typeof parsed === 'object' && parsed !== null && 'index' in parsed) {
-          console.log('✅ Normalized JSON string format:', parsed.index);
-          return { type: 'index', value: parsed.index, options };
+        if (typeof parsed === 'object' && parsed !== null) {
+          // Handle JSON with "value" field (from DB: '{"type":"index","value":3}')
+          if ('value' in parsed && typeof parsed.value === 'number') {
+            console.log('✅ Normalized JSON string with value:', parsed.value);
+            return { type: 'index', value: parsed.value, options };
+          }
+          // Handle JSON with "index" field (legacy format)
+          if ('index' in parsed && typeof parsed.index === 'number') {
+            console.log('✅ Normalized JSON string with index:', parsed.index);
+            return { type: 'index', value: parsed.index, options };
+          }
         }
       } catch {
         // Not JSON, continue with other string parsing
@@ -188,10 +196,17 @@ serve(async (req) => {
 
       console.log(`✅ Found ${questions?.length || 0} questions in question_bank`);
 
-      const normalized = (questions || []).map(q => ({
-        ...q,
-        correct_answer: q.correct_answer ? normalizeCorrectAnswer(q.question_type, q.correct_answer, q.options) : null
-      }));
+      // Map to UI-friendly format for admin tool
+      const normalized = (questions || []).map(q => {
+        let ans = q.correct_answer ? normalizeCorrectAnswer(q.question_type, q.correct_answer, q.options) : null;
+        
+        // For MCQ, admin UI expects { index } format, not { value }
+        if (q.question_type === 'mcq' && ans && typeof ans === 'object') {
+          ans = { index: 'value' in ans ? ans.value : (ans.index ?? 0) };
+        }
+        
+        return { ...q, correct_answer: ans };
+      });
 
       return new Response(
         JSON.stringify({ success: true, questions: normalized }),
@@ -216,6 +231,15 @@ serve(async (req) => {
 
       const normalized = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
       
+      // Guard against out-of-range indexes
+      if (question.question_type === 'mcq' && normalized.value !== undefined) {
+        const optionsLength = question.options?.length || 0;
+        if (normalized.value >= optionsLength) {
+          console.warn(`⚠️ Index ${normalized.value} out of range for ${optionsLength} options`);
+          normalized.value = Math.min(normalized.value, optionsLength - 1);
+        }
+      }
+      
       const { error } = await serviceClient
         .from('question_bank')
         .update({
@@ -226,6 +250,66 @@ serve(async (req) => {
         .eq('id', question_id);
 
       if (error) throw error;
+
+      // Sync student-facing content (topic_learning_content & gamified_exercises)
+      console.log('🔄 Syncing student-facing content for question:', question_id);
+      
+      // Update topic_learning_content rows
+      const { data: learningContent, error: lcFetchError } = await serviceClient
+        .from('topic_learning_content')
+        .select('id, game_data')
+        .eq('topic_id', question.topic_id)
+        .eq('lesson_type', 'game')
+        .eq('game_type', 'mcq');
+      
+      if (!lcFetchError && learningContent) {
+        let lcUpdateCount = 0;
+        for (const lc of learningContent) {
+          const gameData = lc.game_data as any;
+          if (gameData?.question === question.question_text) {
+            await serviceClient
+              .from('topic_learning_content')
+              .update({
+                game_data: {
+                  ...gameData,
+                  correct_answer: normalized.value
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', lc.id);
+            lcUpdateCount++;
+          }
+        }
+        console.log(`✅ Updated ${lcUpdateCount} topic_learning_content rows`);
+      }
+
+      // Update gamified_exercises rows
+      const { data: exercises, error: exFetchError } = await serviceClient
+        .from('gamified_exercises')
+        .select('id, exercise_data')
+        .eq('exercise_type', 'mcq');
+      
+      if (!exFetchError && exercises) {
+        let exUpdateCount = 0;
+        for (const ex of exercises) {
+          const exerciseData = ex.exercise_data as any;
+          if (exerciseData?.question === question.question_text) {
+            await serviceClient
+              .from('gamified_exercises')
+              .update({
+                correct_answer: normalized,
+                exercise_data: {
+                  ...exerciseData,
+                  correct_answer: normalized.value
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', ex.id);
+            exUpdateCount++;
+          }
+        }
+        console.log(`✅ Updated ${exUpdateCount} gamified_exercises rows`);
+      }
 
       return new Response(
         JSON.stringify({ success: true }),

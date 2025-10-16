@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Lightbulb, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, Lightbulb, ArrowRight, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
@@ -27,9 +27,11 @@ interface MCQGameProps {
   onComplete: () => void;
   onNext?: () => void; // Optional: called when Continue is clicked
   onPrevious?: () => void; // Optional: called when Previous is clicked
+  onExit?: () => void; // Optional: called when Exit is clicked
   hasMoreQuestions?: boolean; // If true, shows "Next" instead of completing
   currentQuestionNum?: number; // For progress display
   totalQuestions?: number; // For progress display
+  autoAdvanceDelay?: number; // Default 3000ms - time to wait before auto-advancing
 }
 
 export function MCQGame({ 
@@ -39,14 +41,17 @@ export function MCQGame({
   onComplete,
   onNext,
   onPrevious,
+  onExit,
   hasMoreQuestions = false,
   currentQuestionNum,
-  totalQuestions
+  totalQuestions,
+  autoAdvanceDelay = 3000
 }: MCQGameProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Reset state when gameData changes
@@ -54,7 +59,22 @@ export function MCQGame({
     setHasSubmitted(false);
     setIsCorrect(false);
     setShowExplanation(false);
+    
+    // Clear any pending auto-advance timer
+    if (autoAdvanceTimer) {
+      clearTimeout(autoAdvanceTimer);
+      setAutoAdvanceTimer(null);
+    }
   }, [gameData]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimer) {
+        clearTimeout(autoAdvanceTimer);
+      }
+    };
+  }, [autoAdvanceTimer]);
 
   const handleSubmit = () => {
     if (selectedAnswer === null) return;
@@ -90,6 +110,14 @@ export function MCQGame({
     // Show explanation after a brief delay
     setTimeout(() => {
       setShowExplanation(true);
+      
+      // Start auto-advance timer (only if has more questions)
+      if (derivedHasMore && onNext) {
+        const timer = setTimeout(() => {
+          handleContinue();
+        }, autoAdvanceDelay);
+        setAutoAdvanceTimer(timer);
+      }
     }, 500);
   };
 
@@ -99,11 +127,23 @@ export function MCQGame({
     : hasMoreQuestions;
 
   const handleContinue = () => {
+    // Clear auto-advance timer if exists
+    if (autoAdvanceTimer) {
+      clearTimeout(autoAdvanceTimer);
+      setAutoAdvanceTimer(null);
+    }
+    
     console.log('[MCQGame] handleContinue - derivedHasMore:', derivedHasMore, 'currentQ:', currentQuestionNum, 'total:', totalQuestions);
     if (derivedHasMore && onNext) {
       onNext();
     } else {
       onComplete();
+    }
+  };
+
+  const handleExitClick = () => {
+    if (window.confirm('Exit quiz? Your progress will be saved.')) {
+      onExit?.();
     }
   };
 
@@ -116,44 +156,36 @@ export function MCQGame({
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6">
-      {/* Progress Bar & Navigation (Phase 4) */}
-      {totalQuestions && totalQuestions > 1 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-muted-foreground">
-              Question {currentQuestionNum || 1} of {totalQuestions}
-            </span>
-            <span className="text-primary font-semibold">
-              {Math.round(((currentQuestionNum || 1) / totalQuestions) * 100)}% Complete
-            </span>
+      {/* Header with Progress & Exit */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Progress Bar */}
+        {totalQuestions && totalQuestions > 1 && (
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-muted-foreground">
+                Question {currentQuestionNum || 1} of {totalQuestions}
+              </span>
+              <span className="text-primary font-semibold">
+                {Math.round(((currentQuestionNum || 1) / totalQuestions) * 100)}% Complete
+              </span>
+            </div>
+            <Progress value={((currentQuestionNum || 1) / totalQuestions) * 100} className="h-2" />
           </div>
-          <Progress value={((currentQuestionNum || 1) / totalQuestions) * 100} className="h-2" />
-          
-          {/* Navigation Buttons */}
-          <div className="flex items-center justify-between pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPrevious}
-              disabled={!canGoPrevious || !onPrevious}
-              className="gap-2"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onNext}
-              disabled={!canGoNext || !onNext}
-              className="gap-2"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+        )}
+        
+        {/* Exit Button */}
+        {onExit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExitClick}
+            className="gap-2 flex-shrink-0"
+          >
+            <LogOut className="h-4 w-4" />
+            Exit
+          </Button>
+        )}
+      </div>
       
       {/* Question Card */}
       <Card className="border-2 border-primary/20">
@@ -290,7 +322,7 @@ export function MCQGame({
         </CardContent>
       </Card>
 
-      {/* Explanation Card */}
+      {/* Explanation Card with Navigation */}
       <AnimatePresence>
         {showExplanation && gameData.explanation && (
           <motion.div
@@ -302,7 +334,7 @@ export function MCQGame({
               "border-2",
               isCorrect ? "border-green-500 bg-green-50/50 dark:bg-green-950/20" : "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
             )}>
-              <CardContent className="p-6">
+              <CardContent className="p-6 space-y-4">
                 <div className="flex items-start gap-3">
                   <div className={cn(
                     "p-2 rounded-full mt-1",
@@ -322,6 +354,37 @@ export function MCQGame({
                     </p>
                   </div>
                 </div>
+
+                {/* Navigation Buttons - Only appear after submission */}
+                {hasSubmitted && (
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onPrevious}
+                      disabled={!canGoPrevious || !onPrevious}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleContinue}
+                      className="gap-2"
+                    >
+                      {derivedHasMore ? (
+                        <>
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </>
+                      ) : (
+                        'Complete Topic'
+                      )}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

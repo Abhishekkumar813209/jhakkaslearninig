@@ -19,6 +19,7 @@ import {
   Users2,
   CreditCard,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 import {
   Sidebar,
@@ -85,6 +86,7 @@ const menuGroups: MenuGroup[] = [
     label: "Assessments",
     items: [
       { value: "tests", label: "Tests", icon: FileText },
+      { value: "xp-config", label: "XP Configuration", icon: Zap },
     ],
   },
   {

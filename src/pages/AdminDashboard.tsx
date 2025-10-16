@@ -30,6 +30,7 @@ import PromoCodeManagement from "@/components/admin/PromoCodeManagement";
 import ReferralManagement from "@/components/admin/ReferralManagement";
 import { WithdrawalManagement } from "@/components/admin/WithdrawalManagement";
 import SubscriptionManagement from "@/components/admin/SubscriptionManagement";
+import XPManagement from "@/components/admin/XPManagement";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -61,6 +62,7 @@ const AdminDashboard = () => {
     { value: "schools", label: "Schools", component: SchoolManagement },
     { value: "zone-analytics", label: "Zone Analytics", component: ZoneSchoolAnalytics },
     { value: "tests", label: "Tests", component: TestManagement },
+    { value: "xp-config", label: "XP Configuration", component: XPManagement },
     { value: "fees", label: "Fees", component: FeesManagement },
     { value: "pricing", label: "Pricing", component: PricingManagement },
     { value: "promo-codes", label: "Promo Codes", component: PromoCodeManagement },

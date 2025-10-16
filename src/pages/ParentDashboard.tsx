@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Users, TrendingUp, Trophy, Flame, Target } from "lucide-react";
+import { Loader2, Users, TrendingUp, Trophy, Flame, Target, AlertOctagon, AlertTriangle, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
@@ -65,6 +66,7 @@ export default function ParentDashboard() {
   const [testAnalysis, setTestAnalysis] = useState<any>({});
   const [roadmapCalendar, setRoadmapCalendar] = useState<any>(null);
   const [chapterStatuses, setChapterStatuses] = useState<Record<string, boolean>>({});
+  const [manualZone, setManualZone] = useState<'red' | 'yellow' | 'green'>('red');
 
   useEffect(() => {
     checkParentRole();
@@ -240,6 +242,19 @@ export default function ParentDashboard() {
     });
   };
 
+  const toggleZone = (zone: 'red' | 'yellow' | 'green') => {
+    setManualZone(zone);
+    const zoneNames = {
+      red: 'RED ZONE - Urgent Attention Needed',
+      yellow: 'YELLOW ZONE - Needs Improvement',
+      green: 'GREEN ZONE - Excellent Progress'
+    };
+    toast.success(`Zone Updated`, {
+      description: zoneNames[zone],
+      duration: 2000,
+    });
+  };
+
   const currentStudent = linkedStudents.find(s => s.student_id === selectedStudent);
 
   if (loading && linkedStudents.length === 0) {
@@ -309,6 +324,74 @@ export default function ParentDashboard() {
 
         {currentStudent && !loading && (
           <div className="space-y-6">
+            {/* Manual Zone Toggle - Top Section */}
+            <Card className="border-2">
+              <CardHeader>
+                <CardTitle>Student Performance Zone</CardTitle>
+                <CardDescription>Double-click any zone to mark student's current status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Red Zone */}
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onDoubleClick={() => toggleZone('red')}
+                    className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
+                      manualZone === 'red' 
+                        ? 'bg-red-600 text-white border-red-700 shadow-lg' 
+                        : 'bg-red-100 text-red-900 border-red-300 hover:bg-red-200'
+                    }`}
+                  >
+                    <AlertOctagon className={`h-12 w-12 mx-auto mb-3 ${manualZone === 'red' ? 'text-white' : 'text-red-600'}`} />
+                    <h3 className="text-center font-bold text-lg">Red Zone</h3>
+                    <p className="text-center text-sm mt-2">Urgent Attention Needed</p>
+                    {manualZone === 'red' && (
+                      <Badge className="w-full mt-3 justify-center bg-white text-red-600 hover:bg-white">Active</Badge>
+                    )}
+                  </motion.div>
+
+                  {/* Yellow Zone */}
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onDoubleClick={() => toggleZone('yellow')}
+                    className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
+                      manualZone === 'yellow' 
+                        ? 'bg-yellow-600 text-white border-yellow-700 shadow-lg' 
+                        : 'bg-yellow-100 text-yellow-900 border-yellow-300 hover:bg-yellow-200'
+                    }`}
+                  >
+                    <AlertTriangle className={`h-12 w-12 mx-auto mb-3 ${manualZone === 'yellow' ? 'text-white' : 'text-yellow-600'}`} />
+                    <h3 className="text-center font-bold text-lg">Yellow Zone</h3>
+                    <p className="text-center text-sm mt-2">Needs Improvement</p>
+                    {manualZone === 'yellow' && (
+                      <Badge className="w-full mt-3 justify-center bg-white text-yellow-600 hover:bg-white">Active</Badge>
+                    )}
+                  </motion.div>
+
+                  {/* Green Zone */}
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onDoubleClick={() => toggleZone('green')}
+                    className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
+                      manualZone === 'green' 
+                        ? 'bg-green-600 text-white border-green-700 shadow-lg' 
+                        : 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200'
+                    }`}
+                  >
+                    <ShieldCheck className={`h-12 w-12 mx-auto mb-3 ${manualZone === 'green' ? 'text-white' : 'text-green-600'}`} />
+                    <h3 className="text-center font-bold text-lg">Green Zone</h3>
+                    <p className="text-center text-sm mt-2">Excellent Progress</p>
+                    {manualZone === 'green' && (
+                      <Badge className="w-full mt-3 justify-center bg-white text-green-600 hover:bg-white">Active</Badge>
+                    )}
+                  </motion.div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Zone Status */}
             {zoneData && <StudentZoneAnalysis zoneStatus={zoneData} />}
 

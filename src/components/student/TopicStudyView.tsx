@@ -213,11 +213,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
   };
   
   const handleNextQuestion = () => {
-    const hasMore = questionQueue.nextQuestion();
-    if (!hasMore) {
-      // No more questions, mark complete
-      markTopicComplete();
-    }
+    questionQueue.nextQuestion();
+    // Don't auto-complete, let user click "Complete" button from MCQGame
   };
   
   const handleExerciseComplete = async (exerciseId: string, xpReward: number, difficulty?: Difficulty) => {
@@ -274,9 +271,11 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
 
       if (error) throw error;
 
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+
       toast({
         title: "🎉 Topic Completed!",
-        description: "Great job! Moving to next topic...",
+        description: `You earned ${questionQueue.totalQuestions * 30} XP from all questions!`,
       });
 
       setTimeout(() => onBack(), 2000);
@@ -479,7 +478,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onNext={handleNextQuestion}
-            onComplete={() => {}}
+            onComplete={markTopicComplete}
             hasMoreQuestions={questionQueue.hasMoreQuestions}
             currentQuestionNum={questionQueue.currentIndex + 1}
             totalQuestions={questionQueue.totalQuestions}

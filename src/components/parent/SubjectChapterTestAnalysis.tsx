@@ -27,7 +27,7 @@ export function SubjectChapterTestAnalysis({ testAnalysis }: SubjectChapterTestA
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Subject-wise Test Analysis</CardTitle>
+        <CardTitle>Daily Targets</CardTitle>
       </CardHeader>
       <CardContent>
         <Accordion type="single" collapsible className="w-full">

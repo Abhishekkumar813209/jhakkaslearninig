@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2, Users, TrendingUp, Trophy, Flame, Target } from "lucide-react";
 import { toast } from "sonner";
 import ParentNavbar from "@/components/ParentNavbar";
@@ -394,31 +395,47 @@ export default function ParentDashboard() {
               </CardHeader>
               <CardContent>
                 {progress?.subjectAnalytics?.length > 0 ? (
-                  <div className="space-y-4">
+                  <Accordion type="single" collapsible className="w-full">
                     {progress.subjectAnalytics.map((subject: any) => (
-                      <div key={subject.subject} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">{subject.subject}</span>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={
-                              subject.mastery_level === 'master' ? 'default' :
-                              subject.mastery_level === 'advanced' ? 'secondary' :
-                              'outline'
-                            }>
-                              {subject.mastery_level}
-                            </Badge>
-                            <span className="text-sm font-bold">
-                              {subject.average_score?.toFixed(1)}%
-                            </span>
+                      <AccordionItem key={subject.subject} value={subject.subject}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center justify-between w-full pr-4">
+                            <div className="flex items-center gap-3">
+                              <span className="font-semibold">{subject.subject}</span>
+                              <Badge variant={
+                                subject.mastery_level === 'master' ? 'default' :
+                                subject.mastery_level === 'advanced' ? 'secondary' :
+                                subject.mastery_level === 'intermediate' ? 'outline' :
+                                'destructive'
+                              }>
+                                {subject.mastery_level}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold">{subject.average_score?.toFixed(1)}%</p>
+                            </div>
                           </div>
-                        </div>
-                        <Progress value={subject.average_score} className="h-2" />
-                        <p className="text-xs text-muted-foreground">
-                          {subject.tests_taken} tests attempted
-                        </p>
-                      </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 pt-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Average Score</span>
+                              <span className="font-medium">{subject.average_score?.toFixed(1)}%</span>
+                            </div>
+                            <Progress value={subject.average_score} className="h-2" />
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Tests Attempted</span>
+                              <span className="font-medium">{subject.tests_taken}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Best Score</span>
+                              <span className="font-medium">{subject.best_score?.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
                     ))}
-                  </div>
+                  </Accordion>
                 ) : (
                   <p className="text-muted-foreground text-center py-8">
                     No subject data available yet

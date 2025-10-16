@@ -430,6 +430,197 @@ serve(async (req) => {
         );
       }
 
+      case 'getSubjectChapterTestAnalysis': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Fetch all test attempts with test details
+        const { data: testAttempts } = await supabase
+          .from('test_attempts')
+          .select(`
+            id,
+            score,
+            percentage,
+            submitted_at,
+            test:test_id (
+              id,
+              title,
+              subject,
+              total_marks
+            )
+          `)
+          .eq('student_id', studentId)
+          .in('status', ['submitted', 'auto_submitted'])
+          .order('submitted_at', { ascending: false });
+
+        // Group by subject
+        const grouped = (testAttempts || []).reduce((acc: any, attempt: any) => {
+          const subject = attempt.test?.subject || 'General';
+          if (!acc[subject]) acc[subject] = [];
+          
+          acc[subject].push({
+            test_id: attempt.test?.id,
+            test_title: attempt.test?.title,
+            score: attempt.score,
+            total_marks: attempt.test?.total_marks,
+            percentage: attempt.percentage,
+            submitted_at: attempt.submitted_at,
+            passed: attempt.percentage >= 60
+          });
+          
+          return acc;
+        }, {});
+
+        return new Response(
+          JSON.stringify({ testAnalysis: grouped }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'getRoadmapDailyProgress': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verify parent has access
+        const { data: link } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!link) throw new Error('Unauthorized access to student');
+
+        // Get student's active roadmap
+        const { data: studentRoadmap } = await supabase
+          .from('student_roadmaps')
+          .select('batch_roadmap_id')
+          .eq('student_id', studentId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!studentRoadmap) {
+          return new Response(
+            JSON.stringify({ dailyProgress: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get roadmap details with start date
+        const { data: roadmapDetails } = await supabase
+          .from('batch_roadmaps')
+          .select('start_date, end_date')
+          .eq('id', studentRoadmap.batch_roadmap_id)
+          .single();
+
+        if (!roadmapDetails) {
+          return new Response(
+            JSON.stringify({ dailyProgress: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get all chapters for this roadmap
+        const { data: chapters } = await supabase
+          .from('roadmap_chapters')
+          .select('id')
+          .eq('roadmap_id', studentRoadmap.batch_roadmap_id);
+
+        if (!chapters || chapters.length === 0) {
+          return new Response(
+            JSON.stringify({ dailyProgress: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const chapterIds = chapters.map(c => c.id);
+
+        // Get all topics from these chapters
+        const { data: roadmapTopics } = await supabase
+          .from('roadmap_topics')
+          .select(`
+            id,
+            topic_name,
+            day_number,
+            subject,
+            chapter:chapter_id (
+              chapter_name
+            )
+          `)
+          .in('chapter_id', chapterIds)
+          .order('day_number', { ascending: true });
+
+        if (!roadmapTopics || roadmapTopics.length === 0) {
+          return new Response(
+            JSON.stringify({ dailyProgress: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get completion status for all topics
+        const topicIds = roadmapTopics.map(t => t.id);
+        const { data: completionData } = await supabase
+          .from('student_topic_game_progress')
+          .select('topic_id, is_completed, last_accessed_at, completed_game_ids')
+          .eq('student_id', studentId)
+          .in('topic_id', topicIds);
+
+        // Create completion map
+        const completionMap = new Map(
+          (completionData || []).map(c => [c.topic_id, c])
+        );
+
+        // Build daily progress with dates
+        const roadmapStart = new Date(roadmapDetails.start_date);
+        const dailyProgress = roadmapTopics.map(topic => {
+          const completion = completionMap.get(topic.id);
+          const scheduledDate = new Date(roadmapStart);
+          scheduledDate.setDate(scheduledDate.getDate() + (topic.day_number - 1));
+
+          return {
+            date: scheduledDate.toISOString().split('T')[0],
+            day_number: topic.day_number,
+            subject: topic.subject,
+            chapter: topic.chapter?.chapter_name || 'Unknown',
+            topic_name: topic.topic_name,
+            is_completed: completion?.is_completed || false,
+            completed_at: completion?.last_accessed_at || null,
+            games_completed: completion?.completed_game_ids?.length || 0
+          };
+        });
+
+        // Group by date then subject
+        const groupedByDate = dailyProgress.reduce((acc: any, entry: any) => {
+          if (!acc[entry.date]) acc[entry.date] = {};
+          if (!acc[entry.date][entry.subject]) acc[entry.date][entry.subject] = [];
+          acc[entry.date][entry.subject].push(entry);
+          return acc;
+        }, {});
+
+        return new Response(
+          JSON.stringify({ dailyProgress: groupedByDate }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         throw new Error('Invalid action');
     }

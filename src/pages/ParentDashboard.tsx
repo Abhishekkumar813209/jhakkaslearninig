@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
+import { SubjectChapterTestAnalysis } from "@/components/parent/SubjectChapterTestAnalysis";
+import { RoadmapDailyCalendar } from "@/components/parent/RoadmapDailyCalendar";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
 import { RaceTypeSelector } from "@/components/student/racing/RaceTypeSelector";
@@ -58,6 +60,8 @@ export default function ParentDashboard() {
   const [topicsBySubject, setTopicsBySubject] = useState<any>({});
   const [racingData, setRacingData] = useState<any>(null);
   const [selectedRace, setSelectedRace] = useState<RaceType>('class');
+  const [testAnalysis, setTestAnalysis] = useState<any>({});
+  const [roadmapCalendar, setRoadmapCalendar] = useState<any>({});
 
   useEffect(() => {
     checkParentRole();
@@ -123,7 +127,7 @@ export default function ParentDashboard() {
 
       console.log('[ParentDashboard] Fetching data for student:', studentId);
 
-      const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult] = await Promise.all([
+      const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult, testAnalysisData, calendarData] = await Promise.all([
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getStudentProgress', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
@@ -152,6 +156,14 @@ export default function ParentDashboard() {
           headers: {
             Authorization: `Bearer ${session.access_token}`
           }
+        }),
+        supabase.functions.invoke('parent-portal', {
+          body: { action: 'getSubjectChapterTestAnalysis', studentId },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        }),
+        supabase.functions.invoke('parent-portal', {
+          body: { action: 'getRoadmapDailyProgress', studentId },
+          headers: { Authorization: `Bearer ${session.access_token}` }
         })
       ]);
 
@@ -166,6 +178,8 @@ export default function ParentDashboard() {
       setActivity(activityData.data);
       setFees(feesData.data);
       setZoneData(zoneStatusData.data?.zoneStatus || null);
+      setTestAnalysis(testAnalysisData.data?.testAnalysis || {});
+      setRoadmapCalendar(calendarData.data?.dailyProgress || {});
       
       // Handle racing data with proper fallback
       if (racingResult.data?.success) {
@@ -412,6 +426,16 @@ export default function ParentDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Subject-wise Test Analysis */}
+            {Object.keys(testAnalysis).length > 0 && (
+              <SubjectChapterTestAnalysis testAnalysis={testAnalysis} />
+            )}
+
+            {/* Daily Roadmap Calendar */}
+            {Object.keys(roadmapCalendar).length > 0 && (
+              <RoadmapDailyCalendar dailyProgress={roadmapCalendar} />
+            )}
 
             {/* Topic-wise Breakdown */}
             {Object.keys(topicsBySubject).length > 0 && (

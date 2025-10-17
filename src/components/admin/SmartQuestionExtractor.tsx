@@ -19,6 +19,8 @@ import Tesseract from 'tesseract.js';
 import { useFormPersistence } from "@/hooks/useFormPersistence";
 import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
+import { normalizeChemicalFormula, formatChemicalReaction, preserveChemicalSymbols } from '@/lib/chemistryNotation';
+import { normalizeMathNotation, normalizeUnits, preserveMathSymbols } from '@/lib/mathNotation';
 
 interface ExtractedQuestion {
   id: string;
@@ -392,7 +394,44 @@ export const SmartQuestionExtractor = ({
     };
   };
 
-  // Enhanced text extraction for better structure preservation
+  // Apply chemistry and math notation normalization
+  const applyNotationNormalization = (text: string): string => {
+    let normalized = text;
+    
+    // Preserve Unicode symbols first
+    normalized = preserveChemicalSymbols(normalized);
+    normalized = preserveMathSymbols(normalized);
+    
+    // Detect and normalize chemical formulas - common patterns
+    const chemPatterns = [
+      /H2O/g, /CO2/g, /H2SO4/g, /NaOH/g, /HCl/g, /NH3/g, /CH4/g,
+      /Ca\(OH\)2/g, /Mg\(OH\)2/g, /Al2O3/g, /Fe2O3/g, /CaCO3/g
+    ];
+    
+    chemPatterns.forEach(pattern => {
+      normalized = normalized.replace(pattern, (match) => normalizeChemicalFormula(match));
+    });
+    
+    // Normalize chemical reactions with arrows
+    if (normalized.includes('->') || normalized.includes('→') || normalized.includes('=')) {
+      // Split by potential reaction boundaries and format each
+      const parts = normalized.split(/\n/);
+      normalized = parts.map(line => {
+        if ((line.includes('->') || line.includes('→') || /\s=\s/.test(line)) && /[A-Z][a-z]?\d/.test(line)) {
+          return formatChemicalReaction(line);
+        }
+        return line;
+      }).join('\n');
+    }
+    
+    // Normalize math notation
+    normalized = normalizeMathNotation(normalized);
+    normalized = normalizeUnits(normalized);
+    
+    return normalized;
+  };
+
+  // Enhanced text extraction with notation preservation
   const extractTextFromPDF = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await getDocument({ data: arrayBuffer }).promise;
@@ -404,18 +443,46 @@ export const SmartQuestionExtractor = ({
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       
-      // Preserve layout structure
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
+      // Enhanced text extraction with position tracking
+      const pageText = textContent.items.map((item: any, index: number) => {
+        if (!item.str) return '';
+        
+        let text = item.str;
+        
+        // Detect subscript/superscript based on font size
+        const fontSize = item.transform?.[0] || 12;
+        const prevItem = textContent.items[index - 1] as any;
+        
+        if (prevItem && prevItem.transform) {
+          const prevFontSize = prevItem.transform[0];
+          const sizeRatio = fontSize / prevFontSize;
+          
+          // Smaller text might be subscript/superscript
+          if (sizeRatio < 0.75 && /^\d+$/.test(text)) {
+            const yPos = item.transform?.[5] || 0;
+            const prevYPos = prevItem.transform[5];
+            
+            if (yPos < prevYPos - 2) {
+              return `_{${text}}`; // Subscript
+            } else if (yPos > prevYPos + 2) {
+              return `^{${text}}`; // Superscript
+            }
+          }
+        }
+        
+        return text;
+      }).join(' ');
       
       fullText += `\n--- PAGE ${i} ---\n${pageText}\n`;
     }
     
+    // Apply notation normalization
+    fullText = applyNotationNormalization(fullText);
+    
     return fullText;
   };
 
-  // Extract rich content from Word documents (HTML + images + OCR)
+  // Extract rich content from Word documents with enhanced notation
   const extractTextFromWord = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     

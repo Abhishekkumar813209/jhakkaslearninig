@@ -72,6 +72,48 @@ WRONG Output (DO NOT DO THIS):
 - For MCQ options: Options may contain superscripts ^{...} or subscripts _{...} - DO NOT drop these
 - Preserve mathematical notation like m^{3}, r^{2}, ∝, ×, etc.
 
+🔥 OPTIONS EXTRACTION RULES (CRITICAL - TEXT AFTER = SIGN):
+1. For MCQ/Assertion-Reason options with equations, extract FULL text after option label
+2. **NEVER stop at = sign** - Continue until end of option
+3. Examples:
+   Input: "a). a=2, b=3, c=5"
+   Output: "a=2, b=3, c=5" (NOT just "a")
+   
+   Input: "a) x = 10 m/s"
+   Output: "x = 10 m/s" (NOT just "x")
+
+   Input: "a) H₂ + O₂ = H₂O"
+   Output: "H₂ + O₂ = H₂O" (preserve full equation)
+
+4. For chemistry equations in options: preserve full reaction with all compounds
+
+🧪 CHEMISTRY NOTATION PRESERVATION:
+1. Chemical formulas MUST preserve subscripts: H_{2}O, NOT H2O
+2. Preserve superscripts for ions: Ca^{2+}, SO_{4}^{2-}
+3. Chemical equations: keep → or = arrows
+4. States of matter: (s), (l), (g), (aq)
+5. Greek letters: α-particle, β-decay, γ-radiation
+6. IUPAC names: preserve hyphens and brackets
+
+Examples:
+- "2H_{2} + O_{2} → 2H_{2}O"
+- "CH_{3}COOH + NaOH → CH_{3}COONa + H_{2}O"
+- "Fe^{2+} + 2OH^{-} → Fe(OH)_{2}"
+
+🔢 MATHEMATICS & PHYSICS NOTATION:
+1. Preserve superscripts for exponents: x^{2}, v^{2}, m^{3}
+2. Preserve subscripts: v_{0}, a_{1}, T_{2}
+3. Units with exponents: m/s^{2}, kg/m^{3}, N/m^{2}
+4. Mathematical symbols: ∝, ∞, √, ≈, ≠, ≤, ≥, ±, ×, ÷
+5. Greek letters: α, β, γ, δ, θ, π, ω, Δ, Σ
+6. Equations: preserve full equation with spaces around operators
+
+Examples:
+- "v^{2} = u^{2} + 2as"
+- "F = ma"
+- "E = mc^{2}"
+- "Density = 600 kg/m^{3}"
+
 📋 STRICT PRIORITY ORDER FOR TYPE DETECTION (Check in this order):
 
 Priority 1: ASSERTION-REASON (Check FIRST before MCQ)

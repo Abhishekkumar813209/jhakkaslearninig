@@ -11,15 +11,17 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, context } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const systemPrompt = `You are a helpful AI assistant for an educational LMS platform built for Indian students.
+    let systemPrompt = `You are a helpful AI assistant for an educational LMS platform built for Indian students.
 You help admin plan features, suggest implementations, and discuss gamification strategies.
+
+${context?.tableName ? `\n[CURRENT CONTEXT: Admin is viewing ${context.tableName} table${context.tableCount ? ` with ${context.tableCount} rows` : ''}]\n` : ''}
 
 Platform Features:
 - Roadmap generation (AI-powered, chapter-wise)

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
+import { SmartQuestionExtractor } from './SmartQuestionExtractor';
 
 interface Question {
   id?: string;
@@ -78,6 +79,7 @@ const TestBuilder: React.FC = () => {
   const [showTestSettings, setShowTestSettings] = useState(false);
   const [hasUnsavedQuestion, setHasUnsavedQuestion] = useState(false);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [showDocumentExtraction, setShowDocumentExtraction] = useState(false);
   const { toast } = useToast();
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const questionStorageKey = `test-builder-question-${testId}`;
@@ -493,6 +495,64 @@ const TestBuilder: React.FC = () => {
     }
   };
 
+  const handleExtractedQuestions = async (extractedQuestions: any[]) => {
+    setLoading(true);
+    try {
+      let successCount = 0;
+      
+      for (const question of extractedQuestions) {
+        const questionData = {
+          test_id: testId,
+          qtype: question.question_type === 'mcq' ? 'mcq' : 'subjective',
+          question_text: question.question_text,
+          options: question.question_type === 'mcq' ? 
+            question.options?.map((opt: string, idx: number) => ({
+              text: opt,
+              isCorrect: idx === (question.correct_answer?.correctAnswerIndex ?? 0)
+            })) : undefined,
+          correct_answer: question.question_type === 'mcq' ? 
+            question.options?.[question.correct_answer?.correctAnswerIndex ?? 0] : 
+            question.correct_answer,
+          marks: question.marks || 1,
+          position: questions.length + successCount + 1,
+          image_url: question.images?.[0],
+          explanation: question.explanation
+        };
+        
+        const { data, error } = await supabase.functions.invoke('tests-api', {
+          body: { action: 'addQuestion', questionData }
+        });
+
+        if (error) {
+          console.error('Error adding question:', error);
+          continue;
+        }
+        
+        if (data.success) {
+          setQuestions(prev => [...prev, data.question]);
+          successCount++;
+        }
+      }
+      
+      await fetchTestData();
+      setShowDocumentExtraction(false);
+      
+      toast({
+        title: "Success!",
+        description: `Added ${successCount} questions to test`
+      });
+    } catch (error) {
+      console.error('Error adding extracted questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add questions to test",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -600,6 +660,10 @@ const TestBuilder: React.FC = () => {
         <Button variant="outline" onClick={generateQuestionsWithAI} disabled={aiGenerating}>
           <Wand2 className={`h-4 w-4 mr-2 ${aiGenerating ? 'animate-spin' : ''}`} />
           {aiGenerating ? 'Generating...' : 'AI Generate'}
+        </Button>
+        <Button variant="outline" onClick={() => setShowDocumentExtraction(true)}>
+          <FileText className="h-4 w-4 mr-2" />
+          Extract from PDF/Word
         </Button>
         <Button variant="outline" onClick={generatePrintableTest}>
           <Download className="h-4 w-4 mr-2" />
@@ -1044,6 +1108,17 @@ const TestBuilder: React.FC = () => {
               {editingQuestion ? 'Update Question' : 'Add Question'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Extraction Dialog */}
+      <Dialog open={showDocumentExtraction} onOpenChange={setShowDocumentExtraction}>
+        <DialogContent className="max-w-6xl h-[90vh] p-0">
+          <SmartQuestionExtractor
+            mode="test-builder"
+            onQuestionsAdded={handleExtractedQuestions}
+            onBackClick={() => setShowDocumentExtraction(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

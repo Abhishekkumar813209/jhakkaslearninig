@@ -58,7 +58,7 @@ interface SmartQuestionExtractorProps {
   examDomain?: string;
   examName?: string;
   sourceFileName?: string;
-  mode?: 'lesson-builder' | 'question-bank';
+  mode?: 'lesson-builder' | 'question-bank' | 'test-builder';
   onBackClick?: () => void;
 }
 
@@ -1127,6 +1127,12 @@ export const SmartQuestionExtractor = ({
       return;
     }
 
+    // For test-builder mode, directly call parent callback
+    if (mode === 'test-builder') {
+      onQuestionsAdded(selected);
+      return;
+    }
+
     // For Question Bank mode, allow saving without answers (admin can fill later)
     if (mode === 'lesson-builder') {
       // Check if all selected questions have valid answers
@@ -1513,7 +1519,7 @@ export const SmartQuestionExtractor = ({
                   {selectedIds.length > 0 && (
                     <Button variant="default" size="sm" onClick={handleSaveToDatabase}>
                       <Database className="h-4 w-4 mr-1" />
-                      Save to Database ({selectedIds.length})
+                      {mode === 'test-builder' ? 'Add to Test' : 'Save to Database'} ({selectedIds.length})
                     </Button>
                   )}
                 </div>
@@ -1660,10 +1666,15 @@ export const SmartQuestionExtractor = ({
                       <CheckCircle2 className="h-5 w-5 text-blue-500" />
                       <span className="font-medium">{selectedIds.length} selected</span>
                     </div>
-                     {mode === 'question-bank' ? (
+                    {mode === 'question-bank' ? (
                       <Button onClick={handleSaveToDatabase} size="lg">
                         <Database className="h-4 w-4 mr-2" />
                         Save to Question Bank ({selectedIds.length})
+                      </Button>
+                    ) : mode === 'test-builder' ? (
+                      <Button onClick={handleSaveToDatabase} size="lg">
+                        <Database className="h-4 w-4 mr-2" />
+                        Add to Test ({selectedIds.length})
                       </Button>
                     ) : (
                       <Button onClick={handleAddToGames} size="lg">

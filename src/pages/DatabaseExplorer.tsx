@@ -6,11 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { TableSelector } from '@/components/admin/TableSelector';
 import { TableDataViewer } from '@/components/admin/TableDataViewer';
 import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const databaseSchema = {
   profiles: {
@@ -326,27 +327,31 @@ const columnDocumentation = {
 };
 
 const DatabaseExplorer = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AdminSidebar activeTab="database-explorer" onTabChange={() => {}} />
-        
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-14 border-b flex items-center px-4 gap-4 bg-card shrink-0">
-            <SidebarTrigger />
-            <div className="flex-1">
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Database Explorer & AI Assistant
-              </h1>
-            </div>
-          </header>
+    <div className="min-h-screen w-full bg-background">
+      {/* Header with back button */}
+      <header className="h-14 border-b border-border bg-card px-6 flex items-center gap-4 sticky top-0 z-10">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/admin')}
+          className="gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Admin
+        </Button>
+        <div className="flex items-center gap-2">
+          <Database className="h-5 w-5 text-primary" />
+          <h1 className="text-lg font-semibold text-foreground">Database Explorer & AI Assistant</h1>
+        </div>
+      </header>
 
-          <main className="flex-1 p-6 flex gap-6 overflow-hidden">
+      <main className="flex-1 p-6 flex gap-6 overflow-hidden">
             {/* Left: Database Viewer (60%) */}
             <div className="flex-[3] flex flex-col gap-4 min-w-0 overflow-hidden">
               <TableSelector value={selectedTable} onChange={setSelectedTable} />
@@ -478,9 +483,7 @@ const DatabaseExplorer = () => {
             </div>
           </main>
         </div>
-      </div>
-    </SidebarProvider>
-  );
+    );
 };
 
 export default DatabaseExplorer;

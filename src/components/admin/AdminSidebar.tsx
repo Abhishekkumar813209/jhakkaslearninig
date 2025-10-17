@@ -20,6 +20,7 @@ import {
   CreditCard,
   ChevronRight,
   Zap,
+  Database,
 } from "lucide-react";
 import {
   Sidebar,
@@ -116,6 +117,11 @@ const menuGroups: MenuGroup[] = [
   },
 ];
 
+// Separate navigation items (not tabs)
+const navigationItems = [
+  { path: "/database-explorer", label: "Database Explorer", icon: Database },
+];
+
 interface AdminSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -124,6 +130,7 @@ interface AdminSidebarProps {
 export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const location = useLocation();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -179,6 +186,43 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+        
+        {/* Navigation Links (separate from tabs) */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Tools
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={isCollapsed ? item.label : undefined}>
+                      <NavLink 
+                        to={item.path}
+                        className={`
+                          group relative transition-all duration-200
+                          ${isActive ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-accent hover:text-accent-foreground'}
+                        `}
+                      >
+                        <Icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${isActive ? 'text-primary-foreground' : ''}`} />
+                        {!isCollapsed && (
+                          <span className="font-medium">{item.label}</span>
+                        )}
+                        {isActive && !isCollapsed && (
+                          <ChevronRight className="ml-auto h-4 w-4" />
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-2">

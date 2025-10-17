@@ -37,6 +37,7 @@ import StudentRoadmapView from "./pages/StudentRoadmapView";
 import TopicDetailPage from "./pages/TopicDetailPage";
 import GamePlayerPage from "./pages/GamePlayerPage";
 import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
+import DatabaseExplorer from "./pages/DatabaseExplorer";
 
 const queryClient = new QueryClient();
 
@@ -168,6 +169,11 @@ const App = () => (
             <Route path="/fees" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <FeesManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/database-explorer" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <DatabaseExplorer />
               </ProtectedRoute>
             } />
             <Route path="/quiz" element={

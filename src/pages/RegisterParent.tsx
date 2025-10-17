@@ -68,8 +68,52 @@ const RegisterParent = () => {
         },
       });
 
-      if (error) throw error;
+      // Check for function invocation errors (non-2xx status codes)
+      if (error) {
+        // Try to parse error context for structured error info
+        let errorCode = null;
+        let errorMessage = error.message;
+        
+        if (error.name === 'FunctionsHttpError') {
+          try {
+            const errorContext = await error.context.json();
+            errorCode = errorContext.errorCode;
+            errorMessage = errorContext.error || errorMessage;
+          } catch (e) {
+            // Failed to parse, use original message
+          }
+        }
+        
+        // Check if it's EMAIL_EXISTS
+        if (errorCode === 'EMAIL_EXISTS' || 
+            errorMessage.toLowerCase().includes('already') || 
+            errorMessage.toLowerCase().includes('exists')) {
+          
+          toast({
+            variant: 'destructive',
+            title: 'Account Already Exists',
+            description: 'Your phone number is already registered. Kindly login.',
+            action: (
+              <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
+                Go to Login
+              </Button>
+            )
+          });
+          
+          // Auto-redirect after 3 seconds
+          setTimeout(() => {
+            navigate('/login');
+          }, 3000);
+          
+          setLoading(false);
+          return;
+        }
+        
+        // Other errors
+        throw new Error(errorMessage);
+      }
 
+      // Check for application errors in response (legacy check)
       if (data?.error) {
         throw new Error(data.error);
       }

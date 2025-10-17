@@ -37,8 +37,10 @@ serve(async (req: Request) => {
     if (authError) {
       console.error('❌ User creation failed:', authError.message)
       
-      // Check if email already exists
-      if (authError.message.includes('already been registered') || authError.message.includes('User already registered')) {
+      // Check if email already exists (case-insensitive, multiple variations)
+      const errorMsg = authError.message.toLowerCase();
+      if (errorMsg.includes('already') && (errorMsg.includes('registered') || errorMsg.includes('exist'))) {
+        console.log('🔄 Duplicate email detected, returning 409')
         return new Response(
           JSON.stringify({ 
             error: 'Account already exists. Please login instead.',

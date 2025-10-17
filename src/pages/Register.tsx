@@ -103,29 +103,53 @@ const Register = () => {
         }
       });
 
-      // Check for function invocation errors
+      // Check for function invocation errors (non-2xx status codes)
       if (invokeError) {
-        throw new Error(invokeError.message);
-      }
-
-      // Check for application errors in response
-      if (data?.error) {
-        // Check if it's a duplicate email error
-        const errorMsg = data.error.toLowerCase();
-        if (errorMsg.includes('already') || errorMsg.includes('exists') || errorMsg.includes('duplicate')) {
+        // Try to parse error context for structured error info
+        let errorCode = null;
+        let errorMessage = invokeError.message;
+        
+        if (invokeError.name === 'FunctionsHttpError') {
+          try {
+            const errorContext = await invokeError.context.json();
+            errorCode = errorContext.errorCode;
+            errorMessage = errorContext.error || errorMessage;
+          } catch (e) {
+            // Failed to parse, use original message
+          }
+        }
+        
+        // Check if it's EMAIL_EXISTS
+        if (errorCode === 'EMAIL_EXISTS' || 
+            errorMessage.toLowerCase().includes('already') || 
+            errorMessage.toLowerCase().includes('exists')) {
+          
           toast({
             variant: 'destructive',
-            title: 'Email Already Exists',
-            description: 'This email is already registered. Please login instead.',
+            title: 'Account Already Exists',
+            description: 'Your account already exists. Kindly login.',
             action: (
               <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
                 Go to Login
               </Button>
             )
           });
+          
+          // Auto-redirect after 3 seconds
+          setTimeout(() => {
+            navigate('/login');
+          }, 3000);
+          
           setLoading(false);
           return;
         }
+        
+        // Other errors
+        throw new Error(errorMessage);
+      }
+
+      // Check for application errors in response (legacy check, should not happen with 409)
+      if (data?.error) {
         throw new Error(data.error);
       }
 

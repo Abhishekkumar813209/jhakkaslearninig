@@ -160,18 +160,26 @@ const Register = () => {
       const errorMessage = error?.message || 'Registration failed';
       const errorMsgLower = errorMessage.toLowerCase();
       
-      // Check if it's a duplicate user error
-      if (errorMsgLower.includes('already') || errorMsgLower.includes('exists') || errorMsgLower.includes('duplicate')) {
+      // Check if account already exists
+      if (errorMsgLower.includes('already') || errorMsgLower.includes('exists') || 
+          errorMsgLower.includes('duplicate') || errorMsgLower.includes('EMAIL_EXISTS')) {
+        
         toast({
           variant: 'destructive',
-          title: 'Email Already Exists',
-          description: 'This email is already registered. Please login instead.',
+          title: 'Account Already Exists',
+          description: 'Your account already exists. Kindly login.',
           action: (
             <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
               Go to Login
             </Button>
           )
         });
+        
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
+        
       } else {
         toast({
           variant: 'destructive',

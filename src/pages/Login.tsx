@@ -123,19 +123,50 @@ const Login = () => {
         }
       } catch (error: any) {
         console.error('Login failed:', error);
-        const errorMessage = error?.message || 'Unable to sign you in. Please check your credentials and try again.';
-        const isPasswordError = errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials');
+        
+        // Parse error response properly
+        let errorMessage = 'Unable to sign you in.';
+        let shouldRedirect = false;
+        let redirectPath = '';
+        
+        // Check if it's a 404 (user not found)
+        if (error?.message?.includes('USER_NOT_FOUND') || error?.message?.includes('Account not found')) {
+          errorMessage = 'Account not found. Please sign up first.';
+          shouldRedirect = true;
+          redirectPath = '/register';
+        } 
+        // Check if it's wrong password
+        else if (error?.message?.includes('WRONG_PASSWORD') || error?.message?.includes('Incorrect password')) {
+          errorMessage = 'Incorrect password. Please try again.';
+        }
+        // Check if it's email not confirmed
+        else if (error?.message?.includes('EMAIL_NOT_CONFIRMED') || error?.message?.includes('verify your email')) {
+          errorMessage = 'Please verify your email address first.';
+        }
+        // Fallback to original message
+        else {
+          errorMessage = error?.message || errorMessage;
+        }
         
         toast({
           variant: 'destructive',
           title: 'Login Failed',
           description: errorMessage,
-          action: isPasswordError ? (
+          action: shouldRedirect ? (
+            <Button variant="outline" size="sm" onClick={() => navigate(redirectPath)}>
+              Sign Up
+            </Button>
+          ) : errorMessage.includes('password') ? (
             <Button variant="outline" size="sm" onClick={() => setForgotPassword(true)}>
               Forgot Password?
             </Button>
           ) : undefined
         });
+        
+        // Auto redirect if account doesn't exist
+        if (shouldRedirect) {
+          setTimeout(() => navigate(redirectPath), 3000);
+        }
       }
     }
 
@@ -251,19 +282,44 @@ const Login = () => {
         window.location.replace('/');
       }
     } catch (error: any) {
-      const errorMessage = error?.message || 'Invalid phone number or password.';
-      const isPasswordError = errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('credentials');
+      console.error('Phone login failed:', error);
+      
+      // Parse error response properly
+      let errorMessage = 'Invalid phone number or password.';
+      let shouldRedirect = false;
+      
+      // Check if account doesn't exist
+      if (error?.message?.includes('USER_NOT_FOUND') || error?.message?.includes('Account not found')) {
+        errorMessage = 'Parent account not found. Please register first.';
+        shouldRedirect = true;
+      } 
+      // Check if it's wrong password
+      else if (error?.message?.includes('WRONG_PASSWORD') || error?.message?.includes('Incorrect password')) {
+        errorMessage = 'Incorrect password. Please try again.';
+      }
+      else {
+        errorMessage = error?.message || errorMessage;
+      }
       
       toast({
         variant: 'destructive',
         title: 'Login Failed',
         description: errorMessage,
-        action: isPasswordError ? (
+        action: shouldRedirect ? (
+          <Button variant="outline" size="sm" onClick={() => navigate('/register-parent')}>
+            Register as Parent
+          </Button>
+        ) : errorMessage.includes('password') ? (
           <Button variant="outline" size="sm" onClick={() => setForgotPhonePassword(true)}>
             Forgot Password?
           </Button>
         ) : undefined
       });
+      
+      // Auto redirect if account doesn't exist
+      if (shouldRedirect) {
+        setTimeout(() => navigate('/register-parent'), 3000);
+      }
     }
 
     setLoading(false);

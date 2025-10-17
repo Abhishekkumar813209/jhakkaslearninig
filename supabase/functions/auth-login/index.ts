@@ -26,17 +26,45 @@ serve(async (req: Request) => {
       )
     }
 
+    // Check if user exists first
+    const { data: existingUser } = await supabase.auth.admin.getUserByEmail(email)
+
+    if (!existingUser || !existingUser.user) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Account not found. Please sign up first.',
+          errorCode: 'USER_NOT_FOUND',
+          shouldRedirect: '/register'
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
 
     if (error) {
-      // Check if it's an invalid credentials error
-      if (error.message.includes('Invalid login credentials') || error.message.includes('Email not confirmed')) {
+      // Check if it's an invalid credentials error (wrong password)
+      if (error.message.includes('Invalid login credentials')) {
         return new Response(
-          JSON.stringify({ error: 'Incorrect email or password. Please try again or click "Forgot Password" to reset.' }),
+          JSON.stringify({ 
+            error: 'Incorrect password. Please try again.',
+            errorCode: 'WRONG_PASSWORD'
+          }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      // Check if email not confirmed
+      if (error.message.includes('Email not confirmed')) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Please verify your email address first.',
+            errorCode: 'EMAIL_NOT_CONFIRMED'
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
       

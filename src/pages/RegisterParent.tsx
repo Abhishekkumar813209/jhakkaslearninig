@@ -85,11 +85,38 @@ const RegisterParent = () => {
       }, 2000);
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Registration Failed',
-        description: error.message || 'Unable to create your account. Please try again.',
-      });
+      
+      const errorMessage = error.message || 'Unable to create your account. Please try again.';
+      const errorMsgLower = errorMessage.toLowerCase();
+      
+      // Check if account already exists
+      if (errorMsgLower.includes('already') || errorMsgLower.includes('exists') || 
+          errorMsgLower.includes('duplicate') || errorMsgLower.includes('EMAIL_EXISTS')) {
+        
+        toast({
+          variant: 'destructive',
+          title: 'Account Already Exists',
+          description: 'Your phone number is already registered. Kindly login.',
+          action: (
+            <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
+              Go to Login
+            </Button>
+          )
+        });
+        
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
+        
+      } else {
+        // Generic error
+        toast({
+          variant: 'destructive',
+          title: 'Registration Failed',
+          description: errorMessage,
+        });
+      }
     } finally {
       setLoading(false);
     }

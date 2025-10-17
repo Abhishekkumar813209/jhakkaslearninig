@@ -40,7 +40,11 @@ serve(async (req: Request) => {
       // Check if email already exists
       if (authError.message.includes('already been registered') || authError.message.includes('User already registered')) {
         return new Response(
-          JSON.stringify({ error: 'Email already exists. Please login instead.' }),
+          JSON.stringify({ 
+            error: 'Account already exists. Please login instead.',
+            errorCode: 'EMAIL_EXISTS',
+            shouldRedirect: '/login'
+          }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }

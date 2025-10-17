@@ -4,8 +4,258 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Database, Link2, Users, FileText, TrendingUp } from 'lucide-react';
+import { Search, Database, Link2, Users, FileText, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Column-level documentation with why/without/example
+const columnDocumentation = {
+  profiles: {
+    batch_id: {
+      criticality: 'critical',
+      why: "Links student to their learning cohort/group",
+      without: ["Students wouldn't know which roadmap to follow", "Can't auto-assign study plans on signup", "No batch-level analytics or comparisons possible", "Manual roadmap assignment for each student"],
+      example: "Student A joins 'JEE 2025 Batch' → Automatically gets JEE roadmap with daily tasks"
+    },
+    exam_domain: {
+      criticality: 'critical',
+      why: "Categorizes student by exam type (School/Competitive/Skill-based)",
+      without: ["Can't filter relevant content for student", "Wrong subjects/chapters shown to student", "Rankings would mix JEE students with NEET students", "No domain-specific analytics possible"],
+      example: "NEET student gets Biology-heavy content, not CS topics meant for JEE students"
+    },
+    target_exam: {
+      criticality: 'critical',
+      why: "Specific exam name within domain (e.g., 'JEE Main' vs 'JEE Advanced')",
+      without: ["Can't customize syllabus per exam variant", "Generic content shown to all students", "No exam-specific difficulty tuning", "Rankings mix different exam types"],
+      example: "JEE Main syllabus is different from JEE Advanced - needs separate roadmaps"
+    },
+    student_class: {
+      criticality: 'important',
+      why: "Current academic class/grade of student (9th, 10th, 11th, 12th)",
+      without: ["Can't filter age-appropriate content", "Rankings mix 9th graders with 12th graders", "Wrong difficulty level shown", "No class-based batch assignment"],
+      example: "Class 11 student shouldn't compete with Class 12 students in rankings"
+    }
+  },
+  
+  question_bank: {
+    is_published: {
+      criticality: 'critical',
+      why: "Flag to track if question is live for students or still in draft/review",
+      without: ["Draft/incorrect questions visible to students immediately", "Can't test questions before going live", "No admin review workflow", "Quality control becomes impossible"],
+      example: "Admin extracts 100 questions from PDF → Reviews 20 → Marks 10 as published → Only those 10 go live"
+    },
+    topic_id: {
+      criticality: 'critical',
+      why: "Links question to specific topic for targeted practice",
+      without: ["Questions become orphaned (YOUR CURRENT ISSUE!)", "Can't show topic-wise games to students", "No way to track topic mastery", "Questions exist but students never see them"],
+      example: "Question on 'Friction in Physics' must link to 'Friction' topic, not just 'Physics' subject"
+    },
+    correct_answer: {
+      criticality: 'critical',
+      why: "Stores the correct answer for automatic scoring",
+      without: ["Can't auto-check student answers", "Manual grading needed for every response", "No instant feedback to students", "Gamification breaks (no XP/coins awarded)"],
+      example: "Student selects option B → System checks against correct_answer → Awards 10 XP if correct"
+    },
+    options: {
+      criticality: 'critical',
+      why: "JSON array of multiple choice options",
+      without: ["MCQ questions become impossible", "Only text-based questions allowed", "No randomization of options", "Students can't select answers"],
+      example: "Question shows 4 options: [A, B, C, D] → Student clicks C → System validates"
+    }
+  },
+  
+  topic_content_mapping: {
+    topic_id: {
+      criticality: 'critical',
+      why: "THE CRITICAL LINK between roadmap topic and its games/content",
+      without: ["Questions in question_bank but NOT visible as games", "Students see 'No games available' despite data existing", "Admin confusion: questions exist but not playable", "Orphaned content in database (wasted effort)"],
+      example: "Without this: 21 questions exist for 'Friction' but aren't linked → Students can't play → Orphaned!"
+    },
+    content_type: {
+      criticality: 'important',
+      why: "Specifies type: 'theory', 'game', 'video', 'pdf'",
+      without: ["Can't distinguish between learning materials", "Everything looks the same in UI", "No structured learning path", "Students confused about what to do"],
+      example: "Show theory first → Then practice games → Then assessment test"
+    },
+    order_num: {
+      criticality: 'important',
+      why: "Controls sequence of content/games (easy → medium → hard progression)",
+      without: ["Random order confuses students", "Hard questions shown first = demotivation", "Can't implement learning curves", "Progress tracking becomes meaningless"],
+      example: "Game 1: Basic concepts (easy) → Game 5: Mixed problems (medium) → Game 10: Complex scenarios (hard)"
+    }
+  },
+  
+  gamified_exercises: {
+    topic_content_id: {
+      criticality: 'critical',
+      why: "Foreign key linking exercise to topic via mapping table",
+      without: ["Exercise exists in isolation, not attached anywhere", "Students never see the game in their UI", "Wasted content in database", "No connection to learning roadmap"],
+      example: "Exercise must point to mapping → Mapping points to topic → Topic shows in student dashboard"
+    },
+    game_order: {
+      criticality: 'important',
+      why: "Determines which game appears first/last within a topic",
+      without: ["Games shuffle randomly on each page load", "Students lose track of which games they've done", "No curated difficulty progression", "Frustrating UX"],
+      example: "Yesterday's Game 5 becomes today's Game 1 → Student confused: 'Did I complete this?'"
+    },
+    xp_reward: {
+      criticality: 'important',
+      why: "XP points awarded for completing this game correctly",
+      without: ["No gamification = boring experience", "Students lose interest quickly", "Can't track engagement via XP", "No leveling system possible"],
+      example: "Student completes hard game → Earns 20 XP → Levels up from Bronze to Silver → Feels achievement"
+    },
+    coin_reward: {
+      criticality: 'nice-to-have',
+      why: "Coins for unlocking premium features/hints",
+      without: ["Secondary currency missing", "Can't implement shop/unlock mechanics", "Reduced engagement loop"],
+      example: "Earn 5 coins per game → Save 100 coins → Unlock 'Show hint' feature"
+    }
+  },
+  
+  student_topic_game_progress: {
+    completed_game_ids: {
+      criticality: 'critical',
+      why: "Array storing UUIDs of games student has finished (prevents replay abuse)",
+      without: ["Students can replay same game infinitely for XP farming", "Cheating becomes trivial", "Leaderboards become meaningless", "Progress % calculation breaks"],
+      example: "Student completes game uuid-abc123 → Added to array → Button shows 'Completed' not 'Play'"
+    },
+    total_games: {
+      criticality: 'important',
+      why: "Cached count of games in topic (for fast progress calculation)",
+      without: ["Every progress query needs expensive COUNT(*) join", "Dashboard loads slowly with many students", "Database performance degrades at scale", "Poor UX"],
+      example: "Topic has 10 games (stored here) → Student completed 7 → Progress = 7/10 = 70% (instant calculation)"
+    },
+    completed_games: {
+      criticality: 'important',
+      why: "Denormalized count for quick access (alternative to array length)",
+      without: ["Must calculate array_length() on every query", "Slower than reading integer directly", "Indexing becomes harder"],
+      example: "Show '7 of 10 completed' without counting array elements"
+    }
+  },
+  
+  fee_records: {
+    battery_level: {
+      criticality: 'important',
+      why: "Visual urgency indicator (100% → 0% over month) - psychological trigger",
+      without: ["Just a boring due_date that parents ignore", "No visual urgency cue", "Lower payment conversion rates", "Static reminders don't work"],
+      example: "Battery at 95% (green) → 50% (yellow) → 20% (red) → Parent panics and pays immediately"
+    },
+    is_paid: {
+      criticality: 'critical',
+      why: "Boolean flag for fast payment status check (denormalized)",
+      without: ["Must join payments table on every query", "Fee dashboard loads slowly", "Can't quickly filter unpaid fees", "Performance degrades with scale"],
+      example: "Show all unpaid fees: WHERE is_paid = false → Instant results without joins"
+    },
+    month: {
+      criticality: 'critical',
+      why: "Which month this fee is for (composite key with year, student_id)",
+      without: ["Can't generate monthly fee records", "No way to track recurring payments", "Bulk operations impossible", "Unique constraint breaks"],
+      example: "Generate fee for January 2025 → month = 1, year = 2025 → Unique per student"
+    }
+  },
+  
+  student_analytics: {
+    zone_rank: {
+      criticality: 'important',
+      why: "Rank within geographical zone (city/state-level motivation)",
+      without: ["Only overall rank → Student ranked 5000 feels bad", "No local competition motivation", "Retention drops in non-metro areas", "Students quit seeing global rankings"],
+      example: "Rank 2500 overall BUT #5 in Delhi → Shows 'Top 10 in your city!' → Student feels great"
+    },
+    streak_days: {
+      criticality: 'important',
+      why: "Consecutive days of activity (Duolingo-style retention mechanic)",
+      without: ["No daily habit formation", "Students don't login regularly", "Retention drops by 60%+", "Platform becomes 'exam-only' tool"],
+      example: "45-day streak displayed → Student won't skip today → Keeps engagement high"
+    },
+    average_score: {
+      criticality: 'critical',
+      why: "Mean score across all tests (for ranking calculation)",
+      without: ["Can't rank students fairly", "Leaderboards become random", "No performance tracking over time", "Analytics dashboard empty"],
+      example: "Student A: 85% average → Student B: 75% average → A ranks higher in leaderboard"
+    }
+  },
+  
+  batches: {
+    linked_roadmap_id: {
+      criticality: 'critical',
+      why: "References which roadmap this batch follows",
+      without: ["Batch exists but students have no study plan", "Manual roadmap assignment per student needed", "Scaling becomes impossible", "Chaos in curriculum management"],
+      example: "'JEE 2025 Batch' → Links to '365-day JEE roadmap' → All 500 students get same structured plan"
+    },
+    auto_assign_roadmap: {
+      criticality: 'critical',
+      why: "Auto-assigns linked roadmap to new students joining batch",
+      without: ["Admin must manually assign roadmap to each new student", "New students see empty dashboard on first login", "Operations nightmare at scale", "Poor first-time UX"],
+      example: "New student joins batch → Trigger fires → Roadmap auto-assigned → Student sees tasks immediately"
+    },
+    max_capacity: {
+      criticality: 'important',
+      why: "Limits batch size for quality control",
+      without: ["Batches grow infinitely", "Teacher can't manage large groups", "No scarcity/urgency in enrollment", "Quality of education suffers"],
+      example: "Batch capacity = 50 → 49 students enrolled → Dashboard shows 'Only 1 seat left!' → Creates urgency"
+    }
+  },
+  
+  batch_roadmaps: {
+    ai_generated_plan: {
+      criticality: 'important',
+      why: "Stores AI-generated daily study schedule as JSON",
+      without: ["Roadmap exists but no day-wise breakdown", "Students don't know what to study when", "AI generation wasted if not stored", "Manual planning needed"],
+      example: "AI generates: Day 1 → Physics Ch1, Day 2 → Chemistry Ch1... stored in this JSON field"
+    },
+    start_date: {
+      criticality: 'critical',
+      why: "When roadmap begins (for calculating current day)",
+      without: ["Can't determine which day student is on", "No 'Day 45 of 365' tracking", "Progress becomes meaningless", "Can't sync calendar dates"],
+      example: "Start date = Jan 1, 2025 → Today = Feb 14, 2025 → Student is on Day 45"
+    }
+  },
+  
+  student_roadmaps: {
+    is_active: {
+      criticality: 'critical',
+      why: "Marks if this is the student's current active roadmap",
+      without: ["Student sees multiple roadmaps (old + new) causing confusion", "Can't switch roadmaps cleanly", "Completed roadmaps clutter dashboard", "No clear 'current plan'"],
+      example: "Student switches batch → Old roadmap: is_active = false → New roadmap: is_active = true"
+    },
+    progress: {
+      criticality: 'important',
+      why: "Percentage completion of roadmap (0-100)",
+      without: ["No progress bar on dashboard", "Student doesn't know how much is left", "Demotivating UX", "Can't celebrate milestones"],
+      example: "Completed 180 of 365 days → Progress = 49% → Shows 'Almost halfway there!'"
+    }
+  },
+  
+  test_attempts: {
+    status: {
+      criticality: 'critical',
+      why: "Tracks attempt state: 'in_progress', 'submitted', 'auto_submitted'",
+      without: ["Can't distinguish active vs completed tests", "Students can submit multiple times", "No auto-submit on timer expiry", "Analytics count wrong attempts"],
+      example: "Status = 'in_progress' → Timer expires → Auto-changes to 'auto_submitted' → Score calculated"
+    },
+    started_at: {
+      criticality: 'critical',
+      why: "Timestamp when student began test (for time-limit enforcement)",
+      without: ["Can't enforce time limits", "Students can take unlimited time", "Cheating becomes easy", "No fair competition"],
+      example: "Started at 10:00 AM, Duration = 60 min → Must submit by 11:00 AM or auto-submit"
+    }
+  },
+  
+  referrals: {
+    referral_code: {
+      criticality: 'critical',
+      why: "Unique shareable code (e.g., 'ROHAN-A3F2B1') for tracking referrals",
+      without: ["Can't attribute signups to referrers", "No viral growth mechanism", "Referrer doesn't get credit", "Word-of-mouth tracking impossible"],
+      example: "Rohan shares code 'ROHAN-A3F2B1' → Friend signs up with it → Rohan earns ₹100 credit"
+    },
+    successful_referrals: {
+      criticality: 'important',
+      why: "Count of referrals that paid (not just signed up)",
+      without: ["Can't distinguish active vs inactive referrals", "Reward system becomes exploitable", "Fake signups count as success", "Revenue attribution unclear"],
+      example: "10 signups via code but only 6 paid → successful_referrals = 6 → Rohan gets 6 × ₹100 = ₹600"
+    }
+  }
+};
 
 // Database schema with descriptions and relationships
 const databaseSchema = {
@@ -243,9 +493,10 @@ export default function DatabaseExplorer() {
       </div>
 
       <Tabs defaultValue="category" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="category">By Category</TabsTrigger>
           <TabsTrigger value="all">All Tables</TabsTrigger>
+          <TabsTrigger value="columns">Column Details</TabsTrigger>
           <TabsTrigger value="flow">User Flows</TabsTrigger>
         </TabsList>
 
@@ -365,6 +616,74 @@ export default function DatabaseExplorer() {
               ))}
             </div>
           </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="columns">
+          <div className="space-y-6">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Column Documentation:</strong> Understanding why each column exists and what breaks without it
+              </AlertDescription>
+            </Alert>
+
+            {Object.entries(columnDocumentation).map(([tableName, columns]) => (
+              <Card key={tableName}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    <code className="bg-muted px-2 py-1 rounded">{tableName}</code>
+                  </CardTitle>
+                  <CardDescription>Critical columns and their importance</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {Object.entries(columns).map(([columnName, doc]: [string, any]) => (
+                      <div key={columnName} className="border-l-4 pl-4 py-2" style={{
+                        borderColor: doc.criticality === 'critical' ? 'hsl(var(--destructive))' : 
+                                   doc.criticality === 'important' ? 'hsl(var(--warning))' : 
+                                   'hsl(var(--muted))'
+                      }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <code className="bg-muted px-2 py-0.5 rounded text-sm font-mono">
+                            {columnName}
+                          </code>
+                          <Badge variant={
+                            doc.criticality === 'critical' ? 'destructive' : 
+                            doc.criticality === 'important' ? 'default' : 
+                            'secondary'
+                          }>
+                            {doc.criticality}
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="font-semibold text-primary">📌 Why it exists:</span>
+                            <p className="text-muted-foreground mt-1">{doc.why}</p>
+                          </div>
+                          
+                          <div>
+                            <span className="font-semibold text-destructive">❌ What breaks without it:</span>
+                            <ul className="list-disc list-inside text-muted-foreground mt-1 space-y-1">
+                              {doc.without.map((issue: string, idx: number) => (
+                                <li key={idx}>{issue}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          <div>
+                            <span className="font-semibold text-green-600">💡 Real Example:</span>
+                            <p className="text-muted-foreground mt-1 italic">{doc.example}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="flow">

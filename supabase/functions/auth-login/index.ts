@@ -12,9 +12,10 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Use service role key to access admin methods
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     const { email, password } = await req.json()
@@ -26,39 +27,50 @@ serve(async (req: Request) => {
       )
     }
 
-    // Check if user exists first
-    const { data: existingUser } = await supabase.auth.admin.getUserByEmail(email)
+    console.log(`Login attempt for email: ${email.substring(0, 3)}***`)
 
-    if (!existingUser || !existingUser.user) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Account not found. Please sign up first.',
-          errorCode: 'USER_NOT_FOUND',
-          shouldRedirect: '/register'
-        }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
+    // Try to sign in first
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
 
     if (error) {
-      // Check if it's an invalid credentials error (wrong password)
+      console.log(`Login error: ${error.message}`)
+      
+      // Check if it's an invalid credentials error
       if (error.message.includes('Invalid login credentials')) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Incorrect password. Please try again.',
-            errorCode: 'WRONG_PASSWORD'
-          }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        console.log('Checking if user exists...')
+        
+        // Check if user exists using admin API
+        const { data: usersData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        const userExists = usersData?.users?.some(u => (u.email || '').toLowerCase() === email.toLowerCase())
+        
+        if (!userExists) {
+          console.log('User not found')
+          return new Response(
+            JSON.stringify({ 
+              error: 'Account not found. Please sign up first.',
+              errorCode: 'USER_NOT_FOUND',
+              shouldRedirect: '/register'
+            }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } else {
+          console.log('User exists but wrong password')
+          return new Response(
+            JSON.stringify({ 
+              error: 'Incorrect password. Please try again.',
+              errorCode: 'WRONG_PASSWORD'
+            }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
       }
       
       // Check if email not confirmed
       if (error.message.includes('Email not confirmed')) {
+        console.log('Email not confirmed')
         return new Response(
           JSON.stringify({ 
             error: 'Please verify your email address first.',
@@ -68,11 +80,14 @@ serve(async (req: Request) => {
         )
       }
       
+      console.log('Generic login error')
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: error.message, errorCode: 'AUTH_ERROR' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('Login successful')
 
     // Get user profile and role
     const { data: profile } = await supabase

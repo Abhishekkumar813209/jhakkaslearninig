@@ -78,12 +78,76 @@ const Login = () => {
         
         // Check for edge function invocation error first
         if (functionError) {
-          throw new Error(functionError.message || 'Edge function invocation failed');
+          console.error('Edge function error:', functionError)
+          
+          // Try to parse error body for errorCode
+          let errorBody = null
+          try {
+            if (functionError.context?.json) {
+              errorBody = await functionError.context.json()
+            }
+          } catch (e) {
+            console.error('Failed to parse error body:', e)
+          }
+
+          // Handle specific error codes
+          if (errorBody?.errorCode === 'USER_NOT_FOUND') {
+            toast({
+              variant: 'destructive',
+              title: 'Account Not Found',
+              description: 'Account not found. Please sign up first.',
+              action: (
+                <Button variant="outline" size="sm" onClick={() => navigate('/register')}>
+                  Sign Up
+                </Button>
+              )
+            })
+            
+            setTimeout(() => navigate('/register'), 3000)
+            setLoading(false)
+            return
+          } else if (errorBody?.errorCode === 'WRONG_PASSWORD') {
+            toast({
+              variant: 'destructive',
+              title: 'Incorrect Password',
+              description: 'Incorrect password. Please try again.',
+              action: (
+                <Button variant="outline" size="sm" onClick={() => setForgotPassword(true)}>
+                  Forgot Password?
+                </Button>
+              )
+            })
+            setLoading(false)
+            return
+          } else if (errorBody?.errorCode === 'EMAIL_NOT_CONFIRMED') {
+            toast({
+              variant: 'destructive',
+              title: 'Email Not Verified',
+              description: 'Please verify your email address first.',
+            })
+            setLoading(false)
+            return
+          }
+          
+          // Fallback to generic error
+          toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: errorBody?.error || functionError.message || 'Authentication service error. Please try again.',
+          })
+          setLoading(false)
+          return
         }
         
         // Check for auth error in response data
         if (data?.error) {
-          throw new Error(data.error);
+          toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: data.error,
+          })
+          setLoading(false)
+          return
         }
         
         // Check if we have the required tokens
@@ -281,44 +345,113 @@ const Login = () => {
       } else {
         window.location.replace('/');
       }
-    } catch (error: any) {
-      console.error('Phone login failed:', error);
-      
-      // Parse error response properly
-      let errorMessage = 'Invalid phone number or password.';
-      let shouldRedirect = false;
-      
-      // Check if account doesn't exist
-      if (error?.message?.includes('USER_NOT_FOUND') || error?.message?.includes('Account not found')) {
-        errorMessage = 'Parent account not found. Please register first.';
-        shouldRedirect = true;
-      } 
-      // Check if it's wrong password
-      else if (error?.message?.includes('WRONG_PASSWORD') || error?.message?.includes('Incorrect password')) {
-        errorMessage = 'Incorrect password. Please try again.';
-      }
-      else {
-        errorMessage = error?.message || errorMessage;
-      }
-      
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: errorMessage,
-        action: shouldRedirect ? (
-          <Button variant="outline" size="sm" onClick={() => navigate('/register-parent')}>
-            Register as Parent
-          </Button>
-        ) : errorMessage.includes('password') ? (
-          <Button variant="outline" size="sm" onClick={() => setForgotPhonePassword(true)}>
-            Forgot Password?
-          </Button>
-        ) : undefined
-      });
-      
-      // Auto redirect if account doesn't exist
-      if (shouldRedirect) {
-        setTimeout(() => navigate('/register-parent'), 3000);
+    } catch (firstError: any) {
+      console.log('Direct phone login failed, trying edge function:', firstError);
+
+      try {
+        const phoneEmail = `${phone}@parent.app`;
+        const { data, error: functionError } = await supabase.functions.invoke('auth-login', {
+          body: { email: phoneEmail, password: phonePassword }
+        });
+
+        if (functionError) {
+          console.error('Edge function error:', functionError)
+          
+          // Try to parse error body for errorCode
+          let errorBody = null
+          try {
+            if (functionError.context?.json) {
+              errorBody = await functionError.context.json()
+            }
+          } catch (e) {
+            console.error('Failed to parse error body:', e)
+          }
+
+          // Handle specific error codes
+          if (errorBody?.errorCode === 'USER_NOT_FOUND') {
+            toast({
+              variant: 'destructive',
+              title: 'Account Not Found',
+              description: 'Phone number not registered. Please sign up first.',
+              action: (
+                <Button variant="outline" size="sm" onClick={() => navigate('/register-parent')}>
+                  Sign Up
+                </Button>
+              )
+            })
+            
+            setTimeout(() => navigate('/register-parent'), 3000)
+            setLoading(false)
+            return
+          } else if (errorBody?.errorCode === 'WRONG_PASSWORD') {
+            toast({
+              variant: 'destructive',
+              title: 'Incorrect Password',
+              description: 'Incorrect password. Please try again.',
+              action: (
+                <Button variant="outline" size="sm" onClick={() => setForgotPhonePassword(true)}>
+                  Forgot Password?
+                </Button>
+              )
+            })
+            setLoading(false)
+            return
+          }
+          
+          // Fallback to generic error
+          toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: errorBody?.error || functionError.message || 'Authentication service error. Please try again.',
+          })
+          setLoading(false)
+          return
+        }
+
+        if (data?.error) {
+          toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: data.error,
+          })
+          setLoading(false)
+          return
+        }
+
+        // Set session with tokens from edge function
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
+        });
+        if (setSessionError) throw setSessionError;
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
+        toast({
+          title: 'Welcome back!',
+          description: 'You have been logged in successfully.',
+        });
+        
+        if (roleData?.role === 'parent') {
+          window.location.replace('/parent');
+        } else if (roleData?.role === 'admin') {
+          window.location.replace('/admin');
+        } else {
+          window.location.replace('/');
+        }
+      } catch (error: any) {
+        console.error('Phone login completely failed:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: error?.message || 'Invalid phone number or password.',
+        });
       }
     }
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import StudentLearningPaths from './StudentLearningPaths';
 import SubscriptionCard from './SubscriptionCard';
 import SubscriptionExpiryNotice from './SubscriptionExpiryNotice';
@@ -6,7 +6,8 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useDashboard } from '@/hooks/useDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Trophy, Clock, TrendingUp, Flame, Heart, Zap, Award, Target } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BookOpen, Trophy, Clock, TrendingUp, Flame, Heart, Zap, Award, Target, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { XPDisplay } from './XPDisplay';
@@ -21,8 +22,11 @@ import { ProfileSidebar } from './ProfileSidebar';
 import { SubjectProgressCircles } from './SubjectProgressCircles';
 import { StudyHoursChart } from './StudyHoursChart';
 import { LearningJourneySummary } from './LearningJourneySummary';
+import { StudentAnalytics } from './StudentAnalytics';
 
 const StudentDashboard: React.FC = () => {
+  const [userId, setUserId] = useState<string | null>(null);
+  
   const { 
     hasActiveSubscription, 
     hasFreeTestUsed, 
@@ -67,6 +71,17 @@ const StudentDashboard: React.FC = () => {
       return data;
     },
   });
+
+  useEffect(() => {
+    const initializeUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    
+    initializeUser();
+  }, []);
 
   const hasRoadmapAccess = checkRoadmapAccess();
 
@@ -114,6 +129,24 @@ const StudentDashboard: React.FC = () => {
         <HeartsDisplay compact />
       </div>
 
+      {/* Tabs for Dashboard and Analytics */}
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="dashboard">
+            <Zap className="h-4 w-4 mr-2" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            My Analytics
+          </TabsTrigger>
+          <TabsTrigger value="learning">
+            <BookOpen className="h-4 w-4 mr-2" />
+            Learning Paths
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6 mt-6">
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Profile Sidebar */}
@@ -267,7 +300,15 @@ const StudentDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Learning Paths Component */}
+        </div>
+      </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-6">
+          {userId && <StudentAnalytics userId={userId} />}
+        </TabsContent>
+
+        <TabsContent value="learning" className="space-y-6 mt-6">
           {(hasRoadmapAccess || !hasActiveSubscription) && (
             <>
               <div className="flex items-center gap-2">
@@ -282,8 +323,8 @@ const StudentDashboard: React.FC = () => {
               <StudentLearningPaths />
             </>
           )}
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

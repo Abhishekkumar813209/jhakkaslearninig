@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RoadmapTopic {
   id: string;
@@ -48,6 +49,7 @@ interface ParentRoadmapCalendarProps {
   subjectsData: SubjectData[];
   chapterStatuses: Record<string, boolean>;
   onChapterDoubleClick: (chapterId: string) => void;
+  studentId?: string; // Add student ID for auto-status
 }
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -66,31 +68,44 @@ const ChapterPill = ({
   isToday, 
   isPast,
   isCompleted,
-  onDoubleClick 
+  onDoubleClick,
+  topicStatuses
 }: { 
   chapter: CalendarChapter; 
   isToday: boolean; 
   isPast: boolean;
   isCompleted: boolean;
   onDoubleClick: (chapterId: string) => void;
+  topicStatuses: Record<string, string>;
 }) => {
   const [showTopics, setShowTopics] = useState(false);
   const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
   
-  const bgColor = isCompleted ? 'bg-green-600' : 'bg-red-600';
-  const textColor = 'text-white';
-  const completedTopics = chapter.topics.filter(t => t.is_completed).length;
+  // Calculate chapter status based on topic statuses (auto from backend)
+  const topicStatusCounts = chapter.topics.reduce((acc, topic) => {
+    const status = topicStatuses[topic.id] || 'grey';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
   const totalTopics = chapter.topics.length;
+  const greenTopics = topicStatusCounts['green'] || 0;
+  const redTopics = topicStatusCounts['red'] || 0;
+  
+  // Auto-calculate chapter status: green if 60%+ topics are green
+  const autoChapterStatus = totalTopics > 0 && (greenTopics / totalTopics) >= 0.6 ? 'green' : 'red';
+  const bgColor = autoChapterStatus === 'green' ? 'bg-green-600' : 'bg-red-600';
+  const textColor = 'text-white';
 
   return (
     <div 
       className={`p-2 border rounded-lg ${bgColor} ${textColor} ${colorClass} relative mb-2 cursor-pointer select-none transition-colors hover:shadow-md hover:opacity-90`}
       onDoubleClick={() => onDoubleClick(chapter.id)}
     >
-      {/* Status badge */}
+      {/* Status badge - Auto-updated from backend */}
       <div className="absolute top-1 right-1">
-        <Badge variant={isCompleted ? "outline" : "outline"} className={`text-xs ${isCompleted ? 'bg-green-800 text-white border-green-400' : 'bg-red-800 text-white border-red-400'}`}>
-          {isCompleted ? "✅ Done" : "❌ Not Done"}
+        <Badge variant="outline" className={`text-xs ${autoChapterStatus === 'green' ? 'bg-green-800 text-white border-green-400' : 'bg-red-800 text-white border-red-400'}`}>
+          {autoChapterStatus === 'green' ? "✅ Done" : "❌ Not Done"}
         </Badge>
       </div>
 
@@ -119,23 +134,33 @@ const ChapterPill = ({
         </button>
       )}
 
-      {/* Topics list */}
+      {/* Topics list with auto-status indicators */}
       {showTopics && totalTopics > 0 && (
         <div className="mt-2 space-y-1 border-t border-white/20 pt-2">
-          {chapter.topics.map((topic) => (
-            <div
-              key={topic.id}
-              className="w-full text-left text-xs p-1.5 rounded flex items-center gap-2 bg-white/20 text-white"
-            >
-              <div className="h-3 w-3 border border-white rounded-full flex-shrink-0" />
-              <span>{topic.topic_name}</span>
-            </div>
-          ))}
+          {chapter.topics.map((topic) => {
+            const topicStatus = topicStatuses[topic.id] || 'grey';
+            const statusColor = {
+              green: 'bg-green-500',
+              yellow: 'bg-yellow-500',
+              red: 'bg-red-500',
+              grey: 'bg-gray-400'
+            }[topicStatus];
+            
+            return (
+              <div
+                key={topic.id}
+                className="w-full text-left text-xs p-1.5 rounded flex items-center gap-2 bg-white/20 text-white"
+              >
+                <div className={`h-3 w-3 ${statusColor} rounded-full flex-shrink-0`} />
+                <span>{topic.topic_name}</span>
+              </div>
+            );
+          })}
         </div>
       )}
       
       <div className="mt-2 text-[10px] text-white/70">
-        💡 Double-click to toggle status
+        🤖 Auto-updated from backend (60% games = green)
       </div>
     </div>
   );
@@ -146,10 +171,57 @@ export const ParentRoadmapCalendar = ({
   totalDays,
   subjectsData,
   chapterStatuses,
-  onChapterDoubleClick
+  onChapterDoubleClick,
+  studentId
 }: ParentRoadmapCalendarProps) => {
   const isMobile = useIsMobile();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
+  const [autoTopicStatuses, setAutoTopicStatuses] = useState<Record<string, string>>({});
+
+  // Fetch automatic topic statuses from backend
+  useEffect(() => {
+    if (studentId) {
+      fetchTopicStatuses();
+      
+      // Setup realtime subscription
+      const channel = supabase
+        .channel('topic-status-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'student_topic_status',
+            filter: `student_id=eq.${studentId}`
+          },
+          () => {
+            fetchTopicStatuses();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [studentId]);
+
+  const fetchTopicStatuses = async () => {
+    if (!studentId) return;
+    
+    const { data, error } = await supabase
+      .from('student_topic_status')
+      .select('topic_id, status')
+      .eq('student_id', studentId);
+
+    if (!error && data) {
+      const statusMap: Record<string, string> = {};
+      data.forEach(item => {
+        statusMap[item.topic_id] = item.status;
+      });
+      setAutoTopicStatuses(statusMap);
+    }
+  };
 
   // Transform subjectsData to calendar chapters
   const chapters: CalendarChapter[] = subjectsData.flatMap(subject =>
@@ -206,10 +278,10 @@ export const ParentRoadmapCalendar = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Roadmap Calendar - Manual Tracking</h3>
+          <h3 className="text-lg font-semibold">Roadmap Calendar - Auto-Updated</h3>
         </div>
-        <Badge variant="outline" className="text-xs">
-          Double-click chapters to mark as done
+        <Badge variant="default" className="text-xs">
+          🤖 Backend Controlled - Updates Automatically
         </Badge>
       </div>
 
@@ -283,14 +355,15 @@ export const ParentRoadmapCalendar = ({
                       <td className="border p-2 align-top">
                         <div className="min-h-[80px]">
                           {groupedByDateSubject[date][selectedSubject]?.map(chapter => (
-                            <ChapterPill
-                              key={chapter.id}
-                              chapter={chapter}
-                              isToday={isToday}
-                              isPast={isPast}
-                              isCompleted={chapterStatuses[chapter.id] || false}
-                              onDoubleClick={onChapterDoubleClick}
-                            />
+                              <ChapterPill
+                                key={chapter.id}
+                                chapter={chapter}
+                                isToday={isToday}
+                                isPast={isPast}
+                                isCompleted={chapterStatuses[chapter.id] || false}
+                                onDoubleClick={onChapterDoubleClick}
+                                topicStatuses={autoTopicStatuses}
+                              />
                           ))}
                           {(!groupedByDateSubject[date][selectedSubject] || groupedByDateSubject[date][selectedSubject].length === 0) && (
                             <div className="text-muted-foreground text-xs text-center py-4">—</div>
@@ -302,14 +375,15 @@ export const ParentRoadmapCalendar = ({
                         <td key={`${date}-${subject}`} className="border p-2 align-top">
                           <div className="min-h-[80px]">
                             {groupedByDateSubject[date][subject].map(chapter => (
-                              <ChapterPill
-                                key={chapter.id}
-                                chapter={chapter}
-                                isToday={isToday}
-                                isPast={isPast}
-                                isCompleted={chapterStatuses[chapter.id] || false}
-                                onDoubleClick={onChapterDoubleClick}
-                              />
+                            <ChapterPill
+                              key={chapter.id}
+                              chapter={chapter}
+                              isToday={isToday}
+                              isPast={isPast}
+                              isCompleted={chapterStatuses[chapter.id] || false}
+                              onDoubleClick={onChapterDoubleClick}
+                              topicStatuses={autoTopicStatuses}
+                            />
                             ))}
                             {groupedByDateSubject[date][subject].length === 0 && (
                               <div className="text-muted-foreground text-xs text-center py-4">—</div>
@@ -327,18 +401,30 @@ export const ParentRoadmapCalendar = ({
       </Card>
 
       <div className="text-sm text-muted-foreground space-y-1 bg-muted/50 p-4 rounded-lg">
-        <p className="font-semibold">📚 Legend:</p>
+        <p className="font-semibold">📚 Legend (Auto-Updated from Backend):</p>
         <ul className="list-disc list-inside ml-2 space-y-1">
           <li className="flex items-center gap-2">
-            <div className="inline-block w-4 h-4 bg-red-600 border border-red-400 rounded"></div>
-            <span>Not Done (Dark Red) - Chapter not yet completed</span>
+            <div className="inline-block w-4 h-4 bg-green-600 border border-green-400 rounded"></div>
+            <span>Done (Green) - 60%+ games completed in chapter topics</span>
           </li>
           <li className="flex items-center gap-2">
-            <div className="inline-block w-4 h-4 bg-green-600 border border-green-400 rounded"></div>
-            <span>Done (Dark Green) - Chapter marked as completed</span>
+            <div className="inline-block w-4 h-4 bg-red-600 border border-red-400 rounded"></div>
+            <span>Not Done (Red) - Less than 60% games completed</span>
           </li>
-          <li>Double-click any chapter to toggle its status</li>
-          <li>Status is tracked locally (not saved to backend yet)</li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-3 h-3 bg-green-500 rounded-full"></div>
+            <span>Topic Green - 60%+ games & tests completed</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <span>Topic Yellow - 40-60% completed</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-3 h-3 bg-red-500 rounded-full"></div>
+            <span>Topic Red - Below 40% completed</span>
+          </li>
+          <li>🤖 Status updates automatically when student completes games/tests</li>
+          <li>✨ Real-time updates via Supabase Realtime</li>
         </ul>
       </div>
     </div>

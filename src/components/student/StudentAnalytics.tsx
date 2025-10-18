@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, TrendingUp, Target, Zap } from 'lucide-react';
+import { ChapterWiseAnalyticsCard } from './ChapterWiseAnalyticsCard';
+import { SubjectRadarChart } from './SubjectRadarChart';
 
 interface StudentAnalyticsProps {
   userId?: string;
@@ -55,54 +58,72 @@ export const StudentAnalytics = ({ userId }: StudentAnalyticsProps) => {
   }
 
   return (
-    <Card className="shadow-soft">
-      <CardHeader>
-        <CardTitle>Performance Metrics</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Main Average Score */}
-        <div className="text-center p-6 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg border-2 border-primary/20">
-          <div className="text-sm text-muted-foreground mb-2">Average Score</div>
-          <div className="text-5xl font-bold text-primary mb-2">
-            {analytics?.average_score?.toFixed(1) || 0}%
+    <div className="space-y-6">
+      {/* Quick Stats */}
+      <Card className="shadow-soft">
+        <CardHeader>
+          <CardTitle>Performance Metrics</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="text-center p-6 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg border-2 border-primary/20">
+            <div className="text-sm text-muted-foreground mb-2">Average Score</div>
+            <div className="text-5xl font-bold text-primary mb-2">
+              {analytics?.average_score?.toFixed(1) || 0}%
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Across all tests attempted
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            Across all tests attempted
-          </div>
-        </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-          <div className="text-center p-3 bg-primary/10 rounded-lg">
-            <Target className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <div className="text-xl font-bold text-primary">
-              {analytics?.tests_attempted || 0}
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+            <div className="text-center p-3 bg-primary/10 rounded-lg">
+              <Target className="h-5 w-5 mx-auto mb-1 text-primary" />
+              <div className="text-xl font-bold text-primary">
+                {analytics?.tests_attempted || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">Tests</div>
             </div>
-            <div className="text-xs text-muted-foreground">Tests</div>
-          </div>
-          <div className="text-center p-3 bg-success/10 rounded-lg">
-            <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />
-            <div className="text-xl font-bold text-success">
-              {analytics?.average_score?.toFixed(0) || 0}%
+            <div className="text-center p-3 bg-success/10 rounded-lg">
+              <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />
+              <div className="text-xl font-bold text-success">
+                {analytics?.average_score?.toFixed(0) || 0}%
+              </div>
+              <div className="text-xs text-muted-foreground">Avg Score</div>
             </div>
-            <div className="text-xs text-muted-foreground">Avg Score</div>
-          </div>
-          <div className="text-center p-3 bg-warning/10 rounded-lg">
-            <Trophy className="h-5 w-5 mx-auto mb-1 text-warning" />
-            <div className="text-xl font-bold text-warning">
-              {Math.floor((analytics?.total_study_time_minutes || 0) / 60)}h
+            <div className="text-center p-3 bg-warning/10 rounded-lg">
+              <Trophy className="h-5 w-5 mx-auto mb-1 text-warning" />
+              <div className="text-xl font-bold text-warning">
+                {Math.floor((analytics?.total_study_time_minutes || 0) / 60)}h
+              </div>
+              <div className="text-xs text-muted-foreground">Study Time</div>
             </div>
-            <div className="text-xs text-muted-foreground">Study Time</div>
-          </div>
-          <div className="text-center p-3 bg-primary/10 rounded-lg">
-            <Zap className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <div className="text-xl font-bold text-primary">
-              {analytics?.streak_days || 0}
+            <div className="text-center p-3 bg-primary/10 rounded-lg">
+              <Zap className="h-5 w-5 mx-auto mb-1 text-primary" />
+              <div className="text-xl font-bold text-primary">
+                {analytics?.streak_days || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">Streak</div>
             </div>
-            <div className="text-xs text-muted-foreground">Streak</div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Detailed Analytics Tabs */}
+      <Tabs defaultValue="chapters" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="chapters">Chapter-wise Analysis</TabsTrigger>
+          <TabsTrigger value="subjects">Subject Radar</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="chapters" className="mt-6">
+          {userId && <ChapterWiseAnalyticsCard studentId={userId} />}
+        </TabsContent>
+        
+        <TabsContent value="subjects" className="mt-6">
+          {userId && <SubjectRadarChart studentId={userId} />}
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };

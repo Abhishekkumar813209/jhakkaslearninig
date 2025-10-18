@@ -3690,6 +3690,87 @@ export type Database = {
           },
         ]
       }
+      student_topic_status: {
+        Row: {
+          calculated_at: string | null
+          chapter_id: string | null
+          game_completion_rate: number | null
+          games_completed: number | null
+          id: string
+          status: string
+          student_id: string
+          test_avg_score: number | null
+          topic_id: string
+          total_games: number | null
+          total_xp_earned: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          chapter_id?: string | null
+          game_completion_rate?: number | null
+          games_completed?: number | null
+          id?: string
+          status?: string
+          student_id: string
+          test_avg_score?: number | null
+          topic_id: string
+          total_games?: number | null
+          total_xp_earned?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          calculated_at?: string | null
+          chapter_id?: string | null
+          game_completion_rate?: number | null
+          games_completed?: number | null
+          id?: string
+          status?: string
+          student_id?: string
+          test_avg_score?: number | null
+          topic_id?: string
+          total_games?: number | null
+          total_xp_earned?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_topic_status_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_topic_status_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_topic_status_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_topic_status_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_topic_status_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_zone_status: {
         Row: {
           calculated_at: string | null
@@ -4729,6 +4810,20 @@ export type Database = {
       }
       calculate_student_zone: {
         Args: { p_student_id: string }
+        Returns: string
+      }
+      calculate_subject_scores: {
+        Args: { p_student_id: string }
+        Returns: {
+          game_completion: number
+          overall_score: number
+          subject: string
+          test_score: number
+          topic_mastery: number
+        }[]
+      }
+      calculate_topic_status: {
+        Args: { p_student_id: string; p_topic_id: string }
         Returns: string
       }
       calculate_zone_rankings: {

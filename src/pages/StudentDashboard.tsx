@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Clock, 
@@ -13,10 +14,12 @@ import {
   Calendar,
   Target,
   BookOpen,
-  MapPin
+  MapPin,
+  BarChart3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { StudentAnalytics } from '@/components/student/StudentAnalytics';
 
 interface Test {
   id: string;
@@ -47,10 +50,19 @@ const StudentDashboard: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [attempts, setAttempts] = useState<TestAttempt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    const initializeUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    
+    initializeUser();
     fetchAvailableTests();
     fetchMyAttempts();
   }, []);
@@ -144,6 +156,25 @@ const StudentDashboard: React.FC = () => {
         <p className="text-muted-foreground">Take tests, explore guided paths, and track your progress</p>
       </div>
 
+      {/* Tabs for Dashboard and Analytics */}
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="dashboard">
+            <Target className="h-4 w-4 mr-2" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            My Analytics
+          </TabsTrigger>
+          <TabsTrigger value="tests">
+            <FileText className="h-4 w-4 mr-2" />
+            All Tests
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6 mt-6">
+
       {/* Quick Navigation */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/student/guided-paths')}>
@@ -206,11 +237,18 @@ const StudentDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Available Tests */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Tests</CardTitle>
-        </CardHeader>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-6">
+          {userId && <StudentAnalytics userId={userId} />}
+        </TabsContent>
+
+        <TabsContent value="tests" className="space-y-6 mt-6">
+          {/* Available Tests */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Tests</CardTitle>
+            </CardHeader>
         <CardContent>
           {tests.length === 0 ? (
             <div className="text-center py-8">
@@ -331,6 +369,8 @@ const StudentDashboard: React.FC = () => {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

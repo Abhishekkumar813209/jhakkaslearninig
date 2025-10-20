@@ -4004,6 +4004,7 @@ export type Database = {
           created_at: string | null
           generated_at: string | null
           id: string
+          question_analytics: Json | null
           student_id: string | null
           test_attempt_id: string | null
         }
@@ -4012,6 +4013,7 @@ export type Database = {
           created_at?: string | null
           generated_at?: string | null
           id?: string
+          question_analytics?: Json | null
           student_id?: string | null
           test_attempt_id?: string | null
         }
@@ -4020,6 +4022,7 @@ export type Database = {
           created_at?: string | null
           generated_at?: string | null
           id?: string
+          question_analytics?: Json | null
           student_id?: string | null
           test_attempt_id?: string | null
         }

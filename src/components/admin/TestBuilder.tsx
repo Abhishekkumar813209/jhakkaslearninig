@@ -722,11 +722,20 @@ const TestBuilder: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant={question.qtype === 'mcq' ? 'default' : 'secondary'}>
                               {question.qtype === 'mcq' ? 'MCQ' : 'Subjective'}
                             </Badge>
                             <Badge variant="outline">{question.marks} marks</Badge>
+                            {question.explanation ? (
+                              <Badge variant="default" className="bg-green-500 text-white">
+                                ✓ Solution
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="bg-red-100 text-red-700">
+                                ⚠️ No Solution
+                              </Badge>
+                            )}
                           </div>
                           <h4 className="font-medium">{question.question_text}</h4>
                           {question.image_url && (
@@ -761,9 +770,15 @@ const TestBuilder: React.FC = () => {
                             </p>
                           )}
                           {question.explanation && (
-                            <p className="text-sm text-muted-foreground">
-                              <strong>Explanation:</strong> {question.explanation}
-                            </p>
+                            <div className="p-3 mt-2 rounded-md bg-green-50 border border-green-200">
+                              <p className="text-sm font-semibold text-green-900 mb-1">💡 Solution:</p>
+                              <p className="text-sm text-green-800">{question.explanation}</p>
+                            </div>
+                          )}
+                          {!question.explanation && (
+                            <div className="p-3 mt-2 rounded-md bg-amber-50 border border-amber-200">
+                              <p className="text-sm text-amber-800">⚠️ No solution added yet. Add one to help students learn!</p>
+                            </div>
                           )}
                           {question.tags && question.tags.length > 0 && (
                             <div className="flex gap-1">
@@ -874,6 +889,32 @@ const TestBuilder: React.FC = () => {
                 placeholder="Enter your question here..."
                 rows={3}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="explanation">💡 Solution / Explanation</Label>
+                {newQuestion.explanation ? (
+                  <Badge variant="default" className="bg-green-500 text-white">
+                    ✓ Solution Added
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="bg-red-100 text-red-700">
+                    ⚠️ No Solution
+                  </Badge>
+                )}
+              </div>
+              <Textarea
+                id="explanation"
+                value={newQuestion.explanation || ''}
+                onChange={(e) => setNewQuestion(prev => ({ ...prev, explanation: e.target.value }))}
+                placeholder="Explain the correct answer, common mistakes, and key concepts..."
+                rows={4}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                ✅ <strong>Good:</strong> "Option B is correct because photosynthesis converts light energy to chemical energy. Common mistake: Students confuse it with respiration which releases energy."
+              </p>
             </div>
 
             {newQuestion.image_url && (

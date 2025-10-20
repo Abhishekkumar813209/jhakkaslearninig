@@ -441,14 +441,25 @@ const StudentTests: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => navigate(`/analytics/test/${attempt.id}`)}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    View Full Analysis
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      variant="default"
+                      onClick={() => navigate(`/analytics/test/${attempt.id}`)}
+                    >
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      📊 Full Analytics
+                    </Button>
+                    
+                    <Button
+                      className="flex-1"
+                      variant="outline"
+                      onClick={() => navigate(`/test/review/${attempt.id}`)}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      📝 Review Questions
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))

@@ -39,6 +39,7 @@ import GamePlayerPage from "./pages/GamePlayerPage";
 import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
 import DatabaseExplorer from "./pages/DatabaseExplorer";
 import TestAnalyticsHistory from "./pages/TestAnalyticsHistory";
+import TestQuestionReview from "./pages/TestQuestionReview";
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,12 @@ const App = () => (
             <Route path="/analytics/test/:attemptId" element={
               <ProtectedRoute>
                 <TestAnalyticsHistory />
+              </ProtectedRoute>
+            } />
+            {/* Question-by-question review by attempt ID */}
+            <Route path="/test/review/:attemptId" element={
+              <ProtectedRoute>
+                <TestQuestionReview />
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={

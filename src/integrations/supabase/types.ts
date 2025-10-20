@@ -2115,6 +2115,7 @@ export type Database = {
           sample_answer: string | null
           tags: string[] | null
           test_id: string
+          topic_id: string | null
           word_limit: number | null
           xp_reward: number | null
         }
@@ -2136,6 +2137,7 @@ export type Database = {
           sample_answer?: string | null
           tags?: string[] | null
           test_id: string
+          topic_id?: string | null
           word_limit?: number | null
           xp_reward?: number | null
         }
@@ -2157,6 +2159,7 @@ export type Database = {
           sample_answer?: string | null
           tags?: string[] | null
           test_id?: string
+          topic_id?: string | null
           word_limit?: number | null
           xp_reward?: number | null
         }
@@ -2166,6 +2169,13 @@ export type Database = {
             columns: ["test_id"]
             isOneToOne: false
             referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
             referencedColumns: ["id"]
           },
         ]

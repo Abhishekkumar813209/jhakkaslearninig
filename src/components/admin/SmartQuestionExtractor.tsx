@@ -1401,7 +1401,7 @@ export const SmartQuestionExtractor = ({
               
               <Input
                 type="file"
-                accept=".pdf,.doc,.docx"
+                accept=".pdf,.doc,.docx,image/*"
                 onChange={handleFileUpload}
                 disabled={isUploading}
                 className="hidden"

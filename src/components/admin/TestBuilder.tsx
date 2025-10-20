@@ -28,8 +28,20 @@ import {
   Copy,
   Settings,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ChevronDown,
+  Upload,
+  Loader2
 } from 'lucide-react';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SmartQuestionExtractor } from './SmartQuestionExtractor';
@@ -80,6 +92,10 @@ const TestBuilder: React.FC = () => {
   const [hasUnsavedQuestion, setHasUnsavedQuestion] = useState(false);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [showDocumentExtraction, setShowDocumentExtraction] = useState(false);
+  const [showAIPromptDialog, setShowAIPromptDialog] = useState(false);
+  const [showImageExtractor, setShowImageExtractor] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const { toast } = useToast();
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const questionStorageKey = `test-builder-question-${testId}`;
@@ -335,6 +351,96 @@ const TestBuilder: React.FC = () => {
     setEditingQuestion(question);
     setNewQuestion({ ...question });
     setShowQuestionDialog(true);
+  };
+
+  const handleAIPromptGeneration = async () => {
+    if (!aiPrompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a prompt describing the questions you want",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setAiGenerating(true);
+      
+      const { data, error } = await supabase.functions.invoke('ai-question-generator-v2', {
+        body: { 
+          prompt: aiPrompt,
+          testContext: {
+            subject: test?.subject,
+            class: test?.class,
+            difficulty: test?.difficulty,
+            testTitle: test?.title
+          },
+          includeSolutions: true,
+          count: 5,
+          format: 'structured'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data.questions) {
+        let successCount = 0;
+        
+        for (const question of data.questions) {
+          const questionData = {
+            question_text: question.question_text,
+            qtype: question.qtype || 'mcq',
+            marks: question.marks || 1,
+            options: question.options || [],
+            correct_answer: question.correct_answer,
+            explanation: question.explanation || question.solution,
+            test_id: testId,
+            position: questions.length + successCount + 1,
+            tags: question.tags || []
+          };
+
+          const result = await supabase.functions.invoke('tests-api', {
+            body: { action: 'addQuestion', questionData }
+          });
+
+          if (result.data?.success) {
+            successCount++;
+          }
+        }
+
+        await fetchTestData();
+        setShowAIPromptDialog(false);
+        setAiPrompt('');
+        
+        toast({
+          title: "Success!",
+          description: `Generated ${successCount} questions with solutions using AI!`
+        });
+      }
+    } catch (error) {
+      console.error('Error generating AI questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate questions. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsImageUploading(true);
+    setShowImageExtractor(false);
+    setShowDocumentExtraction(true);
+    
+    toast({
+      title: "Processing images...",
+      description: "Using OCR to extract text from images"
+    });
   };
 
   const generateQuestionsWithAI = async () => {
@@ -653,18 +759,62 @@ const TestBuilder: React.FC = () => {
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setShowQuestionDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Question
-        </Button>
-        <Button variant="outline" onClick={generateQuestionsWithAI} disabled={aiGenerating}>
-          <Wand2 className={`h-4 w-4 mr-2 ${aiGenerating ? 'animate-spin' : ''}`} />
-          {aiGenerating ? 'Generating...' : 'AI Generate'}
-        </Button>
-        <Button variant="outline" onClick={() => setShowDocumentExtraction(true)}>
-          <FileText className="h-4 w-4 mr-2" />
-          Extract from PDF/Word
-        </Button>
+        {/* Main Add Questions Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Questions
+              <ChevronDown className="h-4 w-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel>Choose Input Method</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            
+            <DropdownMenuItem onClick={() => setShowQuestionDialog(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              <div className="flex flex-col">
+                <span className="font-medium">✏️ Manual Entry</span>
+                <span className="text-xs text-muted-foreground">
+                  Type questions one by one
+                </span>
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => setShowAIPromptDialog(true)}>
+              <Wand2 className="h-4 w-4 mr-2" />
+              <div className="flex flex-col">
+                <span className="font-medium">🤖 AI Generate (Text Prompt)</span>
+                <span className="text-xs text-muted-foreground">
+                  Describe what questions you want
+                </span>
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => setShowDocumentExtraction(true)}>
+              <FileText className="h-4 w-4 mr-2" />
+              <div className="flex flex-col">
+                <span className="font-medium">📄 Extract from PDF/Word</span>
+                <span className="text-xs text-muted-foreground">
+                  Upload document with questions
+                </span>
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => setShowImageExtractor(true)}>
+              <ImageIcon className="h-4 w-4 mr-2" />
+              <div className="flex flex-col">
+                <span className="font-medium">📸 Extract from Image</span>
+                <span className="text-xs text-muted-foreground">
+                  Upload photo of question paper
+                </span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Other action buttons */}
         <Button variant="outline" onClick={generatePrintableTest}>
           <Download className="h-4 w-4 mr-2" />
           Export PDF
@@ -1148,6 +1298,123 @@ const TestBuilder: React.FC = () => {
             >
               {editingQuestion ? 'Update Question' : 'Add Question'}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Prompt Dialog */}
+      <Dialog open={showAIPromptDialog} onOpenChange={setShowAIPromptDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>🤖 Generate Questions with AI</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Describe the type of questions you want to generate. AI will create questions with solutions automatically.
+            </p>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label>AI Prompt</Label>
+              <Textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Example: Generate 5 MCQ questions on Photosynthesis for Class 10 CBSE. Include diagrams concepts, process steps, and chemical equations. Difficulty: Medium"
+                rows={6}
+                className="resize-none"
+              />
+            </div>
+            
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Tips for better results</AlertTitle>
+              <AlertDescription className="text-xs space-y-1">
+                <p>✅ Specify: Number of questions, topic, difficulty level</p>
+                <p>✅ Mention: Question type (MCQ, subjective, true/false)</p>
+                <p>✅ Include: Class standard, board (CBSE/ICSE/State)</p>
+                <p>✅ Request: Explanations and solutions for each question</p>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex justify-between">
+              <div className="text-xs text-muted-foreground">
+                💡 AI will generate questions with detailed explanations
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAIPromptDialog(false);
+                    setAiPrompt('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleAIPromptGeneration}
+                  disabled={!aiPrompt.trim() || aiGenerating}
+                >
+                  {aiGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Generate Questions
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Extraction Dialog */}
+      <Dialog open={showImageExtractor} onOpenChange={setShowImageExtractor}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>📸 Extract Questions from Image</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Upload photos of question papers. AI will use OCR to extract text and identify questions.
+            </p>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+              <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="hidden"
+                id="image-upload"
+              />
+              <label htmlFor="image-upload">
+                <Button asChild variant="outline">
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Select Images
+                  </span>
+                </Button>
+              </label>
+              <p className="text-xs text-muted-foreground mt-2">
+                Supports JPG, PNG. Multiple images allowed.
+              </p>
+            </div>
+            
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Best Practices</AlertTitle>
+              <AlertDescription className="text-xs">
+                <p>✅ Use clear, well-lit photos</p>
+                <p>✅ Ensure text is readable and not blurry</p>
+                <p>✅ Crop out unnecessary margins</p>
+                <p>✅ Hold camera parallel to paper (avoid skew)</p>
+              </AlertDescription>
+            </Alert>
           </div>
         </DialogContent>
       </Dialog>

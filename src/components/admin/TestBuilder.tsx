@@ -96,6 +96,8 @@ const TestBuilder: React.FC = () => {
   const [showImageExtractor, setShowImageExtractor] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [showBulkExtractor, setShowBulkExtractor] = useState(false);
+  const [extractorMode, setExtractorMode] = useState<'upload' | 'manual'>('upload');
   const { toast } = useToast();
   const autoSaveTimer = useRef<NodeJS.Timeout>();
   const questionStorageKey = `test-builder-question-${testId}`;
@@ -215,6 +217,46 @@ const TestBuilder: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBulkAddQuestions = async (questionsToAdd: any[]) => {
+    let successCount = 0;
+    
+    for (const q of questionsToAdd) {
+      try {
+        const questionData = {
+          test_id: testId,
+          question_text: q.question_text,
+          qtype: q.question_type === 'short_answer' ? 'subjective' : 'mcq',
+          marks: q.marks || 1,
+          position: questions.length + successCount + 1,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          explanation: q.explanation,
+          tags: q.tags || [],
+          // Support for advanced question types
+          assertion: q.assertion,
+          reason: q.reason,
+          left_column: q.left_column,
+          right_column: q.right_column,
+          blanks_count: q.blanks_count,
+          difficulty: q.difficulty || 'medium'
+        };
+        
+        const { data, error } = await supabase.functions.invoke('tests-api', {
+          body: { action: 'addQuestion', questionData }
+        });
+        
+        if (data?.success) {
+          successCount++;
+          setQuestions(prev => [...prev, data.question]);
+        }
+      } catch (error) {
+        console.error('Failed to add question:', q.id, error);
+      }
+    }
+    
+    return successCount;
   };
 
   const handleAddQuestion = async () => {
@@ -758,29 +800,43 @@ const TestBuilder: React.FC = () => {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        {/* Main Add Questions Dropdown */}
+      <div className="flex flex-wrap gap-3">
+        <Button
+          onClick={() => {
+            setShowBulkExtractor(true);
+            setExtractorMode('upload');
+          }}
+          size="lg"
+          className="gap-2"
+        >
+          <Upload className="h-5 w-5" />
+          📄 Upload PDF/Word (Bulk Extract)
+        </Button>
+        
+        <Button
+          onClick={() => {
+            setShowBulkExtractor(true);
+            setExtractorMode('manual');
+          }}
+          variant="outline"
+          size="lg"
+          className="gap-2"
+        >
+          <Plus className="h-5 w-5" />
+          ✏️ Add Question Manually
+        </Button>
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Questions
+            <Button variant="outline" size="lg">
+              <Wand2 className="h-4 w-4 mr-2" />
+              AI Tools
               <ChevronDown className="h-4 w-4 ml-2" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuLabel>Choose Input Method</DropdownMenuLabel>
+            <DropdownMenuLabel>AI Generation</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            
-            <DropdownMenuItem onClick={() => setShowQuestionDialog(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              <div className="flex flex-col">
-                <span className="font-medium">✏️ Manual Entry</span>
-                <span className="text-xs text-muted-foreground">
-                  Type questions one by one
-                </span>
-              </div>
-            </DropdownMenuItem>
             
             <DropdownMenuItem onClick={() => setShowAIPromptDialog(true)}>
               <Wand2 className="h-4 w-4 mr-2" />
@@ -788,16 +844,6 @@ const TestBuilder: React.FC = () => {
                 <span className="font-medium">🤖 AI Generate (Text Prompt)</span>
                 <span className="text-xs text-muted-foreground">
                   Describe what questions you want
-                </span>
-              </div>
-            </DropdownMenuItem>
-            
-            <DropdownMenuItem onClick={() => setShowDocumentExtraction(true)}>
-              <FileText className="h-4 w-4 mr-2" />
-              <div className="flex flex-col">
-                <span className="font-medium">📄 Extract from PDF/Word</span>
-                <span className="text-xs text-muted-foreground">
-                  Upload document with questions
                 </span>
               </div>
             </DropdownMenuItem>
@@ -1367,6 +1413,48 @@ const TestBuilder: React.FC = () => {
                 </Button>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Question Extractor Dialog */}
+      <Dialog open={showBulkExtractor} onOpenChange={setShowBulkExtractor}>
+        <DialogContent className="max-w-7xl h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-4">
+            <DialogTitle className="flex items-center gap-2">
+              {extractorMode === 'upload' ? (
+                <>
+                  <FileText className="h-5 w-5" />
+                  Upload & Extract Questions (Bulk)
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  Add Questions Manually
+                </>
+              )}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {extractorMode === 'upload' 
+                ? 'Upload PDF/Word documents to automatically extract questions with AI. All question types supported: MCQ, Match Column, Assertion-Reason, Fill Blanks, True/False, Short Answer.'
+                : 'Add questions one by one with full control over question type and format. Preview and edit answers before adding to test.'
+              }
+            </p>
+          </DialogHeader>
+          
+          <div className="px-6 pb-6 overflow-auto">
+            <SmartQuestionExtractor
+              mode="test-builder"
+              onQuestionsAdded={async (questions) => {
+                const successCount = await handleBulkAddQuestions(questions);
+                setShowBulkExtractor(false);
+                await fetchTestData();
+                toast({
+                  title: "Success!",
+                  description: `Added ${successCount} questions to test!`
+                });
+              }}
+            />
           </div>
         </DialogContent>
       </Dialog>

@@ -60,6 +60,11 @@ interface SmartQuestionExtractorProps {
   sourceFileName?: string;
   mode?: 'lesson-builder' | 'question-bank' | 'test-builder';
   onBackClick?: () => void;
+  // Test Builder mode props
+  testId?: string;
+  testTitle?: string;
+  subject?: string;
+  difficulty?: string;
 }
 
 export const SmartQuestionExtractor = ({ 
@@ -76,7 +81,11 @@ export const SmartQuestionExtractor = ({
   examName,
   sourceFileName,
   mode = 'lesson-builder',
-  onBackClick
+  onBackClick,
+  testId,
+  testTitle,
+  subject,
+  difficulty
 }: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -1339,6 +1348,19 @@ export const SmartQuestionExtractor = ({
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Test Builder Mode Alert */}
+      {mode === 'test-builder' && testTitle && (
+        <Alert className="mb-4 bg-primary/5 border-primary/20">
+          <FileText className="h-4 w-4" />
+          <AlertTitle>Test Builder Mode</AlertTitle>
+          <AlertDescription>
+            Adding questions to test: <strong>{testTitle}</strong>
+            <br />
+            Subject: {subject} | Difficulty: {difficulty}
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Back Navigation for Question Bank Mode */}

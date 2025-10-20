@@ -2099,19 +2099,26 @@ export type Database = {
       questions: {
         Row: {
           allow_multiple_correct: boolean | null
+          assertion: string | null
+          blanks_count: number | null
           correct_answer: string | null
           created_at: string | null
+          difficulty: string | null
           explanation: string | null
           id: string
           image_alt: string | null
           image_url: string | null
+          left_column: Json | null
           marks: number
           options: Json | null
           order_num: number
           position: number | null
           qtype: string | null
+          question_tags: Json | null
           question_text: string
           question_type: Database["public"]["Enums"]["question_type"]
+          reason: string | null
+          right_column: Json | null
           sample_answer: string | null
           tags: string[] | null
           test_id: string
@@ -2121,19 +2128,26 @@ export type Database = {
         }
         Insert: {
           allow_multiple_correct?: boolean | null
+          assertion?: string | null
+          blanks_count?: number | null
           correct_answer?: string | null
           created_at?: string | null
+          difficulty?: string | null
           explanation?: string | null
           id?: string
           image_alt?: string | null
           image_url?: string | null
+          left_column?: Json | null
           marks: number
           options?: Json | null
           order_num: number
           position?: number | null
           qtype?: string | null
+          question_tags?: Json | null
           question_text: string
           question_type: Database["public"]["Enums"]["question_type"]
+          reason?: string | null
+          right_column?: Json | null
           sample_answer?: string | null
           tags?: string[] | null
           test_id: string
@@ -2143,19 +2157,26 @@ export type Database = {
         }
         Update: {
           allow_multiple_correct?: boolean | null
+          assertion?: string | null
+          blanks_count?: number | null
           correct_answer?: string | null
           created_at?: string | null
+          difficulty?: string | null
           explanation?: string | null
           id?: string
           image_alt?: string | null
           image_url?: string | null
+          left_column?: Json | null
           marks?: number
           options?: Json | null
           order_num?: number
           position?: number | null
           qtype?: string | null
+          question_tags?: Json | null
           question_text?: string
           question_type?: Database["public"]["Enums"]["question_type"]
+          reason?: string | null
+          right_column?: Json | null
           sample_answer?: string | null
           tags?: string[] | null
           test_id?: string

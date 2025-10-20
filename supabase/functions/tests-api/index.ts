@@ -277,7 +277,15 @@ serve(async (req: Request) => {
                 tags: questionData.tags || [],
                 allow_multiple_correct: questionData.allow_multiple_correct || false,
                 image_url: questionData.image_url,
-                image_alt: questionData.image_alt
+                image_alt: questionData.image_alt,
+                // New fields for advanced question types
+                assertion: questionData.assertion,
+                reason: questionData.reason,
+                left_column: questionData.left_column,
+                right_column: questionData.right_column,
+                blanks_count: questionData.blanks_count,
+                difficulty: questionData.difficulty || 'medium',
+                question_tags: questionData.tags || []
               }])
               .select()
               .single()

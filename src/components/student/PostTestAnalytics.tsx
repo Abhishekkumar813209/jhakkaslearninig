@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuestionAIAnalysis } from './QuestionAIAnalysis';
+import { QuestionPerformanceBreakdown } from './QuestionPerformanceBreakdown';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -95,7 +96,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
     );
   }
 
-  const { testInfo, rankings, performance, insights, improvementSuggestions, xpRewards, achievements } = analyticsData;
+  const { testInfo, rankings, performance, insights, improvementSuggestions, xpRewards, achievements, questionAnalytics, wrongQuestions, allScores } = analyticsData;
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
@@ -122,25 +123,41 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
     { name: 'Remaining', value: 100 - testInfo.percentage, color: '#e5e7eb' }
   ];
 
-  // Calculate "What If" scenarios (FIXED)
+  // Calculate "What If" scenarios - FIXED with actual question marks
   const calculateWhatIf = (additionalCorrect: number) => {
-    const totalQuestions = performance.topicBreakdown.reduce((sum, t) => sum + t.total, 0) || 1;
-    const avgMarksPerQuestion = testInfo.totalMarks / totalQuestions;
+    if (!wrongQuestions || wrongQuestions.length === 0) {
+      return { potentialScore: testInfo.score, potentialPercentage: testInfo.percentage, potentialRank: rankings.overall.currentRank || 1 };
+    }
+
+    // Sort wrong questions by marks (already sorted in backend, but ensure it)
+    const sortedWrong = [...wrongQuestions].sort((a, b) => b.marks - a.marks);
     
-    // Fixed: Don't multiply by 10! Just use additionalCorrect directly
-    const potentialScore = Math.min(
-      testInfo.score + (additionalCorrect * avgMarksPerQuestion),
-      testInfo.totalMarks
-    );
+    // Take top N questions by marks value
+    const questionsToFix = sortedWrong.slice(0, Math.min(additionalCorrect, sortedWrong.length));
+    const additionalMarks = questionsToFix.reduce((sum, q) => sum + q.marks, 0);
+    
+    const potentialScore = Math.min(testInfo.score + additionalMarks, testInfo.totalMarks);
     const potentialPercentage = Math.round((potentialScore / testInfo.totalMarks) * 100);
     
-    // Rough rank estimation (assuming linear distribution)
-    const currentRankPosition = rankings.overall.currentRank || 1;
-    const totalStudents = rankings.overall.totalStudents || currentRankPosition;
-    const rankImprovement = Math.floor((additionalCorrect * avgMarksPerQuestion / testInfo.totalMarks) * totalStudents * 0.15);
-    const potentialRank = Math.max(1, currentRankPosition - rankImprovement);
+    // Accurate rank estimation using actual score distribution
+    let potentialRank = 1;
+    if (allScores && allScores.length > 0) {
+      const sortedScores = [...allScores].sort((a, b) => b - a);
+      potentialRank = sortedScores.findIndex(score => potentialScore > score);
+      if (potentialRank === -1) {
+        potentialRank = sortedScores.length + 1;
+      } else {
+        potentialRank += 1; // Convert from index to rank
+      }
+    } else {
+      // Fallback to rough estimation
+      const currentRankPosition = rankings.overall.currentRank || 1;
+      const totalStudents = rankings.overall.totalStudents || currentRankPosition;
+      const rankImprovement = Math.floor((additionalMarks / testInfo.totalMarks) * totalStudents * 0.3);
+      potentialRank = Math.max(1, currentRankPosition - rankImprovement);
+    }
     
-    return { potentialScore: Math.round(potentialScore), potentialPercentage, potentialRank };
+    return { potentialScore, potentialPercentage, potentialRank };
   };
 
   const whatIfScenarios = [
@@ -623,6 +640,20 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Question-wise Performance Breakdown */}
+        {questionAnalytics && questionAnalytics.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+          >
+            <QuestionPerformanceBreakdown 
+              questions={questionAnalytics}
+              testTitle={testInfo.title}
+            />
+          </motion.div>
+        )}
 
         {/* Insights */}
         <motion.div 

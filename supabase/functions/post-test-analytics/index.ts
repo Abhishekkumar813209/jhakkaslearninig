@@ -129,16 +129,70 @@ serve(async (req) => {
       averageScore: 0
     };
 
+    // Get test questions with student's answers
+    const { data: testQuestions } = await supabase
+      .from('questions')
+      .select('id, question_text, marks, tags, correct_answer')
+      .eq('test_id', testId);
+
     // Get subject-wise performance for weakness analysis
     const { data: testAnswers } = await supabase
       .from('test_answers')
       .select(`
-        is_correct, marks_awarded,
+        is_correct, marks_awarded, question_id, selected_answer,
         questions (
           question_text, tags, marks, correct_answer
         )
       `)
       .eq('attempt_id', testAttempt?.id);
+
+    // Calculate question-wise analytics across all students
+    const { data: allAttempts } = await supabase
+      .from('test_attempts')
+      .select('id, student_id, score')
+      .eq('test_id', testId)
+      .in('status', ['submitted', 'auto_submitted'])
+      .order('score', { ascending: false });
+
+    // Get all answers for this test from all students
+    const { data: allStudentAnswers } = await supabase
+      .from('test_answers')
+      .select('question_id, is_correct, attempt_id')
+      .in('attempt_id', (allAttempts || []).map(a => a.id));
+
+    // Calculate question-wise statistics
+    const questionAnalytics = (testQuestions || []).map((question, idx) => {
+      const questionAnswers = (allStudentAnswers || []).filter(a => a.question_id === question.id);
+      const totalAttempts = questionAnswers.length;
+      const correctCount = questionAnswers.filter(a => a.is_correct).length;
+      const wrongCount = totalAttempts - correctCount;
+      
+      // Determine student's answer for this question
+      const studentAnswer = (testAnswers || []).find(a => (a.questions as any)?.question_text === question.question_text);
+      const yourAnswer = !studentAnswer ? 'skipped' : studentAnswer.is_correct ? 'correct' : 'wrong';
+      
+      const correctPercentage = totalAttempts > 0 ? (correctCount / totalAttempts) * 100 : 0;
+      const difficultyLevel = correctPercentage > 70 ? 'Easy' : correctPercentage > 40 ? 'Medium' : 'Hard';
+
+      return {
+        questionId: question.id,
+        questionNumber: idx + 1,
+        questionText: question.question_text,
+        marks: question.marks,
+        totalAttempts,
+        correctCount,
+        wrongCount,
+        correctPercentage: Math.round(correctPercentage),
+        difficultyLevel,
+        yourAnswer,
+        tags: question.tags || []
+      };
+    });
+
+    // Identify wrong/unanswered questions for "What If" calculator
+    const wrongQuestions = questionAnalytics
+      .filter(q => q.yourAnswer === 'wrong' || q.yourAnswer === 'skipped')
+      .sort((a, b) => b.marks - a.marks); // Sort by marks descending
 
     // Analyze weaknesses by topic/tag
     const topicPerformance = new Map();
@@ -318,8 +372,12 @@ serve(async (req) => {
               totalMarks: testAttempt?.total_marks || 0,
               percentage: testAttempt?.percentage || 0,
               timeTaken: testAttempt?.time_taken_minutes || 0,
-              rank: testAttempt?.rank || null
+              rank: testAttempt?.rank || null,
+              testId
             },
+            questionAnalytics,
+            wrongQuestions,
+            allScores: (allAttempts || []).map(a => a.score),
             studentInfo: {
               name: profile?.full_name || '',
               currentStats: analytics
@@ -376,8 +434,12 @@ serve(async (req) => {
         totalMarks: testAttempt?.total_marks || 0,
         percentage: testAttempt?.percentage || 0,
         timeTaken: testAttempt?.time_taken_minutes || 0,
-        rank: testAttempt?.rank || null
+        rank: testAttempt?.rank || null,
+        testId
       },
+      questionAnalytics,
+      wrongQuestions,
+      allScores: (allAttempts || []).map(a => a.score),
       studentInfo: {
         name: profile?.full_name || '',
         currentStats: analytics

@@ -97,6 +97,9 @@ export const SmartQuestionExtractor = ({
   const [editingQuestion, setEditingQuestion] = useState<ExtractedQuestion | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [enableOcr, setEnableOcr] = useState(true);
+  const [useMathpix, setUseMathpix] = useState(false);
+  const [mathpixApiKey, setMathpixApiKey] = useState('');
+  const [mathpixProgress, setMathpixProgress] = useState({ current: 0, total: 0 });
   const [authError, setAuthError] = useState(false);
 
   // Persist extracted questions across page refreshes
@@ -522,42 +525,116 @@ export const SmartQuestionExtractor = ({
     
     const html = result.value;
     
-    // Run OCR on images if enabled (max 2 concurrent)
+    // Run OCR on images if enabled
     const ocrResults: Map<string, string> = new Map();
-    if (enableOcr && imageDataUrls.length > 0) {
-      console.log(`🔍 Running OCR on ${imageDataUrls.length} images...`);
-      toast.info(`Running OCR on ${imageDataUrls.length} images...`, { duration: 5000 });
-      
-      for (let i = 0; i < imageDataUrls.length; i += 2) {
-        const batch = imageDataUrls.slice(i, i + 2);
-        const batchIds = imageIds.slice(i, i + 2);
+    const mathpixResults: Map<string, { text: string; latex: string }> = new Map();
+    
+    if (imageDataUrls.length > 0) {
+      // Option 1: High-Accuracy Math OCR (Mathpix)
+      if (useMathpix) {
+        console.log(`🧮 Running Mathpix OCR on ${imageDataUrls.length} images...`);
+        toast.info(`Running high-accuracy math OCR...`, { duration: 10000 });
         
-        console.log(`OCR Progress: ${i + 1}-${Math.min(i + batch.length, imageDataUrls.length)}/${imageDataUrls.length}`);
+        setMathpixProgress({ current: 0, total: imageDataUrls.length });
         
-        const ocrPromises = batch.map(async (dataUrl, idx) => {
+        // Process in batches of 10 (API rate limit)
+        for (let i = 0; i < imageDataUrls.length; i += 10) {
+          const batch = imageDataUrls.slice(i, i + 10);
+          const batchIds = imageIds.slice(i, i + 10);
+          
+          setMathpixProgress({ current: i, total: imageDataUrls.length });
+          
           try {
-            const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
-              logger: () => {} // Suppress verbose logs
+            const { data, error } = await supabase.functions.invoke('mathpix-ocr', {
+              body: { 
+                images: batch.map((url, idx) => ({ id: batchIds[idx], dataUrl: url })),
+                apiKey: mathpixApiKey || undefined
+              }
             });
-            return { id: batchIds[idx], text: text.trim() };
+            
+            if (error) {
+              console.error('Mathpix batch error:', error);
+              toast.error(`Mathpix API error: ${error.message}. Falling back to basic OCR...`);
+              // Fallback to Tesseract for this batch
+              for (let j = 0; j < batch.length; j++) {
+                try {
+                  const { data: { text } } = await Tesseract.recognize(batch[j], 'eng', {
+                    logger: () => {}
+                  });
+                  ocrResults.set(batchIds[j], text.trim());
+                } catch (err) {
+                  console.warn(`Tesseract fallback failed for ${batchIds[j]}`);
+                }
+              }
+              continue;
+            }
+            
+            data.results.forEach((result: any) => {
+              mathpixResults.set(result.id, {
+                text: result.text,
+                latex: result.latex
+              });
+              ocrResults.set(result.id, result.text);
+            });
+            
           } catch (error) {
-            console.warn(`OCR failed for image ${batchIds[idx]}:`, error);
-            return { id: batchIds[idx], text: '' };
+            console.error('Mathpix batch error:', error);
+            toast.error(`Failed to process images ${i+1}-${i+batch.length}`);
           }
-        });
+          
+          // Rate limit delay
+          if (i + 10 < imageDataUrls.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
         
-        const results = await Promise.all(ocrPromises);
-        results.forEach(({ id, text }) => {
-          if (text) ocrResults.set(id, text);
-        });
+        setMathpixProgress({ current: imageDataUrls.length, total: imageDataUrls.length });
+        console.log(`✅ Mathpix OCR complete: ${mathpixResults.size}/${imageDataUrls.length}`);
+        toast.success(`High-accuracy OCR complete! ${mathpixResults.size} images processed`);
+        
+      } 
+      // Option 2: Basic OCR (Tesseract)
+      else if (enableOcr) {
+        console.log(`🔍 Running Tesseract OCR on ${imageDataUrls.length} images...`);
+        toast.info(`Running OCR on ${imageDataUrls.length} images...`, { duration: 5000 });
+        
+        for (let i = 0; i < imageDataUrls.length; i += 2) {
+          const batch = imageDataUrls.slice(i, i + 2);
+          const batchIds = imageIds.slice(i, i + 2);
+          
+          console.log(`OCR Progress: ${i + 1}-${Math.min(i + batch.length, imageDataUrls.length)}/${imageDataUrls.length}`);
+          
+          const ocrPromises = batch.map(async (dataUrl, idx) => {
+            try {
+              const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
+                logger: () => {}
+              });
+              return { id: batchIds[idx], text: text.trim() };
+            } catch (error) {
+              console.warn(`OCR failed for image ${batchIds[idx]}:`, error);
+              return { id: batchIds[idx], text: '' };
+            }
+          });
+          
+          const results = await Promise.all(ocrPromises);
+          results.forEach(({ id, text }) => {
+            if (text) ocrResults.set(id, text);
+          });
+        }
+        
+        console.log(`✅ OCR complete: ${ocrResults.size}/${imageDataUrls.length} images processed`);
       }
-      
-      console.log(`✅ OCR complete: ${ocrResults.size}/${imageDataUrls.length} images processed`);
     }
     
-    // Build global imageId -> {url, ocr} map for later figure-to-question mapping
-    const __imageIdMap: Record<string, { url: string; ocr?: string }> = {};
+    // Build global imageId -> {url, ocr, latex} map for later figure-to-question mapping
+    const __imageIdMap: Record<string, { url: string; ocr?: string; latex?: string }> = {};
     imageIds.forEach((id, idx) => {
+      const mathpixData = mathpixResults.get(id);
+      __imageIdMap[id] = { 
+        url: imageDataUrls[idx], 
+        ocr: ocrResults.get(id) || undefined,
+        latex: mathpixData?.latex || undefined
+      };
       __imageIdMap[id] = { url: imageDataUrls[idx], ocr: ocrResults.get(id) || undefined };
     });
     (window as any).__imageIdMap = __imageIdMap;
@@ -1451,15 +1528,51 @@ export const SmartQuestionExtractor = ({
                 Upload a PDF or Word document containing questions. AI will automatically detect all questions and their types.
               </p>
               
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Checkbox 
-                  id="enable-ocr" 
-                  checked={enableOcr}
-                  onCheckedChange={(checked) => setEnableOcr(!!checked)}
-                />
-                <label htmlFor="enable-ocr" className="text-sm cursor-pointer">
-                  Enable OCR for images (extracts text from figures and tables)
-                </label>
+              <div className="space-y-3 mb-4">
+                {/* Tesseract OCR Toggle */}
+                <div className="flex items-center justify-center gap-2">
+                  <Checkbox 
+                    id="enable-ocr" 
+                    checked={enableOcr}
+                    onCheckedChange={(checked) => {
+                      setEnableOcr(!!checked);
+                      if (checked) setUseMathpix(false);
+                    }}
+                  />
+                  <label htmlFor="enable-ocr" className="text-sm cursor-pointer">
+                    Enable basic OCR (free, good for text)
+                  </label>
+                </div>
+                
+                {/* Mathpix Toggle */}
+                <div className="flex items-center justify-center gap-2">
+                  <Checkbox 
+                    id="enable-mathpix" 
+                    checked={useMathpix}
+                    onCheckedChange={(checked) => {
+                      setUseMathpix(!!checked);
+                      if (checked) setEnableOcr(false);
+                    }}
+                  />
+                  <label htmlFor="enable-mathpix" className="flex items-center gap-2 text-sm cursor-pointer">
+                    <span>Enable High-Accuracy Math OCR</span>
+                    <Badge variant="secondary" className="text-xs">99% accuracy on equations</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      (~$0.004/image)
+                    </span>
+                  </label>
+                </div>
+                
+                {/* Mathpix API Key Input */}
+                {useMathpix && (
+                  <Input
+                    type="password"
+                    placeholder="Mathpix API Key (optional - uses default if empty)"
+                    value={mathpixApiKey}
+                    onChange={(e) => setMathpixApiKey(e.target.value)}
+                    className="max-w-md mx-auto"
+                  />
+                )}
               </div>
               
               <Input
@@ -1487,6 +1600,30 @@ export const SmartQuestionExtractor = ({
                   </span>
                 </Button>
               </label>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mathpix OCR Progress */}
+      {useMathpix && mathpixProgress.total > 0 && mathpixProgress.current < mathpixProgress.total && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  🧮 Processing images with Mathpix ({mathpixProgress.current}/{mathpixProgress.total})
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {Math.round((mathpixProgress.current / mathpixProgress.total) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-primary h-full transition-all duration-300"
+                  style={{ width: `${(mathpixProgress.current / mathpixProgress.total) * 100}%` }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1647,6 +1784,9 @@ export const SmartQuestionExtractor = ({
                           <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
                             <ImageIcon className="h-3 w-3 mr-1" />
                             {question.images.length} image{question.images.length > 1 ? 's' : ''}
+                            {question.ocr_text?.some(ocr => ocr.includes('\\')) && (
+                              <span className="ml-1 text-green-600">• LaTeX</span>
+                            )}
                           </Badge>
                         )}
                       </div>

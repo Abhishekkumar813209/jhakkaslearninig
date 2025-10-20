@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { QuestionAnswerInput } from './QuestionAnswerInput';
 
 interface ExtractedQuestion {
@@ -42,7 +42,6 @@ interface QuestionEditDialogProps {
 }
 
 export default function QuestionEditDialog({ question, open, onOpenChange, onSave }: QuestionEditDialogProps) {
-  const { toast } = useToast();
   const [editedQuestion, setEditedQuestion] = useState<ExtractedQuestion | null>(null);
 
   useEffect(() => {
@@ -56,28 +55,17 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
   const handleSave = () => {
     // Validate question has required fields
     if (!editedQuestion.question_text?.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Question text cannot be empty",
-        variant: "destructive"
-      });
+      toast.error("Question text cannot be empty");
       return;
     }
 
     if (editedQuestion.question_type === 'mcq' && (!editedQuestion.options || editedQuestion.options.length < 2)) {
-      toast({
-        title: "Validation Error",
-        description: "MCQ questions must have at least 2 options",
-        variant: "destructive"
-      });
+      toast.error("MCQ questions must have at least 2 options");
       return;
     }
 
     onSave({ ...editedQuestion, edited: true });
-    toast({
-      title: "Question Saved",
-      description: "Question has been updated successfully"
-    });
+    toast.success("Question saved successfully");
     onOpenChange(false);
   };
 
@@ -118,7 +106,7 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
 
   const copyOcrText = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied", description: "OCR text copied to clipboard" });
+    toast.success("OCR text copied to clipboard");
   };
 
   const getWarnings = () => {
@@ -195,6 +183,44 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                   </div>
                   <div className="bg-muted p-3 rounded-md max-h-32 overflow-y-auto">
                     <pre className="text-xs whitespace-pre-wrap">{editedQuestion.ocr_text.join('\n\n')}</pre>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* LaTeX Notation Preview (if available) */}
+            {editedQuestion.images && editedQuestion.images.length > 0 && editedQuestion.ocr_text?.some(text => text.includes('\\')) && (
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="pt-4">
+                  <Label className="text-sm font-semibold mb-2 block text-green-800">
+                    ✨ LaTeX Notation Detected (High-Accuracy Math OCR)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Mathpix detected mathematical equations. Copy the LaTeX code to use in your question:
+                  </p>
+                  <div className="space-y-2">
+                    {editedQuestion.ocr_text?.map((text, idx) => {
+                      if (!text.includes('\\')) return null;
+                      return (
+                        <div key={idx} className="flex items-start gap-2">
+                          <code className="flex-1 bg-white p-3 rounded text-sm border border-green-300 break-all">
+                            {text}
+                          </code>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={() => {
+                              navigator.clipboard.writeText(text);
+                              toast.success('LaTeX copied to clipboard!');
+                            }}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

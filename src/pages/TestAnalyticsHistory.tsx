@@ -26,13 +26,21 @@ const TestAnalyticsHistory: React.FC = () => {
         .from('test_analytics_snapshots')
         .select('analytics_data')
         .eq('test_attempt_id', attemptId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
-      if (data) {
-        setAnalyticsData(data.analytics_data);
+      if (!data || !data.analytics_data) {
+        toast({
+          title: 'No Analytics Found',
+          description: 'This test was completed before analytics tracking. Please take a new test to see detailed analytics.',
+          variant: 'default'
+        });
+        navigate('/student/dashboard');
+        return;
       }
+
+      setAnalyticsData(data.analytics_data);
     } catch (error) {
       console.error('Error fetching historical analytics:', error);
       toast({
@@ -40,7 +48,7 @@ const TestAnalyticsHistory: React.FC = () => {
         description: 'Failed to load test analytics. Please try again.',
         variant: 'destructive'
       });
-      navigate('/student-dashboard');
+      navigate('/student/dashboard');
     } finally {
       setLoading(false);
     }
@@ -66,7 +74,7 @@ const TestAnalyticsHistory: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
         <div className="container mx-auto px-4 py-8">
           <Button 
-            onClick={() => navigate('/student-dashboard')}
+            onClick={() => navigate('/student/dashboard')}
             variant="ghost"
             className="text-white mb-4"
           >
@@ -77,7 +85,7 @@ const TestAnalyticsHistory: React.FC = () => {
           {analyticsData && (
             <PostTestAnalytics
               analyticsData={analyticsData}
-              onSubscribeClick={() => navigate('/student-dashboard?tab=subscription')}
+              onSubscribeClick={() => navigate('/student/dashboard?tab=subscription')}
             />
           )}
         </div>

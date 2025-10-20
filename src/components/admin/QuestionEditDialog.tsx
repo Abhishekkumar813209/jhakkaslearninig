@@ -193,10 +193,10 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
               <Card className="bg-green-50 border-green-200">
                 <CardContent className="pt-4">
                   <Label className="text-sm font-semibold mb-2 block text-green-800">
-                    ✨ LaTeX Notation Detected (High-Accuracy Math OCR)
+                    ✨ Math/Chemistry Notation Detected (Pix2Text AI)
                   </Label>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Mathpix detected mathematical equations. Copy the LaTeX code to use in your question:
+                    Advanced OCR detected equations/formulas. Copy the LaTeX code to use in your question:
                   </p>
                   <div className="space-y-2">
                     {editedQuestion.ocr_text?.map((text, idx) => {

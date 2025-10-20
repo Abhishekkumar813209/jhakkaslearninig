@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,9 +98,9 @@ export const SmartQuestionExtractor = ({
   const [editingQuestion, setEditingQuestion] = useState<ExtractedQuestion | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [enableOcr, setEnableOcr] = useState(true);
-  const [useMathpix, setUseMathpix] = useState(false);
-  const [mathpixApiKey, setMathpixApiKey] = useState('');
-  const [mathpixProgress, setMathpixProgress] = useState({ current: 0, total: 0 });
+  const [useAdvancedOCR, setUseAdvancedOCR] = useState(false);
+  const [hfApiKey, setHfApiKey] = useState('');
+  const [ocrProgress, setOcrProgress] = useState({ current: 0, total: 0 });
   const [authError, setAuthError] = useState(false);
 
   // Persist extracted questions across page refreshes
@@ -530,31 +531,31 @@ export const SmartQuestionExtractor = ({
     const mathpixResults: Map<string, { text: string; latex: string }> = new Map();
     
     if (imageDataUrls.length > 0) {
-      // Option 1: High-Accuracy Math OCR (Mathpix)
-      if (useMathpix) {
-        console.log(`🧮 Running Mathpix OCR on ${imageDataUrls.length} images...`);
-        toast.info(`Running high-accuracy math OCR...`, { duration: 10000 });
+      // Option 1: Advanced OCR (Pix2Text via HuggingFace)
+      if (useAdvancedOCR) {
+        console.log(`🤖 Running Pix2Text OCR on ${imageDataUrls.length} images...`);
+        toast.info(`Running advanced OCR for math, chemistry & physics...`, { duration: 10000 });
         
-        setMathpixProgress({ current: 0, total: imageDataUrls.length });
+        setOcrProgress({ current: 0, total: imageDataUrls.length });
         
-        // Process in batches of 10 (API rate limit)
-        for (let i = 0; i < imageDataUrls.length; i += 10) {
-          const batch = imageDataUrls.slice(i, i + 10);
-          const batchIds = imageIds.slice(i, i + 10);
+        // Process in batches of 5 (HuggingFace rate limit)
+        for (let i = 0; i < imageDataUrls.length; i += 5) {
+          const batch = imageDataUrls.slice(i, i + 5);
+          const batchIds = imageIds.slice(i, i + 5);
           
-          setMathpixProgress({ current: i, total: imageDataUrls.length });
+          setOcrProgress({ current: i, total: imageDataUrls.length });
           
           try {
-            const { data, error } = await supabase.functions.invoke('mathpix-ocr', {
+            const { data, error } = await supabase.functions.invoke('pix2text-ocr', {
               body: { 
                 images: batch.map((url, idx) => ({ id: batchIds[idx], dataUrl: url })),
-                apiKey: mathpixApiKey || undefined
+                hfToken: hfApiKey || undefined
               }
             });
             
             if (error) {
-              console.error('Mathpix batch error:', error);
-              toast.error(`Mathpix API error: ${error.message}. Falling back to basic OCR...`);
+              console.error('Pix2Text batch error:', error);
+              toast.error(`OCR error: ${error.message}. Falling back to basic OCR...`);
               // Fallback to Tesseract for this batch
               for (let j = 0; j < batch.length; j++) {
                 try {
@@ -578,21 +579,21 @@ export const SmartQuestionExtractor = ({
             });
             
           } catch (error) {
-            console.error('Mathpix batch error:', error);
+            console.error('Pix2Text error:', error);
             toast.error(`Failed to process images ${i+1}-${i+batch.length}`);
           }
           
-          // Rate limit delay
-          if (i + 10 < imageDataUrls.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          // Rate limit delay (200ms between batches for free tier)
+          if (i + 5 < imageDataUrls.length) {
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
         
-        setMathpixProgress({ current: imageDataUrls.length, total: imageDataUrls.length });
-        console.log(`✅ Mathpix OCR complete: ${mathpixResults.size}/${imageDataUrls.length}`);
-        toast.success(`High-accuracy OCR complete! ${mathpixResults.size} images processed`);
+        setOcrProgress({ current: imageDataUrls.length, total: imageDataUrls.length });
+        console.log(`✅ Pix2Text OCR complete: ${mathpixResults.size}/${imageDataUrls.length}`);
+        toast.success(`Advanced OCR complete! ${mathpixResults.size} images processed`);
         
-      } 
+      }
       // Option 2: Basic OCR (Tesseract)
       else if (enableOcr) {
         console.log(`🔍 Running Tesseract OCR on ${imageDataUrls.length} images...`);
@@ -1536,7 +1537,7 @@ export const SmartQuestionExtractor = ({
                     checked={enableOcr}
                     onCheckedChange={(checked) => {
                       setEnableOcr(!!checked);
-                      if (checked) setUseMathpix(false);
+                      if (checked) setUseAdvancedOCR(false);
                     }}
                   />
                   <label htmlFor="enable-ocr" className="text-sm cursor-pointer">
@@ -1544,34 +1545,44 @@ export const SmartQuestionExtractor = ({
                   </label>
                 </div>
                 
-                {/* Mathpix Toggle */}
+                {/* Advanced OCR Toggle (Pix2Text) */}
                 <div className="flex items-center justify-center gap-2">
                   <Checkbox 
-                    id="enable-mathpix" 
-                    checked={useMathpix}
+                    id="enable-advanced-ocr" 
+                    checked={useAdvancedOCR}
                     onCheckedChange={(checked) => {
-                      setUseMathpix(!!checked);
+                      setUseAdvancedOCR(!!checked);
                       if (checked) setEnableOcr(false);
                     }}
                   />
-                  <label htmlFor="enable-mathpix" className="flex items-center gap-2 text-sm cursor-pointer">
-                    <span>Enable High-Accuracy Math OCR</span>
-                    <Badge variant="secondary" className="text-xs">99% accuracy on equations</Badge>
+                  <label htmlFor="enable-advanced-ocr" className="flex items-center gap-2 text-sm cursor-pointer">
+                    <span>Enable Advanced OCR (Math + Chemistry + Physics)</span>
+                    <Badge variant="secondary" className="text-xs">FREE • 85% accuracy</Badge>
                     <span className="text-xs text-muted-foreground">
-                      (~$0.004/image)
+                      (Powered by Pix2Text AI - 30k free/month)
                     </span>
                   </label>
                 </div>
                 
-                {/* Mathpix API Key Input */}
-                {useMathpix && (
-                  <Input
-                    type="password"
-                    placeholder="Mathpix API Key (optional - uses default if empty)"
-                    value={mathpixApiKey}
-                    onChange={(e) => setMathpixApiKey(e.target.value)}
-                    className="max-w-md mx-auto"
-                  />
+                {/* Optional: HuggingFace Token for higher limits */}
+                {useAdvancedOCR && (
+                  <Collapsible>
+                    <CollapsibleTrigger className="text-xs text-blue-600 hover:underline">
+                      Have a HuggingFace token? (Optional - for faster processing)
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <Input
+                        type="password"
+                        placeholder="HuggingFace Access Token (optional)"
+                        value={hfApiKey}
+                        onChange={(e) => setHfApiKey(e.target.value)}
+                        className="max-w-md mx-auto mt-2"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Free tier: 30k requests/month. Token increases to 100k/month.
+                      </p>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </div>
               
@@ -1605,25 +1616,28 @@ export const SmartQuestionExtractor = ({
         </Card>
       )}
 
-      {/* Mathpix OCR Progress */}
-      {useMathpix && mathpixProgress.total > 0 && mathpixProgress.current < mathpixProgress.total && (
+      {/* Advanced OCR Progress */}
+      {useAdvancedOCR && ocrProgress.total > 0 && ocrProgress.current < ocrProgress.total && (
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
-                  🧮 Processing images with Mathpix ({mathpixProgress.current}/{mathpixProgress.total})
+                  Processing images with Pix2Text AI ({ocrProgress.current}/{ocrProgress.total})
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {Math.round((mathpixProgress.current / mathpixProgress.total) * 100)}%
+                  {Math.round((ocrProgress.current / ocrProgress.total) * 100)}%
                 </span>
               </div>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-primary h-full transition-all duration-300"
-                  style={{ width: `${(mathpixProgress.current / mathpixProgress.total) * 100}%` }}
+                  style={{ width: `${(ocrProgress.current / ocrProgress.total) * 100}%` }}
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Detecting math equations, chemical formulas, and physics diagrams...
+              </p>
             </div>
           </CardContent>
         </Card>

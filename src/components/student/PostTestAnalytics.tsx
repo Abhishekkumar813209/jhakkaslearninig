@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { QuestionAIAnalysis } from './QuestionAIAnalysis';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -47,6 +48,8 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
 }) => {
   const navigate = useNavigate();
   const [showAchievements, setShowAchievements] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
 
   useEffect(() => {
     if (analyticsData?.achievements?.length > 0) {
@@ -119,10 +122,16 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
     { name: 'Remaining', value: 100 - testInfo.percentage, color: '#e5e7eb' }
   ];
 
-  // Calculate "What If" scenarios
+  // Calculate "What If" scenarios (FIXED)
   const calculateWhatIf = (additionalCorrect: number) => {
-    const avgMarksPerQuestion = testInfo.totalMarks / (performance.topicBreakdown.reduce((sum, t) => sum + t.total, 0) || 1);
-    const potentialScore = testInfo.score + (additionalCorrect * avgMarksPerQuestion);
+    const totalQuestions = performance.topicBreakdown.reduce((sum, t) => sum + t.total, 0) || 1;
+    const avgMarksPerQuestion = testInfo.totalMarks / totalQuestions;
+    
+    // Fixed: Don't multiply by 10! Just use additionalCorrect directly
+    const potentialScore = Math.min(
+      testInfo.score + (additionalCorrect * avgMarksPerQuestion),
+      testInfo.totalMarks
+    );
     const potentialPercentage = Math.round((potentialScore / testInfo.totalMarks) * 100);
     
     // Rough rank estimation (assuming linear distribution)
@@ -559,11 +568,32 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                     <AlertTriangle className="w-4 h-4" />
                     Areas to Improve
                   </h4>
-                  {performance.weaknesses.map((weakness, index) => (
-                    <Badge key={index} variant="secondary" className="bg-red-100 text-red-800 mr-2 mb-2">
-                      {weakness.topic} ({weakness.accuracy.toFixed(1)}%)
-                    </Badge>
-                  ))}
+                  <div className="grid grid-cols-1 gap-2">
+                    {performance.weaknesses.map((weakness, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 rounded bg-red-50 border border-red-200">
+                        <span className="text-sm font-medium text-red-800">
+                          {weakness.topic} ({weakness.accuracy.toFixed(1)}%)
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() => {
+                            setSelectedQuestion({
+                              questionText: `Need help understanding ${weakness.topic}`,
+                              correctAnswer: 'Multiple approaches available',
+                              studentAnswer: '',
+                              subject: testInfo.subject,
+                              topic: weakness.topic
+                            });
+                            setShowAIAnalysis(true);
+                          }}
+                        >
+                          🤖 Ask AI
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -730,6 +760,15 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
           </Card>
         </motion.div>
       </div>
+
+      {/* AI Question Analysis Drawer */}
+      {selectedQuestion && (
+        <QuestionAIAnalysis
+          isOpen={showAIAnalysis}
+          onClose={() => setShowAIAnalysis(false)}
+          question={selectedQuestion}
+        />
+      )}
     </div>
   );
 };

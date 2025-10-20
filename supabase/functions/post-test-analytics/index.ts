@@ -302,6 +302,71 @@ serve(async (req) => {
         .eq('id', testAttempt?.id);
     }
 
+    // Store analytics snapshot for historical viewing
+    try {
+      await supabase
+        .from('test_analytics_snapshots')
+        .insert({
+          test_attempt_id: testAttempt?.id,
+          student_id: studentId,
+          analytics_data: {
+            testInfo: {
+              title: (testAttempt?.tests as any)?.title || '',
+              subject: (testAttempt?.tests as any)?.subject || '',
+              difficulty: (testAttempt?.tests as any)?.difficulty || '',
+              score: testAttempt?.score || 0,
+              totalMarks: testAttempt?.total_marks || 0,
+              percentage: testAttempt?.percentage || 0,
+              timeTaken: testAttempt?.time_taken_minutes || 0,
+              rank: testAttempt?.rank || null
+            },
+            studentInfo: {
+              name: profile?.full_name || '',
+              currentStats: analytics
+            },
+            rankings: {
+              zone: zoneRankings,
+              school: schoolRankings,
+              overall: overallRankings
+            },
+            performance: {
+              strengths,
+              weaknesses,
+              topicBreakdown: Array.from(topicPerformance.entries()).map(([topic, data]: [string, any]) => ({
+                topic,
+                accuracy: (data.correct / data.total) * 100,
+                correct: data.correct,
+                total: data.total,
+                scorePercentage: (data.earnedMarks / data.totalMarks) * 100
+              }))
+            },
+            insights,
+            improvementSuggestions,
+            xpRewards: {
+              baseXP,
+              performanceBonus,
+              speedBonus,
+              perfectScoreBonus,
+              totalXP,
+              breakdown: {
+                base: `${baseXP} XP for completing test`,
+                performance: `${performanceBonus} XP for ${testAttempt?.percentage}% score`,
+                speed: speedBonus > 0 ? `${speedBonus} XP for quick completion` : null,
+                perfect: perfectScoreBonus > 0 ? `${perfectScoreBonus} XP for perfect score` : null
+              }
+            },
+            achievements: achievementsAwarded,
+            nextSteps: {
+              subscriptionRecommended: true,
+              freeTestsRemaining: 0
+            }
+          }
+        });
+    } catch (snapshotError) {
+      console.error('Error storing analytics snapshot:', snapshotError);
+      // Continue even if snapshot fails
+    }
+
     const responseData = {
       testInfo: {
         title: (testAttempt?.tests as any)?.title || '',

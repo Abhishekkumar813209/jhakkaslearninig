@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy, User } from 'lucide-react';
+import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy, User, History, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
@@ -33,6 +33,8 @@ const StudentTests: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPaywallModal, setShowPaywallModal] = useState(false);
+  const [completedTests, setCompletedTests] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'available' | 'history'>('available');
   const { toast } = useToast();
   const navigate = useNavigate();
   const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus, markFreeTestUsed } = useSubscription();
@@ -40,7 +42,41 @@ const StudentTests: React.FC = () => {
 
   useEffect(() => {
     fetchAvailableTests();
+    fetchCompletedTests();
   }, []);
+
+  const fetchCompletedTests = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('test_attempts')
+        .select(`
+          id,
+          test_id,
+          score,
+          total_marks,
+          percentage,
+          submitted_at,
+          rank,
+          tests (
+            title,
+            subject,
+            difficulty
+          )
+        `)
+        .eq('student_id', user.id)
+        .in('status', ['submitted', 'auto_submitted'])
+        .order('submitted_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setCompletedTests(data || []);
+    } catch (error) {
+      console.error('Error fetching completed tests:', error);
+    }
+  };
 
   const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
     const script = document.createElement('script');
@@ -259,8 +295,28 @@ const StudentTests: React.FC = () => {
         />
       )}
 
-      {/* Tests Grid */}
-      {availableTests.length === 0 ? (
+      {/* Tab Navigation */}
+      <div className="flex gap-2 mb-6">
+        <Button
+          variant={activeTab === 'available' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('available')}
+        >
+          <BookOpen className="h-4 w-4 mr-2" />
+          Available Tests
+        </Button>
+        <Button
+          variant={activeTab === 'history' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('history')}
+        >
+          <History className="h-4 w-4 mr-2" />
+          Analytics History ({completedTests.length})
+        </Button>
+      </div>
+
+      {/* Available Tests Tab */}
+      {activeTab === 'available' && (
+        <>
+          {availableTests.length === 0 ? (
         <Card>
           <CardContent className="text-center py-8">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -338,6 +394,65 @@ const StudentTests: React.FC = () => {
               </Card>
             );
           })}
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Analytics History Tab */}
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          {completedTests.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No test history yet</h3>
+                <p className="text-muted-foreground">Complete a test to see detailed analytics here</p>
+              </CardContent>
+            </Card>
+          ) : (
+            completedTests.map((attempt) => (
+              <Card key={attempt.id} className="hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">{(attempt.tests as any)?.title}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {(attempt.tests as any)?.subject} • {new Date(attempt.submitted_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant={attempt.percentage >= 75 ? 'default' : 'secondary'}>
+                      {attempt.percentage}%
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Score</p>
+                      <p className="font-semibold">{attempt.score}/{attempt.total_marks}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Rank</p>
+                      <p className="font-semibold">#{attempt.rank || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Difficulty</p>
+                      <p className="font-semibold">{(attempt.tests as any)?.difficulty}</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => navigate(`/analytics/test/${attempt.id}`)}
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    View Full Analysis
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       )}
 

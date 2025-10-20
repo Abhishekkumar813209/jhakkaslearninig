@@ -38,6 +38,7 @@ import TopicDetailPage from "./pages/TopicDetailPage";
 import GamePlayerPage from "./pages/GamePlayerPage";
 import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
 import DatabaseExplorer from "./pages/DatabaseExplorer";
+import TestAnalyticsHistory from "./pages/TestAnalyticsHistory";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,12 @@ const App = () => (
             <Route path="/test-results/:attemptId" element={
               <ProtectedRoute>
                 <LegacyTestResultsRedirect />
+              </ProtectedRoute>
+            } />
+            {/* Historical analytics view by attempt ID */}
+            <Route path="/analytics/test/:attemptId" element={
+              <ProtectedRoute>
+                <TestAnalyticsHistory />
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={

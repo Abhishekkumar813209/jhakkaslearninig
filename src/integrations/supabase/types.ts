@@ -3998,6 +3998,62 @@ export type Database = {
         }
         Relationships: []
       }
+      test_analytics_snapshots: {
+        Row: {
+          analytics_data: Json
+          created_at: string | null
+          generated_at: string | null
+          id: string
+          student_id: string | null
+          test_attempt_id: string | null
+        }
+        Insert: {
+          analytics_data: Json
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          student_id?: string | null
+          test_attempt_id?: string | null
+        }
+        Update: {
+          analytics_data?: Json
+          created_at?: string | null
+          generated_at?: string | null
+          id?: string
+          student_id?: string | null
+          test_attempt_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_analytics_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_analytics_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_analytics_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "test_analytics_snapshots_test_attempt_id_fkey"
+            columns: ["test_attempt_id"]
+            isOneToOne: true
+            referencedRelation: "test_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_answers: {
         Row: {
           attempt_id: string

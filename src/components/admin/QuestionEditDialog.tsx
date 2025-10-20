@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -145,8 +145,8 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6 py-4">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="pr-6 space-y-6 py-4">
             {/* Warnings */}
             {warnings.length > 0 && (
               <Card className="border-orange-200 bg-orange-50">
@@ -436,6 +436,7 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
               />
             </div>
           </div>
+          <ScrollBar className="w-3" />
         </ScrollArea>
 
         <DialogFooter>

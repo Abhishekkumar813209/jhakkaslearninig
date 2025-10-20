@@ -39,6 +39,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import TestSettingsDialog from './TestSettingsDialog';
 import { PDFQuestionExtractor } from './PDFQuestionExtractor';
+import { SmartQuestionExtractor } from './SmartQuestionExtractor';
 import ReactCrop from 'react-image-crop';
 import type { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -109,6 +110,7 @@ const TestBuilderPortal: React.FC = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhancementType, setEnhancementType] = useState<'darken' | 'lighten'>('darken');
   const [showPDFExtractor, setShowPDFExtractor] = useState(false);
+  const [showBulkExtractor, setShowBulkExtractor] = useState(false);
 
   // Initialize transformers.js
   useEffect(() => {
@@ -786,6 +788,86 @@ const TestBuilderPortal: React.FC = () => {
     }
   };
 
+  const handleBulkAddQuestions = async (questions: any[]) => {
+    let success = 0;
+    const { data: { session } } = await supabase.auth.getSession();
+
+    for (const [idx, q] of questions.entries()) {
+      try {
+        const base = {
+          test_id: testId,
+          marks: Number(q.marks || 1),
+          position: questions.length + idx + 1,
+          explanation: q.explanation || null,
+          difficulty: q.difficulty || 'medium',
+          tags: q.tags || [],
+        };
+
+        let payload: any = { ...base };
+        switch (q.question_type) {
+          case 'mcq':
+            payload.qtype = 'mcq';
+            payload.question_text = q.question_text;
+            payload.options = (q.options || []).map((opt: string, i: number) => ({
+              text: opt,
+              isCorrect: typeof q.correct_answer === 'number'
+                ? i === q.correct_answer
+                : (Array.isArray(q.correct_answer) ? q.correct_answer.includes(i) : false)
+            }));
+            if (typeof q.correct_answer === 'string') {
+              payload.correct_answer = q.correct_answer;
+            }
+            break;
+          case 'true_false':
+            payload.qtype = 'mcq';
+            payload.question_text = q.question_text;
+            payload.options = [
+              { text: 'True',  isCorrect: q.correct_answer === true || q.correct_answer === 'True' },
+              { text: 'False', isCorrect: q.correct_answer === false || q.correct_answer === 'False' }
+            ];
+            payload.correct_answer = (q.correct_answer === true || q.correct_answer === 'True') ? 'True' : 'False';
+            break;
+          case 'short_answer':
+            payload.qtype = 'subjective';
+            payload.question_text = q.question_text;
+            payload.sample_answer = q.correct_answer || '';
+            break;
+          case 'match_column':
+            payload.qtype = 'mcq';
+            payload.question_text = q.question_text || 'Match the following';
+            payload.left_column = q.left_column || [];
+            payload.right_column = q.right_column || [];
+            break;
+          case 'assertion_reason':
+            payload.qtype = 'mcq';
+            payload.question_text = `Assertion (A): ${q.assertion}\nReason (R): ${q.reason}`;
+            payload.assertion = q.assertion;
+            payload.reason = q.reason;
+            break;
+          case 'fill_blank':
+            payload.qtype = 'mcq';
+            payload.question_text = q.question_text;
+            payload.blanks_count = q.blanks_count || 1;
+            break;
+          default:
+            payload.qtype = 'mcq';
+            payload.question_text = q.question_text || '';
+            break;
+        }
+
+        const { data, error } = await supabase.functions.invoke('tests-api', {
+          body: { action: 'addQuestion', questionData: payload },
+          headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
+        });
+        if (error || !data?.success) throw new Error(error?.message || data?.error || 'Failed to add');
+        success++;
+      } catch (e) {
+        console.error('Bulk add failed for question', q?.id || q?.question_number, e);
+      }
+    }
+    return success;
+  };
+
   // Handle PDF question extraction
   const handlePDFQuestionExtracted = async (questionText: string, options?: string[], imageData?: string) => {
     try {
@@ -1216,21 +1298,17 @@ const TestBuilderPortal: React.FC = () => {
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2">
+        <Button variant="default" onClick={() => setShowBulkExtractor(true)}>
+          <Upload className="h-4 w-4 mr-2" />
+          Upload PDF/Word (Bulk Extract)
+        </Button>
         <Button onClick={() => setShowQuestionDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Question
-        </Button>
-        <Button variant="outline" onClick={generateQuestionsWithAI} disabled={aiGenerating}>
-          <Wand2 className={`h-4 w-4 mr-2 ${aiGenerating ? 'animate-spin' : ''}`} />
-          {aiGenerating ? 'Generating...' : 'AI Generate'}
+          Add Question Manually
         </Button>
         <Button variant="outline" onClick={() => ocrInputRef.current?.click()} disabled={ocrProcessing}>
           <ScanText className={`h-4 w-4 mr-2 ${ocrProcessing ? 'animate-spin' : ''}`} />
           {ocrProcessing ? 'Processing...' : 'Upload Question Image'}
-        </Button>
-        <Button variant="outline" onClick={() => setShowPDFExtractor(true)}>
-          <FileText className="h-4 w-4 mr-2" />
-          Extract from PDF
         </Button>
         <input
           ref={ocrInputRef}
@@ -1858,6 +1936,31 @@ const TestBuilderPortal: React.FC = () => {
           onClose={() => setShowPDFExtractor(false)}
         />
       )}
+
+      {/* Bulk Question Extractor */}
+      <Dialog open={showBulkExtractor} onOpenChange={setShowBulkExtractor}>
+        <DialogContent className="max-w-7xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Upload & Extract Questions (Bulk)</DialogTitle>
+          </DialogHeader>
+          <SmartQuestionExtractor
+            mode="test-builder"
+            testId={testId}
+            testTitle={test?.title}
+            subject={test?.subject}
+            difficulty={test?.difficulty}
+            onQuestionsAdded={async (questions) => {
+              const added = await handleBulkAddQuestions(questions);
+              toast({ 
+                title: "Questions added", 
+                description: `Successfully added ${added}/${questions.length} questions` 
+              });
+              setShowBulkExtractor(false);
+              await fetchTestData();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit } from "lucide-react";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
@@ -21,6 +21,7 @@ import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { normalizeChemicalFormula, formatChemicalReaction, preserveChemicalSymbols } from '@/lib/chemistryNotation';
 import { normalizeMathNotation, normalizeUnits, preserveMathSymbols } from '@/lib/mathNotation';
+import QuestionEditDialog from './QuestionEditDialog';
 
 interface ExtractedQuestion {
   id: string;
@@ -93,6 +94,8 @@ export const SmartQuestionExtractor = ({
   const [previewLesson, setPreviewLesson] = useState<any>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
+  const [editingQuestion, setEditingQuestion] = useState<ExtractedQuestion | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [enableOcr, setEnableOcr] = useState(true);
   const [authError, setAuthError] = useState(false);
 
@@ -1110,6 +1113,44 @@ export const SmartQuestionExtractor = ({
     }
   };
 
+  const handleSaveEditedQuestion = (updatedQuestion: ExtractedQuestion) => {
+    setExtractedQuestions(prev =>
+      prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q)
+    );
+    
+    // Also update in database if question exists
+    const isDbQuestion = isUUID(updatedQuestion.id);
+    if (isDbQuestion) {
+      invokeWithAuth({
+        name: 'topic-questions-api',
+        body: {
+          action: 'update_full_question',
+          question_id: updatedQuestion.id,
+          question_text: updatedQuestion.question_text,
+          question_type: updatedQuestion.question_type,
+          options: updatedQuestion.options,
+          left_column: updatedQuestion.left_column,
+          right_column: updatedQuestion.right_column,
+          assertion: updatedQuestion.assertion,
+          reason: updatedQuestion.reason,
+          blanks_count: updatedQuestion.blanks_count,
+          marks: updatedQuestion.marks,
+          difficulty: updatedQuestion.difficulty,
+          correct_answer: updatedQuestion.correct_answer,
+          explanation: updatedQuestion.explanation
+        }
+      })
+        .then(() => {
+          toast.success('Question updated in database');
+          setReloadKey((k) => k + 1);
+        })
+        .catch((error) => {
+          console.error('Error updating question:', error);
+          toast.error('Failed to update question in database');
+        });
+    }
+  };
+
   const validateAnswer = (question: ExtractedQuestion): boolean => {
     const answer = question.correct_answer;
     switch (question.question_type) {
@@ -1586,9 +1627,26 @@ export const SmartQuestionExtractor = ({
                             Edited
                           </Badge>
                         )}
-                        {question.confidence && question.confidence !== 'high' && (
+                      {question.confidence && question.confidence !== 'high' && (
                           <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-xs">
                             {question.confidence} confidence
+                          </Badge>
+                        )}
+                        {/* Warning badges for incomplete data */}
+                        {question.question_type === 'mcq' && (!question.options || question.options.length < 2) && (
+                          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-xs">
+                            ⚠️ Missing options
+                          </Badge>
+                        )}
+                        {question.question_text.length < 20 && (
+                          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-xs">
+                            ⚠️ Incomplete text
+                          </Badge>
+                        )}
+                        {question.images && question.images.length > 0 && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
+                            <ImageIcon className="h-3 w-3 mr-1" />
+                            {question.images.length} image{question.images.length > 1 ? 's' : ''}
                           </Badge>
                         )}
                       </div>
@@ -1628,6 +1686,19 @@ export const SmartQuestionExtractor = ({
                   </div>
 
                   <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingQuestion(question);
+                        setShowEditDialog(true);
+                      }}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="flex-1" onClick={(e) => e.stopPropagation()}>
@@ -1901,6 +1972,14 @@ export const SmartQuestionExtractor = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Question Edit Dialog */}
+      <QuestionEditDialog
+        question={editingQuestion}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSave={handleSaveEditedQuestion}
+      />
     </div>
   );
 };

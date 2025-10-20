@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -1939,26 +1940,32 @@ const TestBuilderPortal: React.FC = () => {
 
       {/* Bulk Question Extractor */}
       <Dialog open={showBulkExtractor} onOpenChange={setShowBulkExtractor}>
-        <DialogContent className="max-w-7xl h-[90vh]">
+        <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Upload & Extract Questions (Bulk)</DialogTitle>
+            <DialogDescription>
+              Upload PDF/Word documents to extract questions automatically
+            </DialogDescription>
           </DialogHeader>
-          <SmartQuestionExtractor
-            mode="test-builder"
-            testId={testId}
-            testTitle={test?.title}
-            subject={test?.subject}
-            difficulty={test?.difficulty}
-            onQuestionsAdded={async (questions) => {
-              const added = await handleBulkAddQuestions(questions);
-              toast({ 
-                title: "Questions added", 
-                description: `Successfully added ${added}/${questions.length} questions` 
-              });
-              setShowBulkExtractor(false);
-              await fetchTestData();
-            }}
-          />
+          
+          <ScrollArea className="flex-1 pr-4">
+            <SmartQuestionExtractor
+              mode="test-builder"
+              testId={testId}
+              testTitle={test?.title}
+              subject={test?.subject}
+              difficulty={test?.difficulty}
+              onQuestionsAdded={async (questions) => {
+                const added = await handleBulkAddQuestions(questions);
+                toast({ 
+                  title: "Questions added", 
+                  description: `Successfully added ${added}/${questions.length} questions` 
+                });
+                setShowBulkExtractor(false);
+                await fetchTestData();
+              }}
+            />
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

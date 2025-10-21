@@ -17,6 +17,7 @@ import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { DocumentUploader } from "./DocumentUploader";
 import { UniversalCropModal } from "./UniversalCropModal";
 import { cn } from "@/lib/utils";
+import { renderMath } from "@/lib/mathRendering";
 
 interface ExtractedQuestion {
   id?: string;
@@ -595,14 +596,23 @@ export const SmartQuestionExtractorNew = ({
 
                     <CardContent className="p-4 pt-2 space-y-3">
                       {/* Question Text */}
-                      <p className="text-sm line-clamp-3">{q.question_text}</p>
+                      <div 
+                        className="text-sm line-clamp-3 prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: renderMath(q.question_text) }}
+                      />
 
                       {/* Options */}
                       {q.options && q.options.length > 0 && (
                         <div className="space-y-1">
                           {q.options.slice(0, 4).map((opt, i) => (
-                            <div key={i} className="text-xs text-muted-foreground">
-                              <span className="font-medium">{String.fromCharCode(65 + i)}.</span> {opt.slice(0, 50)}{opt.length > 50 ? '...' : ''}
+                            <div key={i} className="text-xs text-muted-foreground flex gap-1">
+                              <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
+                              <span 
+                                className="line-clamp-1 flex-1" 
+                                dangerouslySetInnerHTML={{ 
+                                  __html: renderMath(opt.slice(0, 50) + (opt.length > 50 ? '...' : '')) 
+                                }} 
+                              />
                             </div>
                           ))}
                         </div>
@@ -683,7 +693,10 @@ export const SmartQuestionExtractorNew = ({
 
                               <div>
                                 <h4 className="font-medium mb-2">Question:</h4>
-                                <p className="text-sm">{q.question_text}</p>
+                                <div 
+                                  className="text-sm prose prose-sm max-w-none"
+                                  dangerouslySetInnerHTML={{ __html: renderMath(q.question_text) }}
+                                />
                               </div>
 
                               {q.options && (
@@ -691,8 +704,12 @@ export const SmartQuestionExtractorNew = ({
                                   <h4 className="font-medium mb-2">Options:</h4>
                                   <div className="space-y-2">
                                     {q.options.map((opt, i) => (
-                                      <div key={i} className="text-sm">
-                                        <span className="font-medium">{String.fromCharCode(65 + i)}.</span> {opt}
+                                      <div key={i} className="text-sm flex gap-2">
+                                        <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
+                                        <span 
+                                          className="flex-1"
+                                          dangerouslySetInnerHTML={{ __html: renderMath(opt) }} 
+                                        />
                                       </div>
                                     ))}
                                   </div>
@@ -708,7 +725,10 @@ export const SmartQuestionExtractorNew = ({
                                   {q.explanation && (
                                     <>
                                       <h4 className="font-medium mt-2 mb-1 text-green-700 dark:text-green-300">Explanation:</h4>
-                                      <p className="text-sm text-green-600 dark:text-green-400">{q.explanation}</p>
+                                      <div 
+                                        className="text-sm text-green-600 dark:text-green-400 prose prose-sm max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: renderMath(q.explanation || '') }}
+                                      />
                                     </>
                                   )}
                                 </div>

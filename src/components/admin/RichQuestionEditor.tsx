@@ -25,6 +25,58 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Unicode to notation converter
+const UNICODE_SUBSCRIPTS: Record<string, string> = {
+  '₀': '_0', '₁': '_1', '₂': '_2', '₃': '_3', '₄': '_4',
+  '₅': '_5', '₆': '_6', '₇': '_7', '₈': '_8', '₉': '_9',
+  'ₐ': '_a', 'ₑ': '_e', 'ₒ': '_o', 'ₓ': '_x', 'ₕ': '_h',
+  'ₖ': '_k', 'ₗ': '_l', 'ₘ': '_m', 'ₙ': '_n', 'ₚ': '_p',
+  'ₛ': '_s', 'ₜ': '_t'
+};
+
+const UNICODE_SUPERSCRIPTS: Record<string, string> = {
+  '⁰': '^0', '¹': '^1', '²': '^2', '³': '^3', '⁴': '^4',
+  '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
+  '⁺': '^+', '⁻': '^-', '⁼': '^=', '⁽': '^(', '⁾': '^)',
+  'ⁿ': '^n', 'ⁱ': '^i'
+};
+
+const convertUnicodeToNotation = (text: string): string => {
+  let result = text;
+  
+  // Convert subscripts
+  Object.entries(UNICODE_SUBSCRIPTS).forEach(([unicode, notation]) => {
+    result = result.split(unicode).join(notation);
+  });
+  
+  // Convert superscripts
+  Object.entries(UNICODE_SUPERSCRIPTS).forEach(([unicode, notation]) => {
+    result = result.split(unicode).join(notation);
+  });
+  
+  return result;
+};
+
+const cleanPastedHTML = (html: string): string => {
+  // Remove Word's conditional comments
+  html = html.replace(/<!--\[if[^\]]*\]>[\s\S]*?<!\[endif\]-->/gi, '');
+  
+  // Remove Word's XML namespaces
+  html = html.replace(/<\/?[ovwxp]:[^>]*>/gi, '');
+  
+  // Remove empty paragraphs and spans
+  html = html.replace(/<p[^>]*>\s*<\/p>/gi, '');
+  html = html.replace(/<span[^>]*>\s*<\/span>/gi, '');
+  
+  // Replace multiple spaces with single space
+  html = html.replace(/\s+/g, ' ');
+  
+  // Remove line breaks within inline content
+  html = html.replace(/\s*<br[^>]*>\s*/gi, ' ');
+  
+  return html.trim();
+};
+
 interface RichQuestionEditorProps {
   content: string;
   onChange: (content: string) => void;
@@ -70,6 +122,50 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[80px] p-3',
+      },
+      handlePaste: (view, event, slice) => {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
+
+        // Get both HTML and plain text
+        const html = clipboardData.getData('text/html');
+        const text = clipboardData.getData('text/plain');
+
+        // If there's HTML (from Word, browsers, etc.)
+        if (html) {
+          // Clean the HTML
+          let cleanedHTML = cleanPastedHTML(html);
+          
+          // Extract text content from cleaned HTML
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = cleanedHTML;
+          let extractedText = tempDiv.textContent || tempDiv.innerText || '';
+          
+          // Convert Unicode subscripts/superscripts
+          const originalText = extractedText;
+          extractedText = convertUnicodeToNotation(extractedText);
+          
+          // Insert as plain text (no complex HTML structure)
+          editor?.commands.insertContent(extractedText);
+          
+          if (originalText !== extractedText) {
+            toast.success('Pasted! Unicode subscripts/superscripts converted to _ and ^ notation');
+          }
+          return true; // Prevent default paste
+        }
+
+        // If only plain text (Ctrl+Shift+V or from simple sources)
+        if (text) {
+          const convertedText = convertUnicodeToNotation(text);
+          editor?.commands.insertContent(convertedText);
+          
+          if (text !== convertedText) {
+            toast.success('Unicode subscripts/superscripts converted to _ and ^ notation');
+          }
+          return true;
+        }
+
+        return false; // Allow default behavior if no special handling needed
       },
     },
   });
@@ -287,7 +383,8 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       
       {/* Helper text */}
       <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/20 border-t">
-        💡 Use <kbd className="px-1 py-0.5 bg-background border rounded text-xs">_</kbd> for subscript, <kbd className="px-1 py-0.5 bg-background border rounded text-xs">^</kbd> for superscript in plain text
+        💡 Use <kbd className="px-1 py-0.5 bg-background border rounded text-xs">_</kbd> for subscript, <kbd className="px-1 py-0.5 bg-background border rounded text-xs">^</kbd> for superscript. 
+        <strong className="ml-1">✨ Paste from Word supported!</strong> Unicode auto-converts.
       </div>
     </div>
   );

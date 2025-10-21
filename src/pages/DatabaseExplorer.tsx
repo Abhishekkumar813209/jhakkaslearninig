@@ -309,6 +309,74 @@ const categoryGroups = {
   "School & Zone": ["schools", "zones"],
 };
 
+const questionExtractionDocs = {
+  title: "📝 Question Extraction & Management",
+  description: "Bulk question extraction from PDFs with AI, draft workflow, and CRUD operations",
+  
+  tables: [
+    {
+      name: "question_bank",
+      description: "Central repository for all extracted questions (draft & approved)",
+      columns: [
+        { name: "id", type: "uuid", description: "Primary key" },
+        { name: "question_text", type: "text", description: "Main question content (supports math notation)" },
+        { name: "question_type", type: "enum", description: "mcq | fill_blank | true_false | subjective | match_column" },
+        { name: "options", type: "jsonb", description: "Array of options (MCQ only)" },
+        { name: "correct_answer", type: "jsonb", description: "Null in draft mode; normalized format after review" },
+        { name: "marks", type: "integer", description: "Points for this question" },
+        { name: "difficulty", type: "text", description: "easy | medium | hard" },
+        { name: "topic_id", type: "uuid", description: "FK to roadmap_topics" },
+        { name: "is_approved", type: "boolean", description: "False = draft, True = ready for students" },
+        { name: "approved_by", type: "uuid", description: "Admin who approved" },
+        { name: "source_id", type: "uuid", description: "FK to content_sources (PDF origin)" }
+      ]
+    },
+    {
+      name: "topic_content_mapping",
+      description: "Links approved questions to topics for student view",
+      columns: [
+        { name: "id", type: "uuid", description: "Primary key" },
+        { name: "topic_id", type: "uuid", description: "FK to roadmap_topics" },
+        { name: "question_id", type: "uuid", description: "FK to question_bank" },
+        { name: "order_num", type: "integer", description: "Display sequence" }
+      ]
+    },
+    {
+      name: "gamified_exercises",
+      description: "Student-facing game representations of questions",
+      columns: [
+        { name: "topic_content_id", type: "uuid", description: "FK to topic_content_mapping" },
+        { name: "exercise_type", type: "enum", description: "mcq | fill_blank | true_false" },
+        { name: "exercise_data", type: "jsonb", description: "Game-specific format" },
+        { name: "correct_answer", type: "jsonb", description: "Normalized answer" },
+        { name: "xp_reward", type: "integer", description: "XP for correct answer" }
+      ]
+    }
+  ],
+  
+  workflow: [
+    "1️⃣ Admin uploads PDF → AI extracts questions → Saves to question_bank (correct_answer = null, is_approved = false)",
+    "2️⃣ Admin reviews in SmartQuestionExtractor → Adds correct answers → Edits question text/options",
+    "3️⃣ Admin clicks 'Finalize & Link' → Updates is_approved = true → Creates topic_content_mapping + gamified_exercises",
+    "4️⃣ Students can now see/play questions in their learning path"
+  ],
+  
+  apiEndpoints: [
+    { action: "save_draft_questions", description: "Bulk save without answers", params: "questions[], topic_id" },
+    { action: "get_topic_questions", description: "Load all questions for a topic", params: "topic_id" },
+    { action: "update_question", description: "Edit question text/options/marks", params: "question_id, updates{}" },
+    { action: "update_question_answer", description: "Add/edit answer + explanation", params: "question_id, correct_answer, explanation" },
+    { action: "delete_question", description: "Delete question + cleanup", params: "question_id" },
+    { action: "finalize_and_link", description: "Approve & link to students", params: "question_ids[], topic_id" }
+  ],
+  
+  securityNotes: [
+    "⚠️ Only admins can save/edit/delete questions",
+    "✅ Students can only see questions where is_approved = true AND correct_answer IS NOT NULL",
+    "🔒 RLS policies prevent students from accessing question_bank directly"
+  ]
+};
+
 const columnDocumentation = {
   profiles: {
     batch_id: {
@@ -421,6 +489,81 @@ const DatabaseExplorer = () => {
                           </AccordionItem>
                         ))}
                       </Accordion>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="question-system" className="flex-1 mt-4 overflow-auto px-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Database className="h-5 w-5" />
+                        {questionExtractionDocs.title}
+                      </CardTitle>
+                      <CardDescription>{questionExtractionDocs.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">📊 Database Tables</h3>
+                        <div className="space-y-4">
+                          {questionExtractionDocs.tables.map((table: any) => (
+                            <Card key={table.name}>
+                              <CardHeader>
+                                <CardTitle className="text-base">{table.name}</CardTitle>
+                                <CardDescription>{table.description}</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-2">
+                                  {table.columns.map((col: any) => (
+                                    <div key={col.name} className="flex gap-2 text-sm">
+                                      <Badge variant="outline">{col.name}</Badge>
+                                      <span className="text-muted-foreground">{col.type}</span>
+                                      <span>- {col.description}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">🔄 Workflow</h3>
+                        <div className="space-y-2">
+                          {questionExtractionDocs.workflow.map((step: string, idx: number) => (
+                            <Alert key={idx}>
+                              <AlertDescription>{step}</AlertDescription>
+                            </Alert>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">🔌 API Endpoints (topic-questions-api)</h3>
+                        <div className="space-y-2">
+                          {questionExtractionDocs.apiEndpoints.map((endpoint: any) => (
+                            <div key={endpoint.action} className="p-3 border rounded-md">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge>{endpoint.action}</Badge>
+                                <span className="text-sm text-muted-foreground">{endpoint.description}</span>
+                              </div>
+                              <code className="text-xs text-muted-foreground">{endpoint.params}</code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">🔒 Security</h3>
+                        <div className="space-y-2">
+                          {questionExtractionDocs.securityNotes.map((note: string, idx: number) => (
+                            <Alert key={idx} variant={note.includes('⚠️') ? 'destructive' : 'default'}>
+                              <AlertDescription>{note}</AlertDescription>
+                            </Alert>
+                          ))}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>

@@ -104,6 +104,12 @@ export const SmartQuestionExtractor = ({
   const [ocrProgress, setOcrProgress] = useState({ current: 0, total: 0 });
   const [authError, setAuthError] = useState(false);
 
+  const SUPABASE_URL = "https://qajmtfcphpncqwcrzphm.supabase.co";
+  
+  // State for managing existing questions
+  const [existingQuestions, setExistingQuestions] = useState<ExtractedQuestion[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   // Persist extracted questions across page refreshes
   const {
     data: extractedQuestions,
@@ -296,6 +302,148 @@ export const SmartQuestionExtractor = ({
       return true;
     });
   };
+
+  // Load existing questions from question_bank
+  const loadTopicQuestions = async (topicId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-questions-api`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'get_topic_questions',
+          topic_id: topicId
+        })
+      });
+
+      const data = await response.json();
+      if (data.success && data.questions) {
+        setExistingQuestions(data.questions);
+        console.log('✅ Loaded existing questions:', data.questions.length);
+      }
+    } catch (error) {
+      console.error('Failed to load existing questions:', error);
+    }
+  };
+
+  // Save questions as drafts (without answers)
+  const handleSaveDrafts = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !selectedTopic || extractedQuestions.length === 0) {
+      toast.error('Missing required data');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-questions-api`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'save_draft_questions',
+          questions: extractedQuestions,
+          topic_id: selectedTopic,
+          subject: subjectName,
+          chapter_name: chapterName,
+          batch_id: batchId,
+          roadmap_id: null,
+          source_id: null
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`${data.saved_count} questions saved as drafts!`);
+        await loadTopicQuestions(selectedTopic);
+        setExtractedQuestions([]);
+      } else {
+        toast.error('Failed to save drafts');
+      }
+    } catch (error) {
+      console.error('Error saving drafts:', error);
+      toast.error('Failed to save drafts');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Delete a question from question_bank
+  const handleDeleteQuestionFromBank = async (questionId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-questions-api`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'delete_question',
+          question_id: questionId
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Question deleted');
+        setExistingQuestions(prev => prev.filter(q => q.id !== questionId));
+      } else {
+        toast.error('Failed to delete question');
+      }
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      toast.error('Failed to delete question');
+    }
+  };
+
+  // Update a question
+  const handleUpdateQuestion = async (questionId: string, updates: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !selectedTopic) return;
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-questions-api`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'update_question',
+          question_id: questionId,
+          updates: updates
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Question updated');
+        await loadTopicQuestions(selectedTopic);
+      } else {
+        toast.error('Failed to update question');
+      }
+    } catch (error) {
+      console.error('Error updating question:', error);
+      toast.error('Failed to update question');
+    }
+  };
+
+  // Load questions when topic changes
+  useEffect(() => {
+    if (selectedTopic) {
+      loadTopicQuestions(selectedTopic);
+    }
+  }, [selectedTopic]);
 
   // Copy cURL for debugging
   const copyCurl = async () => {
@@ -1943,6 +2091,15 @@ export const SmartQuestionExtractor = ({
                       <CheckCircle2 className="h-5 w-5 text-blue-500" />
                       <span className="font-medium">{selectedIds.length} selected</span>
                     </div>
+                    <Button
+                      variant="outline"
+                      onClick={handleSaveDrafts}
+                      disabled={extractedQuestions.length === 0 || isProcessing}
+                      size="lg"
+                    >
+                      {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Database className="h-5 w-5 mr-2" />}
+                      Save {extractedQuestions.length} as Drafts
+                    </Button>
                     {mode === 'question-bank' ? (
                       <Button onClick={handleSaveToDatabase} size="lg">
                         <Database className="h-4 w-4 mr-2" />

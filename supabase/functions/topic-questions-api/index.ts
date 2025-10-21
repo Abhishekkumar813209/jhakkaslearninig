@@ -170,7 +170,7 @@ serve(async (req) => {
     console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // Enforce admin only for specific actions
-    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link'];
+    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question'];
     if (adminActions.includes(action) && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
@@ -386,6 +386,126 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, linked_count: linkedCount }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== save_draft_questions ==========
+    if (action === 'save_draft_questions') {
+      const { questions, topic_id, subject, chapter_name, batch_id, roadmap_id, source_id } = body;
+      
+      if (!questions || !Array.isArray(questions) || !topic_id) {
+        throw new Error('Missing questions array or topic_id');
+      }
+
+      console.log(`💾 Saving ${questions.length} draft questions for topic: ${topic_id}`);
+
+      const savedQuestions = [];
+      for (const q of questions) {
+        const { data, error } = await serviceClient
+          .from('question_bank')
+          .insert({
+            question_text: q.question_text,
+            question_type: q.question_type,
+            options: q.options || null,
+            marks: q.marks || 1,
+            difficulty: q.difficulty || 'medium',
+            topic_id: topic_id,
+            subject: subject,
+            chapter_name: chapter_name,
+            batch_id: batch_id || null,
+            roadmap_id: roadmap_id || null,
+            source_id: source_id || null,
+            correct_answer: null,  // Draft mode - no answer yet
+            is_approved: false,     // Not yet approved
+            admin_reviewed: false,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (!error) savedQuestions.push(data);
+      }
+
+      console.log(`✅ Saved ${savedQuestions.length} draft questions`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          saved_count: savedQuestions.length,
+          question_ids: savedQuestions.map(q => q.id)
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== delete_question ==========
+    if (action === 'delete_question') {
+      const { question_id } = body;
+      
+      if (!question_id) {
+        throw new Error('Missing question_id');
+      }
+
+      console.log(`🗑️ Deleting question: ${question_id}`);
+
+      // Delete from question_bank
+      const { error } = await serviceClient
+        .from('question_bank')
+        .delete()
+        .eq('id', question_id);
+      
+      if (error) throw error;
+
+      // Also cleanup any linked content (will cascade via FK constraints)
+      await serviceClient
+        .from('topic_content_mapping')
+        .delete()
+        .eq('question_id', question_id);
+
+      console.log(`✅ Question deleted: ${question_id}`);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== update_question ==========
+    if (action === 'update_question') {
+      const { question_id, updates } = body;
+      
+      if (!question_id || !updates) {
+        throw new Error('Missing question_id or updates');
+      }
+
+      console.log(`✏️ Updating question: ${question_id}`);
+
+      const allowedFields = [
+        'question_text', 'options', 'marks', 'difficulty', 
+        'subject', 'chapter_name', 'explanation', 'question_type'
+      ];
+      
+      const sanitizedUpdates: any = {};
+      for (const key of allowedFields) {
+        if (key in updates) {
+          sanitizedUpdates[key] = updates[key];
+        }
+      }
+      
+      sanitizedUpdates['updated_at'] = new Date().toISOString();
+      
+      const { error } = await serviceClient
+        .from('question_bank')
+        .update(sanitizedUpdates)
+        .eq('id', question_id);
+      
+      if (error) throw error;
+
+      console.log(`✅ Question updated: ${question_id}`);
+
+      return new Response(
+        JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

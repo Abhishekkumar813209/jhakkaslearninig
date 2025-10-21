@@ -22,6 +22,7 @@ import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { normalizeChemicalFormula, formatChemicalReaction, preserveChemicalSymbols } from '@/lib/chemistryNotation';
 import { normalizeMathNotation, normalizeUnits, preserveMathSymbols } from '@/lib/mathNotation';
+import { renderMath } from '@/lib/mathRendering';
 import QuestionEditDialog from './QuestionEditDialog';
 
 interface ExtractedQuestion {
@@ -1848,9 +1849,10 @@ export const SmartQuestionExtractor = ({
                   </div>
                 </CardHeader>
                 <CardContent onClick={(e) => e.stopPropagation()}>
-                  <p className="text-sm line-clamp-3 mb-3">
-                    {question.question_text}
-                  </p>
+                  <div 
+                    className="text-sm line-clamp-3 mb-3"
+                    dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+                  />
                   
                   {/* Correct Answer Input */}
                   <div className="mb-4 border-t pt-3">
@@ -1894,15 +1896,17 @@ export const SmartQuestionExtractor = ({
                           </DialogDescription>
                         </DialogHeader>
                         <ScrollArea className="max-h-[60vh] overflow-y-auto">
-                          <div className="prose prose-sm max-w-none whitespace-pre-wrap break-words p-4">
-                            {question.question_text}
-                          </div>
+                          <div 
+                            className="prose prose-sm max-w-none whitespace-pre-wrap break-words p-4"
+                            dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+                          />
                           {question.options && (
                             <div className="mt-4 space-y-2 p-4">
                               <p className="font-semibold text-sm text-muted-foreground mb-2">Options:</p>
                               {question.options.map((opt, idx) => (
                                 <div key={idx} className="p-3 border rounded-md bg-muted/30">
-                                  <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span> {opt}
+                                  <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>{' '}
+                                  <span dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
                                 </div>
                               ))}
                             </div>
@@ -2018,12 +2022,16 @@ export const SmartQuestionExtractor = ({
           <div className="space-y-4">
             <div>
               <h4 className="font-medium mb-2">Question:</h4>
-              <p className="text-sm whitespace-pre-wrap">
-                {previewQuestion?.question_type === 'mcq' && previewQuestion?.options && previewQuestion.options.length > 0
-                  ? previewQuestion.question_text.split(/\n[a-d]\)/).filter(Boolean)[0].trim()
-                  : previewQuestion?.question_text
-                }
-              </p>
+              <div 
+                className="text-sm whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ 
+                  __html: renderMath(
+                    previewQuestion?.question_type === 'mcq' && previewQuestion?.options && previewQuestion.options.length > 0
+                      ? previewQuestion.question_text.split(/\n[a-d]\)/).filter(Boolean)[0].trim()
+                      : previewQuestion?.question_text || ''
+                  )
+                }}
+              />
             </div>
 
             {previewQuestion?.options && previewQuestion.options.length > 0 && previewQuestion?.question_type !== 'match_column' && (
@@ -2031,7 +2039,9 @@ export const SmartQuestionExtractor = ({
                 <h4 className="font-medium mb-2">Options:</h4>
                 <ul className="space-y-1">
                   {previewQuestion.options.map((opt, idx) => (
-                    <li key={idx} className="text-sm pl-4">{opt}</li>
+                    <li key={idx} className="text-sm pl-4">
+                      <span dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                    </li>
                   ))}
                 </ul>
               </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { QuestionAnswerInput } from './QuestionAnswerInput';
+import { RichQuestionEditor } from './RichQuestionEditor';
 
 interface ExtractedQuestion {
   id: string;
@@ -338,16 +338,11 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
             {/* Question Text */}
             <div className="space-y-2">
               <Label>Question Text *</Label>
-              <Textarea
-                value={editedQuestion.question_text}
-                onChange={(e) => setEditedQuestion({ ...editedQuestion, question_text: e.target.value })}
-                rows={6}
-                placeholder="Enter question text... Use x^{2} for superscripts, H_{2}O for subscripts, (a-b)/c for fractions"
-                className="font-mono text-sm"
+              <RichQuestionEditor
+                content={editedQuestion.question_text}
+                onChange={(content) => setEditedQuestion({ ...editedQuestion, question_text: content })}
+                placeholder="Enter question text..."
               />
-              <p className="text-xs text-muted-foreground">
-                💡 Math notation: <code className="bg-muted px-1 rounded">x^{"{2}"}</code> → x², <code className="bg-muted px-1 rounded">H_{"{2}"}O</code> → H₂O, <code className="bg-muted px-1 rounded">(a-b)/c</code> for fractions
-              </p>
             </div>
 
             {/* Type-Specific Fields */}
@@ -434,20 +429,20 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Assertion Statement *</Label>
-                  <Textarea
-                    value={editedQuestion.assertion || ''}
-                    onChange={(e) => setEditedQuestion({ ...editedQuestion, assertion: e.target.value })}
-                    rows={3}
+                  <RichQuestionEditor
+                    content={editedQuestion.assertion || ''}
+                    onChange={(content) => setEditedQuestion({ ...editedQuestion, assertion: content })}
                     placeholder="Enter the assertion statement..."
+                    compact
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Reason Statement *</Label>
-                  <Textarea
-                    value={editedQuestion.reason || ''}
-                    onChange={(e) => setEditedQuestion({ ...editedQuestion, reason: e.target.value })}
-                    rows={3}
+                  <RichQuestionEditor
+                    content={editedQuestion.reason || ''}
+                    onChange={(content) => setEditedQuestion({ ...editedQuestion, reason: content })}
                     placeholder="Enter the reason statement..."
+                    compact
                   />
                 </div>
               </div>
@@ -482,11 +477,11 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
             {/* Explanation */}
             <div className="space-y-2">
               <Label>Explanation (Optional)</Label>
-              <Textarea
-                value={editedQuestion.explanation || ''}
-                onChange={(e) => setEditedQuestion({ ...editedQuestion, explanation: e.target.value })}
-                rows={3}
+              <RichQuestionEditor
+                content={editedQuestion.explanation || ''}
+                onChange={(content) => setEditedQuestion({ ...editedQuestion, explanation: content })}
                 placeholder="Add an explanation for the correct answer..."
+                compact
               />
             </div>
           </div>

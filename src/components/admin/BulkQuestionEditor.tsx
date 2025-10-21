@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +9,7 @@ import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { renderMath } from '@/lib/mathRendering';
+import { RichQuestionEditor } from './RichQuestionEditor';
 
 interface ExtractedQuestion {
   id: string;
@@ -286,19 +286,12 @@ const InlineQuestionCard = ({ question, onUpdate }: InlineQuestionCardProps) => 
             {/* Question Text */}
             <div>
               <label className="text-sm font-medium mb-1.5 block">Question Text</label>
-              <Textarea
-                value={question.question_text}
-                onChange={(e) => handleChange('question_text', e.target.value)}
-                className="min-h-[100px] font-mono text-sm"
+              <RichQuestionEditor
+                content={question.question_text}
+                onChange={(content) => handleChange('question_text', content)}
                 placeholder="Enter question text..."
+                compact
               />
-              {/* Math preview */}
-              {question.question_text && (
-                <div className="mt-2 p-3 bg-muted/50 rounded-md border">
-                  <p className="text-xs text-muted-foreground mb-1">Preview:</p>
-                  <div dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }} />
-                </div>
-              )}
             </div>
             
             {/* MCQ Options */}
@@ -307,21 +300,18 @@ const InlineQuestionCard = ({ question, onUpdate }: InlineQuestionCardProps) => 
                 <label className="text-sm font-medium">Options</label>
                 {(question.options || ['', '', '', '']).map((opt, i) => (
                   <div key={i} className="flex gap-2 items-start">
-                    <span className="font-semibold text-sm mt-2 w-6">{String.fromCharCode(65 + i)})</span>
-                    <div className="flex-1 space-y-1">
-                      <Input
-                        value={opt}
-                        onChange={(e) => {
+                    <span className="font-semibold text-sm mt-3 w-6">{String.fromCharCode(65 + i)})</span>
+                    <div className="flex-1">
+                      <RichQuestionEditor
+                        content={opt}
+                        onChange={(content) => {
                           const newOptions = [...(question.options || ['', '', '', ''])];
-                          newOptions[i] = e.target.value;
+                          newOptions[i] = content;
                           handleChange('options', newOptions);
                         }}
-                        className="font-mono text-sm"
                         placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                        compact
                       />
-                      {opt && (
-                        <div className="text-xs p-1.5 bg-muted/30 rounded" dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
-                      )}
                     </div>
                   </div>
                 ))}
@@ -389,20 +379,20 @@ const InlineQuestionCard = ({ question, onUpdate }: InlineQuestionCardProps) => 
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Assertion (A)</label>
-                  <Textarea
-                    value={question.assertion || ''}
-                    onChange={(e) => handleChange('assertion', e.target.value)}
-                    className="min-h-[80px] font-mono text-sm"
+                  <RichQuestionEditor
+                    content={question.assertion || ''}
+                    onChange={(content) => handleChange('assertion', content)}
                     placeholder="Enter assertion statement..."
+                    compact
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Reason (R)</label>
-                  <Textarea
-                    value={question.reason || ''}
-                    onChange={(e) => handleChange('reason', e.target.value)}
-                    className="min-h-[80px] font-mono text-sm"
+                  <RichQuestionEditor
+                    content={question.reason || ''}
+                    onChange={(content) => handleChange('reason', content)}
                     placeholder="Enter reason statement..."
+                    compact
                   />
                 </div>
               </div>

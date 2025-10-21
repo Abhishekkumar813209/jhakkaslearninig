@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -6,6 +6,7 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
+import Image from '@tiptap/extension-image';
 import { Button } from '@/components/ui/button';
 import { 
   Bold, 
@@ -16,9 +17,13 @@ import {
   Subscript,
   Superscript,
   Undo,
-  Redo
+  Redo,
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface RichQuestionEditorProps {
   content: string;
@@ -35,11 +40,21 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
   className,
   compact = false
 }) => {
+  const [uploading, setUploading] = React.useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
         placeholder,
+      }),
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-md my-2',
+        },
       }),
       Table.configure({
         resizable: true,
@@ -58,6 +73,66 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       },
     },
   });
+
+  const handleImageUpload = async (file: File) => {
+    if (!editor) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      // Create bucket if it doesn't exist (will fail silently if it exists)
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === 'question-images');
+      
+      if (!bucketExists) {
+        await supabase.storage.createBucket('question-images', {
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+        });
+      }
+
+      // Upload to Supabase Storage
+      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error } = await supabase.storage
+        .from('question-images')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(data.path);
+
+      // Insert image into editor
+      editor.chain().focus().setImage({ src: publicUrl }).run();
+      toast.success('Image uploaded successfully!');
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
+  };
 
   if (!editor) {
     return null;
@@ -91,6 +166,17 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
 
   return (
     <div className={cn("border rounded-md bg-background", className)}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageUpload(file);
+        }}
+        className="hidden"
+      />
+      
       {/* Toolbar */}
       <div className="flex flex-wrap gap-1 p-2 border-b bg-muted/30">
         <MenuButton
@@ -122,6 +208,23 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
         />
         
         <div className="w-px h-8 bg-border mx-1" />
+        
+        <Button
+          type="button"
+          variant="ghost"
+          size={compact ? "sm" : "default"}
+          onClick={handleImageButtonClick}
+          disabled={uploading}
+          className="h-8 px-2 text-xs"
+          title="Insert Image"
+        >
+          {uploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4 mr-1" />
+          )}
+          Image
+        </Button>
         
         <Button
           type="button"

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library, Upload, Crop } from "lucide-react";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { DocumentUploader } from "./DocumentUploader";
+import { UniversalCropModal } from "./UniversalCropModal";
 import { cn } from "@/lib/utils";
 
 interface ExtractedQuestion {
@@ -68,6 +69,11 @@ export const SmartQuestionExtractorNew = ({
   
   // Upload dialog state
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  
+  // Crop modal state
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropQuestion, setCropQuestion] = useState<ExtractedQuestion | null>(null);
+  const [cropPdfFile, setCropPdfFile] = useState<File | null>(null);
 
   // Auto-load draft questions when topic changes
   useEffect(() => {
@@ -286,10 +292,38 @@ export const SmartQuestionExtractorNew = ({
     return matchesSearch && matchesType;
   });
 
-  const handleDocumentUpload = (uploadedQuestions: ExtractedQuestion[]) => {
+  const handleDocumentUpload = (uploadedQuestions: ExtractedQuestion[], pdfFile?: File) => {
     setQuestions(prev => [...prev, ...uploadedQuestions]);
     setShowUploadDialog(false);
+    if (pdfFile) {
+      setCropPdfFile(pdfFile);
+    }
     toast.success(`Added ${uploadedQuestions.length} new questions`);
+  };
+
+  const handleCropComplete = (extractedData: any) => {
+    if (!cropQuestion) return;
+
+    // Update the question with extracted data
+    setQuestions(prev => prev.map(q => 
+      q.id === cropQuestion.id 
+        ? {
+            ...q,
+            question_text: extractedData.question_text || extractedData.raw_text || q.question_text,
+            edited: true,
+            admin_reviewed: false
+          }
+        : q
+    ));
+
+    toast.success('Question updated from crop!');
+    setShowCropModal(false);
+    setCropQuestion(null);
+  };
+
+  const handleOpenCropModal = (question: ExtractedQuestion) => {
+    setCropQuestion(question);
+    setShowCropModal(true);
   };
 
   const totalCount = questions.length;
@@ -506,17 +540,31 @@ export const SmartQuestionExtractorNew = ({
                             )}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            q.id && handleDeleteQuestion(q.id);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenCropModal(q);
+                            }}
+                            title="Fix via Crop"
+                          >
+                            <Crop className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              q.id && handleDeleteQuestion(q.id);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
 
@@ -675,6 +723,16 @@ export const SmartQuestionExtractorNew = ({
           />
         </DialogContent>
       </Dialog>
+
+      {/* Universal Crop Modal */}
+      <UniversalCropModal
+        open={showCropModal}
+        onOpenChange={setShowCropModal}
+        onCropComplete={handleCropComplete}
+        currentQuestion={cropQuestion || undefined}
+        contextLabel={cropQuestion?.question_number || `Question ${questions.findIndex(q => q.id === cropQuestion?.id) + 1}`}
+        pdfFile={cropPdfFile}
+      />
     </div>
   );
 };

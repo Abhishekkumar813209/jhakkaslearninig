@@ -36,14 +36,14 @@ export const applyFractions = (t: string): string => {
     prefix + fracHTML(a, b)
   );
   
-  // Fractions with square roots: 1/√14, 2/√14 (including comma-separated and equality)
-  t = t.replace(/(^|[\s,;.=])(\d{1,4})\s*\/\s*√(\d{1,4})(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
-    prefix + fracHTML(num, `√${den}`)
+  // Fractions with square roots: 1/√14, 2/√14 (handle both plain √ and <span class="sqrt">)
+  t = t.replace(/(^|[\s,;.=])(\d{1,4})\s*\/\s*(<span class="sqrt">.*?<\/span>|√\d+)(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
+    prefix + fracHTML(num, den)
   );
   
   // Fractions with variables and square roots: x/√2, a/√3
-  t = t.replace(/(^|[\s,;.=])([A-Za-z]\w*)\s*\/\s*√(\d{1,4})(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
-    prefix + fracHTML(num, `√${den}`)
+  t = t.replace(/(^|[\s,;.=])([A-Za-z]\w*)\s*\/\s*(<span class="sqrt">.*?<\/span>|√\d+)(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
+    prefix + fracHTML(num, den)
   );
   
   // Fractions with variables (including subscripts): a_1/a_2, b_1/b_2, x/y
@@ -73,6 +73,44 @@ export const applySupSub = (t: string) => {
   // Simple syntax for backwards compatibility (single character/number)
   t = t.replace(/(\S)\s*\^\s*(-?[0-9A-Za-z+\-]+)(?![}])/g, '$1<sup>$2</sup>');
   t = t.replace(/(\S)\s*_\s*([0-9A-Za-z+\-]+)(?![}])/g, '$1<sub>$2</sub>');
+  
+  return t;
+};
+
+/**
+ * Converts vector notation to proper display with arrow above
+ * Handles: \vec{OP}, OP^→, (OP)^→, vector{AB}
+ */
+export const applyVectorNotation = (t: string): string => {
+  // Pattern 1: LaTeX style \vec{OP} (MOST COMMON from Word paste)
+  t = t.replace(/\\vec\{([A-Za-z]{1,3})\}/g, '<span class="vector">$1</span>');
+  
+  // Pattern 2: (OP)^→ or OP^→ (arrow as superscript)
+  t = t.replace(/\(([A-Z]{1,3})\)\s*\^\s*→/g, '<span class="vector">$1</span>');
+  t = t.replace(/([A-Z]{1,3})\s*\^\s*→/g, '<span class="vector">$1</span>');
+  
+  // Pattern 3: Text style vector{AB}
+  t = t.replace(/vector\{([A-Za-z]{1,3})\}/g, '<span class="vector">$1</span>');
+  
+  return t;
+};
+
+/**
+ * Converts square root to proper radical with vinculum (overline)
+ * Handles: \sqrt{expression}, √{expression}, √(expression), √14
+ */
+export const applySqrtWithVinculum = (t: string): string => {
+  // Pattern 1: LaTeX \sqrt{expression} (MOST COMMON from Word)
+  t = t.replace(/\\sqrt\{([^}]+)\}/g, '<span class="sqrt"><span class="sqrt-symbol">√</span><span class="sqrt-content">$1</span></span>');
+  
+  // Pattern 2: √{expression} with braces
+  t = t.replace(/√\{([^}]+)\}/g, '<span class="sqrt"><span class="sqrt-symbol">√</span><span class="sqrt-content">$1</span></span>');
+  
+  // Pattern 3: √(expression) with parentheses
+  t = t.replace(/√\(([^)]+)\)/g, '<span class="sqrt"><span class="sqrt-symbol">√</span><span class="sqrt-content">$1</span></span>');
+  
+  // Pattern 4: Simple √14 (only numbers, but skip if already processed)
+  t = t.replace(/√(\d+)(?![^<]*<\/span>)/g, '<span class="sqrt"><span class="sqrt-symbol">√</span><span class="sqrt-content">$1</span></span>');
   
   return t;
 };
@@ -136,8 +174,11 @@ export const renderMath = (input: string): string => {
     return placeholder;
   });
   
-  // Step 2: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
-  let cleaned = normalizeTrigInverse(protectedInput);
+  // Step 2: Apply vector notation BEFORE trig normalization
+  let cleaned = applyVectorNotation(protectedInput);
+  
+  // Step 3: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
+  cleaned = normalizeTrigInverse(cleaned);
   
   // Step 3: Clean and normalize input
   cleaned = cleaned
@@ -160,18 +201,21 @@ export const renderMath = (input: string): string => {
   // Step 5: Escape HTML for safety
   let safe = escapeHtml(cleaned);
   
-  // Step 6: Handle inline LaTeX segments $...$
+  // Step 6: Apply square root with vinculum AFTER HTML escape
+  safe = applySqrtWithVinculum(safe);
+  
+  // Step 7: Handle inline LaTeX segments $...$
   safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => {
     return `<span class="math-inline">${applySupSub(content)}</span>`;
   });
   
-  // Step 7: Apply fraction rendering BEFORE superscripts/subscripts
+  // Step 8: Apply fraction rendering BEFORE superscripts/subscripts
   safe = applyFractions(safe);
   
-  // Step 8: Process remaining plain-text math patterns (superscripts/subscripts)
+  // Step 9: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  // Step 9: Restore ALL protected tokens
+  // Step 10: Restore ALL protected tokens
   Object.keys(protectedTokens).forEach(placeholder => {
     safe = safe.replace(placeholder, protectedTokens[placeholder]);
   });

@@ -43,6 +43,62 @@
   padding: 0 0.1em;
 }
 
+/* Vector notation with arrow above */
+.vector {
+  position: relative;
+  display: inline-block;
+  padding-top: 0.6em;
+  white-space: nowrap;
+}
+
+.vector::after {
+  content: '→';
+  position: absolute;
+  top: -0.05em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Square root with vinculum (overline) */
+.sqrt {
+  display: inline-flex;
+  align-items: flex-end;
+  vertical-align: baseline;
+  position: relative;
+  margin: 0 0.1em;
+  padding-bottom: 0.1em;
+}
+
+.sqrt-symbol {
+  font-size: 1.3em;
+  line-height: 0.8;
+  margin-right: 0.05em;
+  vertical-align: baseline;
+  font-weight: 500;
+}
+
+.sqrt-content {
+  border-top: 1.8px solid currentColor;
+  padding: 0.15em 0.25em 0 0.25em;
+  display: inline-block;
+  min-width: 1.2em;
+  position: relative;
+  top: -0.1em;
+}
+
+/* Ensure nested expressions render correctly inside sqrt */
+.sqrt-content .frac {
+  margin: 0.1em 0.2em;
+}
+
+.sqrt-content sup,
+.sqrt-content sub {
+  font-size: 0.7em;
+}
+
 /* Educational Learning Platform Design System */
 
 @layer base {

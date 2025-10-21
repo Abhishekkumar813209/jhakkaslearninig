@@ -65,38 +65,43 @@
 /* Square root with vinculum (overline) */
 .sqrt {
   display: inline-flex;
-  align-items: flex-end;
-  vertical-align: baseline;
+  align-items: flex-start;
+  vertical-align: middle;
   position: relative;
   margin: 0 0.1em;
-  padding-bottom: 0.1em;
+  line-height: 1;
 }
 
 .sqrt-symbol {
-  font-size: 1.3em;
-  line-height: 0.8;
-  margin-right: 0.05em;
-  vertical-align: baseline;
+  font-size: 1.4em;
+  line-height: 1;
+  margin-right: -0.05em;
+  vertical-align: top;
   font-weight: 500;
+  position: relative;
+  top: -0.05em;
 }
 
 .sqrt-content {
-  border-top: 1.8px solid currentColor;
-  padding: 0.15em 0.25em 0 0.25em;
+  border-top: 2px solid currentColor;
+  padding: 0.2em 0.3em 0 0.3em;
   display: inline-block;
   min-width: 1.2em;
   position: relative;
-  top: -0.1em;
+  top: 0;
+  line-height: 1.3;
 }
 
 /* Ensure nested expressions render correctly inside sqrt */
 .sqrt-content .frac {
   margin: 0.1em 0.2em;
+  vertical-align: middle;
 }
 
 .sqrt-content sup,
 .sqrt-content sub {
   font-size: 0.7em;
+  vertical-align: baseline;
 }
 
 /* Educational Learning Platform Design System */

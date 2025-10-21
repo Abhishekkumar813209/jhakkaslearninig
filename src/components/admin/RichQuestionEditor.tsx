@@ -60,23 +60,38 @@ const convertUnicodeToNotation = (text: string): string => {
 };
 
 const cleanPastedHTML = (html: string): string => {
-  // Remove Word's conditional comments
-  html = html.replace(/<!--\[if[^\]]*\]>[\s\S]*?<!\[endif\]-->/gi, '');
+  // Step 1: Remove ALL style blocks (Word's CSS definitions)
+  html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   
-  // Remove Word's XML namespaces
-  html = html.replace(/<\/?[ovwxp]:[^>]*>/gi, '');
+  // Step 2: Remove ALL script blocks (security)
+  html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   
-  // Remove empty paragraphs and spans
-  html = html.replace(/<p[^>]*>\s*<\/p>/gi, '');
-  html = html.replace(/<span[^>]*>\s*<\/span>/gi, '');
+  // Step 3: Remove ALL HTML comments (including Word's conditional comments)
+  html = html.replace(/<!--[\s\S]*?-->/gi, '');
   
-  // Replace multiple spaces with single space
-  html = html.replace(/\s+/g, ' ');
+  // Step 4: Remove MathML and Office Math tags
+  html = html.replace(/<math[^>]*>[\s\S]*?<\/math>/gi, '');
+  html = html.replace(/<\/?m:[^>]*>/gi, '');
   
-  // Remove line breaks within inline content
-  html = html.replace(/\s*<br[^>]*>\s*/gi, ' ');
+  // Step 5: Remove ALL Office-specific namespace tags (o:, w:, v:, x:, p:)
+  html = html.replace(/<\/?[owmvxp]:[^>]*>/gi, '');
   
-  return html.trim();
+  // Step 6: Remove ALL class and style attributes
+  html = html.replace(/\s*class="[^"]*"/gi, '');
+  html = html.replace(/\s*style="[^"]*"/gi, '');
+  
+  // Step 7: Strip ALL remaining HTML tags (keep only text content)
+  html = html.replace(/<[^>]+>/g, ' ');
+  
+  // Step 8: Decode HTML entities
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  html = tempDiv.textContent || tempDiv.innerText || html;
+  
+  // Step 9: Normalize whitespace (multiple spaces → single space)
+  html = html.replace(/\s+/g, ' ').trim();
+  
+  return html;
 };
 
 interface RichQuestionEditorProps {
@@ -148,12 +163,20 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           const originalText = extractedText;
           extractedText = convertUnicodeToNotation(extractedText);
           
+          // Fallback: if extraction failed, try plain text
+          if (!extractedText || extractedText.length < 2) {
+            extractedText = text || '';
+            
+            if (!extractedText) {
+              toast.error('❌ Could not extract text. Try Ctrl+Shift+V for plain text.');
+              return true;
+            }
+          }
+          
           // Insert as plain text (no complex HTML structure)
           editor?.commands.insertContent(extractedText);
           
-          if (originalText !== extractedText) {
-            toast.success('Pasted! Unicode subscripts/superscripts converted to _ and ^ notation');
-          }
+          toast.success('✅ Pasted from Word! Formatting cleaned, subscripts/superscripts converted');
           return true; // Prevent default paste
         }
 

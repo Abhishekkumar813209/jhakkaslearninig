@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
@@ -25,6 +25,8 @@ import { normalizeChemicalFormula, formatChemicalReaction, preserveChemicalSymbo
 import { normalizeMathNotation, normalizeUnits, preserveMathSymbols } from '@/lib/mathNotation';
 import { renderMath } from '@/lib/mathRendering';
 import QuestionEditDialog from './QuestionEditDialog';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx';
+import { saveAs } from 'file-saver';
 
 interface ExtractedQuestion {
   id: string;
@@ -1597,6 +1599,393 @@ export const SmartQuestionExtractor = ({
     input.click();
   };
 
+  // Export questions to Word document
+  const exportToWord = async () => {
+    if (extractedQuestions.length === 0) {
+      toast.error('No questions to export');
+      return;
+    }
+
+    try {
+      toast.loading('Generating Word document...');
+
+      const sections: Paragraph[] = [];
+
+      // Document Title
+      sections.push(
+        new Paragraph({
+          text: testTitle || 'Extracted Questions',
+          heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        })
+      );
+
+      // Metadata
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Total Questions: ${extractedQuestions.length} | Generated: ${new Date().toLocaleDateString()}`,
+              size: 20,
+              color: '666666',
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 600 },
+        })
+      );
+
+      // Questions
+      extractedQuestions.forEach((q, idx) => {
+        // Question header with metadata
+        sections.push(
+          new Paragraph({
+            text: `Question ${q.question_number}`,
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 400, after: 200 },
+            border: {
+              bottom: {
+                color: 'CCCCCC',
+                space: 1,
+                style: BorderStyle.SINGLE,
+                size: 6,
+              },
+            },
+          })
+        );
+
+        // Question metadata
+        sections.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Type: ${q.question_type.toUpperCase()} | Marks: ${q.marks || 1} | Difficulty: ${q.difficulty || 'medium'}`,
+                size: 18,
+                color: '555555',
+                bold: true,
+              }),
+            ],
+            spacing: { after: 150 },
+          })
+        );
+
+        // Question text
+        sections.push(
+          new Paragraph({
+            text: q.question_text,
+            spacing: { after: 200 },
+          })
+        );
+
+        // Options for MCQ
+        if (q.question_type === 'mcq' && q.options && q.options.length > 0) {
+          q.options.forEach((opt, i) => {
+            sections.push(
+              new Paragraph({
+                text: `${String.fromCharCode(65 + i)}) ${opt}`,
+                bullet: { level: 0 },
+                spacing: { after: 100 },
+              })
+            );
+          });
+        }
+
+        // Match Column questions
+        if (q.question_type === 'match_column') {
+          if (q.left_column && q.left_column.length > 0) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Column A:',
+                    bold: true,
+                  }),
+                ],
+                spacing: { before: 150, after: 100 },
+              })
+            );
+            q.left_column.forEach((item, i) => {
+              sections.push(
+                new Paragraph({
+                  text: `${i + 1}. ${item}`,
+                  bullet: { level: 0 },
+                })
+              );
+            });
+          }
+          if (q.right_column && q.right_column.length > 0) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Column B:',
+                    bold: true,
+                  }),
+                ],
+                spacing: { before: 150, after: 100 },
+              })
+            );
+            q.right_column.forEach((item, i) => {
+              sections.push(
+                new Paragraph({
+                  text: `${String.fromCharCode(65 + i)}. ${item}`,
+                  bullet: { level: 0 },
+                })
+              );
+            });
+          }
+        }
+
+        // Assertion-Reason questions
+        if (q.question_type === 'assertion_reason') {
+          if (q.assertion) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: 'Assertion: ', bold: true }),
+                  new TextRun({ text: q.assertion }),
+                ],
+                spacing: { after: 100 },
+              })
+            );
+          }
+          if (q.reason) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: 'Reason: ', bold: true }),
+                  new TextRun({ text: q.reason }),
+                ],
+                spacing: { after: 100 },
+              })
+            );
+          }
+        }
+
+        // Fill in blanks
+        if (q.question_type === 'fill_blank' && q.blanks_count) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Number of blanks: ${q.blanks_count}`,
+                  italics: true,
+                }),
+              ],
+              spacing: { after: 100 },
+            })
+          );
+        }
+
+        // Correct answer (if available)
+        if (q.correct_answer !== undefined && q.correct_answer !== null) {
+          let answerText = '';
+          if (q.question_type === 'mcq') {
+            answerText = `Answer: ${typeof q.correct_answer === 'number' ? String.fromCharCode(65 + q.correct_answer) : q.correct_answer}`;
+          } else {
+            answerText = `Answer: ${JSON.stringify(q.correct_answer)}`;
+          }
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: answerText,
+                  color: '006600',
+                  bold: true,
+                }),
+              ],
+              spacing: { after: 100 },
+            })
+          );
+        }
+
+        // Explanation (if available)
+        if (q.explanation) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: 'Explanation: ', bold: true }),
+                new TextRun({ text: q.explanation }),
+              ],
+              spacing: { after: 100 },
+            })
+          );
+        }
+
+        // OCR status (if manual review needed)
+        if (q.ocr_status?.requires_manual_review) {
+          sections.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: '⚠️ MANUAL REVIEW NEEDED - Contains complex math/symbols',
+                  color: 'FF6600',
+                  bold: true,
+                }),
+              ],
+              spacing: { after: 100 },
+            })
+          );
+        }
+
+        // Separator
+        sections.push(
+          new Paragraph({
+            text: '─'.repeat(80),
+            spacing: { before: 300, after: 300 },
+            alignment: AlignmentType.CENTER,
+          })
+        );
+      });
+
+      // Footer
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `End of Document | Total ${extractedQuestions.length} Questions`,
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 400 },
+        })
+      );
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: sections,
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `questions_${testTitle || 'extracted'}_${Date.now()}.docx`);
+
+      toast.dismiss();
+      toast.success('✅ Word document downloaded!', {
+        description: 'Edit it in MS Word and re-upload when ready.',
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.dismiss();
+      toast.error('Failed to export to Word');
+    }
+  };
+
+  // Re-import edited Word document
+  const handleWordReimport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    toast.loading('Parsing edited Word file...');
+
+    try {
+      // Extract text from Word
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      const text = result.value;
+
+      // Split by separator
+      const questionBlocks = text
+        .split('─────────────────────────────────────────────────────────────────────────────────')
+        .map((block) => block.trim())
+        .filter((block) => block.length > 0 && block.includes('Question'));
+
+      if (questionBlocks.length === 0) {
+        toast.dismiss();
+        toast.error('No questions found in the document. Make sure to keep the format structure.');
+        return;
+      }
+
+      // Parse and update questions
+      const updatedQuestions = extractedQuestions.map((existing) => {
+        const matchingBlock = questionBlocks.find((block) =>
+          block.includes(`Question ${existing.question_number}`)
+        );
+
+        if (!matchingBlock) return existing;
+
+        try {
+          const lines = matchingBlock.split('\n').map((l) => l.trim()).filter((l) => l);
+
+          // Find question text (between metadata and options/answer)
+          let questionTextStart = -1;
+          let questionTextEnd = -1;
+
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes('Type:') && lines[i].includes('Marks:')) {
+              questionTextStart = i + 1;
+            }
+            if (questionTextStart > -1 && (lines[i].match(/^[A-D]\)/) || lines[i].startsWith('Answer:') || lines[i].startsWith('Assertion:') || lines[i].startsWith('Column'))) {
+              questionTextEnd = i;
+              break;
+            }
+          }
+
+          if (questionTextEnd === -1) questionTextEnd = lines.length;
+
+          const updatedText = lines
+            .slice(questionTextStart, questionTextEnd)
+            .join(' ')
+            .trim();
+
+          // Extract updated options for MCQ
+          let updatedOptions = existing.options;
+          if (existing.question_type === 'mcq') {
+            updatedOptions = lines
+              .filter((l) => l.match(/^[A-D]\)/))
+              .map((l) => l.replace(/^[A-D]\)\s*/, '').trim());
+          }
+
+          // Extract updated answer
+          let updatedAnswer = existing.correct_answer;
+          const answerLine = lines.find((l) => l.startsWith('Answer:'));
+          if (answerLine) {
+            const answerText = answerLine.replace('Answer:', '').trim();
+            if (existing.question_type === 'mcq') {
+              // Convert A/B/C/D to index
+              const match = answerText.match(/^([A-D])/);
+              if (match) {
+                updatedAnswer = match[1].charCodeAt(0) - 65;
+              }
+            } else {
+              updatedAnswer = answerText;
+            }
+          }
+
+          return {
+            ...existing,
+            question_text: updatedText || existing.question_text,
+            options: updatedOptions,
+            correct_answer: updatedAnswer,
+            edited: true,
+          };
+        } catch (err) {
+          console.error('Error parsing question block:', err);
+          return existing;
+        }
+      });
+
+      setExtractedQuestions(updatedQuestions);
+      toast.dismiss();
+      toast.success(`✅ Updated ${updatedQuestions.filter((q) => q.edited).length} questions from Word!`, {
+        description: 'Review the changes and save to database.',
+      });
+
+      // Clear the file input
+      e.target.value = '';
+    } catch (error) {
+      console.error('Re-import error:', error);
+      toast.dismiss();
+      toast.error('Failed to parse Word document');
+    }
+  };
+
   const handleAddToGames = () => {
     const selected = extractedQuestions.filter(q => selectedIds.includes(q.id));
     if (selected.length === 0) {
@@ -1973,6 +2362,21 @@ export const SmartQuestionExtractor = ({
                   )}
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={exportToWord}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Export to Word
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById('word-reimport')?.click()}>
+                    <Upload className="h-4 w-4 mr-1" />
+                    Re-import Edited
+                  </Button>
+                  <input
+                    type="file"
+                    id="word-reimport"
+                    accept=".docx"
+                    className="hidden"
+                    onChange={handleWordReimport}
+                  />
                   <Button variant="outline" size="sm" onClick={handleUploadMore}>
                     <Plus className="h-4 w-4 mr-1" />
                     Upload More PDFs

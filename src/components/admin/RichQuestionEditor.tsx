@@ -90,6 +90,13 @@ const cleanPastedHTML = (html: string): string => {
     return token;
   });
   
+  // Preserve equality signs in equations
+  html = html.replace(/=/g, (_match) => {
+    const token = `__EQ_${preserveIndex++}__`;
+    preservedSymbols[token] = '=';
+    return token;
+  });
+  
   // Step 1: Remove ALL style blocks (Word's CSS definitions)
   html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   
@@ -202,6 +209,17 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           textPreview: text?.substring(0, 100),
           htmlPreview: html?.substring(0, 200)
         });
+
+        // PRIORITY -1: Algebraic equations with equality chains
+        // Matches: (x-1)/2=(1-y)/3=(2z-1)/12, x/2=y/3=z/4, etc.
+        if (text && /[a-zA-Z0-9()+-]+\/[a-zA-Z0-9()+-]+=/.test(text)) {
+          // This is a multi-part equation - preserve exactly as typed
+          // Let renderMath handle the fraction rendering later
+          editor?.commands.insertContent(text);
+          toast.success('✅ Equation pasted! Will render on display.');
+          console.log('✅ Algebraic equation preserved:', text);
+          return true;
+        }
 
         // PRIORITY 0: Direct detection of fractions with √ (Excel/plain text)
         if (text && /[-−]?\d+\/√\d+/.test(text)) {

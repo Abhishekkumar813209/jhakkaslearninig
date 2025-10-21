@@ -25,6 +25,10 @@ export const applyFractions = (t: string): string => {
   // Both sides with parentheses: (a-b)/(c+d)
   t = t.replace(/\(([^()]+?)\)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
   
+  // Equality chains with algebraic fractions: (x-1)/2=(1-y)/3=(2z-1)/12
+  // Process parentheses over numbers in equality chains
+  t = t.replace(/\(([^()]+?)\)\s*\/\s*(\d+)(?=\s*[=,;.]|\s|$)/g, (_, num, den) => fracHTML(num, den));
+  
   // Parentheses over token: (a-b)/3p, (7y-14)/2p
   t = t.replace(/\(([^()]+?)\)\s*\/\s*([A-Za-z][A-Za-z0-9]*|[0-9]+[A-Za-z]*)/g, (_, a, b) => fracHTML(a, b));
   

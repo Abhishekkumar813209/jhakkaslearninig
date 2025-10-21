@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Loader2, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XCircle, Circle, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { QuestionAIAnalysis } from '@/components/student/QuestionAIAnalysis';
+import { renderMath } from '@/lib/mathRendering';
 
 interface QuestionData {
   questionId: string;
@@ -294,7 +295,10 @@ const TestQuestionReview: React.FC = () => {
             <CardContent className="space-y-6">
               {/* Question Text */}
               <div>
-                <p className="text-base font-medium mb-4">{currentQuestion.questionText}</p>
+                <div 
+                  className="text-base font-medium mb-4" 
+                  dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.questionText) }} 
+                />
                 
                 {/* Options */}
                 {currentQuestion.questionType === 'mcq' && (
@@ -323,7 +327,7 @@ const TestQuestionReview: React.FC = () => {
                           {icon}
                           <div className="flex-1">
                             <span className="font-semibold mr-2">{optionLabel}.</span>
-                            {option.text}
+                            <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
                             {isCorrect && (
                               <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-300">
                                 ✓ Correct
@@ -371,9 +375,10 @@ const TestQuestionReview: React.FC = () => {
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
                     💡 Teacher's Explanation
                   </h3>
-                  <div className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap">
-                    {currentQuestion.explanation}
-                  </div>
+                  <div 
+                    className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap" 
+                    dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.explanation) }} 
+                  />
                 </div>
               )}
 

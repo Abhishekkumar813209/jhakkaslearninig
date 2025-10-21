@@ -223,61 +223,74 @@ const TestBuilder: React.FC = () => {
   const handleBulkAddQuestions = async (questionsToAdd: any[]) => {
     let successCount = 0;
     const totalCount = questionsToAdd.length;
+    const MAX_RETRIES = 2;
     
     const { data: { session } } = await supabase.auth.getSession();
     const headers = { Authorization: `Bearer ${session?.access_token ?? ''}` };
     
-    toast({
-      title: "Adding questions...",
-      description: `Processing ${totalCount} questions`,
-      duration: 5000
-    });
+    // Show initial progress using console (toast doesn't support real-time updates)
+    console.log(`📊 Starting bulk add: 0/${totalCount} questions`);
     
-    for (const q of questionsToAdd) {
-      try {
-        const questionData = {
-          test_id: testId,
-          question_text: q.question_text,
-          qtype: q.question_type === 'short_answer' ? 'subjective' : 'mcq',
-          marks: q.marks || 1,
-          position: questions.length + successCount + 1,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          explanation: q.explanation,
-          tags: q.tags || [],
-          // Support for advanced question types
-          assertion: q.assertion,
-          reason: q.reason,
-          left_column: q.left_column,
-          right_column: q.right_column,
-          blanks_count: q.blanks_count,
-          difficulty: q.difficulty || 'medium'
-        };
+    try {
+      for (const q of questionsToAdd) {
+        let retries = 0;
+        let success = false;
         
-        const { data, error } = await supabase.functions.invoke('tests-api', {
-          body: { action: 'addQuestion', questionData },
-          headers
-        });
-        
-        if (data?.success) {
-          successCount++;
-        } else {
-          console.error('Failed to add question:', q.id, error);
+        while (retries <= MAX_RETRIES && !success) {
+          try {
+            const questionData = {
+              test_id: testId,
+              question_text: q.question_text,
+              qtype: q.question_type === 'short_answer' ? 'subjective' : 'mcq',
+              marks: q.marks || 1,
+              position: questions.length + successCount + 1,
+              options: q.options,
+              correct_answer: q.correct_answer,
+              explanation: q.explanation,
+              tags: q.tags || [],
+              // Support for advanced question types
+              assertion: q.assertion,
+              reason: q.reason,
+              left_column: q.left_column,
+              right_column: q.right_column,
+              blanks_count: q.blanks_count,
+              difficulty: q.difficulty || 'medium'
+            };
+            
+            const { data, error } = await supabase.functions.invoke('tests-api', {
+              body: { action: 'addQuestion', questionData },
+              headers
+            });
+            
+            if (data?.success) {
+              successCount++;
+              success = true;
+              console.log(`📊 Progress: ${successCount}/${totalCount} questions added`);
+            } else {
+              throw new Error(error?.message || 'Failed to add question');
+            }
+          } catch (error) {
+            retries++;
+            if (retries > MAX_RETRIES) {
+              console.error(`❌ Failed to add question after ${MAX_RETRIES} retries:`, q.id, error);
+            } else {
+              console.log(`🔄 Retrying question ${q.id}... (attempt ${retries}/${MAX_RETRIES})`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
         }
-      } catch (error) {
-        console.error('Failed to add question:', q.id, error);
       }
+      
+      // Refresh questions list after bulk add - CRITICAL!
+      console.log('🔄 Refreshing test data after bulk add...');
+      await fetchTestData();
+      console.log('✅ Test data refreshed successfully');
+      
+      return successCount;
+    } catch (error) {
+      console.error('Error in handleBulkAddQuestions:', error);
+      throw error;
     }
-    
-    // Refresh questions list after bulk add
-    await fetchTestData();
-    
-    toast({
-      title: "Success!",
-      description: `Added ${successCount}/${totalCount} questions to test!`
-    });
-    
-    return successCount;
   };
 
   const handleAddQuestion = async () => {
@@ -1499,21 +1512,30 @@ const TestBuilder: React.FC = () => {
               subject={test?.subject}
               difficulty={test?.difficulty}
               onQuestionsAdded={async (questions) => {
-                const successCount = await handleBulkAddQuestions(questions);
-                
-                if (successCount > 0) {
-                  // Close modal after a short delay to show success message
-                  setTimeout(() => {
+                try {
+                  const successCount = await handleBulkAddQuestions(questions);
+                  
+                  if (successCount > 0) {
+                    // Close modal ONLY after all questions are saved and refreshed
                     setShowBulkExtractor(false);
                     toast({
-                      title: "Questions added!",
-                      description: `${successCount} questions are now in your test!`
+                      title: "✅ Questions Added Successfully!",
+                      description: `${successCount} questions are now in your test. Scroll down to see them.`,
+                      duration: 5000
                     });
-                  }, 1000);
-                } else {
+                  } else {
+                    toast({
+                      title: "❌ Failed to Add Questions",
+                      description: "Please try again or contact support if the issue persists.",
+                      variant: "destructive",
+                      duration: 7000
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error in onQuestionsAdded:', error);
                   toast({
                     title: "Error",
-                    description: "Failed to add questions. Please try again.",
+                    description: "An unexpected error occurred while adding questions.",
                     variant: "destructive"
                   });
                 }

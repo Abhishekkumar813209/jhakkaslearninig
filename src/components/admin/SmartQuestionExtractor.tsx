@@ -1268,15 +1268,21 @@ export const SmartQuestionExtractor = ({
         return;
       }
       
-      // Call parent callback - parent will handle saving and clearing
-      onQuestionsAdded(selected);
-      
-      // Clear extracted questions AFTER successful save (triggered by parent)
-      setTimeout(() => {
+      // Call parent callback - parent will handle saving
+      // Parent callback is ASYNC, so we must await it
+      try {
+        await onQuestionsAdded(selected);
+        
+        // Only clear state AFTER parent confirms success
         setExtractedQuestions([]);
         setSelectedIds([]);
         clearProgress();
-      }, 1500);
+        
+        console.log('✅ Questions successfully added to test and state cleared');
+      } catch (error) {
+        console.error('❌ Failed to add questions:', error);
+        toast.error('Failed to add questions to test. Please try again.');
+      }
       
       return;
     }

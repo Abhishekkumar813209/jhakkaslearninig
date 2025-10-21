@@ -30,6 +30,7 @@ interface ExtractedQuestion {
 
 interface DocumentUploaderProps {
   onQuestionsExtracted: (questions: ExtractedQuestion[]) => void;
+  onPdfUploaded?: (file: File) => void;
   onClose?: () => void;
   topicContext?: {
     topicId: string;
@@ -40,7 +41,8 @@ interface DocumentUploaderProps {
 }
 
 export const DocumentUploader = ({ 
-  onQuestionsExtracted, 
+  onQuestionsExtracted,
+  onPdfUploaded,
   onClose,
   topicContext 
 }: DocumentUploaderProps) => {
@@ -99,6 +101,11 @@ export const DocumentUploader = ({
         setProgressMessage("Extracting text from PDF...");
         documentText = await extractTextFromPDF(file);
         setUploadProgress(30);
+        
+        // Store PDF file for crop feature
+        if (onPdfUploaded) {
+          onPdfUploaded(file);
+        }
       } else if (file.type.includes('word') || file.name.endsWith('.docx')) {
         setProgressMessage("Extracting text from Word document...");
         documentText = await extractTextFromWord(file);

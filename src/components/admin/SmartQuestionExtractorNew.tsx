@@ -292,13 +292,18 @@ export const SmartQuestionExtractorNew = ({
     return matchesSearch && matchesType;
   });
 
-  const handleDocumentUpload = (uploadedQuestions: ExtractedQuestion[], pdfFile?: File) => {
-    setQuestions(prev => [...prev, ...uploadedQuestions]);
-    setShowUploadDialog(false);
-    if (pdfFile) {
-      setCropPdfFile(pdfFile);
+  const handleDocumentUpload = (uploadedQuestions: ExtractedQuestion[]) => {
+    if (cropQuestion) {
+      // User uploaded PDF for cropping - don't add questions, just enable crop
+      toast.success(`PDF uploaded! Now crop the correct area for Q${cropQuestion.question_number}`);
+      setShowUploadDialog(false);
+      setShowCropModal(true);
+    } else {
+      // Normal document upload - add questions
+      setQuestions(prev => [...prev, ...uploadedQuestions]);
+      setShowUploadDialog(false);
+      toast.success(`Added ${uploadedQuestions.length} new questions`);
     }
-    toast.success(`Added ${uploadedQuestions.length} new questions`);
   };
 
   const handleCropComplete = (extractedData: any) => {
@@ -352,6 +357,17 @@ export const SmartQuestionExtractorNew = ({
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
+                {cropPdfFile ? (
+                  <Badge variant="default" className="gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    PDF Ready
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    No PDF
+                  </Badge>
+                )}
                 <Badge variant="outline">{totalCount} Total</Badge>
                 {selectedCount > 0 && (
                   <Badge variant="default">{selectedCount} Selected</Badge>
@@ -547,11 +563,20 @@ export const SmartQuestionExtractorNew = ({
                             className="h-7 px-2"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleOpenCropModal(q);
+                              if (cropPdfFile) {
+                                // PDF available - open crop modal
+                                handleOpenCropModal(q);
+                              } else {
+                                // No PDF - prompt upload
+                                setCropQuestion(q);
+                                setShowUploadDialog(true);
+                                toast.info("Please upload the PDF containing this question");
+                              }
                             }}
-                            title="Fix via Crop"
+                            title={cropPdfFile ? "Fix via Crop" : "Upload PDF to Crop"}
                           >
                             <Crop className="h-3 w-3" />
+                            {!cropPdfFile && <Upload className="h-3 w-3 ml-1" />}
                           </Button>
                           <Button
                             variant="ghost"
@@ -713,6 +738,7 @@ export const SmartQuestionExtractorNew = ({
           
           <DocumentUploader
             onQuestionsExtracted={handleDocumentUpload}
+            onPdfUploaded={(file) => setCropPdfFile(file)}
             onClose={() => setShowUploadDialog(false)}
             topicContext={selectedTopic ? {
               topicId: selectedTopic,

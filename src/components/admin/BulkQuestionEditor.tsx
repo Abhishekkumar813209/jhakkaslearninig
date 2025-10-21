@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { renderMath } from '@/lib/mathRendering';
@@ -55,6 +55,8 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
   const [autoSaving, setAutoSaving] = useState(false);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [selectedQuestionForCrop, setSelectedQuestionForCrop] = useState<ExtractedQuestion | null>(null);
+  const [localPdfFile, setLocalPdfFile] = useState<File | null>(pdfFile || null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Sync with parent questions
   useEffect(() => {
@@ -94,6 +96,16 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
     window.addEventListener('keydown', handleKeyboard);
     return () => window.removeEventListener('keydown', handleKeyboard);
   }, [editableQuestions, onUpdate]);
+
+  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setLocalPdfFile(file);
+      toast.success('PDF uploaded! Crop feature now available.');
+    } else if (file) {
+      toast.error('Please upload a PDF file');
+    }
+  };
 
   const handleFindReplace = () => {
     if (!searchTerm.trim()) {
@@ -155,8 +167,10 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
   };
 
   const handleFixWithCrop = (question: ExtractedQuestion) => {
-    if (!pdfFile) {
-      toast.error('PDF file not available for cropping');
+    if (!localPdfFile) {
+      // Trigger PDF upload if no file available
+      setSelectedQuestionForCrop(question);
+      pdfInputRef.current?.click();
       return;
     }
     setSelectedQuestionForCrop(question);
@@ -206,14 +220,14 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
               </p>
             )}
           </DialogHeader>
-          {pdfFile && (
+          {localPdfFile && (
             <PDFQuestionExtractor
               onQuestionExtracted={handleCropExtractComplete}
               onClose={() => setCropModalOpen(false)}
               editMode={{
                 questionId: selectedQuestionForCrop?.id || '',
                 currentQuestion: selectedQuestionForCrop!,
-                pdfFile: pdfFile
+                pdfFile: localPdfFile
               }}
             />
           )}
@@ -222,6 +236,15 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
     <div className="space-y-4 h-full flex flex-col">
       {/* Sticky Toolbar */}
       <div className="sticky top-0 bg-background z-10 border-b p-4 space-y-3">
+        {/* Hidden PDF Upload Input */}
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={handlePdfUpload}
+        />
+        
         {/* Find & Replace */}
         <div className="flex gap-2 items-center">
           <div className="relative flex-1">
@@ -253,7 +276,7 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
         </div>
         
         {/* Stats */}
-        <div className="flex gap-6 text-sm items-center">
+        <div className="flex gap-6 text-sm items-center flex-wrap">
           <span className="flex items-center gap-1.5">
             📊 <span className="font-medium">{editableQuestions.length}</span> total
           </span>
@@ -265,6 +288,25 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
             <AlertCircle className="h-4 w-4" />
             <span className="font-medium">{needsReviewCount}</span> needs review
           </span>
+          
+          {/* PDF Status and Upload */}
+          {!localPdfFile && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pdfInputRef.current?.click()}
+              className="ml-auto"
+            >
+              <Upload className="h-3 w-3 mr-1.5" />
+              Upload PDF for Crop
+            </Button>
+          )}
+          
+          {localPdfFile && (
+            <Badge variant="secondary" className="ml-auto">
+              📄 PDF Ready for Crop
+            </Badge>
+          )}
           {autoSaving && (
             <span className="flex items-center gap-1.5 text-muted-foreground ml-auto">
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -291,7 +333,7 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
                 newQuestions[idx] = updated;
                 setEditableQuestions(newQuestions);
               }}
-              hasPdf={!!pdfFile}
+              hasPdf={!!localPdfFile}
               onFixWithCrop={() => handleFixWithCrop(q)}
             />
           ))}
@@ -349,7 +391,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
             </Badge>
             <span className="text-xs text-muted-foreground">{question.marks || 1} marks</span>
             
-            {hasPdf && onFixWithCrop && (
+            {onFixWithCrop && (
               <Button
                 variant="outline"
                 size="sm"
@@ -358,9 +400,11 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                   onFixWithCrop();
                 }}
                 className="ml-auto mr-2"
+                title={hasPdf ? "Fix via Crop" : "Upload PDF to Enable Crop"}
               >
                 <Crop className="w-3 h-3 mr-1.5" />
-                Fix via Crop
+                {hasPdf ? 'Fix via Crop' : 'Upload PDF'}
+                {!hasPdf && <Upload className="w-3 h-3 ml-1" />}
               </Button>
             )}
           </div>

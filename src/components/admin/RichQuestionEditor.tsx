@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -19,11 +19,13 @@ import {
   Undo,
   Redo,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  FunctionSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { MathFormulaHelper } from './MathFormulaHelper';
 
 // Unicode to notation converter
 const UNICODE_SUBSCRIPTS: Record<string, string> = {
@@ -92,7 +94,8 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
   className,
   compact = false
 }) => {
-  const [uploading, setUploading] = React.useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [showMathHelper, setShowMathHelper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -230,6 +233,13 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
     fileInputRef.current?.click();
   };
 
+  const handleMathInsert = (formula: string) => {
+    if (editor) {
+      editor.chain().focus().insertContent(formula).run();
+      toast.success('Formula inserted!');
+    }
+  };
+
   if (!editor) {
     return null;
   }
@@ -334,6 +344,18 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           Table
         </Button>
         
+        <Button
+          type="button"
+          variant="ghost"
+          size={compact ? "sm" : "default"}
+          onClick={() => setShowMathHelper(true)}
+          className="h-8 px-2 text-xs bg-primary/10 hover:bg-primary/20"
+          title="Math Formula Helper"
+        >
+          <FunctionSquare className="h-4 w-4 mr-1" />
+          Math
+        </Button>
+        
         <div className="w-px h-8 bg-border mx-1" />
         
         <Button
@@ -385,7 +407,22 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/20 border-t">
         💡 Use <kbd className="px-1 py-0.5 bg-background border rounded text-xs">_</kbd> for subscript, <kbd className="px-1 py-0.5 bg-background border rounded text-xs">^</kbd> for superscript. 
         <strong className="ml-1">✨ Paste from Word supported!</strong> Unicode auto-converts.
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 ml-2 text-xs"
+          onClick={() => setShowMathHelper(true)}
+        >
+          Need help? Use Math Helper
+        </Button>
       </div>
+
+      {/* Math Formula Helper Dialog */}
+      <MathFormulaHelper
+        open={showMathHelper}
+        onOpenChange={setShowMathHelper}
+        onInsert={handleMathInsert}
+      />
     </div>
   );
 };

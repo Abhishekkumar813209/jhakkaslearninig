@@ -55,8 +55,35 @@ export const applySupSub = (t: string) => {
 };
 
 /**
+ * Normalizes inverse trigonometric function notation
+ * Converts various formats to consistent Unicode superscript notation
+ * Examples: "cos inverse" → "cos⁻¹", "arcsin" → "sin⁻¹", "tan^{-1}" → "tan⁻¹"
+ */
+export const normalizeTrigInverse = (text: string): string => {
+  const superMinusOne = '\u207B\u00B9'; // Unicode: ⁻¹
+  
+  // Pattern 1: "cos inverse", "sine inverse", "tangent inverse" → cos⁻¹
+  text = text.replace(/\b(cos|sin|tan|sec|csc|cot|cosec)\s+inverse\b/gi, `$1${superMinusOne}`);
+  
+  // Pattern 2: "arccos", "arcsin", "arctan" → cos⁻¹
+  text = text.replace(/\barc(cos|sin|tan|sec|csc|cot)\b/gi, `$1${superMinusOne}`);
+  
+  // Pattern 3: cos^{-1}, sin^{-1} → cos⁻¹ (convert LaTeX to Unicode)
+  text = text.replace(/\b(cos|sin|tan|sec|csc|cot|cosec)\s*\^\s*\{-1\}/gi, `$1${superMinusOne}`);
+  
+  // Pattern 4: cos^-1 (without braces)
+  text = text.replace(/\b(cos|sin|tan|sec|csc|cot|cosec)\s*\^\s*-1\b/gi, `$1${superMinusOne}`);
+  
+  // Pattern 5: cos^(-1) (with parentheses)
+  text = text.replace(/\b(cos|sin|tan|sec|csc|cot|cosec)\s*\^\s*\(-1\)/gi, `$1${superMinusOne}`);
+  
+  return text;
+};
+
+/**
  * Renders mathematical expressions and chemical formulas from text input
  * Supports:
+ * - Inverse trig functions: cos inverse, arcsin, tan^{-1} → cos⁻¹, sin⁻¹, tan⁻¹
  * - Chemical formulas: H_{2}O, H_2SO_4, Fe^{2+}
  * - Chemical arrows: -> (→), <-> (⇌), \longrightarrow (⟶)
  * - Inline LaTeX: $x^2 + y^2 = z^2$
@@ -86,14 +113,17 @@ export const renderMath = (input: string): string => {
     return placeholder;
   });
   
-  // Step 2: Clean and normalize input
-  let cleaned = protectedInput
+  // Step 2: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
+  let cleaned = normalizeTrigInverse(protectedInput);
+  
+  // Step 3: Clean and normalize input
+  cleaned = cleaned
     // Remove stray dollar signs from OCR but keep $_ and $^
     .replace(/\$(?![_{^])/g, '')
     // Normalize OCR glitches: "$_-16" → "^{-16}"
     .replace(/(\d+)\s*\$\s*_\s*(-?\d+)/g, '$1^{$2}');
   
-  // Step 3: Chemical reaction arrows
+  // Step 4: Chemical reaction arrows
   // Convert LaTeX and simple arrow syntax to proper Unicode arrows
   cleaned = cleaned
     .replace(/\\rightarrow/g, '→')
@@ -104,21 +134,21 @@ export const renderMath = (input: string): string => {
     .replace(/->/g, '→')        // Simple -> to proper arrow
     .replace(/<->/g, '⇌');      // Simple <-> to equilibrium arrow
   
-  // Step 4: Escape HTML for safety
+  // Step 5: Escape HTML for safety
   let safe = escapeHtml(cleaned);
   
-  // Step 5: Handle inline LaTeX segments $...$
+  // Step 6: Handle inline LaTeX segments $...$
   safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => {
     return `<span class="math-inline">${applySupSub(content)}</span>`;
   });
   
-  // Step 6: Apply fraction rendering BEFORE superscripts/subscripts
+  // Step 7: Apply fraction rendering BEFORE superscripts/subscripts
   safe = applyFractions(safe);
   
-  // Step 7: Process remaining plain-text math patterns (superscripts/subscripts)
+  // Step 8: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  // Step 8: Restore ALL protected tokens
+  // Step 9: Restore ALL protected tokens
   Object.keys(protectedTokens).forEach(placeholder => {
     safe = safe.replace(placeholder, protectedTokens[placeholder]);
   });

@@ -348,6 +348,44 @@ sub {
   bottom: -0.35em;
 }
 
+/* Enhanced KaTeX math rendering inside TipTap editor */
+.ProseMirror .katex-html {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.ProseMirror .katex-display {
+  display: block;
+  margin: 0.5em 0;
+  text-align: center;
+}
+
+/* Math node selection highlight */
+.ProseMirror .math-node {
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 3px;
+  padding: 0.1em 0.2em;
+  cursor: pointer;
+}
+
+.ProseMirror .math-node.ProseMirror-selectednode {
+  background: rgba(59, 130, 246, 0.2);
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+}
+
+/* Ensure math doesn't break layout */
+.ProseMirror .katex {
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+/* Math inline wrapper for better rendering */
+.ProseMirror .math-inline {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 0.1em;
+}
+
 /* Scrollbar styling for horizontal question navigator */
 .scrollbar-thin::-webkit-scrollbar {
   height: 6px;

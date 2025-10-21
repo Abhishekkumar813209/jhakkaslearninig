@@ -7,6 +7,8 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import Image from '@tiptap/extension-image';
+import { Mathematics } from '@tiptap/extension-mathematics';
+import 'katex/dist/katex.min.css';
 import { Button } from '@/components/ui/button';
 import { 
   Bold, 
@@ -20,7 +22,10 @@ import {
   Redo,
   Image as ImageIcon,
   Loader2,
-  FunctionSquare
+  FunctionSquare,
+  Radical,
+  Divide,
+  ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,6 +124,15 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       Placeholder.configure({
         placeholder,
       }),
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+          displayMode: false,
+          trust: true,
+          strict: false,
+          output: 'html'
+        }
+      }),
       Image.configure({
         inline: true,
         allowBase64: true,
@@ -145,53 +159,59 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
         const clipboardData = event.clipboardData;
         if (!clipboardData) return false;
 
-        // Get both HTML and plain text
         const html = clipboardData.getData('text/html');
         const text = clipboardData.getData('text/plain');
 
-        // If there's HTML (from Word, browsers, etc.)
-        if (html) {
-          // Clean the HTML
-          let cleanedHTML = cleanPastedHTML(html);
+        // PRIORITY 1: Check for LaTeX math from Word/Excel
+        if (html && (html.includes('mml:math') || html.includes('<math'))) {
+          const mathMLRegex = /<math[^>]*>(.*?)<\/math>/gi;
+          let extractedLaTeX = '';
           
-          // Extract text content from cleaned HTML
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = cleanedHTML;
-          let extractedText = tempDiv.textContent || tempDiv.innerText || '';
-          
-          // Convert Unicode subscripts/superscripts
-          const originalText = extractedText;
-          extractedText = convertUnicodeToNotation(extractedText);
-          
-          // Fallback: if extraction failed, try plain text
-          if (!extractedText || extractedText.length < 2) {
-            extractedText = text || '';
-            
-            if (!extractedText) {
-              toast.error('❌ Could not extract text. Try Ctrl+Shift+V for plain text.');
-              return true;
-            }
+          let match;
+          while ((match = mathMLRegex.exec(html)) !== null) {
+            let mathContent = match[1];
+            mathContent = mathContent.replace(/<msqrt>(.*?)<\/msqrt>/gi, '\\sqrt{$1}');
+            mathContent = mathContent.replace(/<mfrac><mrow>(.*?)<\/mrow><mrow>(.*?)<\/mrow><\/mfrac>/gi, '\\frac{$1}{$2}');
+            mathContent = mathContent.replace(/<msup><mrow>(.*?)<\/mrow><mrow>(.*?)<\/mrow><\/msup>/gi, '$1^{$2}');
+            mathContent = mathContent.replace(/<msub><mrow>(.*?)<\/mrow><mrow>(.*?)<\/mrow><\/msub>/gi, '$1_{$2}');
+            mathContent = mathContent.replace(/<mover><mrow>(.*?)<\/mrow><mo>→<\/mo><\/mover>/gi, '\\vec{$1}');
+            mathContent = mathContent.replace(/<[^>]+>/g, '');
+            extractedLaTeX += mathContent;
           }
           
-          // Insert as plain text (no complex HTML structure)
-          editor?.commands.insertContent(extractedText);
-          
-          toast.success('✅ Pasted from Word! Formatting cleaned, subscripts/superscripts converted');
-          return true; // Prevent default paste
+          if (extractedLaTeX) {
+            editor?.commands.insertContent(`$${extractedLaTeX}$`);
+            toast.success('✅ Math pasted from Word/Excel! Rendering as LaTeX');
+            return true;
+          }
         }
 
-        // If only plain text (Ctrl+Shift+V or from simple sources)
+        // PRIORITY 2: Plain LaTeX text
+        if (text && (text.includes('\\') || text.includes('$'))) {
+          editor?.commands.insertContent(text);
+          toast.success('✅ LaTeX pasted!');
+          return true;
+        }
+
+        // PRIORITY 3: Regular HTML/text
+        if (html) {
+          let cleanedHTML = cleanPastedHTML(html);
+          let extractedText = convertUnicodeToNotation(cleanedHTML);
+          editor?.commands.insertContent(extractedText);
+          toast.success('✅ Text pasted and cleaned');
+          return true;
+        }
+
         if (text) {
           const convertedText = convertUnicodeToNotation(text);
           editor?.commands.insertContent(convertedText);
-          
           if (text !== convertedText) {
-            toast.success('Unicode subscripts/superscripts converted to _ and ^ notation');
+            toast.success('Unicode converted to notation');
           }
           return true;
         }
 
-        return false; // Allow default behavior if no special handling needed
+        return false;
       },
     },
   });
@@ -386,28 +406,90 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           variant="ghost"
           size={compact ? "sm" : "default"}
           onClick={() => {
-            const text = prompt('Enter subscript text (e.g., H₂O → H_2 O):');
-            if (text) editor.chain().focus().insertContent(`<sub>${text}</sub>`).run();
+            editor.chain().focus().insertContent('$\\sqrt{}$').run();
+            setTimeout(() => {
+              const pos = editor.state.selection.from - 2;
+              editor.commands.setTextSelection(pos);
+            }, 10);
           }}
           className="h-8 px-2 text-xs"
-          title="Subscript"
+          title="Insert Square Root"
         >
-          <Subscript className="h-4 w-4" />
+          <Radical className="h-4 w-4 mr-1" />
+          √
         </Button>
-        
+
         <Button
           type="button"
           variant="ghost"
           size={compact ? "sm" : "default"}
           onClick={() => {
-            const text = prompt('Enter superscript text (e.g., x² → x^2):');
-            if (text) editor.chain().focus().insertContent(`<sup>${text}</sup>`).run();
+            editor.chain().focus().insertContent('$\\frac{}{}$').run();
+            setTimeout(() => {
+              const pos = editor.state.selection.from - 4;
+              editor.commands.setTextSelection(pos);
+            }, 10);
+          }}
+          className="h-8 px-2 text-xs"
+          title="Insert Fraction"
+        >
+          <Divide className="h-4 w-4 mr-1" />
+          a/b
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size={compact ? "sm" : "default"}
+          onClick={() => {
+            editor.chain().focus().insertContent('$\\vec{}$').run();
+            setTimeout(() => {
+              const pos = editor.state.selection.from - 2;
+              editor.commands.setTextSelection(pos);
+            }, 10);
+          }}
+          className="h-8 px-2 text-xs"
+          title="Insert Vector"
+        >
+          <ArrowRight className="h-4 w-4 mr-1" />
+          →
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size={compact ? "sm" : "default"}
+          onClick={() => {
+            editor.chain().focus().insertContent('$^{}$').run();
+            setTimeout(() => {
+              const pos = editor.state.selection.from - 2;
+              editor.commands.setTextSelection(pos);
+            }, 10);
           }}
           className="h-8 px-2 text-xs"
           title="Superscript"
         >
-          <Superscript className="h-4 w-4" />
+          x²
         </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size={compact ? "sm" : "default"}
+          onClick={() => {
+            editor.chain().focus().insertContent('$_{}$').run();
+            setTimeout(() => {
+              const pos = editor.state.selection.from - 2;
+              editor.commands.setTextSelection(pos);
+            }, 10);
+          }}
+          className="h-8 px-2 text-xs"
+          title="Subscript"
+        >
+          H₂
+        </Button>
+        
+        <div className="w-px h-8 bg-border mx-1" />
         
         <div className="flex-1" />
         
@@ -428,16 +510,13 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       
       {/* Helper text */}
       <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/20 border-t">
-        💡 Use <kbd className="px-1 py-0.5 bg-background border rounded text-xs">_</kbd> for subscript, <kbd className="px-1 py-0.5 bg-background border rounded text-xs">^</kbd> for superscript. 
-        <strong className="ml-1">✨ Paste from Word supported!</strong> Unicode auto-converts.
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0 ml-2 text-xs"
-          onClick={() => setShowMathHelper(true)}
-        >
-          Need help? Use Math Helper
-        </Button>
+        💡 <strong>Math Support:</strong> Type{' '}
+        <kbd className="px-1 py-0.5 bg-background border rounded text-xs">$x^2$</kbd> for inline,{' '}
+        <kbd className="px-1 py-0.5 bg-background border rounded text-xs">$$...$$</kbd> for block math.
+        <br />
+        Quick buttons: √ (root), / (fraction), → (vector), x² (power), H₂ (subscript)
+        <br />
+        ✨ <strong>Paste from Word/Excel equation editor fully supported!</strong>
       </div>
 
       {/* Math Formula Helper Dialog */}

@@ -13,6 +13,38 @@ import { renderMath } from '@/lib/mathRendering';
 import { RichQuestionEditor } from './RichQuestionEditor';
 import { PDFQuestionExtractor } from './PDFQuestionExtractor';
 
+// Helper to render math while preserving images and breaks
+const renderWithImages = (html: string): string => {
+  const tokens: Record<string, string> = {};
+  let i = 0;
+  
+  // Tokenize <img> and <br> tags to preserve them
+  const withTokens = html
+    .replace(/<img[^>]*>/gi, (img) => { 
+      const k = `__IMG_TOKEN_${i++}__`; 
+      tokens[k] = img; 
+      return k; 
+    })
+    .replace(/<br\s*\/?>/gi, (br) => { 
+      const k = `__BR_TOKEN_${i++}__`; 
+      tokens[k] = '<br />'; 
+      return k; 
+    });
+  
+  // Strip other HTML tags but keep text content
+  const textOnly = withTokens.replace(/<[^>]*>/g, '');
+  
+  // Apply math rendering
+  let out = renderMath(textOnly);
+  
+  // Restore image and break tokens
+  for (const [k, v] of Object.entries(tokens)) {
+    out = out.replace(new RegExp(k, 'g'), v);
+  }
+  
+  return out;
+};
+
 interface ExtractedQuestion {
   id: string;
   question_number: string;
@@ -450,7 +482,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                   <div 
                     className="text-sm prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{ 
-                      __html: renderMath(question.question_text.replace(/<[^>]*>/g, '')) 
+                      __html: renderWithImages(question.question_text)
                     }}
                   />
                 </div>
@@ -480,7 +512,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                       {opt && (
                         <div className="mt-1 p-2 bg-muted/20 rounded text-xs">
                           <span dangerouslySetInnerHTML={{ 
-                            __html: renderMath(opt.replace(/<[^>]*>/g, '')) 
+                            __html: renderWithImages(opt)
                           }} />
                         </div>
                       )}

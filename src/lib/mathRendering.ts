@@ -83,17 +83,20 @@ export const applySupSub = (t: string) => {
 
 /**
  * Converts vector notation to proper display with arrow above
- * Handles: \vec{OP}, OP^→, (OP)^→, vector{AB}
+ * Handles: →r, →i, →j, \vec{OP}, OP^→, (OP)^→, vector{AB}
  */
 export const applyVectorNotation = (t: string): string => {
-  // Pattern 1: LaTeX style \vec{OP} (MOST COMMON from Word paste)
+  // Pattern 1: Arrow-prefix notation →r, →i, →j, →k (PRIORITY - most common in typed equations)
+  t = t.replace(/→\s*([A-Za-z])/g, '<span class="vector">$1</span>');
+  
+  // Pattern 2: LaTeX style \vec{OP} (MOST COMMON from Word paste)
   t = t.replace(/\\vec\{([A-Za-z]{1,3})\}/g, '<span class="vector">$1</span>');
   
-  // Pattern 2: (OP)^→ or OP^→ (arrow as superscript)
+  // Pattern 3: (OP)^→ or OP^→ (arrow as superscript)
   t = t.replace(/\(([A-Z]{1,3})\)\s*\^\s*→/g, '<span class="vector">$1</span>');
   t = t.replace(/([A-Z]{1,3})\s*\^\s*→/g, '<span class="vector">$1</span>');
   
-  // Pattern 3: Text style vector{AB}
+  // Pattern 4: Text style vector{AB}
   t = t.replace(/vector\{([A-Za-z]{1,3})\}/g, '<span class="vector">$1</span>');
   
   return t;

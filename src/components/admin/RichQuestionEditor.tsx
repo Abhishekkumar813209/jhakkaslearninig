@@ -69,6 +69,13 @@ const cleanPastedHTML = (html: string): string => {
   const preservedSymbols: Record<string, string> = {};
   let preserveIndex = 0;
   
+  // Preserve arrow-prefix vectors (→r, →i, →j, →k)
+  html = html.replace(/→\s*([A-Za-z])/g, (_match, letter) => {
+    const token = `__VECARROW_${preserveIndex++}__`;
+    preservedSymbols[token] = `→${letter}`;
+    return token;
+  });
+  
   // Preserve √ with numbers (e.g., √14)
   html = html.replace(/√(\d+)/g, (_match, num) => {
     const token = `__SQRT_${preserveIndex++}__`;
@@ -267,6 +274,18 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           return true;
         }
 
+        // PRIORITY 0.5: Office Math detection (Word/Excel equations)
+        // Detect Office Math markup before it gets destroyed by cleanPastedHTML
+        if (html && (/<m:|m:oMath|oMath/i.test(html) || html.includes('EquationNative'))) {
+          const temp = document.createElement('div');
+          temp.innerHTML = html;
+          const textOnly = convertUnicodeToNotation(temp.textContent || '');
+          editor?.commands.insertContent(textOnly);
+          toast.success('✅ Equation pasted from Word! Preserved as text for rendering.');
+          console.log('✅ Office Math preserved:', textOnly);
+          return true;
+        }
+
         // PRIORITY 1: Enhanced MathML detection (include msqrt and &radic;)
         if (html && (html.includes('mml:math') || html.includes('<math') || html.includes('msqrt') || html.includes('&radic;'))) {
           const mathMLRegex = /<math[^>]*>(.*?)<\/math>/gi;
@@ -307,11 +326,12 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           return true;
         }
         
-        // PRIORITY 3.5: Plain math-like text (fractions/subscripts/superscripts/±) → keep as text, skip HTML cleaning
+        // PRIORITY 3.5: Plain math-like text (fractions/subscripts/superscripts/±/vectors) → keep as text, skip HTML cleaning
         if (text && (
           /[a-zA-Z]_[a-zA-Z0-9]/.test(text) ||
           /\^/.test(text) ||
           /±/.test(text) ||
+          /→[A-Za-z]/.test(text) ||
           /[-−]?[a-zA-Z0-9_()]+\/[a-zA-Z0-9_()]+/.test(text)
         )) {
           const converted = convertUnicodeToNotation(text);

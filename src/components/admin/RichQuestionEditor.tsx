@@ -240,7 +240,7 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
 
         // PRIORITY -1: Algebraic equations with equality chains
         // Matches: (x-1)/2=(1-y)/3=(2z-1)/12, x/2=y/3=z/4, etc.
-        if (text && /[a-zA-Z0-9()+-]+\/[a-zA-Z0-9()+-]+=/.test(text)) {
+        if (text && /[a-zA-Z0-9_()\s+\-]+\/[a-zA-Z0-9_()\s+\-]+=/.test(text)) {
           // This is a multi-part equation - preserve exactly as typed
           // Let renderMath handle the fraction rendering later
           editor?.commands.insertContent(text);
@@ -306,7 +306,20 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           toast.success('✅ √ converted to LaTeX!');
           return true;
         }
-
+        
+        // PRIORITY 3.5: Plain math-like text (fractions/subscripts/superscripts/±) → keep as text, skip HTML cleaning
+        if (text && (
+          /[a-zA-Z]_[a-zA-Z0-9]/.test(text) ||
+          /\^/.test(text) ||
+          /±/.test(text) ||
+          /[-−]?[a-zA-Z0-9_()]+\/[a-zA-Z0-9_()]+/.test(text)
+        )) {
+          const converted = convertUnicodeToNotation(text);
+          editor?.commands.insertContent(converted);
+          toast.success('✅ Math text pasted!');
+          return true;
+        }
+        
         // PRIORITY 4: Regular HTML/text
         if (html) {
           let cleanedHTML = cleanPastedHTML(html); // Now preserves √!

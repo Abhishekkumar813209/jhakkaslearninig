@@ -65,7 +65,7 @@ const convertUnicodeToNotation = (text: string): string => {
 };
 
 const cleanPastedHTML = (html: string): string => {
-  // Step 0: Preserve square root symbols BEFORE stripping HTML
+  // Step 0: Preserve mathematical notation BEFORE stripping HTML
   const preservedSymbols: Record<string, string> = {};
   let preserveIndex = 0;
   
@@ -90,10 +90,38 @@ const cleanPastedHTML = (html: string): string => {
     return token;
   });
   
+  // Preserve fractions (e.g., 2/7, -3/7, a_1/a_2)
+  html = html.replace(/([a-zA-Z0-9_\-]+)\/([a-zA-Z0-9_\-]+)/g, (_match, num, den) => {
+    const token = `__FRAC_${preserveIndex++}__`;
+    preservedSymbols[token] = `${num}/${den}`;
+    return token;
+  });
+  
+  // Preserve subscripts (e.g., a_1, b_2, c_3)
+  html = html.replace(/([a-zA-Z])_([a-zA-Z0-9]+)/g, (_match, base, sub) => {
+    const token = `__SUB_${preserveIndex++}__`;
+    preservedSymbols[token] = `${base}_${sub}`;
+    return token;
+  });
+  
+  // Preserve superscripts (e.g., a^2, x^3)
+  html = html.replace(/([a-zA-Z0-9_]+)\^([a-zA-Z0-9\+\-]+)/g, (_match, base, sup) => {
+    const token = `__SUP_${preserveIndex++}__`;
+    preservedSymbols[token] = `${base}^${sup}`;
+    return token;
+  });
+  
   // Preserve equality signs in equations
   html = html.replace(/=/g, (_match) => {
     const token = `__EQ_${preserveIndex++}__`;
     preservedSymbols[token] = '=';
+    return token;
+  });
+  
+  // Preserve plus signs
+  html = html.replace(/\+/g, (_match) => {
+    const token = `__PLUS_${preserveIndex++}__`;
+    preservedSymbols[token] = '+';
     return token;
   });
   

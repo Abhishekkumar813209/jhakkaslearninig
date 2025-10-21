@@ -423,6 +423,19 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                 placeholder="Enter question text..."
                 compact
               />
+              
+              {/* Live Math Preview */}
+              {question.question_text && (
+                <div className="mt-2 p-3 bg-muted/30 rounded-md border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Live Preview:</p>
+                  <div 
+                    className="text-sm prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ 
+                      __html: renderMath(question.question_text.replace(/<[^>]*>/g, '')) 
+                    }}
+                  />
+                </div>
+              )}
             </div>
             
             {/* MCQ Options */}
@@ -443,6 +456,15 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                         placeholder={`Option ${String.fromCharCode(65 + i)}`}
                         compact
                       />
+                      
+                      {/* Live Preview for option */}
+                      {opt && (
+                        <div className="mt-1 p-2 bg-muted/20 rounded text-xs">
+                          <span dangerouslySetInnerHTML={{ 
+                            __html: renderMath(opt.replace(/<[^>]*>/g, '')) 
+                          }} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

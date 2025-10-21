@@ -30,6 +30,13 @@ import QuestionEditDialog from './QuestionEditDialog';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
 
+// Helper function to strip HTML tags for clean rendering
+const stripHtmlTags = (html: string): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
 interface ExtractedQuestion {
   id: string;
   question_number: string;
@@ -2650,14 +2657,14 @@ export const SmartQuestionExtractor = ({
                           </div>
                           <div 
                             className="prose prose-sm max-w-none mt-2"
-                            dangerouslySetInnerHTML={{ __html: renderMath(q.question_text) }}
+                            dangerouslySetInnerHTML={{ __html: renderMath(stripHtmlTags(q.question_text)) }}
                           />
                           {q.options && q.options.length > 0 && (
                             <ul className="mt-3 space-y-1">
                               {q.options.map((opt, i) => (
                                 <li key={i} className="text-sm">
                                   <span className="font-medium">{String.fromCharCode(65 + i)})</span>{' '}
-                                  <span dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                                  <span dangerouslySetInnerHTML={{ __html: renderMath(stripHtmlTags(opt)) }} />
                                 </li>
                               ))}
                             </ul>

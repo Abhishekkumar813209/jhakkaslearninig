@@ -31,8 +31,20 @@ export const applyFractions = (t: string): string => {
   // Token over parentheses: x/(y+z)
   t = t.replace(/([A-Za-z][A-Za-z0-9]*|[0-9]+)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
   
-  // Simple numeric fractions (NOT already in parentheses): 70/11, 1/2
-  t = t.replace(/\b(\d{1,4})\s*\/\s*(\d{1,4})\b/g, (_, a, b) => fracHTML(a, b));
+  // Simple numeric fractions (supports comma-separated: 1/2,3/4,5/6)
+  t = t.replace(/(^|[\s,;.])(\d{1,4})\s*\/\s*(\d{1,4})(?=[\s,;.]|$)/g, (match, prefix, a, b) => 
+    prefix + fracHTML(a, b)
+  );
+  
+  // Fractions with square roots: 1/√14, 2/√14 (including comma-separated)
+  t = t.replace(/(^|[\s,;.])(\d{1,4})\s*\/\s*√(\d{1,4})(?=[\s,;.]|$)/g, (match, prefix, num, den) =>
+    prefix + fracHTML(num, `√${den}`)
+  );
+  
+  // Fractions with variables and square roots: x/√2, a/√3
+  t = t.replace(/(^|[\s,;.])([A-Za-z]\w*)\s*\/\s*√(\d{1,4})(?=[\s,;.]|$)/g, (match, prefix, num, den) =>
+    prefix + fracHTML(num, `√${den}`)
+  );
   
   return t;
 };

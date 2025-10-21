@@ -9,6 +9,29 @@ export const escapeHtml = (s: string) => s
   .replace(/>/g, '&gt;');
 
 /**
+ * Converts fraction notation into stacked HTML fractions
+ * Examples: (1-x)/3, (7y-14)/2p, 70/11 → stacked fractions
+ */
+export const applyFractions = (t: string): string => {
+  const fracHTML = (num: string, den: string) => 
+    `<span class="frac"><span class="num">${num}</span><span class="bar"></span><span class="den">${den}</span></span>`;
+  
+  // Both sides with parentheses: (a-b)/(c+d)
+  t = t.replace(/\(([^()]+?)\)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
+  
+  // Parentheses over token: (a-b)/3p, (7y-14)/2p
+  t = t.replace(/\(([^()]+?)\)\s*\/\s*([A-Za-z][A-Za-z0-9]*|[0-9]+[A-Za-z]*)/g, (_, a, b) => fracHTML(a, b));
+  
+  // Token over parentheses: x/(y+z)
+  t = t.replace(/([A-Za-z][A-Za-z0-9]*|[0-9]+)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
+  
+  // Simple numeric fractions: 70/11, 1/2
+  t = t.replace(/\b(\d{1,4})\s*\/\s*(\d{1,4})\b/g, (_, a, b) => fracHTML(a, b));
+  
+  return t;
+};
+
+/**
  * Applies superscript and subscript formatting with support for braced syntax
  * 
  * Braced syntax (precise control):
@@ -89,10 +112,13 @@ export const renderMath = (input: string): string => {
     return `<span class="math-inline">${applySupSub(content)}</span>`;
   });
   
-  // Step 6: Process remaining plain-text math patterns
+  // Step 6: Apply fraction rendering BEFORE superscripts/subscripts
+  safe = applyFractions(safe);
+  
+  // Step 7: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  // Step 7: Restore ALL protected tokens
+  // Step 8: Restore ALL protected tokens
   Object.keys(protectedTokens).forEach(placeholder => {
     safe = safe.replace(placeholder, protectedTokens[placeholder]);
   });

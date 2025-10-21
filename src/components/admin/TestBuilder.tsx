@@ -224,6 +224,9 @@ const TestBuilder: React.FC = () => {
     let successCount = 0;
     const totalCount = questionsToAdd.length;
     
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = { Authorization: `Bearer ${session?.access_token ?? ''}` };
+    
     toast({
       title: "Adding questions...",
       description: `Processing ${totalCount} questions`,
@@ -252,7 +255,8 @@ const TestBuilder: React.FC = () => {
         };
         
         const { data, error } = await supabase.functions.invoke('tests-api', {
-          body: { action: 'addQuestion', questionData }
+          body: { action: 'addQuestion', questionData },
+          headers
         });
         
         if (data?.success) {
@@ -363,8 +367,12 @@ const TestBuilder: React.FC = () => {
     if (!confirm('Are you sure you want to delete this question?')) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { Authorization: `Bearer ${session?.access_token ?? ''}` };
+      
       const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'deleteQuestion', questionId }
+        body: { action: 'deleteQuestion', questionId },
+        headers
       });
 
       if (error) throw error;
@@ -458,8 +466,12 @@ const TestBuilder: React.FC = () => {
             tags: question.tags || []
           };
 
+          const { data: { session } } = await supabase.auth.getSession();
+          const headers = { Authorization: `Bearer ${session?.access_token ?? ''}` };
+          
           const result = await supabase.functions.invoke('tests-api', {
-            body: { action: 'addQuestion', questionData }
+            body: { action: 'addQuestion', questionData },
+            headers
           });
 
           if (result.data?.success) {
@@ -506,6 +518,9 @@ const TestBuilder: React.FC = () => {
     try {
       setAiGenerating(true);
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { Authorization: `Bearer ${session?.access_token ?? ''}` };
+      
       const { data, error } = await supabase.functions.invoke('ai-question-generator', {
         body: { 
           prompt: `Generate 5 multiple choice questions for ${test?.subject} subject, ${test?.class} class level, ${test?.difficulty} difficulty.`,
@@ -530,7 +545,8 @@ const TestBuilder: React.FC = () => {
           };
 
           const result = await supabase.functions.invoke('tests-api', {
-            body: { action: 'addQuestion', questionData }
+            body: { action: 'addQuestion', questionData },
+            headers
           });
 
           if (result.data?.success) {

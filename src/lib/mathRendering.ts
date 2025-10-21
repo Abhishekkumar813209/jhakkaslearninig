@@ -120,6 +120,83 @@ export const applySqrtWithVinculum = (t: string): string => {
 };
 
 /**
+ * Extract content from braced LaTeX command, handling nested braces
+ * Returns [content, closeIndex] or null if malformed
+ */
+function extractBraced(str: string, openIndex: number): [string, number] | null {
+  let depth = 0;
+  let start = -1;
+  
+  for (let i = openIndex; i < str.length; i++) {
+    if (str[i] === '{') {
+      if (depth === 0) start = i + 1;
+      depth++;
+    } else if (str[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        return [str.substring(start, i), i];
+      }
+    }
+  }
+  return null; // Malformed braces
+}
+
+/**
+ * Replace LaTeX \frac, \dfrac, \tfrac with HTML fractions
+ * Handles nested braces correctly
+ */
+function replaceLatexFractions(str: string): string {
+  const fracCommands = ['\\frac', '\\dfrac', '\\tfrac'];
+  
+  for (const cmd of fracCommands) {
+    let result = '';
+    let lastIndex = 0;
+    let index = str.indexOf(cmd, lastIndex);
+    
+    while (index !== -1) {
+      // Add text before \frac
+      result += str.substring(lastIndex, index);
+      
+      // Extract numerator
+      const numResult = extractBraced(str, index + cmd.length);
+      if (!numResult) {
+        // Malformed, keep original
+        result += cmd;
+        lastIndex = index + cmd.length;
+        index = str.indexOf(cmd, lastIndex);
+        continue;
+      }
+      
+      const [numerator, numCloseIdx] = numResult;
+      
+      // Extract denominator
+      const denResult = extractBraced(str, numCloseIdx + 1);
+      if (!denResult) {
+        // Malformed, keep original
+        result += cmd + '{' + numerator + '}';
+        lastIndex = numCloseIdx + 1;
+        index = str.indexOf(cmd, lastIndex);
+        continue;
+      }
+      
+      const [denominator, denCloseIdx] = denResult;
+      
+      // Create HTML fraction
+      result += `<span class="frac"><span class="num">${numerator}</span><span class="bar"></span><span class="den">${denominator}</span></span>`;
+      
+      lastIndex = denCloseIdx + 1;
+      index = str.indexOf(cmd, lastIndex);
+    }
+    
+    // Add remaining text
+    result += str.substring(lastIndex);
+    str = result;
+  }
+  
+  return str;
+}
+
+/**
  * Normalizes inverse trigonometric function notation
  * Converts various formats to consistent Unicode superscript notation
  * Examples: "cos inverse" → "cos⁻¹", "arcsin" → "sin⁻¹", "tan^{-1}" → "tan⁻¹"
@@ -209,9 +286,15 @@ export const renderMath = (input: string): string => {
   safe = applySqrtWithVinculum(safe);
   
   // Step 7: Handle inline LaTeX segments $...$
+  // Process \frac first, then superscripts/subscripts
   safe = safe.replace(/\$([^$]+)\$/g, (_m, content) => {
-    return `<span class="math-inline">${applySupSub(content)}</span>`;
+    let processed = replaceLatexFractions(content);
+    processed = applySupSub(processed);
+    return `<span class="math-inline">${processed}</span>`;
   });
+  
+  // Also process \frac outside $...$ (fallback for direct LaTeX paste)
+  safe = replaceLatexFractions(safe);
   
   // Step 8: Apply fraction rendering BEFORE superscripts/subscripts
   safe = applyFractions(safe);

@@ -2123,8 +2123,8 @@ export const SmartQuestionExtractor = ({
         </Button>
       )}
 
-      {/* Upload Section - hide if in question-bank mode with preloaded questions */}
-      {extractedQuestions.length === 0 && !authError && !(mode === 'question-bank' && preloadedQuestions) && (
+      {/* Upload Section - always visible unless auth error */}
+      {!authError && !(mode === 'question-bank' && preloadedQuestions) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

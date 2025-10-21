@@ -8,12 +8,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library, Upload, Crop } from "lucide-react";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
+import { DocumentUploader } from "./DocumentUploader";
 import { cn } from "@/lib/utils";
 
 interface ExtractedQuestion {
@@ -64,6 +65,9 @@ export const SmartQuestionExtractorNew = ({
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
+  
+  // Upload dialog state
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
 
   // Auto-load draft questions when topic changes
   useEffect(() => {
@@ -282,6 +286,12 @@ export const SmartQuestionExtractorNew = ({
     return matchesSearch && matchesType;
   });
 
+  const handleDocumentUpload = (uploadedQuestions: ExtractedQuestion[]) => {
+    setQuestions(prev => [...prev, ...uploadedQuestions]);
+    setShowUploadDialog(false);
+    toast.success(`Added ${uploadedQuestions.length} new questions`);
+  };
+
   const totalCount = questions.length;
   const selectedCount = selectedIds.size;
   const reviewedCount = questions.filter(q => q.admin_reviewed && validateAnswer(q)).length;
@@ -307,7 +317,7 @@ export const SmartQuestionExtractorNew = ({
                   Fetch questions from database, edit answers, and add to Lesson Library
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Badge variant="outline">{totalCount} Total</Badge>
                 {selectedCount > 0 && (
                   <Badge variant="default">{selectedCount} Selected</Badge>
@@ -315,6 +325,14 @@ export const SmartQuestionExtractorNew = ({
                 {reviewedCount > 0 && (
                   <Badge variant="secondary">{reviewedCount} Reviewed</Badge>
                 )}
+                <Button 
+                  onClick={() => setShowUploadDialog(true)}
+                  variant="default"
+                  size="sm"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload PDF/Word
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -420,14 +438,36 @@ export const SmartQuestionExtractorNew = ({
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : filteredQuestions.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <AlertCircle className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                <p className="font-medium">
+              <div className="text-center py-12">
+                <AlertCircle className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p className="font-medium mb-2">
                   {selectedTopicName 
                     ? `No questions found for "${selectedTopicName}"` 
                     : 'No questions found for this topic'}
                 </p>
-                <p className="text-sm mt-1">Use the PDF Question Extractor or Question Builder to add questions</p>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Upload a document or use the Question Builder to add questions
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button 
+                    onClick={() => setShowUploadDialog(true)}
+                    size="lg"
+                    variant="default"
+                  >
+                    <Upload className="mr-2 h-5 w-5" />
+                    Upload PDF/Word
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    onClick={() => toast.info("Navigate to PDF Question Extractor tab for manual crop mode")}
+                  >
+                    <Crop className="mr-2 h-5 w-5" />
+                    Manual Crop Mode
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -612,6 +652,29 @@ export const SmartQuestionExtractorNew = ({
           </CardContent>
         </Card>
       )}
+
+      {/* Upload Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Upload Document</DialogTitle>
+            <DialogDescription>
+              Extract questions from PDF, Word, or image files using AI + OCR
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DocumentUploader
+            onQuestionsExtracted={handleDocumentUpload}
+            onClose={() => setShowUploadDialog(false)}
+            topicContext={selectedTopic ? {
+              topicId: selectedTopic,
+              topicName: selectedTopicName || '',
+              chapterId: selectedChapter || '',
+              subjectId: selectedSubject || ''
+            } : undefined}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

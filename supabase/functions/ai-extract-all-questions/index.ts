@@ -32,6 +32,20 @@ serve(async (req) => {
 4. If you can't find a question number in the text, SKIP IT
 5. Each question MUST have a visible number marker (1., Q1, Question 1, etc.)
 
+**SPECIAL HANDLING FOR FIGURES:**
+- If you encounter [FIGURE id=img_X] with NO [IMAGE_OCR] data below it, the OCR failed
+- Mark such questions with: "requires_manual_review": true
+- Add to question metadata: "flagged_images": ["img_X"]
+- Set confidence to "low" for questions with un-OCR'd figures
+- DO NOT hallucinate math content - preserve the [FIGURE] token for manual input
+- Example:
+  {
+    "question_text": "Solve for x: [FIGURE id=img_3]",
+    "confidence": "low",
+    "requires_manual_review": true,
+    "flagged_images": ["img_3"]
+  }
+
 🔥 CRITICAL MCQ EXTRACTION RULES:
 1. For MCQ questions, extract ONLY the question stem (text BEFORE the options start)
 2. DO NOT include option labels (a), b), c), d)) in the question_text field

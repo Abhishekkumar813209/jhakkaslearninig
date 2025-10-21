@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { QuestionAnswerInput } from './QuestionAnswerInput';
 
@@ -32,6 +32,17 @@ interface ExtractedQuestion {
   edited?: boolean;
   correct_answer?: any;
   explanation?: string;
+  ocr_status?: {
+    method: 'pix2text' | 'tesseract' | 'failed' | 'error';
+    confidence: number;
+    requires_manual_review: boolean;
+    error?: string;
+  };
+  flagged_images?: Array<{
+    imageId: string;
+    url: string;
+    reason: string;
+  }>;
 }
 
 interface QuestionEditDialogProps {
@@ -226,8 +237,51 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
               </Card>
             )}
 
+            {/* Flagged Images - Manual Math Input */}
+            {editedQuestion.flagged_images && editedQuestion.flagged_images.length > 0 && (
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-900 font-medium">
+                    <AlertCircle className="h-4 w-4" />
+                    Images Requiring Manual Input ({editedQuestion.flagged_images.length})
+                  </div>
+                  <p className="text-xs text-amber-800">
+                    OCR failed for these images. Please manually add equations using LaTeX notation.
+                  </p>
+                  
+                  {editedQuestion.flagged_images.map(img => (
+                    <div key={img.imageId} className="space-y-2 p-3 bg-white rounded border border-amber-200">
+                      <div className="flex items-center gap-2 text-sm text-amber-900">
+                        <ImageIcon className="h-3 w-3" />
+                        <code className="font-mono text-xs">{img.imageId}</code>
+                        <span className="text-xs text-muted-foreground">• {img.reason}</span>
+                      </div>
+                      {img.url && (
+                        <img 
+                          src={img.url} 
+                          alt={img.imageId} 
+                          className="max-w-xs border rounded bg-white"
+                        />
+                      )}
+                      <Input 
+                        placeholder="Type equation in LaTeX (e.g., \frac{a}{b}, x^{2}, H_{2}O)"
+                        className="font-mono text-sm"
+                        onChange={(e) => {
+                          const updatedText = editedQuestion.question_text.replace(
+                            `[FIGURE id=${img.imageId}]`,
+                            e.target.value
+                          );
+                          setEditedQuestion({ ...editedQuestion, question_text: updatedText });
+                        }}
+                      />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Images Preview */}
-            {editedQuestion.images && editedQuestion.images.length > 0 && (
+            {editedQuestion.images && editedQuestion.images.length > 0 && !editedQuestion.flagged_images?.length && (
               <Card>
                 <CardContent className="pt-4">
                   <Label className="text-sm font-semibold mb-2 block">Attached Images ({editedQuestion.images.length})</Label>

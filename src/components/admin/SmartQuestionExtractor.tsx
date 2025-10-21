@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import Tesseract from 'tesseract.js';
@@ -45,6 +46,17 @@ interface ExtractedQuestion {
   edited?: boolean;
   correct_answer?: any;
   explanation?: string;
+  ocr_status?: {
+    method: 'pix2text' | 'tesseract' | 'failed' | 'error';
+    confidence: number;
+    requires_manual_review: boolean;
+    error?: string;
+  };
+  flagged_images?: Array<{
+    imageId: string;
+    url: string;
+    reason: string;
+  }>;
 }
 
 interface SmartQuestionExtractorProps {
@@ -687,6 +699,10 @@ export const SmartQuestionExtractor = ({
         
         setOcrProgress({ current: 0, total: imageDataUrls.length });
         
+        // Track OCR status for each image
+        const imageOcrStatus = new Map<string, any>();
+        const manualReviewImages: Array<{ imageId: string; url: string; reason: string }> = [];
+        
         // Process in batches of 5 (HuggingFace rate limit)
         for (let i = 0; i < imageDataUrls.length; i += 5) {
           const batch = imageDataUrls.slice(i, i + 5);
@@ -704,27 +720,36 @@ export const SmartQuestionExtractor = ({
             
             if (error) {
               console.error('Pix2Text batch error:', error);
-              toast.error(`OCR error: ${error.message}. Falling back to basic OCR...`);
-              // Fallback to Tesseract for this batch
-              for (let j = 0; j < batch.length; j++) {
-                try {
-                  const { data: { text } } = await Tesseract.recognize(batch[j], 'eng', {
-                    logger: () => {}
-                  });
-                  ocrResults.set(batchIds[j], text.trim());
-                } catch (err) {
-                  console.warn(`Tesseract fallback failed for ${batchIds[j]}`);
-                }
-              }
+              toast.error(`OCR error: ${error.message}`);
               continue;
             }
             
+            // Store OCR results with status tracking
             data.results.forEach((result: any) => {
-              mathpixResults.set(result.id, {
-                text: result.text,
-                latex: result.latex
+              if (result.requires_manual_review) {
+                manualReviewImages.push({
+                  imageId: result.id,
+                  url: imageDataUrls[imageIds.indexOf(result.id)],
+                  reason: result.error || 'OCR failed'
+                });
+              }
+              
+              ocrResults.set(result.id, result.text || '');
+              
+              if (result.text && result.latex) {
+                mathpixResults.set(result.id, {
+                  text: result.text,
+                  latex: result.latex
+                });
+              }
+              
+              // Store OCR method & confidence for flagging
+              imageOcrStatus.set(result.id, {
+                method: result.ocr_method,
+                confidence: result.confidence,
+                requires_manual_review: result.requires_manual_review || false,
+                error: result.error
               });
-              ocrResults.set(result.id, result.text);
             });
             
           } catch (error) {
@@ -732,15 +757,27 @@ export const SmartQuestionExtractor = ({
             toast.error(`Failed to process images ${i+1}-${i+batch.length}`);
           }
           
-          // Rate limit delay (200ms between batches for free tier)
+          // Rate limit delay
           if (i + 5 < imageDataUrls.length) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 250));
           }
         }
         
         setOcrProgress({ current: imageDataUrls.length, total: imageDataUrls.length });
-        console.log(`✅ Pix2Text OCR complete: ${mathpixResults.size}/${imageDataUrls.length}`);
-        toast.success(`Advanced OCR complete! ${mathpixResults.size} images processed`);
+        
+        const successCount = imageDataUrls.length - manualReviewImages.length;
+        console.log(`✅ 3-Tier OCR complete: ${successCount}/${imageDataUrls.length} auto-extracted, ${manualReviewImages.length} need review`);
+        
+        if (manualReviewImages.length > 0) {
+          toast.warning(`OCR complete! ${successCount} images extracted, ${manualReviewImages.length} need manual review`, {
+            duration: 6000
+          });
+        } else {
+          toast.success(`Advanced OCR complete! All ${successCount} images processed`);
+        }
+        
+        // Store for question flagging
+        (window as any).__imageOcrStatus = imageOcrStatus;
         
       }
       // Option 2: Basic OCR (Tesseract)
@@ -1175,6 +1212,7 @@ export const SmartQuestionExtractor = ({
       // Map images to questions using normalized numbers and fallback figure tokens
       const imageIdMap: Record<string, { url: string; ocr?: string }> = (window as any).__imageIdMap || {};
       const qImagesMap = (window as any).__questionImages || {};
+      const imageOcrStatus = (window as any).__imageOcrStatus || new Map();
       
       const questionsWithIds = data.questions.map((q: any, index: number) => {
         const normalizedNum = getNormalizedQNumber(q.question_number, index + 1);
@@ -1192,6 +1230,20 @@ export const SmartQuestionExtractor = ({
         // Merge + dedupe
         const mergedImages = dedupeByUrl([...(byNumber || []), ...(byTokens || [])]);
 
+        // Check for flagged images (failed OCR)
+        const flaggedImages: Array<{ imageId: string; url: string; reason: string }> = [];
+        tokenMatches.forEach((m) => {
+          const imageId = m[1];
+          const status = imageOcrStatus.get(imageId);
+          if (status?.requires_manual_review) {
+            flaggedImages.push({
+              imageId,
+              url: imageIdMap[imageId]?.url || '',
+              reason: status.error || 'OCR unavailable'
+            });
+          }
+        });
+
         const base: any = {
           ...q,
           question_number: normalizedNum,
@@ -1199,6 +1251,13 @@ export const SmartQuestionExtractor = ({
           auto_corrected: q.auto_corrected || false,
           images: mergedImages.map((img) => img.url),
           ocr_text: mergedImages.map((img) => img.ocr).filter(Boolean),
+          ocr_status: flaggedImages.length > 0 ? {
+            method: 'failed' as const,
+            confidence: 0,
+            requires_manual_review: true,
+            error: `${flaggedImages.length} image(s) need manual review`
+          } : undefined,
+          flagged_images: flaggedImages.length > 0 ? flaggedImages : undefined
         };
 
         // OCR fallback for match_column
@@ -1836,6 +1895,34 @@ export const SmartQuestionExtractor = ({
       {/* Results Grid */}
       {extractedQuestions.length > 0 && (
         <>
+          {/* OCR Summary */}
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>OCR Summary</AlertTitle>
+            <AlertDescription>
+              <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
+                <div>
+                  <span className="font-medium text-emerald-600">
+                    {extractedQuestions.filter(q => !q.ocr_status?.requires_manual_review).length}
+                  </span>
+                  <span className="text-muted-foreground ml-1">Auto-extracted</span>
+                </div>
+                <div>
+                  <span className="font-medium text-amber-600">
+                    {extractedQuestions.filter(q => q.ocr_status?.requires_manual_review).length}
+                  </span>
+                  <span className="text-muted-foreground ml-1">Need Review</span>
+                </div>
+                <div>
+                  <span className="font-medium text-sky-600">
+                    {extractedQuestions.reduce((sum, q) => sum + (q.flagged_images?.length || 0), 0)}
+                  </span>
+                  <span className="text-muted-foreground ml-1">Images Flagged</span>
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+
           {/* Filter Bar */}
           <Card>
             <CardContent className="pt-6">
@@ -1921,9 +2008,15 @@ export const SmartQuestionExtractor = ({
             {filteredQuestions.map((question) => (
               <Card 
                 key={question.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  selectedIds.includes(question.id) ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''
-                }`}
+                className={cn(
+                  "cursor-pointer transition-all hover:shadow-md border-l-4",
+                  selectedIds.includes(question.id) && 'ring-2 ring-blue-500 bg-blue-50/50',
+                  question.ocr_status?.requires_manual_review 
+                    ? 'border-l-amber-500 bg-amber-50/30' 
+                    : question.confidence === 'high' 
+                      ? 'border-l-emerald-500' 
+                      : 'border-l-sky-500'
+                )}
                 onClick={() => toggleSelection(question.id)}
               >
                 <CardHeader className="pb-3">
@@ -1943,6 +2036,12 @@ export const SmartQuestionExtractor = ({
                             {question.difficulty}
                           </Badge>
                         )}
+                        {question.ocr_status?.requires_manual_review && (
+                          <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-300">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Math Review Needed
+                          </Badge>
+                        )}
                         {question.auto_corrected && (
                           <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
                             ✓ Auto-corrected
@@ -1958,7 +2057,6 @@ export const SmartQuestionExtractor = ({
                             {question.confidence} confidence
                           </Badge>
                         )}
-                        {/* Warning badges for incomplete data */}
                         {question.question_type === 'mcq' && (!question.options || question.options.length < 2) && (
                           <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-xs">
                             ⚠️ Missing options
@@ -1997,6 +2095,17 @@ export const SmartQuestionExtractor = ({
                   </div>
                 </CardHeader>
                 <CardContent onClick={(e) => e.stopPropagation()}>
+                  {/* OCR Status Alert */}
+                  {question.flagged_images && question.flagged_images.length > 0 && (
+                    <Alert className="mb-3 border-amber-300 bg-amber-50">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-amber-900 text-sm">Manual Review Required</AlertTitle>
+                      <AlertDescription className="text-amber-800 text-xs">
+                        {question.flagged_images.length} image(s) could not be read by OCR. Edit to add equations manually.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <div 
                     className="text-sm line-clamp-3 mb-3"
                     dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}

@@ -58,9 +58,13 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
   const [localPdfFile, setLocalPdfFile] = useState<File | null>(pdfFile || null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync with parent questions
+  // Sync with parent questions and normalize question types
   useEffect(() => {
-    setEditableQuestions(questions);
+    const normalized = questions.map(q => ({
+      ...q,
+      question_type: (q.question_type?.toLowerCase() || 'mcq') as any
+    }));
+    setEditableQuestions(normalized);
   }, [questions]);
 
   // Auto-save with debounce
@@ -383,9 +387,24 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
           <div className="flex items-center gap-2 flex-1">
             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-medium">Q{question.question_number}</span>
-            <Badge variant="outline" className="text-xs">
-              {question.question_type.replace('_', ' ')}
-            </Badge>
+            <Select
+              value={question.question_type}
+              onValueChange={(value) => {
+                onUpdate({ ...question, question_type: value as any, edited: true });
+              }}
+            >
+              <SelectTrigger className="w-auto h-6 text-xs border-dashed" onClick={(e) => e.stopPropagation()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mcq">MCQ</SelectItem>
+                <SelectItem value="match_column">Match Column</SelectItem>
+                <SelectItem value="assertion_reason">Assertion Reason</SelectItem>
+                <SelectItem value="fill_blank">Fill Blank</SelectItem>
+                <SelectItem value="true_false">True/False</SelectItem>
+                <SelectItem value="short_answer">Short Answer</SelectItem>
+              </SelectContent>
+            </Select>
             <Badge variant="secondary" className="text-xs">
               {question.difficulty || 'medium'}
             </Badge>
@@ -439,7 +458,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
             </div>
             
             {/* MCQ Options */}
-            {question.question_type === 'mcq' && (
+            {(question.question_type === 'mcq' || question.options) && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Options</label>
                 {(question.options || ['', '', '', '']).map((opt, i) => (

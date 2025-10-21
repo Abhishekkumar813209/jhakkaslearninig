@@ -16,6 +16,12 @@ export const applyFractions = (t: string): string => {
   const fracHTML = (num: string, den: string) => 
     `<span class="frac"><span class="num">${num}</span><span class="bar"></span><span class="den">${den}</span></span>`;
   
+  const fracWithParens = (num: string, den: string) =>
+    `<span class="frac-wrapper"><span class="frac-paren">(</span><span class="frac"><span class="num">${num}</span><span class="bar"></span><span class="den">${den}</span></span><span class="frac-paren">)</span></span>`;
+  
+  // Special handling: Fractions already wrapped in parentheses like (9/5)
+  t = t.replace(/\(\s*(\d{1,4})\s*\/\s*(\d{1,4})\s*\)/g, (_, a, b) => fracWithParens(a, b));
+  
   // Both sides with parentheses: (a-b)/(c+d)
   t = t.replace(/\(([^()]+?)\)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
   
@@ -25,7 +31,7 @@ export const applyFractions = (t: string): string => {
   // Token over parentheses: x/(y+z)
   t = t.replace(/([A-Za-z][A-Za-z0-9]*|[0-9]+)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
   
-  // Simple numeric fractions: 70/11, 1/2
+  // Simple numeric fractions (NOT already in parentheses): 70/11, 1/2
   t = t.replace(/\b(\d{1,4})\s*\/\s*(\d{1,4})\b/g, (_, a, b) => fracHTML(a, b));
   
   return t;

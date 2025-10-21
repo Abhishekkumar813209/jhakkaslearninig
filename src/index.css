@@ -10,20 +10,37 @@
   line-height: 1.1;
   vertical-align: middle;
   margin: 0 0.15em;
+  font-size: 1em;
 }
 
 .frac .num,
 .frac .den {
   display: block;
   padding: 0 0.2em;
-  font-size: 0.9em;
+  font-size: 0.85em;
+  line-height: 1.2;
 }
 
 .frac .bar {
   display: block;
   width: 100%;
-  border-top: 1px solid currentColor;
-  margin: 0.05em 0.1em;
+  border-top: 1.5px solid currentColor;
+  margin: 0.1em 0;
+  min-width: 1.5em;
+}
+
+/* Scale parentheses properly around fractions */
+.frac-wrapper {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.frac-paren {
+  font-size: 2em;
+  line-height: 0.5;
+  vertical-align: middle;
+  padding: 0 0.1em;
 }
 
 /* Educational Learning Platform Design System */

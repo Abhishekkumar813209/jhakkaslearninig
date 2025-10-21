@@ -13,7 +13,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download, Grid3x3, PenLine, EyeIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BulkQuestionEditor } from './BulkQuestionEditor';
 import { cn } from "@/lib/utils";
 import { getDocument } from 'pdfjs-dist';
 import mammoth from 'mammoth';
@@ -112,6 +114,7 @@ export const SmartQuestionExtractor = ({
   const [searchText, setSearchText] = useState('');
   const [editingQuestion, setEditingQuestion] = useState<ExtractedQuestion | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<'grid' | 'bulk' | 'preview'>('grid');
   const [enableOcr, setEnableOcr] = useState(true);
   const [useAdvancedOCR, setUseAdvancedOCR] = useState(false);
   const [hfApiKey, setHfApiKey] = useState('');
@@ -2407,8 +2410,26 @@ export const SmartQuestionExtractor = ({
             </CardContent>
           </Card>
 
-          {/* Questions Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* View Tabs */}
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
+              <TabsTrigger value="grid" className="flex items-center gap-2">
+                <Grid3x3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Grid View</span>
+              </TabsTrigger>
+              <TabsTrigger value="bulk" className="flex items-center gap-2">
+                <PenLine className="h-4 w-4" />
+                <span className="hidden sm:inline">Bulk Editor</span>
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="flex items-center gap-2">
+                <EyeIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Preview</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Grid View Tab */}
+            <TabsContent value="grid" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuestions.map((question) => (
               <Card 
                 key={question.id}
@@ -2592,7 +2613,78 @@ export const SmartQuestionExtractor = ({
                 </CardContent>
               </Card>
             ))}
-          </div>
+              </div>
+            </TabsContent>
+
+            {/* Bulk Editor Tab */}
+            <TabsContent value="bulk" className="mt-4">
+              <BulkQuestionEditor
+                questions={extractedQuestions}
+                onUpdate={setExtractedQuestions}
+              />
+            </TabsContent>
+
+            {/* Preview Tab */}
+            <TabsContent value="preview" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Preview All Questions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[600px]">
+                    <div className="space-y-6">
+                      {filteredQuestions.map((q, idx) => (
+                        <div key={q.id} className="border-b pb-4 last:border-b-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">Q{q.question_number}.</span>
+                              <Badge variant="outline">{q.question_type}</Badge>
+                              <Badge variant="secondary">{q.difficulty}</Badge>
+                              <span className="text-sm text-muted-foreground">{q.marks || 1} marks</span>
+                            </div>
+                          </div>
+                          <div 
+                            className="prose prose-sm max-w-none mt-2"
+                            dangerouslySetInnerHTML={{ __html: renderMath(q.question_text) }}
+                          />
+                          {q.options && q.options.length > 0 && (
+                            <ul className="mt-3 space-y-1">
+                              {q.options.map((opt, i) => (
+                                <li key={i} className="text-sm">
+                                  <span className="font-medium">{String.fromCharCode(65 + i)})</span>{' '}
+                                  <span dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {q.left_column && q.right_column && (
+                            <div className="grid grid-cols-2 gap-4 mt-3">
+                              <div>
+                                <p className="font-medium text-sm mb-1">Column I:</p>
+                                <ul className="space-y-1">
+                                  {q.left_column.map((item, i) => (
+                                    <li key={i} className="text-sm">• {item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm mb-1">Column II:</p>
+                                <ul className="space-y-1">
+                                  {q.right_column.map((item, i) => (
+                                    <li key={i} className="text-sm">• {item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           {/* Action Bar with Clear Session Option */}
           {selectedIds.length > 0 && (

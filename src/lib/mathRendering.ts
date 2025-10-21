@@ -35,24 +35,24 @@ export const applyFractions = (t: string): string => {
   // Token over parentheses: x/(y+z)
   t = t.replace(/([A-Za-z][A-Za-z0-9]*|[0-9]+)\s*\/\s*\(([^()]+?)\)/g, (_, a, b) => fracHTML(a, b));
   
-  // Simple numeric fractions (supports comma-separated and equality chains: 1/2,3/4,5/6 or 1/2 = 3/4)
-  t = t.replace(/(^|[\s,;.=])(\d{1,4})\s*\/\s*(\d{1,4})(?=[\s,;.=]|$)/g, (match, prefix, a, b) => 
-    prefix + fracHTML(a, b)
+  // Simple numeric fractions with optional signs (supports ±, -, and negative numbers: ±1/2, -3/7, 2/7)
+  t = t.replace(/(^|[\s,;.=()])(±|−|-)?(\d{1,4})\s*\/\s*(\d{1,4})(?=[\s,;.=()]|$)/g, (match, prefix, sign, a, b) => 
+    prefix + (sign || '') + fracHTML(a, b)
   );
   
-  // Fractions with square roots: 1/√14, 2/√14 (handle both plain √ and <span class="sqrt">)
-  t = t.replace(/(^|[\s,;.=])(\d{1,4})\s*\/\s*(<span class="sqrt">.*?<\/span>|√\d+)(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
-    prefix + fracHTML(num, den)
+  // Fractions with square roots with optional signs: ±1/√14, -2/√14
+  t = t.replace(/(^|[\s,;.=()])(±|−|-)?(\d{1,4})\s*\/\s*(<span class="sqrt">.*?<\/span>|√\d+)(?=[\s,;.=()]|$)/g, (match, prefix, sign, num, den) =>
+    prefix + (sign || '') + fracHTML(num, den)
   );
   
-  // Fractions with variables and square roots: x/√2, a/√3
-  t = t.replace(/(^|[\s,;.=])([A-Za-z]\w*)\s*\/\s*(<span class="sqrt">.*?<\/span>|√\d+)(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
-    prefix + fracHTML(num, den)
+  // Fractions with variables and square roots with optional signs: ±x/√2, -a/√3
+  t = t.replace(/(^|[\s,;.=()])(±|−|-)?([A-Za-z]\w*)\s*\/\s*(<span class="sqrt">.*?<\/span>|√\d+)(?=[\s,;.=()]|$)/g, (match, prefix, sign, num, den) =>
+    prefix + (sign || '') + fracHTML(num, den)
   );
   
-  // Fractions with variables (including subscripts): a_1/a_2, b_1/b_2, x/y
-  t = t.replace(/(^|[\s,;.=])([A-Za-z]\w*)\s*\/\s*([A-Za-z]\w*)(?=[\s,;.=]|$)/g, (match, prefix, num, den) =>
-    prefix + fracHTML(num, den)
+  // Fractions with variables (including subscripts) with optional signs: ±a_1/a_2, -b_1/b_2, x/y
+  t = t.replace(/(^|[\s,;.=()])(±|−|-)?([A-Za-z]\w*)\s*\/\s*([A-Za-z]\w*)(?=[\s,;.=()]|$)/g, (match, prefix, sign, num, den) =>
+    prefix + (sign || '') + fracHTML(num, den)
   );
   
   return t;

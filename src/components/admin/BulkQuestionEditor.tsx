@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { renderMath } from '@/lib/mathRendering';
 import { RichQuestionEditor } from './RichQuestionEditor';
+import { PDFQuestionExtractor } from './PDFQuestionExtractor';
 
 interface ExtractedQuestion {
   id: string;
@@ -42,13 +44,17 @@ interface ExtractedQuestion {
 interface BulkQuestionEditorProps {
   questions: ExtractedQuestion[];
   onUpdate: (questions: ExtractedQuestion[]) => void;
+  pdfFile?: File | null;
+  pdfUrl?: string | null;
 }
 
-export const BulkQuestionEditor = ({ questions, onUpdate }: BulkQuestionEditorProps) => {
+export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: BulkQuestionEditorProps) => {
   const [editableQuestions, setEditableQuestions] = useState(questions);
   const [searchTerm, setSearchTerm] = useState('');
   const [replaceTerm, setReplaceTerm] = useState('');
   const [autoSaving, setAutoSaving] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [selectedQuestionForCrop, setSelectedQuestionForCrop] = useState<ExtractedQuestion | null>(null);
 
   // Sync with parent questions
   useEffect(() => {
@@ -148,10 +154,71 @@ export const BulkQuestionEditor = ({ questions, onUpdate }: BulkQuestionEditorPr
     toast.success(`Replaced "${searchTerm}" in ${changedCount} question${changedCount !== 1 ? 's' : ''}`);
   };
 
+  const handleFixWithCrop = (question: ExtractedQuestion) => {
+    if (!pdfFile) {
+      toast.error('PDF file not available for cropping');
+      return;
+    }
+    setSelectedQuestionForCrop(question);
+    setCropModalOpen(true);
+  };
+
+  const handleCropExtractComplete = (questionText: string, options?: string[], imageData?: string) => {
+    if (!selectedQuestionForCrop) return;
+
+    const updatedQuestion = {
+      ...selectedQuestionForCrop,
+      question_text: questionText,
+      options: options || selectedQuestionForCrop.options,
+      edited: true,
+      ocr_status: {
+        method: 'tesseract' as const,
+        confidence: 0.9,
+        requires_manual_review: false
+      }
+    };
+
+    const questionIndex = editableQuestions.findIndex(q => q.id === selectedQuestionForCrop.id);
+    if (questionIndex !== -1) {
+      const newQuestions = [...editableQuestions];
+      newQuestions[questionIndex] = updatedQuestion;
+      setEditableQuestions(newQuestions);
+      toast.success('Question updated from cropped area!');
+    }
+
+    setCropModalOpen(false);
+    setSelectedQuestionForCrop(null);
+  };
+
   const completedCount = editableQuestions.filter(q => q.edited).length;
   const needsReviewCount = editableQuestions.filter(q => !q.edited || q.ocr_status?.requires_manual_review).length;
 
   return (
+    <>
+      {/* PDF Crop Modal */}
+      <Dialog open={cropModalOpen} onOpenChange={setCropModalOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle>Fix Question via Crop</DialogTitle>
+            {selectedQuestionForCrop && (
+              <p className="text-sm text-muted-foreground">
+                Editing Q{selectedQuestionForCrop.question_number} - Crop the correct area from PDF
+              </p>
+            )}
+          </DialogHeader>
+          {pdfFile && (
+            <PDFQuestionExtractor
+              onQuestionExtracted={handleCropExtractComplete}
+              onClose={() => setCropModalOpen(false)}
+              editMode={{
+                questionId: selectedQuestionForCrop?.id || '',
+                currentQuestion: selectedQuestionForCrop!,
+                pdfFile: pdfFile
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     <div className="space-y-4 h-full flex flex-col">
       {/* Sticky Toolbar */}
       <div className="sticky top-0 bg-background z-10 border-b p-4 space-y-3">
@@ -224,11 +291,14 @@ export const BulkQuestionEditor = ({ questions, onUpdate }: BulkQuestionEditorPr
                 newQuestions[idx] = updated;
                 setEditableQuestions(newQuestions);
               }}
+              hasPdf={!!pdfFile}
+              onFixWithCrop={() => handleFixWithCrop(q)}
             />
           ))}
         </div>
       </ScrollArea>
     </div>
+    </>
   );
 };
 
@@ -236,9 +306,11 @@ export const BulkQuestionEditor = ({ questions, onUpdate }: BulkQuestionEditorPr
 interface InlineQuestionCardProps {
   question: ExtractedQuestion;
   onUpdate: (question: ExtractedQuestion) => void;
+  hasPdf?: boolean;
+  onFixWithCrop?: () => void;
 }
 
-const InlineQuestionCard = ({ question, onUpdate }: InlineQuestionCardProps) => {
+const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: InlineQuestionCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   const handleChange = (field: string, value: any) => {
@@ -266,7 +338,7 @@ const InlineQuestionCard = ({ question, onUpdate }: InlineQuestionCardProps) => 
       <div className={cn("border rounded-lg transition-colors", getBorderColor())}>
         {/* Header */}
         <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/50 rounded-t-lg transition-colors">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-medium">Q{question.question_number}</span>
             <Badge variant="outline" className="text-xs">
@@ -276,6 +348,21 @@ const InlineQuestionCard = ({ question, onUpdate }: InlineQuestionCardProps) => 
               {question.difficulty || 'medium'}
             </Badge>
             <span className="text-xs text-muted-foreground">{question.marks || 1} marks</span>
+            
+            {hasPdf && onFixWithCrop && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFixWithCrop();
+                }}
+                className="ml-auto mr-2"
+              >
+                <Crop className="w-3 h-3 mr-1.5" />
+                Fix via Crop
+              </Button>
+            )}
           </div>
           {getStatusIcon()}
         </CollapsibleTrigger>

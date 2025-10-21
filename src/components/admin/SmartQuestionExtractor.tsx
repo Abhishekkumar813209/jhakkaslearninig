@@ -120,6 +120,8 @@ export const SmartQuestionExtractor = ({
   const [hfApiKey, setHfApiKey] = useState('');
   const [ocrProgress, setOcrProgress] = useState({ current: 0, total: 0 });
   const [authError, setAuthError] = useState(false);
+  const [uploadedPdfUrl, setUploadedPdfUrl] = useState<string | null>(null);
+  const [uploadedPdfFile, setUploadedPdfFile] = useState<File | null>(null);
 
   const SUPABASE_URL = "https://qajmtfcphpncqwcrzphm.supabase.co";
   
@@ -1149,8 +1151,9 @@ export const SmartQuestionExtractor = ({
     try {
       let fileContent = '';
 
-      // Extract text based on file type
+      // Store PDF file for later cropping
       if (file.type === 'application/pdf') {
+        setUploadedPdfFile(file);
         toast.info("Extracting text from PDF with advanced parsing...", { duration: 3000 });
         fileContent = await extractTextFromPDF(file);
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
@@ -2621,6 +2624,8 @@ export const SmartQuestionExtractor = ({
               <BulkQuestionEditor
                 questions={extractedQuestions}
                 onUpdate={setExtractedQuestions}
+                pdfFile={uploadedPdfFile}
+                pdfUrl={uploadedPdfUrl}
               />
             </TabsContent>
 

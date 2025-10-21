@@ -10,7 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // @ts-ignore
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
-import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Check, Maximize, Square, Minimize2, Map } from "lucide-react";
+import { Loader2, Upload, Crop, ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Check, Maximize, Square, Minimize2, Map, CheckCircle2, Scissors } from "lucide-react";
 import Tesseract from 'tesseract.js';
 
 // Configure PDF.js worker for Vite (primary: workerPort, fallback: workerSrc)
@@ -30,9 +30,15 @@ if (typeof window !== 'undefined') {
 interface PDFQuestionExtractorProps {
   onQuestionExtracted: (questionText: string, options?: string[], imageData?: string) => void;
   onClose: () => void;
+  editMode?: {
+    questionId: string;
+    currentQuestion: any;
+    pdfFile: File;
+    pageNumber?: number;
+  };
 }
 
-export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuestionExtractorProps) => {
+export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose, editMode }: PDFQuestionExtractorProps) => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -692,30 +698,32 @@ export const PDFQuestionExtractor = ({ onQuestionExtracted, onClose }: PDFQuesti
   }, [isCropMode]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-6xl h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold">PDF Question Extractor</h2>
-            {extractedCount > 0 && (
-              <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-                <Check className="w-3 h-3 mr-1" />
-                {extractedCount} Extracted
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            {pdfFile && (
-              <Button variant="outline" onClick={selectNewPDF}>
-                Select New PDF
+    <div className={editMode ? "h-full" : "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"}>
+      <Card className={editMode ? "w-full h-full flex flex-col" : "w-full max-w-6xl h-[90vh] flex flex-col"}>
+        {/* Header - only show if not in edit mode (header is in dialog) */}
+        {!editMode && (
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold">PDF Question Extractor</h2>
+              {extractedCount > 0 && (
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                  <Check className="w-3 h-3 mr-1" />
+                  {extractedCount} Extracted
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {pdfFile && (
+                <Button variant="outline" onClick={selectNewPDF}>
+                  Select New PDF
+                </Button>
+              )}
+              <Button variant="outline" onClick={onClose}>
+                Close
               </Button>
-            )}
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* File Upload */}
         {!pdfFile && (

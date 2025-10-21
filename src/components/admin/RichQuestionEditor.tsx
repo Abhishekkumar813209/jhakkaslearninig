@@ -65,6 +65,31 @@ const convertUnicodeToNotation = (text: string): string => {
 };
 
 const cleanPastedHTML = (html: string): string => {
+  // Step 0: Preserve square root symbols BEFORE stripping HTML
+  const preservedSymbols: Record<string, string> = {};
+  let preserveIndex = 0;
+  
+  // Preserve √ with numbers (e.g., √14)
+  html = html.replace(/√(\d+)/g, (_match, num) => {
+    const token = `__SQRT_${preserveIndex++}__`;
+    preservedSymbols[token] = `√${num}`;
+    return token;
+  });
+  
+  // Preserve standalone √ (e.g., in "1/√")
+  html = html.replace(/√/g, (_match) => {
+    const token = `__SQRT_${preserveIndex++}__`;
+    preservedSymbols[token] = '√';
+    return token;
+  });
+  
+  // Preserve HTML entity for radical (&radic;)
+  html = html.replace(/&radic;/gi, (_match) => {
+    const token = `__SQRT_${preserveIndex++}__`;
+    preservedSymbols[token] = '√';
+    return token;
+  });
+  
   // Step 1: Remove ALL style blocks (Word's CSS definitions)
   html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   
@@ -95,6 +120,11 @@ const cleanPastedHTML = (html: string): string => {
   
   // Step 9: Normalize whitespace (multiple spaces → single space)
   html = html.replace(/\s+/g, ' ').trim();
+  
+  // Step 10: Restore preserved symbols
+  Object.entries(preservedSymbols).forEach(([token, value]) => {
+    html = html.replace(new RegExp(token, 'g'), value);
+  });
   
   return html;
 };
@@ -130,7 +160,11 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           displayMode: false,
           trust: true,
           strict: false,
-          output: 'html'
+          output: 'html',
+          fleqn: false,
+          macros: {
+            "\\vec": "\\overrightarrow{#1}"
+          }
         }
       }),
       Image.configure({
@@ -162,8 +196,33 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
         const html = clipboardData.getData('text/html');
         const text = clipboardData.getData('text/plain');
 
-        // PRIORITY 1: Check for LaTeX math from Word/Excel
-        if (html && (html.includes('mml:math') || html.includes('<math'))) {
+        console.log('📋 Paste Debug:', {
+          hasHTML: !!html,
+          hasText: !!text,
+          textPreview: text?.substring(0, 100),
+          htmlPreview: html?.substring(0, 200)
+        });
+
+        // PRIORITY 0: Direct detection of fractions with √ (Excel/plain text)
+        if (text && /[-−]?\d+\/√\d+/.test(text)) {
+          // Convert immediately to LaTeX for proper rendering
+          const latexConverted = text
+            .split(',')
+            .map(expr => {
+              const trimmed = expr.trim();
+              // Match: -1/√14 → $\frac{-1}{\sqrt{14}}$
+              return trimmed.replace(/([-−]?\d+)\/√(\d+)/g, '$\\frac{$1}{\\sqrt{$2}}$');
+            })
+            .join(', ');
+          
+          editor?.commands.insertContent(latexConverted);
+          toast.success('✅ Fraction with √ pasted as LaTeX!');
+          console.log('✅ Converted:', text, '→', latexConverted);
+          return true;
+        }
+
+        // PRIORITY 1: Enhanced MathML detection (include msqrt and &radic;)
+        if (html && (html.includes('mml:math') || html.includes('<math') || html.includes('msqrt') || html.includes('&radic;'))) {
           const mathMLRegex = /<math[^>]*>(.*?)<\/math>/gi;
           let extractedLaTeX = '';
           
@@ -193,9 +252,25 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           return true;
         }
 
-        // PRIORITY 3: Regular HTML/text
+        // PRIORITY 3: Text with √ symbols
+        if (text && text.includes('√')) {
+          // Convert √14 → $\sqrt{14}$
+          const latexText = text.replace(/√(\d+)/g, '$\\sqrt{$1}$');
+          editor?.commands.insertContent(latexText);
+          toast.success('✅ √ converted to LaTeX!');
+          return true;
+        }
+
+        // PRIORITY 4: Regular HTML/text
         if (html) {
-          let cleanedHTML = cleanPastedHTML(html);
+          let cleanedHTML = cleanPastedHTML(html); // Now preserves √!
+          
+          // Double-check: if √ still present, convert to LaTeX
+          if (cleanedHTML.includes('√')) {
+            cleanedHTML = cleanedHTML.replace(/√(\d+)/g, '$\\sqrt{$1}$');
+            cleanedHTML = cleanedHTML.replace(/([-−]?\d+)\/√(\d+)/g, '$\\frac{$1}{\\sqrt{$2}}$');
+          }
+          
           let extractedText = convertUnicodeToNotation(cleanedHTML);
           editor?.commands.insertContent(extractedText);
           toast.success('✅ Text pasted and cleaned');
@@ -509,14 +584,16 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       <EditorContent editor={editor} className="min-h-[80px]" />
       
       {/* Helper text */}
-      <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/20 border-t">
-        💡 <strong>Math Support:</strong> Type{' '}
-        <kbd className="px-1 py-0.5 bg-background border rounded text-xs">$x^2$</kbd> for inline,{' '}
-        <kbd className="px-1 py-0.5 bg-background border rounded text-xs">$$...$$</kbd> for block math.
-        <br />
-        Quick buttons: √ (root), / (fraction), → (vector), x² (power), H₂ (subscript)
-        <br />
-        ✨ <strong>Paste from Word/Excel equation editor fully supported!</strong>
+      <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/20 border-t space-y-1">
+        <div>
+          💡 <strong>Math Support:</strong> Use <kbd className="px-1 py-0.5 bg-muted rounded">$...$</kbd> for inline math, <kbd className="px-1 py-0.5 bg-muted rounded">$$...$$</kbd> for block
+        </div>
+        <div className="text-[10px] opacity-80">
+          Examples: <code>$x^2$</code> → x², <code>$\sqrt{'{14}'}$</code> → √14 with vinculum, <code>$\frac{'{a}'}{'{b}'}$</code> → fraction
+        </div>
+        <div className="text-[10px] opacity-80">
+          ✨ <strong>Paste from Excel/Word:</strong> Math expressions like -1/√14 auto-convert to LaTeX!
+        </div>
       </div>
 
       {/* Math Formula Helper Dialog */}

@@ -104,6 +104,45 @@
   vertical-align: baseline;
 }
 
+/* KaTeX rendering in TipTap editor */
+.ProseMirror .katex {
+  font-size: 1em !important;
+  line-height: 1.5 !important;
+}
+
+.ProseMirror .katex .sqrt {
+  display: inline-flex;
+  align-items: flex-start;
+  vertical-align: middle;
+}
+
+.ProseMirror .katex .sqrt > .sqrt-sign {
+  font-size: 1.4em;
+  margin-right: -0.05em;
+  vertical-align: top;
+  position: relative;
+  top: -0.05em;
+}
+
+.ProseMirror .katex .sqrt > .vlist {
+  border-top: 2px solid currentColor !important;
+  padding-top: 0.2em;
+}
+
+/* Math node styling in editor */
+.ProseMirror .math-node {
+  display: inline-block;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 3px;
+  padding: 0.1em 0.2em;
+  margin: 0 0.1em;
+}
+
+.ProseMirror .math-node.ProseMirror-selectednode {
+  background: rgba(59, 130, 246, 0.15);
+  outline: 2px solid rgba(59, 130, 246, 0.4);
+}
+
 /* Educational Learning Platform Design System */
 
 @layer base {

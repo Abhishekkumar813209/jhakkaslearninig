@@ -19,14 +19,15 @@ const renderWithImages = (html: string): string => {
   let i = 0;
   
   // Tokenize <img> and <br> tags to preserve them
+  // Use § separator instead of _ to avoid conflicts with subscript rendering
   const withTokens = html
     .replace(/<img[^>]*>/gi, (img) => { 
-      const k = `__IMG_TOKEN_${i++}__`; 
+      const k = `IMG§${i++}§`; 
       tokens[k] = img; 
       return k; 
     })
     .replace(/<br\s*\/?>/gi, (br) => { 
-      const k = `__BR_TOKEN_${i++}__`; 
+      const k = `BR§${i++}§`; 
       tokens[k] = '<br />'; 
       return k; 
     });
@@ -37,9 +38,10 @@ const renderWithImages = (html: string): string => {
   // Apply math rendering
   let out = renderMath(textOnly);
   
-  // Restore image and break tokens
+  // Restore image and break tokens (escape special regex characters)
   for (const [k, v] of Object.entries(tokens)) {
-    out = out.replace(new RegExp(k, 'g'), v);
+    const escapedKey = k.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    out = out.replace(new RegExp(escapedKey, 'g'), v);
   }
   
   return out;

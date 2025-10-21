@@ -83,9 +83,12 @@ export const applySupSub = (t: string) => {
 
 /**
  * Converts vector notation to proper display with arrow above
- * Handles: →r, →i, →j, \vec{OP}, OP^→, (OP)^→, vector{AB}
+ * Handles: →r, →i, →j, \vec{OP}, OP^→, (OP)^→, vector{AB}, r⃗ (Unicode combining)
  */
 export const applyVectorNotation = (t: string): string => {
+  // Pattern 0: Unicode combining arrow (U+20D7) r⃗ → vector span
+  t = t.replace(/([A-Za-z])\s*[\u20D7]/g, '<span class="vector">$1</span>');
+  
   // Pattern 1: Arrow-prefix notation →r, →i, →j, →k (PRIORITY - most common in typed equations)
   t = t.replace(/→\s*([A-Za-z])/g, '<span class="vector">$1</span>');
   
@@ -98,6 +101,20 @@ export const applyVectorNotation = (t: string): string => {
   
   // Pattern 4: Text style vector{AB}
   t = t.replace(/vector\{([A-Za-z]{1,3})\}/g, '<span class="vector">$1</span>');
+  
+  return t;
+};
+
+/**
+ * Applies hat notation for unit vectors
+ * Handles: \hat{i}, \hat{j}, \hat{k}, î (Unicode combining)
+ */
+export const applyHatNotation = (t: string): string => {
+  // Pattern 1: Unicode combining circumflex (U+0302) î → \hat{i}
+  t = t.replace(/([A-Za-z])\s*[\u0302]/g, '<span class="hat">$1</span>');
+  
+  // Pattern 2: LaTeX \hat{i}, \hat{j}, \hat{k}
+  t = t.replace(/\\hat\{([A-Za-z])\}/g, '<span class="hat">$1</span>');
   
   return t;
 };
@@ -260,6 +277,9 @@ export const renderMath = (input: string): string => {
   
   // Step 2: Apply vector notation BEFORE trig normalization
   let cleaned = applyVectorNotation(protectedInput);
+  
+  // Step 2.5: Apply hat notation for unit vectors
+  cleaned = applyHatNotation(cleaned);
   
   // Step 3: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
   cleaned = normalizeTrigInverse(cleaned);

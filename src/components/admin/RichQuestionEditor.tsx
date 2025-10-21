@@ -274,6 +274,19 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           return true;
         }
 
+        // PRIORITY 0.3: Unicode combining marks (vectors with ⃗ and hats with ̂)
+        // Must come BEFORE Office Math to catch these specific cases
+        if (text && (/[\u20D7]/.test(text) || /[\u0302]/.test(text))) {
+          // Normalize combining marks to renderable notation
+          const normalized = text
+            .replace(/([A-Za-z])\s*[\u20D7]/g, '→$1')  // r⃗ → →r
+            .replace(/([ijkIJK])\s*[\u0302]/g, '\\hat{$1}');  // î → \hat{i}
+          editor?.commands.insertContent(normalized);
+          toast.success('✅ Vector/hat notation preserved!');
+          console.log('✅ Combining marks converted:', text, '→', normalized);
+          return true;
+        }
+
         // PRIORITY 0.5: Office Math detection (Word/Excel equations)
         // Detect Office Math markup before it gets destroyed by cleanPastedHTML
         if (html && (/<m:|m:oMath|oMath/i.test(html) || html.includes('EquationNative'))) {

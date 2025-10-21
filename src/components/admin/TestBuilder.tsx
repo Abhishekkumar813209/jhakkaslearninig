@@ -45,6 +45,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SmartQuestionExtractor } from './SmartQuestionExtractor';
+import { renderMath, stripLeadingOptionLabel } from '@/lib/mathRendering';
 
 interface Question {
   id?: string;
@@ -221,6 +222,13 @@ const TestBuilder: React.FC = () => {
 
   const handleBulkAddQuestions = async (questionsToAdd: any[]) => {
     let successCount = 0;
+    const totalCount = questionsToAdd.length;
+    
+    toast({
+      title: "Adding questions...",
+      description: `Processing ${totalCount} questions`,
+      duration: 5000
+    });
     
     for (const q of questionsToAdd) {
       try {
@@ -249,12 +257,21 @@ const TestBuilder: React.FC = () => {
         
         if (data?.success) {
           successCount++;
-          setQuestions(prev => [...prev, data.question]);
+        } else {
+          console.error('Failed to add question:', q.id, error);
         }
       } catch (error) {
         console.error('Failed to add question:', q.id, error);
       }
     }
+    
+    // Refresh questions list after bulk add
+    await fetchTestData();
+    
+    toast({
+      title: "Success!",
+      description: `Added ${successCount}/${totalCount} questions to test!`
+    });
     
     return successCount;
   };
@@ -933,7 +950,12 @@ const TestBuilder: React.FC = () => {
                               </Badge>
                             )}
                           </div>
-                          <h4 className="font-medium">{question.question_text}</h4>
+                          <div 
+                            className="font-medium prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                              __html: renderMath(question.question_text)
+                            }}
+                          />
                           {question.image_url && (
                             <div className="mt-2">
                               <img 
@@ -954,7 +976,13 @@ const TestBuilder: React.FC = () => {
                                       : 'bg-gray-50 border-gray-200'
                                   }`}
                                 >
-                                  {String.fromCharCode(65 + optIndex)}. {option.text}
+                                  <span className="font-medium">{String.fromCharCode(65 + optIndex)}. </span>
+                                  <span 
+                                    className="font-sans"
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: renderMath(stripLeadingOptionLabel(option.text)) 
+                                    }} 
+                                  />
                                   {option.isCorrect && ' ✓'}
                                 </div>
                               ))}
@@ -968,7 +996,12 @@ const TestBuilder: React.FC = () => {
                           {question.explanation && (
                             <div className="p-3 mt-2 rounded-md bg-green-50 border border-green-200">
                               <p className="text-sm font-semibold text-green-900 mb-1">💡 Solution:</p>
-                              <p className="text-sm text-green-800">{question.explanation}</p>
+                              <div 
+                                className="text-sm text-green-800 prose prose-sm max-w-none"
+                                dangerouslySetInnerHTML={{
+                                  __html: renderMath(question.explanation || '')
+                                }}
+                              />
                             </div>
                           )}
                           {!question.explanation && (
@@ -1445,15 +1478,31 @@ const TestBuilder: React.FC = () => {
           <div className="px-6 pb-6 overflow-auto">
             <SmartQuestionExtractor
               mode="test-builder"
+              testId={testId}
+              testTitle={test?.title}
+              subject={test?.subject}
+              difficulty={test?.difficulty}
               onQuestionsAdded={async (questions) => {
                 const successCount = await handleBulkAddQuestions(questions);
-                setShowBulkExtractor(false);
-                await fetchTestData();
-                toast({
-                  title: "Success!",
-                  description: `Added ${successCount} questions to test!`
-                });
+                
+                if (successCount > 0) {
+                  // Close modal after a short delay to show success message
+                  setTimeout(() => {
+                    setShowBulkExtractor(false);
+                    toast({
+                      title: "Questions added!",
+                      description: `${successCount} questions are now in your test!`
+                    });
+                  }, 1000);
+                } else {
+                  toast({
+                    title: "Error",
+                    description: "Failed to add questions. Please try again.",
+                    variant: "destructive"
+                  });
+                }
               }}
+              onBackClick={() => setShowBulkExtractor(false)}
             />
           </div>
         </DialogContent>

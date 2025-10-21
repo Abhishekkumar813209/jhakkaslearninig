@@ -288,11 +288,11 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                 value={editedQuestion.question_text}
                 onChange={(e) => setEditedQuestion({ ...editedQuestion, question_text: e.target.value })}
                 rows={6}
-                placeholder="Enter the complete question text..."
+                placeholder="Enter question text... Use x^{2} for superscripts, H_{2}O for subscripts, (a-b)/c for fractions"
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Use ^ for superscripts (e.g., x^2), _ for subscripts. LaTeX preview coming soon.
+                💡 Math notation: <code className="bg-muted px-1 rounded">x^{"{2}"}</code> → x², <code className="bg-muted px-1 rounded">H_{"{2}"}O</code> → H₂O, <code className="bg-muted px-1 rounded">(a-b)/c</code> for fractions
               </p>
             </div>
 

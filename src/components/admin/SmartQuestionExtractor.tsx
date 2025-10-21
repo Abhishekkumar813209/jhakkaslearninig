@@ -1255,9 +1255,29 @@ export const SmartQuestionExtractor = ({
       return;
     }
 
-    // For test-builder mode, directly call parent callback
+    // For test-builder mode, validate and call parent callback
     if (mode === 'test-builder') {
+      // Validate: Check if all selected questions have answers
+      const questionsWithoutAnswers = selected.filter(q => !q.correct_answer);
+      
+      if (questionsWithoutAnswers.length > 0) {
+        toast.error(
+          `${questionsWithoutAnswers.length} questions don't have answers. Please add answers before saving.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+      
+      // Call parent callback - parent will handle saving and clearing
       onQuestionsAdded(selected);
+      
+      // Clear extracted questions AFTER successful save (triggered by parent)
+      setTimeout(() => {
+        setExtractedQuestions([]);
+        setSelectedIds([]);
+        clearProgress();
+      }, 1500);
+      
       return;
     }
 

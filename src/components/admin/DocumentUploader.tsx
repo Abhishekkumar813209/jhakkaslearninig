@@ -131,12 +131,11 @@ export const DocumentUploader = ({
       const data = await invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
         name: 'ai-extract-all-questions',
         body: {
-          documentText,
-          fileName: file.name,
-          topicId: topicContext?.topicId,
-          topicName: topicContext?.topicName,
-          chapterId: topicContext?.chapterId,
-          subjectId: topicContext?.subjectId,
+          file_content: documentText,
+          file_name: file.name,
+          topic: topicContext?.topicName,
+          chapter: topicContext?.chapterId,
+          subject: topicContext?.subjectId,
         }
       });
 

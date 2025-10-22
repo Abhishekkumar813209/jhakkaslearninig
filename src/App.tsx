@@ -4,10 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { Suspense, lazy } from "react";
 import Index from "./pages/Index";
 import Courses from "./pages/Courses";
-import AdminCourses from "./pages/AdminCourses";
-import AdminDashboard from "./pages/AdminDashboard";
 import Quiz from "./pages/Quiz";
 import About from "./pages/About";
 import Login from "./pages/Login";
@@ -40,7 +39,12 @@ import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRed
 import DatabaseExplorer from "./pages/DatabaseExplorer";
 import TestAnalyticsHistory from "./pages/TestAnalyticsHistory";
 import TestQuestionReview from "./pages/TestQuestionReview";
-import AnswerManagement from "./pages/AnswerManagement";
+
+// Lazy load heavy admin pages to prevent them from affecting public routes
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminCourses = lazy(() => import("./pages/AdminCourses"));
+const AnswerManagement = lazy(() => import("./pages/AnswerManagement"));
+const SolutionManagement = lazy(() => import("./pages/SolutionManagement"));
 
 const queryClient = new QueryClient();
 
@@ -165,15 +169,26 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Admin routes - require admin access */}
+            {/* Admin routes - require admin access - Lazy loaded */}
             <Route path="/admin" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
-                <AdminDashboard />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <AdminDashboard />
+                </Suspense>
               </ProtectedRoute>
             } />
             <Route path="/admin/courses" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
-                <AdminCourses />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <AdminCourses />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/solution-management" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <SolutionManagement />
+                </Suspense>
               </ProtectedRoute>
             } />
             <Route path="/admin/test-builder/:testId" element={
@@ -193,7 +208,9 @@ const App = () => (
             } />
             <Route path="/admin/answer-management" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
-                <AnswerManagement />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <AnswerManagement />
+                </Suspense>
               </ProtectedRoute>
             } />
             <Route path="/quiz" element={

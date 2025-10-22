@@ -121,7 +121,8 @@ const menuGroups: MenuGroup[] = [
 // Separate navigation items (not tabs)
 const navigationItems = [
   { path: "/database-explorer", label: "Database Explorer", icon: Database },
-  { path: "/admin/answer-management", label: "Answer Management", icon: CheckCircle },
+  { path: "/admin/solution-management", label: "Solution Management", icon: CheckCircle },
+  { path: "/admin/courses", label: "Course Builder", icon: GraduationCap },
 ];
 
 interface AdminSidebarProps {

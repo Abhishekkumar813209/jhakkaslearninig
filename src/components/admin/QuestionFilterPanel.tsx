@@ -251,8 +251,8 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Batches</SelectItem>
-                {batches.map((batch) => (
-                  <SelectItem key={batch.id} value={batch.id}>
+                {batches.filter(b => b && b.id).map((batch) => (
+                  <SelectItem key={batch.id} value={String(batch.id)}>
                     {batch.name}
                   </SelectItem>
                 ))}
@@ -295,8 +295,8 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Chapters</SelectItem>
-                {chapters.map((chapter) => (
-                  <SelectItem key={chapter.id} value={chapter.id}>
+                {chapters.filter(c => c && c.id).map((chapter) => (
+                  <SelectItem key={chapter.id} value={String(chapter.id)}>
                     {chapter.chapter_name}
                   </SelectItem>
                 ))}
@@ -317,8 +317,8 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Topics</SelectItem>
-                {topics.map((topic) => (
-                  <SelectItem key={topic.id} value={topic.id}>
+                {topics.filter(t => t && t.id).map((topic) => (
+                  <SelectItem key={topic.id} value={String(topic.id)}>
                     {topic.topic_name}
                   </SelectItem>
                 ))}

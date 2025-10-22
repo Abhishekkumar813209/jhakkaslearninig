@@ -2010,6 +2010,7 @@ export type Database = {
       }
       question_bank: {
         Row: {
+          admin_reviewed: boolean | null
           batch_id: string | null
           chapter_id: string | null
           correct_answer: string | null
@@ -2025,12 +2026,15 @@ export type Database = {
           options: Json | null
           question_text: string
           question_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           source_file_name: string | null
           subject: string | null
           topic_id: string | null
           updated_at: string | null
         }
         Insert: {
+          admin_reviewed?: boolean | null
           batch_id?: string | null
           chapter_id?: string | null
           correct_answer?: string | null
@@ -2046,12 +2050,15 @@ export type Database = {
           options?: Json | null
           question_text: string
           question_type: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source_file_name?: string | null
           subject?: string | null
           topic_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          admin_reviewed?: boolean | null
           batch_id?: string | null
           chapter_id?: string | null
           correct_answer?: string | null
@@ -2067,6 +2074,8 @@ export type Database = {
           options?: Json | null
           question_text?: string
           question_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source_file_name?: string | null
           subject?: string | null
           topic_id?: string | null
@@ -2086,6 +2095,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "roadmap_chapters"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "question_bank_topic_id_fkey"
@@ -4916,10 +4946,7 @@ export type Database = {
         Args: { p_student_id: string; p_topic_id: string }
         Returns: string
       }
-      calculate_zone_rankings: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      calculate_zone_rankings: { Args: never; Returns: undefined }
       can_see_question_answers: {
         Args: { question_test_id: string }
         Returns: boolean
@@ -4928,10 +4955,7 @@ export type Database = {
         Args: { test_id_param: string }
         Returns: boolean
       }
-      check_batch_capacity: {
-        Args: { p_batch_id: string }
-        Returns: undefined
-      }
+      check_batch_capacity: { Args: { p_batch_id: string }; Returns: undefined }
       complete_withdrawal: {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined
@@ -4940,14 +4964,8 @@ export type Database = {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined
       }
-      exec_raw_sql: {
-        Args: { sql_query: string }
-        Returns: Json
-      }
-      generate_monthly_fees: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      exec_raw_sql: { Args: { sql_query: string }; Returns: Json }
+      generate_monthly_fees: { Args: never; Returns: undefined }
       get_accessible_leaderboard_tests: {
         Args: { user_id_param: string }
         Returns: {
@@ -4957,7 +4975,7 @@ export type Database = {
         }[]
       }
       get_accessible_roadmaps: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           ai_generated_plan: Json
           batch_id: string
@@ -5005,10 +5023,7 @@ export type Database = {
         Args: { student_id_param: string }
         Returns: boolean
       }
-      has_completed_test: {
-        Args: { test_id_param: string }
-        Returns: boolean
-      }
+      has_completed_test: { Args: { test_id_param: string }; Returns: boolean }
       has_role: {
         Args: {
           check_role: Database["public"]["Enums"]["user_role"]
@@ -5020,10 +5035,7 @@ export type Database = {
         Args: { student_id_param: string }
         Returns: boolean
       }
-      increment_promo_usage: {
-        Args: { code: string }
-        Returns: undefined
-      }
+      increment_promo_usage: { Args: { code: string }; Returns: undefined }
       increment_student_xp: {
         Args: { student_id: string; xp_amount: number }
         Returns: undefined
@@ -5036,10 +5048,7 @@ export type Database = {
         Args: { p_amount: number; p_student_id: string }
         Returns: boolean
       }
-      refill_hearts: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      refill_hearts: { Args: never; Returns: undefined }
       reorder_lectures: {
         Args: { course_id_param: string; lecture_ids: string[] }
         Returns: undefined
@@ -5057,10 +5066,7 @@ export type Database = {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined
       }
-      update_battery_level: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      update_battery_level: { Args: never; Returns: undefined }
       update_daily_study_log: {
         Args: {
           p_lessons_watched?: number

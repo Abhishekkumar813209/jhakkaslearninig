@@ -59,8 +59,7 @@ interface Question {
   topic_id?: string;
   roadmap_topics?: {
     topic_name: string;
-    subject: string;
-    chapter: {
+    chapter?: {
       chapter_name: string;
     };
   };
@@ -514,13 +513,13 @@ export const AnswerManagementPanel = () => {
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
                                   <BreadcrumbPage className="text-muted-foreground">
-                                    {question.roadmap_topics.subject}
+                                    {question.subject}
                                   </BreadcrumbPage>
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator />
                                 <BreadcrumbItem>
                                   <BreadcrumbPage className="text-muted-foreground">
-                                    {question.roadmap_topics.chapter.chapter_name}
+                                    {question.roadmap_topics.chapter?.chapter_name ?? '—'}
                                   </BreadcrumbPage>
                                 </BreadcrumbItem>
                                 <BreadcrumbSeparator />

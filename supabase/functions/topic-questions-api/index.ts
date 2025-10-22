@@ -565,7 +565,7 @@ serve(async (req) => {
       
       console.log('🔍 Filtering questions:', { exam_domain, batch_id, subject, chapter_id, topic_id, answer_status, search_term });
 
-      let query = serviceClient.from('generated_questions').select('*, roadmap_topics!inner(topic_name, subject, chapter:roadmap_chapters!inner(chapter_name))', { count: 'exact' });
+      let query = serviceClient.from('generated_questions').select('*, roadmap_topics!inner(topic_name, chapter:roadmap_chapters!inner(chapter_name))', { count: 'exact' });
 
       // Apply filters
       if (exam_domain) query = query.eq('exam_domain', exam_domain);

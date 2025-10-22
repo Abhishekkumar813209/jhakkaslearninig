@@ -107,7 +107,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
         )}
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground">
             <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
@@ -118,34 +118,38 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
             <p>No data found</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map(col => (
-                  <TableHead key={col.name} className="min-w-[150px]">
-                    {col.name}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((row, idx) => (
-                <TableRow 
-                  key={idx}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => onRowSelect?.(row)}
-                >
-                  {columns.map(col => (
-                    <TableCell key={col.name} className="font-mono text-xs">
-                      {formatValue(row[col.name])}
-                    </TableCell>
+          <ScrollArea className="h-full">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {columns.map(col => (
+                      <TableHead key={col.name} className="min-w-[150px] whitespace-nowrap">
+                        {col.name}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.map((row, idx) => (
+                    <TableRow 
+                      key={idx}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => onRowSelect?.(row)}
+                    >
+                      {columns.map(col => (
+                        <TableCell key={col.name} className="font-mono text-xs whitespace-nowrap">
+                          {formatValue(row[col.name])}
+                        </TableCell>
+                      ))}
+                    </TableRow>
                   ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableBody>
+              </Table>
+            </div>
+          </ScrollArea>
         )}
-      </ScrollArea>
+      </div>
     </Card>
   );
 }

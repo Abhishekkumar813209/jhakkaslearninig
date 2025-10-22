@@ -12,6 +12,7 @@ import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 const databaseSchema = {
   profiles: {
@@ -419,212 +420,214 @@ const DatabaseExplorer = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-6 flex gap-6 overflow-hidden">
-            {/* Left: Database Viewer (60%) */}
-            <div className="flex-[3] flex flex-col gap-4 min-w-0 overflow-hidden">
-              <TableSelector value={selectedTable} onChange={setSelectedTable} />
-              
-              <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="grid w-full grid-cols-3 shrink-0">
-                  <TabsTrigger value="data">Live Data</TabsTrigger>
-                  <TabsTrigger value="columns">Column Details</TabsTrigger>
-                  <TabsTrigger value="flows">User Flows</TabsTrigger>
-                </TabsList>
+      <main className="flex-1 p-6 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="h-full gap-6">
+          {/* Left: Database Viewer (60%) */}
+          <ResizablePanel defaultSize={60} minSize={30} className="flex flex-col gap-4 min-w-0 overflow-hidden">
+            <TableSelector value={selectedTable} onChange={setSelectedTable} />
+            
+            <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="grid w-full grid-cols-3 shrink-0">
+                <TabsTrigger value="data">Live Data</TabsTrigger>
+                <TabsTrigger value="columns">Column Details</TabsTrigger>
+                <TabsTrigger value="flows">User Flows</TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="data" className="flex-1 mt-4 overflow-hidden">
-                  <TableDataViewer 
-                    tableName={selectedTable} 
-                    onRowSelect={setSelectedRow}
-                  />
-                </TabsContent>
+              <TabsContent value="data" className="flex-1 mt-4 overflow-hidden">
+                <TableDataViewer 
+                  tableName={selectedTable} 
+                  onRowSelect={setSelectedRow}
+                />
+              </TabsContent>
 
-                <TabsContent value="columns" className="flex-1 mt-4 overflow-auto">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Column-Level Documentation</CardTitle>
-                      <CardDescription>
-                        Understand why each column exists and what breaks without it
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Accordion type="multiple" className="w-full">
-                        {Object.entries(columnDocumentation).map(([tableName, columns]) => (
-                          <AccordionItem key={tableName} value={tableName}>
-                            <AccordionTrigger className="text-lg font-semibold">
-                              {tableName}
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4">
-                                {Object.entries(columns).map(([colName, doc]: [string, any]) => (
-                                  <div key={colName} className="border-l-4 border-primary/20 pl-4 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <code className="bg-muted px-2 py-1 rounded text-sm font-mono">
-                                        {colName}
-                                      </code>
-                                      <Badge variant={
-                                        doc.criticality === 'critical' ? 'destructive' :
-                                        doc.criticality === 'important' ? 'default' : 'outline'
-                                      }>
-                                        {doc.criticality}
-                                      </Badge>
-                                    </div>
-                                    <p className="text-sm"><strong>Why:</strong> {doc.why}</p>
-                                    <div className="text-sm">
+              <TabsContent value="columns" className="flex-1 mt-4 overflow-auto">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Column-Level Documentation</CardTitle>
+                    <CardDescription>
+                      Understand why each column exists and what breaks without it
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Accordion type="multiple" className="w-full">
+                      {Object.entries(columnDocumentation).map(([table, columns]) => (
+                        <AccordionItem key={table} value={table}>
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">{table}</Badge>
+                              <span className="text-sm text-muted-foreground">{Object.keys(columns).length} critical columns</span>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4 pt-2">
+                              {Object.entries(columns).map(([colName, col]: [string, any]) => (
+                                <div key={colName} className="border-l-2 border-primary pl-4 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <code className="text-sm font-mono bg-muted px-2 py-1 rounded">{colName}</code>
+                                    <Badge variant={col.criticality === 'critical' ? 'destructive' : 'secondary'}>
+                                      {col.criticality}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{col.why}</p>
+                                  <Alert variant={col.criticality === 'critical' ? 'destructive' : 'default'}>
+                                    <AlertDescription>
                                       <strong>Without it:</strong>
-                                      <ul className="list-disc list-inside space-y-1 mt-1 text-muted-foreground">
-                                        {doc.without.map((issue: string, i: number) => (
-                                          <li key={i}>{issue}</li>
+                                      <ul className="list-disc list-inside mt-1">
+                                        {col.without.map((item: string, idx: number) => (
+                                          <li key={idx}>{item}</li>
                                         ))}
                                       </ul>
-                                    </div>
-                                    <Alert>
-                                      <AlertDescription>
-                                        <strong>Example:</strong> {doc.example}
-                                      </AlertDescription>
-                                    </Alert>
+                                    </AlertDescription>
+                                  </Alert>
+                                  {col.example && (
+                                    <p className="text-xs text-muted-foreground italic">Example: {col.example}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="question-system" className="flex-1 mt-4 overflow-auto px-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      {questionExtractionDocs.title}
+                    </CardTitle>
+                    <CardDescription>{questionExtractionDocs.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">📊 Database Tables</h3>
+                      <div className="space-y-4">
+                        {questionExtractionDocs.tables.map((table: any) => (
+                          <Card key={table.name}>
+                            <CardHeader>
+                              <CardTitle className="text-base">{table.name}</CardTitle>
+                              <CardDescription>{table.description}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                {table.columns.map((col: any) => (
+                                  <div key={col.name} className="flex gap-2 text-sm">
+                                    <Badge variant="outline">{col.name}</Badge>
+                                    <span className="text-muted-foreground">{col.type}</span>
+                                    <span>- {col.description}</span>
                                   </div>
                                 ))}
                               </div>
-                            </AccordionContent>
-                          </AccordionItem>
+                            </CardContent>
+                          </Card>
                         ))}
-                      </Accordion>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="question-system" className="flex-1 mt-4 overflow-auto px-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Database className="h-5 w-5" />
-                        {questionExtractionDocs.title}
-                      </CardTitle>
-                      <CardDescription>{questionExtractionDocs.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3">📊 Database Tables</h3>
-                        <div className="space-y-4">
-                          {questionExtractionDocs.tables.map((table: any) => (
-                            <Card key={table.name}>
-                              <CardHeader>
-                                <CardTitle className="text-base">{table.name}</CardTitle>
-                                <CardDescription>{table.description}</CardDescription>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="space-y-2">
-                                  {table.columns.map((col: any) => (
-                                    <div key={col.name} className="flex gap-2 text-sm">
-                                      <Badge variant="outline">{col.name}</Badge>
-                                      <span className="text-muted-foreground">{col.type}</span>
-                                      <span>- {col.description}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
                       </div>
+                    </div>
 
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3">🔄 Workflow</h3>
-                        <div className="space-y-2">
-                          {questionExtractionDocs.workflow.map((step: string, idx: number) => (
-                            <Alert key={idx}>
-                              <AlertDescription>{step}</AlertDescription>
-                            </Alert>
-                          ))}
-                        </div>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">🔄 Workflow</h3>
+                      <div className="space-y-2">
+                        {questionExtractionDocs.workflow.map((step: string, idx: number) => (
+                          <Alert key={idx}>
+                            <AlertDescription>{step}</AlertDescription>
+                          </Alert>
+                        ))}
                       </div>
+                    </div>
 
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3">🔌 API Endpoints (topic-questions-api)</h3>
-                        <div className="space-y-2">
-                          {questionExtractionDocs.apiEndpoints.map((endpoint: any) => (
-                            <div key={endpoint.action} className="p-3 border rounded-md">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge>{endpoint.action}</Badge>
-                                <span className="text-sm text-muted-foreground">{endpoint.description}</span>
-                              </div>
-                              <code className="text-xs text-muted-foreground">{endpoint.params}</code>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">🔌 API Endpoints (topic-questions-api)</h3>
+                      <div className="space-y-2">
+                        {questionExtractionDocs.apiEndpoints.map((endpoint: any) => (
+                          <div key={endpoint.action} className="p-3 border rounded-md">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge>{endpoint.action}</Badge>
+                              <span className="text-sm text-muted-foreground">{endpoint.description}</span>
                             </div>
-                          ))}
-                        </div>
+                            <code className="text-xs text-muted-foreground">{endpoint.params}</code>
+                          </div>
+                        ))}
                       </div>
+                    </div>
 
-                      <div>
-                        <h3 className="text-lg font-semibold mb-3">🔒 Security</h3>
-                        <div className="space-y-2">
-                          {questionExtractionDocs.securityNotes.map((note: string, idx: number) => (
-                            <Alert key={idx} variant={note.includes('⚠️') ? 'destructive' : 'default'}>
-                              <AlertDescription>{note}</AlertDescription>
-                            </Alert>
-                          ))}
-                        </div>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">🔒 Security</h3>
+                      <div className="space-y-2">
+                        {questionExtractionDocs.securityNotes.map((note: string, idx: number) => (
+                          <Alert key={idx} variant={note.includes('⚠️') ? 'destructive' : 'default'}>
+                            <AlertDescription>{note}</AlertDescription>
+                          </Alert>
+                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                <TabsContent value="flows" className="flex-1 mt-4 overflow-auto">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Critical Data Flows</CardTitle>
-                      <CardDescription>
-                        Understand how data moves through the system
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div>
-                        <h3 className="font-semibold mb-2">📝 Student Signup Flow</h3>
-                        <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
-                          <p>1. User signs up → <code className="bg-muted px-1">auth.users</code> created</p>
-                          <p>2. Trigger fires → <code className="bg-muted px-1">profiles</code> row created</p>
-                          <p>3. Batch auto-assigned → <code className="bg-muted px-1">profiles.batch_id</code> updated</p>
-                          <p>4. Roadmap synced → <code className="bg-muted px-1">student_roadmaps</code> entry created</p>
-                          <p>5. Initialize rewards → <code className="bg-muted px-1">student_xp_coins</code> created</p>
-                        </div>
+              <TabsContent value="flows" className="flex-1 mt-4 overflow-auto">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Critical Data Flows</CardTitle>
+                    <CardDescription>
+                      Understand how data moves through the system
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <h3 className="font-semibold mb-2">📝 Student Signup Flow</h3>
+                      <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
+                        <p>1. User signs up → <code className="bg-muted px-1">auth.users</code> created</p>
+                        <p>2. Trigger fires → <code className="bg-muted px-1">profiles</code> row created</p>
+                        <p>3. Batch auto-assigned → <code className="bg-muted px-1">profiles.batch_id</code> updated</p>
+                        <p>4. Roadmap synced → <code className="bg-muted px-1">student_roadmaps</code> entry created</p>
+                        <p>5. Initialize rewards → <code className="bg-muted px-1">student_xp_coins</code> created</p>
                       </div>
+                    </div>
 
-                      <div>
-                        <h3 className="font-semibold mb-2">🎮 Game Completion Flow</h3>
-                        <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
-                          <p>1. Student plays game → Answer submitted</p>
-                          <p>2. Correct answer → XP/coins added</p>
-                          <p>3. Game ID added to completed list</p>
-                          <p>4. All games done → Topic marked complete</p>
-                          <p>5. Roadmap progress updated</p>
-                        </div>
+                    <div>
+                      <h3 className="font-semibold mb-2">🎮 Game Completion Flow</h3>
+                      <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
+                        <p>1. Student plays game → Answer submitted</p>
+                        <p>2. Correct answer → XP/coins added</p>
+                        <p>3. Game ID added to completed list</p>
+                        <p>4. All games done → Topic marked complete</p>
+                        <p>5. Roadmap progress updated</p>
                       </div>
+                    </div>
 
-                      <div>
-                        <h3 className="font-semibold mb-2">📊 Test Attempt Flow</h3>
-                        <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
-                          <p>1. Student starts test → <code className="bg-muted px-1">test_attempts</code> created</p>
-                          <p>2. Answers saved → Array updated</p>
-                          <p>3. Submit → Score calculated</p>
-                          <p>4. Analytics updated → Rankings recalculated</p>
-                        </div>
+                    <div>
+                      <h3 className="font-semibold mb-2">📊 Test Attempt Flow</h3>
+                      <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
+                        <p>1. Student starts test → <code className="bg-muted px-1">test_attempts</code> created</p>
+                        <p>2. Answers saved → Array updated</p>
+                        <p>3. Submit → Score calculated</p>
+                        <p>4. Analytics updated → Rankings recalculated</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </ResizablePanel>
 
-            {/* Right: AI Assistant (40%) */}
-            <div className="flex-[2] overflow-hidden">
-              <AIAssistantPanel 
-                context={{
-                  tableName: selectedTable || undefined,
-                  selectedRow: selectedRow,
-                  tableCount: undefined
-                }}
-              />
-            </div>
-          </main>
+          <ResizableHandle withHandle className="bg-border" />
+
+          {/* Right: AI Assistant (40%) */}
+          <ResizablePanel defaultSize={40} minSize={25} className="overflow-hidden">
+            <AIAssistantPanel 
+              context={{
+                tableName: selectedTable || undefined,
+                selectedRow: selectedRow,
+                tableCount: undefined
+              }}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </main>
         </div>
     );
 };

@@ -8,6 +8,24 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import Image from '@tiptap/extension-image';
 import { Mathematics } from '@tiptap/extension-mathematics';
+
+// Custom Image extension with responsive styling
+const CustomImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      style: {
+        default: 'max-width: 100%; height: auto; display: block; margin: 0.5rem 0;',
+        parseHTML: element => element.style.cssText,
+        renderHTML: attributes => {
+          return {
+            style: attributes.style || 'max-width: 100%; height: auto; display: block; margin: 0.5rem 0;'
+          };
+        }
+      }
+    };
+  }
+});
 import 'katex/dist/katex.min.css';
 import { Button } from '@/components/ui/button';
 import { 
@@ -252,7 +270,7 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           }
         }
       }),
-      Image.configure({
+      CustomImage.configure({
         inline: true,
         allowBase64: true,
         HTMLAttributes: {

@@ -538,7 +538,7 @@ const OnlineTestInterface: React.FC = () => {
             <div className="p-3 space-y-6">
             {/* Question Text */}
             <div 
-              className="text-lg leading-relaxed"
+              className="text-lg leading-relaxed question-content prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
             />
 

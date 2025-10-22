@@ -664,7 +664,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
                 onScrollCapture={handleTheoryScroll}
               >
                 <div 
-                  className="prose prose-sm dark:prose-invert max-w-none"
+                  className="prose prose-sm dark:prose-invert max-w-none question-content"
                   dangerouslySetInnerHTML={{ __html: content?.content_html || content?.content_text || "" }}
                 />
               </ScrollArea>

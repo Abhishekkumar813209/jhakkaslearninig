@@ -463,3 +463,37 @@ sub {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* TipTap editor image styling */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  margin: 0.5rem 0;
+  display: block;
+  object-fit: contain;
+}
+
+/* Prose content images (for rendered questions) */
+.prose img,
+.question-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  margin: 0.75rem auto;
+  display: block;
+  box-shadow: var(--shadow-soft);
+}
+
+/* Mobile-specific constraints */
+@media (max-width: 640px) {
+  .ProseMirror img,
+  .prose img,
+  .question-content img {
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+  }
+}

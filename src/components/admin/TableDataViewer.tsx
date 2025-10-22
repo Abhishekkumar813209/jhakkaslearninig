@@ -34,19 +34,36 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
   const handleCellSave = async (newValue: any) => {
     if (!editingCell || !tableName) return;
 
+    const oldValue = editingCell.value;
+    const rowId = editingCell.row.id;
+    const column = editingCell.column;
+
+    // Optimistic update - update UI immediately
+    setEditingCell(null);
+    const originalData = [...data];
+    const updatedData = data.map(row => 
+      row.id === rowId 
+        ? { ...row, [column]: newValue }
+        : row
+    );
+    // Note: We can't directly set data here as it comes from the hook,
+    // but we'll show the toast and refresh
+
     try {
       const { error } = await (supabase as any)
         .from(tableName)
-        .update({ [editingCell.column]: newValue })
-        .eq('id', editingCell.row.id);
+        .update({ [column]: newValue })
+        .eq('id', rowId);
 
       if (error) throw error;
 
-      toast.success('Cell updated successfully');
-      refresh();
+      toast.success(`✅ Updated ${column} in ${tableName} table`);
+      // Refresh to ensure database and UI are in sync
+      setTimeout(() => refresh(), 300);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update cell');
-      throw error;
+      toast.error(`❌ Update failed: ${error.message || 'Unknown error'}`);
+      // Refresh to revert UI
+      refresh();
     }
   };
 
@@ -132,7 +149,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">
               <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
@@ -143,47 +160,45 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
               <p>No data found</p>
             </div>
           ) : (
-            <ScrollArea className="h-full w-full">
-              <div className="overflow-x-auto">
-                <Table className="min-w-max">
-                  <TableHeader>
-                    <TableRow>
+            <div className="min-w-max">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {columns.map(col => (
+                      <TableHead key={col.name} className="min-w-[150px] whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {col.name}
+                          <Badge variant="outline" className="text-xs">
+                            {col.type}
+                          </Badge>
+                        </div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.map((row, idx) => (
+                    <TableRow key={idx}>
                       {columns.map(col => (
-                        <TableHead key={col.name} className="min-w-[150px] whitespace-nowrap">
+                        <TableCell 
+                          key={col.name} 
+                          className="font-mono text-xs whitespace-nowrap group cursor-pointer hover:bg-accent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellClick(row, col.name, row[col.name]);
+                          }}
+                        >
                           <div className="flex items-center gap-2">
-                            {col.name}
-                            <Badge variant="outline" className="text-xs">
-                              {col.type}
-                            </Badge>
+                            <span>{formatValue(row[col.name])}</span>
+                            <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
                           </div>
-                        </TableHead>
+                        </TableCell>
                       ))}
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.map((row, idx) => (
-                      <TableRow key={idx}>
-                        {columns.map(col => (
-                          <TableCell 
-                            key={col.name} 
-                            className="font-mono text-xs whitespace-nowrap group cursor-pointer hover:bg-accent"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCellClick(row, col.name, row[col.name]);
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>{formatValue(row[col.name])}</span>
-                              <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
-                            </div>
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </ScrollArea>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
 

@@ -402,9 +402,9 @@ const DatabaseExplorer = () => {
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
   return (
-    <div className="min-h-screen w-full bg-background">
+    <div className="h-screen w-full bg-background flex flex-col">
       {/* Header with back button */}
-      <header className="h-14 border-b border-border bg-card px-6 flex items-center gap-4 sticky top-0 z-10">
+      <header className="h-14 border-b border-border bg-card px-6 flex items-center gap-4 sticky top-0 z-10 shrink-0">
         <Button
           variant="ghost"
           size="sm"
@@ -420,7 +420,7 @@ const DatabaseExplorer = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-6 overflow-hidden">
+      <main className="flex-1 p-6 overflow-hidden min-h-0">
         <ResizablePanelGroup direction="horizontal" className="h-full gap-6">
           {/* Left: Database Viewer (60%) */}
           <ResizablePanel defaultSize={60} minSize={30} className="flex flex-col gap-4 min-w-0 overflow-hidden">
@@ -617,8 +617,8 @@ const DatabaseExplorer = () => {
           <ResizableHandle withHandle className="bg-border" />
 
           {/* Right: AI Assistant (40%) */}
-          <ResizablePanel defaultSize={40} minSize={25} className="overflow-hidden">
-            <AIAssistantPanel 
+          <ResizablePanel defaultSize={40} minSize={25} className="overflow-hidden flex flex-col h-full">
+            <AIAssistantPanel
               context={{
                 tableName: selectedTable || undefined,
                 selectedRow: selectedRow,

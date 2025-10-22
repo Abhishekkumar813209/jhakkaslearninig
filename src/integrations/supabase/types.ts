@@ -5062,6 +5062,7 @@ export type Database = {
           phone_number: string
         }[]
       }
+      strip_html_tags: { Args: { text_with_html: string }; Returns: string }
       unlock_credits_for_withdrawal: {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined

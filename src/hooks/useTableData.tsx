@@ -10,6 +10,12 @@ export interface TableColumn {
   default_value: string | null;
 }
 
+export interface FilterCondition {
+  column: string;
+  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'in' | 'is';
+  value: any;
+}
+
 export function useTableData(tableName: string | null) {
   const [data, setData] = useState<any[]>([]);
   const [columns, setColumns] = useState<TableColumn[]>([]);
@@ -17,6 +23,7 @@ export function useTableData(tableName: string | null) {
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [filters, setFilters] = useState<FilterCondition[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -27,7 +34,7 @@ export function useTableData(tableName: string | null) {
     }
 
     fetchTableData();
-  }, [tableName, page, pageSize]);
+  }, [tableName, page, pageSize, filters]);
 
   const fetchTableData = async () => {
     if (!tableName) return;
@@ -37,11 +44,51 @@ export function useTableData(tableName: string | null) {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
       
-      // Fetch data using any type to bypass strict typing
-      const { data: tableData, error: dataError, count: totalCount } = await (supabase as any)
+      // Build query with filters
+      let query = (supabase as any)
         .from(tableName)
-        .select('*', { count: 'exact' })
-        .range(from, to);
+        .select('*', { count: 'exact' });
+
+      // Apply filters
+      filters.forEach(filter => {
+        switch (filter.operator) {
+          case 'eq':
+            query = query.eq(filter.column, filter.value);
+            break;
+          case 'neq':
+            query = query.neq(filter.column, filter.value);
+            break;
+          case 'gt':
+            query = query.gt(filter.column, filter.value);
+            break;
+          case 'lt':
+            query = query.lt(filter.column, filter.value);
+            break;
+          case 'gte':
+            query = query.gte(filter.column, filter.value);
+            break;
+          case 'lte':
+            query = query.lte(filter.column, filter.value);
+            break;
+          case 'like':
+            query = query.like(filter.column, `%${filter.value}%`);
+            break;
+          case 'ilike':
+            query = query.ilike(filter.column, `%${filter.value}%`);
+            break;
+          case 'in':
+            query = query.in(filter.column, filter.value);
+            break;
+          case 'is':
+            query = query.is(filter.column, filter.value);
+            break;
+        }
+      });
+
+      // Apply pagination
+      query = query.range(from, to);
+      
+      const { data: tableData, error: dataError, count: totalCount } = await query;
 
       if (dataError) throw dataError;
 
@@ -110,6 +157,11 @@ export function useTableData(tableName: string | null) {
     }
   };
 
+  const applyFilters = (newFilters: FilterCondition[]) => {
+    setFilters(newFilters);
+    setPage(1); // Reset to first page
+  };
+
   return {
     data,
     columns,
@@ -118,9 +170,11 @@ export function useTableData(tableName: string | null) {
     page,
     pageSize,
     totalPages: Math.ceil(count / pageSize),
+    filters,
     setPage,
     setPageSize,
     refresh: fetchTableData,
-    searchTable
+    searchTable,
+    applyFilters
   };
 }

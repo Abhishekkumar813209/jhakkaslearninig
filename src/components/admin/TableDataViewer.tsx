@@ -3,11 +3,12 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { useTableData } from '@/hooks/useTableData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EditCellDialog } from './EditCellDialog';
+import { DatabaseFilterPanel } from './DatabaseFilterPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,7 +21,8 @@ interface TableDataViewerProps {
 export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCell, setEditingCell] = useState<{ row: any; column: string; value: any } | null>(null);
-  const { data, columns, loading, count, page, pageSize, totalPages, setPage, setPageSize, refresh, searchTable } = useTableData(tableName);
+  const [showFilters, setShowFilters] = useState(false);
+  const { data, columns, loading, count, page, pageSize, totalPages, filters, setPage, setPageSize, refresh, searchTable, applyFilters } = useTableData(tableName);
 
   const handleSearch = () => {
     setPage(1);
@@ -120,8 +122,19 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold">{tableName}</h3>
               <Badge variant="outline">{count} rows</Badge>
+              {filters.length > 0 && (
+                <Badge variant="default">{filters.length} filter{filters.length > 1 ? 's' : ''}</Badge>
+              )}
             </div>
             <div className="flex gap-2">
+              <Button 
+                variant={showFilters ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
               <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
@@ -147,6 +160,16 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
             </div>
           </div>
         </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <DatabaseFilterPanel
+            tableName={tableName}
+            columns={columns}
+            currentFilters={filters}
+            onFiltersChange={applyFilters}
+          />
+        )}
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-auto">

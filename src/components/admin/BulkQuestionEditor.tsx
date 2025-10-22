@@ -94,10 +94,30 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
 
   // Sync with parent questions and normalize question types
   useEffect(() => {
-    const normalized = questions.map(q => ({
-      ...q,
-      question_type: (q.question_type?.toLowerCase() || 'mcq') as any
-    }));
+    const normalized = questions.map(q => {
+      const baseQuestion = {
+        ...q,
+        question_type: (q.question_type?.toLowerCase() || 'mcq') as any
+      };
+      
+      // Auto-initialize options for MCQ/assertion_reason if missing
+      if ((baseQuestion.question_type === 'mcq' || baseQuestion.question_type === 'assertion_reason') 
+          && (!baseQuestion.options || baseQuestion.options.length === 0)) {
+        baseQuestion.options = ['', '', '', ''];
+      }
+      
+      // Auto-initialize columns for match_column if missing
+      if (baseQuestion.question_type === 'match_column') {
+        if (!baseQuestion.left_column || baseQuestion.left_column.length === 0) {
+          baseQuestion.left_column = ['', '', '', ''];
+        }
+        if (!baseQuestion.right_column || baseQuestion.right_column.length === 0) {
+          baseQuestion.right_column = ['', '', '', ''];
+        }
+      }
+      
+      return baseQuestion;
+    });
     setEditableQuestions(normalized);
   }, [questions]);
 
@@ -508,7 +528,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
             </div>
             
             {/* MCQ Options */}
-            {(question.question_type === 'mcq' || question.options) && (
+            {(['mcq', 'assertion_reason'].includes(question.question_type) || question.options?.length > 0) && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Options</label>
                 {(question.options || ['', '', '', '']).map((opt, i) => (

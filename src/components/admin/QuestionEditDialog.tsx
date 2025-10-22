@@ -11,6 +11,7 @@ import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle, Eye } from 'lucide
 import { toast } from 'sonner';
 import { QuestionAnswerInput } from './QuestionAnswerInput';
 import { RichQuestionEditor } from './RichQuestionEditor';
+import { renderWithImages } from '@/lib/mathRendering';
 
 interface ExtractedQuestion {
   id: string;
@@ -349,31 +350,51 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
 
             {/* Type-Specific Fields */}
             {editedQuestion.question_type === 'mcq' && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
                   <Label>Options *</Label>
                   <Button variant="outline" size="sm" onClick={addOption}>
                     <Plus className="h-3 w-3 mr-1" />
                     Add Option
                   </Button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {editedQuestion.options?.map((option, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <Input
-                        value={option}
-                        onChange={(e) => updateOption(idx, e.target.value)}
-                        placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                        className="flex-1"
+                    <div key={idx} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">
+                          Option {String.fromCharCode(65 + idx)}
+                        </Label>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeOption(idx)}
+                          disabled={editedQuestion.options!.length <= 2}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <RichQuestionEditor
+                        content={option}
+                        onChange={(content) => updateOption(idx, content)}
+                        placeholder={`Enter option ${String.fromCharCode(65 + idx)}...`}
+                        compact
+                        forcePlainPaste={true}
+                        smartMathPaste={false}
                       />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeOption(idx)}
-                        disabled={editedQuestion.options!.length <= 2}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      
+                      {option && (
+                        <div className="p-2 bg-muted/20 rounded-md border border-border">
+                          <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                          <div 
+                            className="text-sm prose prose-sm max-w-none question-content"
+                            dangerouslySetInnerHTML={{ 
+                              __html: renderWithImages(option)
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -391,15 +412,33 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                     </Button>
                   </div>
                   {editedQuestion.left_column?.map((item, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <Input
-                        value={item}
-                        onChange={(e) => updateColumnItem('left', idx, e.target.value)}
-                        placeholder={`Item ${idx + 1}`}
+                    <div key={idx} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Item {idx + 1}</Label>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeColumnItem('left', idx)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <RichQuestionEditor
+                        content={item}
+                        onChange={(content) => updateColumnItem('left', idx, content)}
+                        placeholder={`Left item ${idx + 1}`}
+                        compact
+                        forcePlainPaste={true}
+                        smartMathPaste={false}
                       />
-                      <Button variant="ghost" size="icon" onClick={() => removeColumnItem('left', idx)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {item && (
+                        <div className="p-1.5 bg-muted/20 rounded text-xs">
+                          <div 
+                            className="prose prose-sm max-w-none question-content"
+                            dangerouslySetInnerHTML={{ __html: renderWithImages(item) }} 
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -412,15 +451,33 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                     </Button>
                   </div>
                   {editedQuestion.right_column?.map((item, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <Input
-                        value={item}
-                        onChange={(e) => updateColumnItem('right', idx, e.target.value)}
-                        placeholder={`Match ${idx + 1}`}
+                    <div key={idx} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Match {idx + 1}</Label>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeColumnItem('right', idx)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <RichQuestionEditor
+                        content={item}
+                        onChange={(content) => updateColumnItem('right', idx, content)}
+                        placeholder={`Right item ${idx + 1}`}
+                        compact
+                        forcePlainPaste={true}
+                        smartMathPaste={false}
                       />
-                      <Button variant="ghost" size="icon" onClick={() => removeColumnItem('right', idx)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {item && (
+                        <div className="p-1.5 bg-muted/20 rounded text-xs">
+                          <div 
+                            className="prose prose-sm max-w-none question-content"
+                            dangerouslySetInnerHTML={{ __html: renderWithImages(item) }} 
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

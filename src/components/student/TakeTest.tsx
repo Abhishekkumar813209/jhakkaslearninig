@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Clock, ChevronLeft, ChevronRight, Send, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
-import { renderMath } from '@/lib/mathRendering';
+import { renderMath, renderWithImages } from '@/lib/mathRendering';
 
 interface Question {
   id: string;
@@ -346,8 +346,8 @@ const TakeTest: React.FC = () => {
                   />
                   <span className="font-medium">{String.fromCharCode(65 + index)}.</span>
                   <span 
-                    className="flex-1"
-                    dangerouslySetInnerHTML={{ __html: renderMath(option.text) }}
+                    className="flex-1 prose prose-sm max-w-none question-content inline"
+                    dangerouslySetInnerHTML={{ __html: renderWithImages(option.text) }}
                   />
                 </label>
               ))}

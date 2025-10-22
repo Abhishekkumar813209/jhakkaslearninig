@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
-import { renderMath } from '@/lib/mathRendering';
+import { renderMath, renderWithImages } from '@/lib/mathRendering';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Navbar from '@/components/Navbar';
@@ -589,7 +589,10 @@ const OnlineTestInterface: React.FC = () => {
                         <span className="font-bold text-lg mr-2">
                           {optionLabel}.
                         </span>
-                        <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
+                        <span 
+                          className="prose prose-sm max-w-none question-content inline"
+                          dangerouslySetInnerHTML={{ __html: renderWithImages(option.text) }} 
+                        />
                       </div>
                     </div>
                   );

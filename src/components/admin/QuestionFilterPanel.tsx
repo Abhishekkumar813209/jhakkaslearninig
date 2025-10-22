@@ -221,14 +221,14 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
           <div className="space-y-2">
             <Label>Domain</Label>
             <Select
-              value={filters.exam_domain || ''}
-              onValueChange={(value) => onFiltersChange({ ...filters, exam_domain: value || undefined })}
+              value={filters.exam_domain ?? 'all'}
+              onValueChange={(value) => onFiltersChange({ ...filters, exam_domain: value === 'all' ? undefined : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select domain" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Domains</SelectItem>
+                <SelectItem value="all">All Domains</SelectItem>
                 {domains.map((domain) => (
                   <SelectItem key={domain} value={domain}>
                     {domain.toUpperCase()}
@@ -242,15 +242,15 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
           <div className="space-y-2">
             <Label>Batch</Label>
             <Select
-              value={filters.batch_id || ''}
-              onValueChange={(value) => onFiltersChange({ ...filters, batch_id: value || undefined })}
+              value={filters.batch_id ?? 'all'}
+              onValueChange={(value) => onFiltersChange({ ...filters, batch_id: value === 'all' ? undefined : value })}
               disabled={!filters.exam_domain}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select batch" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Batches</SelectItem>
+                <SelectItem value="all">All Batches</SelectItem>
                 {batches.map((batch) => (
                   <SelectItem key={batch.id} value={batch.id}>
                     {batch.name}
@@ -264,15 +264,15 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
           <div className="space-y-2">
             <Label>Subject</Label>
             <Select
-              value={filters.subject || ''}
-              onValueChange={(value) => onFiltersChange({ ...filters, subject: value || undefined })}
+              value={filters.subject ?? 'all'}
+              onValueChange={(value) => onFiltersChange({ ...filters, subject: value === 'all' ? undefined : value })}
               disabled={!filters.batch_id}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select subject" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Subjects</SelectItem>
+                <SelectItem value="all">All Subjects</SelectItem>
                 {subjects.map((subject) => (
                   <SelectItem key={subject} value={subject}>
                     {subject}
@@ -286,15 +286,15 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
           <div className="space-y-2">
             <Label>Chapter</Label>
             <Select
-              value={filters.chapter_id || ''}
-              onValueChange={(value) => onFiltersChange({ ...filters, chapter_id: value || undefined })}
+              value={filters.chapter_id ?? 'all'}
+              onValueChange={(value) => onFiltersChange({ ...filters, chapter_id: value === 'all' ? undefined : value })}
               disabled={!filters.subject}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select chapter" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Chapters</SelectItem>
+                <SelectItem value="all">All Chapters</SelectItem>
                 {chapters.map((chapter) => (
                   <SelectItem key={chapter.id} value={chapter.id}>
                     {chapter.chapter_name}
@@ -308,15 +308,15 @@ export const QuestionFilterPanel = ({ filters, onFiltersChange }: QuestionFilter
           <div className="space-y-2">
             <Label>Topic</Label>
             <Select
-              value={filters.topic_id || ''}
-              onValueChange={(value) => onFiltersChange({ ...filters, topic_id: value || undefined })}
+              value={filters.topic_id ?? 'all'}
+              onValueChange={(value) => onFiltersChange({ ...filters, topic_id: value === 'all' ? undefined : value })}
               disabled={!filters.chapter_id}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select topic" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Topics</SelectItem>
+                <SelectItem value="all">All Topics</SelectItem>
                 {topics.map((topic) => (
                   <SelectItem key={topic.id} value={topic.id}>
                     {topic.topic_name}

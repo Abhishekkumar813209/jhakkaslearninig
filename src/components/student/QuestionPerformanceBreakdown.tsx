@@ -170,18 +170,16 @@ export const QuestionPerformanceBreakdown: React.FC<QuestionPerformanceBreakdown
                       )}
                     </div>
 
-                    {/* Ask AI Button */}
-                    {q.yourAnswer !== 'correct' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAskAI(q)}
-                        className="shrink-0"
-                      >
-                        <Bot className="h-4 w-4 mr-1" />
-                        Ask AI
-                      </Button>
-                    )}
+                    {/* Ask AI Button - Available for ALL questions */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAskAI(q)}
+                      className="shrink-0"
+                    >
+                      <Bot className="h-4 w-4 mr-1" />
+                      {q.yourAnswer === 'correct' ? 'Learn More' : 'Ask AI'}
+                    </Button>
                   </div>
                 </div>
               ))}

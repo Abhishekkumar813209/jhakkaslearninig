@@ -382,16 +382,16 @@ const TestQuestionReview: React.FC = () => {
                 </div>
               )}
 
-              {/* AI Help Button */}
-              {!currentQuestion.isStudentCorrect && (
-                <Button
-                  onClick={() => setShowAIHelp(true)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  🤖 Ask AI for More Help
-                </Button>
-              )}
+              {/* AI Help Button - Available for ALL questions */}
+              <Button
+                onClick={() => setShowAIHelp(true)}
+                variant="outline"
+                className="w-full"
+              >
+                🤖 {currentQuestion.isStudentCorrect 
+                  ? 'Ask AI for Alternative Methods' 
+                  : 'Ask AI for Help'}
+              </Button>
             </CardContent>
           </Card>
 

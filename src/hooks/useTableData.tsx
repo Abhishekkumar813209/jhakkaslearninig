@@ -15,6 +15,8 @@ export function useTableData(tableName: string | null) {
   const [columns, setColumns] = useState<TableColumn[]>([]);
   const [loading, setLoading] = useState(false);
   const [count, setCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,18 +27,21 @@ export function useTableData(tableName: string | null) {
     }
 
     fetchTableData();
-  }, [tableName]);
+  }, [tableName, page, pageSize]);
 
   const fetchTableData = async () => {
     if (!tableName) return;
 
     setLoading(true);
     try {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      
       // Fetch data using any type to bypass strict typing
       const { data: tableData, error: dataError, count: totalCount } = await (supabase as any)
         .from(tableName)
         .select('*', { count: 'exact' })
-        .limit(50);
+        .range(from, to);
 
       if (dataError) throw dataError;
 
@@ -110,6 +115,11 @@ export function useTableData(tableName: string | null) {
     columns,
     loading,
     count,
+    page,
+    pageSize,
+    totalPages: Math.ceil(count / pageSize),
+    setPage,
+    setPageSize,
     refresh: fetchTableData,
     searchTable
   };

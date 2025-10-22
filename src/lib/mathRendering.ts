@@ -340,3 +340,42 @@ export const stripLeadingOptionLabel = (text: string): string => {
   if (!text) return text;
   return text.replace(/^\s*(?:\(([A-Da-d])\)|([A-Da-d])[.)])\s*/, '');
 };
+
+/**
+ * Render text with math notation while preserving images and line breaks
+ * Strips all other HTML tags for security
+ */
+export const renderWithImages = (html: string): string => {
+  if (!html) return '';
+  
+  const tokens: Record<string, string> = {};
+  let tokenIndex = 0;
+
+  // Step 1: Replace <img> and <br> tags with safe tokens
+  const withTokens = html
+    .replace(/<img[^>]*>/gi, (img) => {
+      const token = `IMG§${tokenIndex++}§`;
+      tokens[token] = img;
+      return token;
+    })
+    .replace(/<br\s*\/?>/gi, (br) => {
+      const token = `BR§${tokenIndex++}§`;
+      tokens[token] = '<br />';
+      return token;
+    });
+
+  // Step 2: Strip all other HTML tags
+  const textOnly = withTokens.replace(/<[^>]*>/g, '');
+
+  // Step 3: Apply math rendering
+  let rendered = renderMath(textOnly);
+
+  // Step 4: Restore image and break tags
+  for (const [token, value] of Object.entries(tokens)) {
+    // Escape special regex characters in token
+    const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    rendered = rendered.replace(new RegExp(escapedToken, 'g'), value);
+  }
+
+  return rendered;
+};

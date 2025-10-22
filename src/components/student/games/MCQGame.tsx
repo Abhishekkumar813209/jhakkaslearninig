@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
 import { Progress } from "@/components/ui/progress";
+import { renderWithImages } from "@/lib/mathRendering";
 
 interface MCQGameData {
   question: string;
@@ -192,9 +193,10 @@ export function MCQGame({
         <CardContent className="p-6">
           <div className="flex items-start justify-between mb-6">
             <div className="flex-1 max-h-[400px] overflow-y-auto pr-4">
-              <h3 className="text-xl font-semibold text-foreground whitespace-pre-wrap break-words">
-                {gameData.question}
-              </h3>
+              <h3 
+                className="text-xl font-semibold text-foreground whitespace-pre-wrap break-words"
+                dangerouslySetInnerHTML={{ __html: renderWithImages(gameData.question) }}
+              />
             </div>
             <div className="flex gap-2 ml-4 flex-shrink-0">
               {gameData.marks && (
@@ -264,7 +266,10 @@ export function MCQGame({
                     <span className="font-semibold text-lg min-w-[2rem]">
                       {getOptionLabel(index)}.
                     </span>
-                    <span className="flex-1 text-base">{option}</span>
+                    <span 
+                      className="flex-1 text-base"
+                      dangerouslySetInnerHTML={{ __html: renderWithImages(option) }}
+                    />
                     
                     {/* Result Icons */}
                     {showAsCorrect && (
@@ -343,9 +348,10 @@ export function MCQGame({
                     )}>
                       {isCorrect ? "Perfect! ✅" : "Explanation 💡"}
                     </h4>
-                    <p className="text-base text-foreground/80">
-                      {gameData.explanation}
-                    </p>
+                    <p 
+                      className="text-base text-foreground/80"
+                      dangerouslySetInnerHTML={{ __html: renderWithImages(gameData.explanation || '') }}
+                    />
                   </div>
                 </div>
 

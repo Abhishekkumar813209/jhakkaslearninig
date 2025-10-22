@@ -342,6 +342,8 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                 content={editedQuestion.question_text}
                 onChange={(content) => setEditedQuestion({ ...editedQuestion, question_text: content })}
                 placeholder="Enter question text..."
+                forcePlainPaste={true}
+                smartMathPaste={false}
               />
             </div>
 
@@ -434,6 +436,8 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                     onChange={(content) => setEditedQuestion({ ...editedQuestion, assertion: content })}
                     placeholder="Enter the assertion statement..."
                     compact
+                    forcePlainPaste={true}
+                    smartMathPaste={false}
                   />
                 </div>
                 <div className="space-y-2">
@@ -443,6 +447,8 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                     onChange={(content) => setEditedQuestion({ ...editedQuestion, reason: content })}
                     placeholder="Enter the reason statement..."
                     compact
+                    forcePlainPaste={true}
+                    smartMathPaste={false}
                   />
                 </div>
               </div>
@@ -482,6 +488,8 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                 onChange={(content) => setEditedQuestion({ ...editedQuestion, explanation: content })}
                 placeholder="Add an explanation for the correct answer..."
                 compact
+                forcePlainPaste={true}
+                smartMathPaste={false}
               />
             </div>
           </div>

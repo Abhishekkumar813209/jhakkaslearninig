@@ -511,6 +511,8 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                 onChange={(content) => handleChange('question_text', content)}
                 placeholder="Enter question text..."
                 compact
+                forcePlainPaste={true}
+                smartMathPaste={false}
               />
               
               {/* Live Math Preview */}
@@ -544,6 +546,8 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                         }}
                         placeholder={`Option ${String.fromCharCode(65 + i)}`}
                         compact
+                        forcePlainPaste={true}
+                        smartMathPaste={false}
                       />
                       
                       {/* Live Preview for option */}
@@ -626,6 +630,8 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                     onChange={(content) => handleChange('assertion', content)}
                     placeholder="Enter assertion statement..."
                     compact
+                    forcePlainPaste={true}
+                    smartMathPaste={false}
                   />
                 </div>
                 <div>
@@ -635,6 +641,8 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                     onChange={(content) => handleChange('reason', content)}
                     placeholder="Enter reason statement..."
                     compact
+                    forcePlainPaste={true}
+                    smartMathPaste={false}
                   />
                 </div>
               </div>

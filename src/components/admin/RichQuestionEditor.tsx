@@ -216,6 +216,8 @@ interface RichQuestionEditorProps {
   placeholder?: string;
   className?: string;
   compact?: boolean;
+  forcePlainPaste?: boolean; // Force plain text paste (no styling)
+  smartMathPaste?: boolean; // Enable smart math conversions on plain paste
 }
 
 export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
@@ -223,7 +225,9 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
   onChange,
   placeholder = 'Enter text...',
   className,
-  compact = false
+  compact = false,
+  forcePlainPaste = false,
+  smartMathPaste = false
 }) => {
   const [uploading, setUploading] = useState(false);
   const [showMathHelper, setShowMathHelper] = useState(false);
@@ -283,6 +287,68 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           textPreview: text?.substring(0, 100),
           htmlPreview: html?.substring(0, 200)
         });
+
+        // FORCE PLAIN TEXT PASTE (Question Bank mode)
+        if (forcePlainPaste) {
+          event.preventDefault();
+          
+          // Get plain text, fallback to cleaned HTML if needed
+          let plainText = text || '';
+          if (!plainText && html) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = cleanPastedHTML(html);
+            plainText = tempDiv.textContent || '';
+          }
+          
+          // Aggressively strip ALL Word/Excel/Office garbage
+          let cleaned = plainText
+            // Remove encoded HTML comments
+            .replace(/&lt;!--[\s\S]*?--&gt;/gi, '')
+            // Remove real HTML comments
+            .replace(/<!--[\s\S]*?-->/gi, '')
+            // Remove CSS comments (/* Font Definitions */ etc.)
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            // Remove @font-face blocks
+            .replace(/@font-face\s*\{[\s\S]*?\}/gi, '')
+            // Remove mso-* properties
+            .replace(/mso-[a-z-]+:[^;]+;?/gi, '')
+            // Remove font-family, font-size inline styles
+            .replace(/font-family:[^;]+;?/gi, '')
+            .replace(/font-size:[^;]+;?/gi, '')
+            // Remove CSS rule blocks
+            .replace(/\{[^{}]*\}/g, '')
+            // Remove class names like MsoNormal, WordSection
+            .replace(/MsoNormal/gi, '')
+            .replace(/WordSection\d+/gi, '')
+            .replace(/Font Definitions/gi, '')
+            // Normalize whitespace
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          // Optional: Smart math paste (minimal conversions)
+          if (smartMathPaste && cleaned) {
+            cleaned = cleaned
+              .replace(/√(\d+)/g, '$\\sqrt{$1}$')
+              .replace(/([-−]?\d+)\/√(\d+)/g, '$\\frac{$1}{\\sqrt{$2}}$');
+          }
+          
+          // Escape HTML entities to prevent interpretation
+          const escapeHtml = (str: string) => str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          
+          // Insert as safe plain text
+          editor?.commands.insertContent(escapeHtml(cleaned));
+          
+          console.log('✅ FORCE PLAIN PASTE:', {
+            original: plainText.substring(0, 100),
+            cleaned: cleaned.substring(0, 100)
+          });
+          
+          toast.success('✅ Plain text pasted (no styling)');
+          return true;
+        }
 
         // PRIORITY -1: Algebraic equations with equality chains
         // Matches: (x-1)/2=(1-y)/3=(2z-1)/12, x/2=y/3=z/4, etc.

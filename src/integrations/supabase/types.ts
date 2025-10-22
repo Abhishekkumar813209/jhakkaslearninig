@@ -4940,6 +4940,10 @@ export type Database = {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined
       }
+      exec_raw_sql: {
+        Args: { sql_query: string }
+        Returns: Json
+      }
       generate_monthly_fees: {
         Args: Record<PropertyKey, never>
         Returns: undefined

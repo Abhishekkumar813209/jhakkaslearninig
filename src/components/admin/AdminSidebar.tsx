@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Zap,
   Database,
+  CheckCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -72,6 +73,7 @@ const menuGroups: MenuGroup[] = [
       { value: "manual-topics", label: "Add Topics", icon: BookText },
       { value: "lessons", label: "Lesson Builder", icon: BookOpen },
       { value: "question-bank", label: "Question Bank", icon: FileText },
+      { value: "answer-management", label: "Answer Management", icon: CheckCircle },
       { value: "exam-types", label: "Exam Types", icon: Target },
     ],
   },

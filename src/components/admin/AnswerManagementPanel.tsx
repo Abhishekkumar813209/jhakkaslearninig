@@ -1,0 +1,610 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { invokeWithAuth } from "@/lib/invokeWithAuth";
+import { QuestionFilterPanel } from "./QuestionFilterPanel";
+import { QuestionAnswerInput } from "./QuestionAnswerInput";
+import { renderMath } from "@/lib/mathRendering";
+import { toast } from "sonner";
+import { 
+  Loader2, 
+  CheckCircle2, 
+  AlertCircle, 
+  ChevronLeft, 
+  ChevronRight, 
+  Search,
+  Save,
+  Edit,
+  Eye,
+  BarChart3
+} from "lucide-react";
+
+interface FilterValues {
+  exam_domain?: string;
+  batch_id?: string;
+  subject?: string;
+  chapter_id?: string;
+  topic_id?: string;
+  answer_status?: 'all' | 'unanswered' | 'answered' | 'reviewed';
+}
+
+interface Question {
+  id: string;
+  question_text: string;
+  question_type: string;
+  options?: string[];
+  left_column?: string[];
+  right_column?: string[];
+  correct_answer?: any;
+  explanation?: string;
+  marks?: number;
+  difficulty?: string;
+  admin_reviewed?: boolean;
+  exam_domain?: string;
+  subject?: string;
+  chapter_name?: string;
+  batch_id?: string;
+  topic_id?: string;
+  roadmap_topics?: {
+    topic_name: string;
+    subject: string;
+    chapter: {
+      chapter_name: string;
+    };
+  };
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const AnswerManagementPanel = () => {
+  const [filters, setFilters] = useState<FilterValues>({ answer_status: 'all' });
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
+  const [editingAnswers, setEditingAnswers] = useState<Map<string, any>>(new Map());
+  const [editingExplanations, setEditingExplanations] = useState<Map<string, string>>(new Map());
+  const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
+  
+  const pageSize = 20;
+
+  // Stats
+  const [stats, setStats] = useState({
+    total: 0,
+    unanswered: 0,
+    answered: 0,
+    reviewed: 0
+  });
+
+  useEffect(() => {
+    loadQuestions();
+  }, [filters, currentPage, searchTerm]);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      // Load total count
+      const totalData = await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: { 
+          action: 'get_questions_by_filter',
+          answer_status: 'all',
+          limit: 1,
+          offset: 0
+        }
+      });
+      
+      // Load unanswered count
+      const unansweredData = await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: { 
+          action: 'get_questions_by_filter',
+          answer_status: 'unanswered',
+          limit: 1,
+          offset: 0
+        }
+      });
+
+      // Load answered count
+      const answeredData = await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: { 
+          action: 'get_questions_by_filter',
+          answer_status: 'answered',
+          limit: 1,
+          offset: 0
+        }
+      });
+
+      // Load reviewed count
+      const reviewedData = await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: { 
+          action: 'get_questions_by_filter',
+          answer_status: 'reviewed',
+          limit: 1,
+          offset: 0
+        }
+      });
+
+      setStats({
+        total: (totalData as any).total_count || 0,
+        unanswered: (unansweredData as any).total_count || 0,
+        answered: (answeredData as any).total_count || 0,
+        reviewed: (reviewedData as any).total_count || 0
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadQuestions = async () => {
+    setLoading(true);
+    try {
+      const offset = (currentPage - 1) * pageSize;
+      
+      const data = await invokeWithAuth<any, any>({
+        name: 'topic-questions-api',
+        body: {
+          action: 'get_questions_by_filter',
+          ...filters,
+          search_term: searchTerm || undefined,
+          offset,
+          limit: pageSize
+        }
+      });
+
+      if ((data as any).success) {
+        setQuestions((data as any).questions || []);
+        setTotalCount((data as any).total_count || 0);
+      } else {
+        toast.error('Failed to load questions');
+      }
+    } catch (error: any) {
+      console.error('Error loading questions:', error);
+      toast.error('Failed to load questions: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAnswerChange = (questionId: string, answer: any) => {
+    const newMap = new Map(editingAnswers);
+    newMap.set(questionId, answer);
+    setEditingAnswers(newMap);
+  };
+
+  const handleExplanationChange = (questionId: string, explanation: string) => {
+    const newMap = new Map(editingExplanations);
+    newMap.set(questionId, explanation);
+    setEditingExplanations(newMap);
+  };
+
+  const saveAnswer = async (question: Question) => {
+    const answer = editingAnswers.get(question.id);
+    const explanation = editingExplanations.get(question.id);
+
+    if (!answer) {
+      toast.error('Please provide an answer');
+      return;
+    }
+
+    setSavingQuestions(prev => new Set(prev).add(question.id));
+
+    try {
+      const data = await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: {
+          action: 'update_question_answer',
+          question_id: question.id,
+          correct_answer: answer,
+          explanation: explanation || null
+        }
+      });
+
+      if ((data as any).success) {
+        toast.success('Answer saved successfully');
+        editingAnswers.delete(question.id);
+        editingExplanations.delete(question.id);
+        setEditingAnswers(new Map(editingAnswers));
+        setEditingExplanations(new Map(editingExplanations));
+        loadQuestions();
+        loadStats();
+      } else {
+        toast.error('Failed to save answer');
+      }
+    } catch (error: any) {
+      console.error('Error saving answer:', error);
+      toast.error('Failed to save answer: ' + error.message);
+    } finally {
+      setSavingQuestions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(question.id);
+        return newSet;
+      });
+    }
+  };
+
+  const toggleQuestionSelection = (questionId: string) => {
+    const newSet = new Set(selectedQuestions);
+    if (newSet.has(questionId)) {
+      newSet.delete(questionId);
+    } else {
+      newSet.add(questionId);
+    }
+    setSelectedQuestions(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedQuestions.size === questions.length) {
+      setSelectedQuestions(new Set());
+    } else {
+      setSelectedQuestions(new Set(questions.map(q => q.id)));
+    }
+  };
+
+  const bulkMarkReviewed = async () => {
+    if (selectedQuestions.size === 0) {
+      toast.error('No questions selected');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: {
+          action: 'bulk_mark_reviewed',
+          question_ids: Array.from(selectedQuestions)
+        }
+      });
+
+      if ((data as any).success) {
+        toast.success(`${(data as any).updated_count} questions marked as reviewed`);
+        setSelectedQuestions(new Set());
+        loadQuestions();
+        loadStats();
+      } else {
+        toast.error('Failed to mark questions as reviewed');
+      }
+    } catch (error: any) {
+      console.error('Error marking reviewed:', error);
+      toast.error('Failed to mark as reviewed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  const getStatusBadge = (question: Question) => {
+    if (question.admin_reviewed) {
+      return <Badge variant="default" className="bg-green-500">Reviewed</Badge>;
+    } else if (question.correct_answer) {
+      return <Badge variant="secondary" className="bg-yellow-500">Answered</Badge>;
+    } else {
+      return <Badge variant="outline" className="text-red-500">Unanswered</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Statistics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Questions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Unanswered
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-500">{stats.unanswered}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.total > 0 ? Math.round((stats.unanswered / stats.total) * 100) : 0}% of total
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Answered
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-yellow-500">{stats.answered}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.total > 0 ? Math.round((stats.answered / stats.total) * 100) : 0}% of total
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Reviewed
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-500">{stats.reviewed}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.total > 0 ? Math.round((stats.reviewed / stats.total) * 100) : 0}% of total
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter Panel */}
+      <QuestionFilterPanel filters={filters} onFiltersChange={setFilters} />
+
+      {/* Search & Bulk Actions */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search questions..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {selectedQuestions.size > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{selectedQuestions.size} selected</Badge>
+                <Button onClick={bulkMarkReviewed} size="sm">
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark as Reviewed
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Questions List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : questions.length === 0 ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">No questions found</p>
+              <p className="text-sm">Try adjusting your filters or upload new questions</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-4">
+            <Checkbox
+              checked={selectedQuestions.size === questions.length && questions.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span className="text-sm text-muted-foreground">
+              Select all {questions.length} questions on this page
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {questions.map((question, index) => (
+              <Card key={question.id} className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={selectedQuestions.has(question.id)}
+                      onCheckedChange={() => toggleQuestionSelection(question.id)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline">Q{(currentPage - 1) * pageSize + index + 1}</Badge>
+                            <Badge variant="secondary">{question.question_type.replace('_', ' ').toUpperCase()}</Badge>
+                            {getStatusBadge(question)}
+                            {question.marks && <Badge variant="outline">{question.marks} marks</Badge>}
+                          </div>
+                          
+                          {/* Breadcrumb */}
+                          {question.roadmap_topics && (
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {question.exam_domain?.toUpperCase()} › {question.roadmap_topics.subject} › {question.roadmap_topics.chapter.chapter_name} › {question.roadmap_topics.topic_name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Question Text */}
+                      <div 
+                        className="prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+                      />
+
+                      {/* Options (for MCQ) */}
+                      {question.question_type === 'mcq' && question.options && (
+                        <div className="mt-3 space-y-1">
+                          {question.options.map((option, idx) => (
+                            <div key={idx} className="text-sm pl-4">
+                              <span className="font-medium">{String.fromCharCode(65 + idx)}.</span> {option}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <Separator />
+
+                <CardContent className="pt-4">
+                  {/* Show existing answer or input */}
+                  {question.correct_answer && !editingAnswers.has(question.id) ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-sm font-medium">Current Answer:</Label>
+                        <div className="mt-1 p-3 bg-muted rounded-md">
+                          {typeof question.correct_answer === 'object' 
+                            ? JSON.stringify(question.correct_answer)
+                            : String(question.correct_answer)
+                          }
+                        </div>
+                      </div>
+
+                      {question.explanation && (
+                        <div>
+                          <Label className="text-sm font-medium">Explanation:</Label>
+                          <div className="mt-1 p-3 bg-muted rounded-md text-sm">
+                            {question.explanation}
+                          </div>
+                        </div>
+                      )}
+
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          handleAnswerChange(question.id, question.correct_answer);
+                          handleExplanationChange(question.id, question.explanation || '');
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Answer
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium mb-2 block">Answer</Label>
+                        <QuestionAnswerInput
+                          questionType={question.question_type}
+                          options={question.options}
+                          leftColumn={question.left_column}
+                          rightColumn={question.right_column}
+                          currentAnswer={editingAnswers.get(question.id)}
+                          onChange={(answer) => handleAnswerChange(question.id, answer)}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium mb-2 block">Explanation (Optional)</Label>
+                        <Textarea
+                          placeholder="Add explanation for this question..."
+                          value={editingExplanations.get(question.id) || ''}
+                          onChange={(e) => handleExplanationChange(question.id, e.target.value)}
+                          rows={3}
+                        />
+                      </div>
+
+                      <Button 
+                        onClick={() => saveAnswer(question)}
+                        disabled={savingQuestions.has(question.id)}
+                      >
+                        {savingQuestions.has(question.id) ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        Save Answer
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} questions
+              </p>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};

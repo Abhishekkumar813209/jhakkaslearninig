@@ -22,6 +22,7 @@ import RoadmapManagement from "@/components/admin/RoadmapManagement";
 import { QuestionBankBuilder } from "@/components/admin/QuestionBankBuilder";
 import { ManualTopicEditor } from "@/components/admin/ManualTopicEditor";
 import { LessonContentBuilder } from "@/components/admin/LessonContentBuilder";
+import { AnswerManagementPanel } from "@/components/admin/AnswerManagementPanel";
 import UserRoleManagement from "@/components/admin/UserRoleManagement";
 import AdminAIChat from "@/components/admin/AdminAIChat";
 import ParentManagement from "@/components/admin/ParentManagement";
@@ -58,6 +59,7 @@ const AdminDashboard = () => {
     { value: "manual-topics", label: "Add Topics", component: ManualTopicEditor },
     { value: "lessons", label: "Lesson Builder", component: LessonContentBuilder },
     { value: "question-bank", label: "Question Bank", component: QuestionBankBuilder },
+    { value: "answer-management", label: "Answer Management", component: AnswerManagementPanel },
     { value: "zones", label: "Zones", component: ZoneManagementNew },
     { value: "schools", label: "Schools", component: SchoolManagement },
     { value: "zone-analytics", label: "Zone Analytics", component: ZoneSchoolAnalytics },

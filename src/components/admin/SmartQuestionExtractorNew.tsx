@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,6 +61,7 @@ export const SmartQuestionExtractorNew = ({
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const navigate = useNavigate();
   
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

@@ -170,7 +170,7 @@ serve(async (req) => {
     console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // Enforce admin only for specific actions
-    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question'];
+    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed'];
     if (adminActions.includes(action) && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
@@ -250,6 +250,9 @@ serve(async (req) => {
         .update({
           correct_answer: normalized,
           explanation: explanation || null,
+          admin_reviewed: true,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user.id,
           updated_at: new Date().toISOString()
         })
         .eq('id', question_id);
@@ -506,6 +509,108 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+
+    // ========== get_unanswered_questions ==========
+    if (action === 'get_unanswered_questions') {
+      console.log('📥 Fetching unanswered questions');
+      
+      const filters: any = {};
+      if (body.exam_domain) filters.exam_domain = body.exam_domain;
+      if (body.batch_id) filters.batch_id = body.batch_id;
+      if (body.subject) filters.subject = body.subject;
+      if (body.chapter_id) filters.chapter_id = body.chapter_id;
+      if (body.topic_id) filters.topic_id = body.topic_id;
+
+      const { data: questions, error } = await serviceClient
+        .from('question_bank')
+        .select('*')
+        .is('correct_answer', null)
+        .match(filters)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log(`✅ Found ${questions?.length || 0} unanswered questions`);
+      
+      return new Response(
+        JSON.stringify({ success: true, questions: questions || [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== get_questions_by_filter ==========
+    if (action === 'get_questions_by_filter') {
+      const { exam_domain, batch_id, subject, chapter_id, topic_id, answer_status, search_term, offset = 0, limit = 20 } = body;
+      
+      console.log('🔍 Filtering questions:', { exam_domain, batch_id, subject, chapter_id, topic_id, answer_status, search_term });
+
+      let query = serviceClient.from('question_bank').select('*, roadmap_topics!inner(topic_name, subject, chapter:roadmap_chapters!inner(chapter_name))', { count: 'exact' });
+
+      // Apply filters
+      if (exam_domain) query = query.eq('exam_domain', exam_domain);
+      if (batch_id) query = query.eq('batch_id', batch_id);
+      if (subject) query = query.eq('subject', subject);
+      if (chapter_id) query = query.eq('chapter_id', chapter_id);
+      if (topic_id) query = query.eq('topic_id', topic_id);
+      
+      // Answer status filter
+      if (answer_status === 'unanswered') {
+        query = query.is('correct_answer', null);
+      } else if (answer_status === 'answered') {
+        query = query.not('correct_answer', 'is', null);
+      } else if (answer_status === 'reviewed') {
+        query = query.eq('admin_reviewed', true);
+      }
+
+      // Search term
+      if (search_term) {
+        query = query.ilike('question_text', `%${search_term}%`);
+      }
+
+      // Pagination
+      query = query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
+
+      const { data: questions, error, count } = await query;
+
+      if (error) throw error;
+
+      console.log(`✅ Found ${questions?.length || 0} questions (total: ${count})`);
+
+      return new Response(
+        JSON.stringify({ success: true, questions: questions || [], total_count: count || 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== bulk_mark_reviewed ==========
+    if (action === 'bulk_mark_reviewed') {
+      const { question_ids } = body;
+      
+      if (!question_ids || !Array.isArray(question_ids)) {
+        throw new Error('Missing question_ids array');
+      }
+
+      console.log(`✅ Marking ${question_ids.length} questions as reviewed`);
+
+      const { error } = await serviceClient
+        .from('question_bank')
+        .update({
+          admin_reviewed: true,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user.id
+        })
+        .in('id', question_ids);
+
+      if (error) throw error;
+
+      console.log(`✅ Successfully marked ${question_ids.length} questions as reviewed`);
+
+      return new Response(
+        JSON.stringify({ success: true, updated_count: question_ids.length }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -328,7 +328,7 @@ const GamePlayerPage = () => {
           gameData={{
             question: gameData.exercise_data?.question || "Question text",
             options: gameData.exercise_data?.options || [],
-            correct_answer: gameData.exercise_data?.correctAnswerIndex ?? gameData.correct_answer?.correctAnswerIndex ?? 0,
+            correct_answer: gameData.correct_answer?.correctAnswerIndex ?? gameData.exercise_data?.correctAnswerIndex ?? 0,
             explanation: gameData.explanation,
             marks: gameData.exercise_data?.marks || 1,
             difficulty: gameData.difficulty

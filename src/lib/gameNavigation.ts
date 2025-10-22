@@ -46,13 +46,18 @@ export async function getAdjacentGames(
     };
   }
   
-  const currentIndex = games.findIndex(g => g.id === currentGameId);
+  // Remove duplicates by game ID (in case same game is mapped multiple times)
+  const uniqueGames = Array.from(
+    new Map(games.map(g => [g.id, g])).values()
+  );
+  
+  const currentIndex = uniqueGames.findIndex(g => g.id === currentGameId);
   
   return {
-    prevGameId: currentIndex > 0 ? games[currentIndex - 1].id : null,
-    nextGameId: currentIndex < games.length - 1 ? games[currentIndex + 1].id : null,
+    prevGameId: currentIndex > 0 ? uniqueGames[currentIndex - 1].id : null,
+    nextGameId: currentIndex < uniqueGames.length - 1 ? uniqueGames[currentIndex + 1].id : null,
     currentGameNum: currentIndex + 1,
-    totalGames: games.length
+    totalGames: uniqueGames.length
   };
 }
 
@@ -95,14 +100,19 @@ export async function isGameUnlocked(
   
   if (!games || games.length === 0) return false;
   
-  const gameIndex = games.findIndex(g => g.id === gameId);
+  // Remove duplicates
+  const uniqueGames = Array.from(
+    new Map(games.map(g => [g.id, g])).values()
+  );
+  
+  const gameIndex = uniqueGames.findIndex(g => g.id === gameId);
   if (gameIndex === -1) return false;
   
   // First game is always unlocked
   if (gameIndex === 0) return true;
   
   // Check if previous game is completed
-  const previousGameId = games[gameIndex - 1].id;
+  const previousGameId = uniqueGames[gameIndex - 1].id;
   
   const { data: progress } = await supabase
     .from('student_topic_game_progress')
@@ -145,6 +155,11 @@ export async function getFirstUnlockedGameId(
     return null;
   }
   
+  // Remove duplicates
+  const uniqueGames = Array.from(
+    new Map(games.map(g => [g.id, g])).values()
+  );
+  
   // Get progress
   const { data: progress } = await supabase
     .from('student_topic_game_progress')
@@ -156,12 +171,12 @@ export async function getFirstUnlockedGameId(
   const completedIds = progress?.completed_game_ids || [];
   
   // Find first incomplete game
-  for (const game of games) {
+  for (const game of uniqueGames) {
     if (!completedIds.includes(game.id)) {
       return game.id;
     }
   }
   
   // All completed? Return last game (for review)
-  return games[games.length - 1].id;
+  return uniqueGames[uniqueGames.length - 1].id;
 }

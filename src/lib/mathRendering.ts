@@ -61,6 +61,10 @@ export const applyFractions = (t: string): string => {
 /**
  * Applies superscript and subscript formatting with support for braced syntax
  * 
+ * Parenthesized expressions:
+ *   (c_1 - c_2)^2 → (c₁ - c₂)² (entire expression gets superscript)
+ *   (a + b)^{n+1} → (a + b)ⁿ⁺¹
+ * 
  * Braced syntax (precise control):
  *   H_{2}O → H<sub>2</sub>O (only "2" subscripted)
  *   Fe^{2+} → Fe<sup>2+</sup> (only "2+" superscripted)
@@ -70,11 +74,21 @@ export const applyFractions = (t: string): string => {
  *   x^2 → x<sup>2</sup>
  */
 export const applySupSub = (t: string) => {
-  // PRIORITY: Braced syntax first (exact control over subscript/superscript length)
+  // PRIORITY 1: Parenthesized expressions with braced superscript/subscript
+  // Handles: (c_1 - c_2)^{2}, (a + b)_{max}
+  t = t.replace(/(\([^)]+\))\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
+  t = t.replace(/(\([^)]+\))\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
+  
+  // PRIORITY 2: Parenthesized expressions with simple superscript/subscript
+  // Handles: (c_1 - c_2)^2, (x + y)_i
+  t = t.replace(/(\([^)]+\))\s*\^\s*(-?[0-9A-Za-z+\-]+)(?![}])/g, '$1<sup>$2</sup>');
+  t = t.replace(/(\([^)]+\))\s*_\s*([0-9A-Za-z+\-]+)(?![}])/g, '$1<sub>$2</sub>');
+  
+  // PRIORITY 3: Braced syntax for single character/variable (exact control)
   t = t.replace(/(\S)\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
   t = t.replace(/(\S)\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
   
-  // Simple syntax for backwards compatibility (single character/number)
+  // PRIORITY 4: Simple syntax for single character (backwards compatibility)
   t = t.replace(/(\S)\s*\^\s*(-?[0-9A-Za-z+\-]+)(?![}])/g, '$1<sup>$2</sup>');
   t = t.replace(/(\S)\s*_\s*([0-9A-Za-z+\-]+)(?![}])/g, '$1<sub>$2</sub>');
   

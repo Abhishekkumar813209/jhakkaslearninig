@@ -47,7 +47,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { pipeline, env } from '@huggingface/transformers';
 
 // Import shared math rendering utilities
-import { renderMath, stripLeadingOptionLabel } from '@/lib/mathRendering';
+import { renderWithImages, stripLeadingOptionLabel } from '@/lib/mathRendering';
 
 interface Question {
   id?: string;
@@ -1413,9 +1413,9 @@ const TestBuilderPortal: React.FC = () => {
                         )}
                         
                         <div 
-                          className="font-medium mb-2 prose prose-sm max-w-none"
+                          className="font-medium mb-2 prose prose-sm max-w-none question-content"
                           dangerouslySetInnerHTML={{
-                            __html: renderMath(question.question_text)
+                            __html: renderWithImages(question.question_text)
                           }}
                         />
                         {question.question_type === 'mcq' && question.options && (
@@ -1439,8 +1439,8 @@ const TestBuilderPortal: React.FC = () => {
                                   <span>
                                     <span className="font-medium">{String.fromCharCode(65 + optIndex)}. </span>
                                     <span 
-                                      className="font-sans"
-                                      dangerouslySetInnerHTML={{ __html: renderMath(sanitizedText) }} 
+                                      className="font-sans prose prose-sm max-w-none question-content inline"
+                                      dangerouslySetInnerHTML={{ __html: renderWithImages(sanitizedText) }} 
                                     />
                                   </span>
                                   {option.isCorrect && <span className="ml-auto text-xs">(Correct)</span>}
@@ -1557,9 +1557,9 @@ const TestBuilderPortal: React.FC = () => {
                   <Label className="text-xs text-muted-foreground">Preview:</Label>
                   <div className="space-y-2">
                     <div 
-                      className="prose prose-sm max-w-none"
+                      className="prose prose-sm max-w-none question-content"
                       dangerouslySetInnerHTML={{
-                        __html: renderMath(newQuestion.question_text)
+                        __html: renderWithImages(newQuestion.question_text)
                       }}
                     />
                     {(newQuestion as any).originalImageUrl && (
@@ -1679,9 +1679,9 @@ const TestBuilderPortal: React.FC = () => {
                                 <span className="text-gray-500">Preview: </span>
                                 <span className="font-medium">{String.fromCharCode(65 + index)}. </span>
                                 <span 
-                                  className="font-sans"
+                                  className="font-sans prose prose-sm max-w-none question-content inline"
                                   dangerouslySetInnerHTML={{
-                                    __html: renderMath(stripLeadingOptionLabel(option.text))
+                                    __html: renderWithImages(stripLeadingOptionLabel(option.text))
                                   }}
                                 />
                               </div>

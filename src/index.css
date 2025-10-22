@@ -479,12 +479,15 @@ sub {
 .prose img,
 .question-content img {
   max-width: 100%;
+  max-height: 260px;
+  width: auto;
   height: auto;
   border-radius: 0.5rem;
   border: 1px solid hsl(var(--border));
   margin: 0.75rem auto;
   display: block;
   box-shadow: var(--shadow-soft);
+  object-fit: contain;
 }
 
 /* Mobile-specific constraints */
@@ -493,7 +496,7 @@ sub {
   .prose img,
   .question-content img {
     max-width: 100%;
-    max-height: 400px;
+    max-height: 300px;
     object-fit: contain;
   }
 }

@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { QuestionFilterPanel } from "./QuestionFilterPanel";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
-import { renderMath } from "@/lib/mathRendering";
+import { renderWithImages } from "@/lib/mathRendering";
 import { toast } from "sonner";
 import { 
   Loader2, 
@@ -536,8 +536,8 @@ export const AnswerManagementPanel = () => {
 
                       {/* Question Text */}
                       <div 
-                        className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+                        className="prose prose-sm max-w-none question-content"
+                        dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
                       />
 
                       {/* Options (for MCQ) */}

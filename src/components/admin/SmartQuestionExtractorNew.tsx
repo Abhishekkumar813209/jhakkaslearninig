@@ -18,7 +18,7 @@ import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { DocumentUploader } from "./DocumentUploader";
 import { UniversalCropModal } from "./UniversalCropModal";
 import { cn } from "@/lib/utils";
-import { renderMath } from "@/lib/mathRendering";
+import { renderWithImages } from "@/lib/mathRendering";
 
 interface ExtractedQuestion {
   id?: string;
@@ -599,26 +599,26 @@ export const SmartQuestionExtractorNew = ({
                     <CardContent className="p-4 pt-2 space-y-3">
                       {/* Question Text */}
                       <div 
-                        className="text-sm line-clamp-3 prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: renderMath(q.question_text) }}
+                        className="text-sm line-clamp-3 prose prose-sm max-w-none question-content"
+                        dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
                       />
 
                       {/* Options */}
-                      {q.options && q.options.length > 0 && (
-                        <div className="space-y-1">
-                          {q.options.slice(0, 4).map((opt, i) => (
-                            <div key={i} className="text-xs text-muted-foreground flex gap-1">
-                              <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
-                              <span 
-                                className="line-clamp-1 flex-1" 
-                                dangerouslySetInnerHTML={{ 
-                                  __html: renderMath(opt.slice(0, 50) + (opt.length > 50 ? '...' : '')) 
-                                }} 
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                        {q.options && q.options.length > 0 && (
+                          <div className="space-y-1">
+                            {q.options.slice(0, 4).map((opt, i) => (
+                              <div key={i} className="text-xs text-muted-foreground flex gap-1">
+                                <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
+                                <span 
+                                  className="line-clamp-1 flex-1" 
+                                  dangerouslySetInnerHTML={{ 
+                                    __html: renderWithImages(opt.slice(0, 50) + (opt.length > 50 ? '...' : '')) 
+                                  }} 
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                        {/* Answer Input (always show for questions with IDs) */}
                       {q.id && (() => {
@@ -696,8 +696,8 @@ export const SmartQuestionExtractorNew = ({
                               <div>
                                 <h4 className="font-medium mb-2">Question:</h4>
                                 <div 
-                                  className="text-sm prose prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: renderMath(q.question_text) }}
+                                  className="text-sm prose prose-sm max-w-none question-content"
+                                  dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
                                 />
                               </div>
 
@@ -709,8 +709,8 @@ export const SmartQuestionExtractorNew = ({
                                       <div key={i} className="text-sm flex gap-2">
                                         <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
                                         <span 
-                                          className="flex-1"
-                                          dangerouslySetInnerHTML={{ __html: renderMath(opt) }} 
+                                          className="flex-1 prose prose-sm max-w-none question-content"
+                                          dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} 
                                         />
                                       </div>
                                     ))}
@@ -724,12 +724,12 @@ export const SmartQuestionExtractorNew = ({
                                   <p className="text-sm text-green-600 dark:text-green-400">
                                     {JSON.stringify(q.correct_answer, null, 2)}
                                   </p>
-                                  {q.explanation && (
+                                   {q.explanation && (
                                     <>
                                       <h4 className="font-medium mt-2 mb-1 text-green-700 dark:text-green-300">Explanation:</h4>
                                       <div 
-                                        className="text-sm text-green-600 dark:text-green-400 prose prose-sm max-w-none"
-                                        dangerouslySetInnerHTML={{ __html: renderMath(q.explanation || '') }}
+                                        className="text-sm text-green-600 dark:text-green-400 prose prose-sm max-w-none question-content"
+                                        dangerouslySetInnerHTML={{ __html: renderWithImages(q.explanation || '') }}
                                       />
                                     </>
                                   )}

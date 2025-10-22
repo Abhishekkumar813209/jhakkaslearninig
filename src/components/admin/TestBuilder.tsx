@@ -45,7 +45,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SmartQuestionExtractor } from './SmartQuestionExtractor';
-import { renderMath, stripLeadingOptionLabel } from '@/lib/mathRendering';
+import { renderWithImages, stripLeadingOptionLabel } from '@/lib/mathRendering';
 
 interface Question {
   id?: string;
@@ -980,9 +980,9 @@ const TestBuilder: React.FC = () => {
                             )}
                           </div>
                           <div 
-                            className="font-medium prose prose-sm max-w-none"
+                            className="font-medium prose prose-sm max-w-none question-content"
                             dangerouslySetInnerHTML={{
-                              __html: renderMath(question.question_text)
+                              __html: renderWithImages(question.question_text)
                             }}
                           />
                           {question.image_url && (
@@ -1007,9 +1007,9 @@ const TestBuilder: React.FC = () => {
                                 >
                                   <span className="font-medium">{String.fromCharCode(65 + optIndex)}. </span>
                                   <span 
-                                    className="font-sans"
+                                    className="font-sans prose prose-sm max-w-none question-content inline"
                                     dangerouslySetInnerHTML={{ 
-                                      __html: renderMath(stripLeadingOptionLabel(option.text)) 
+                                      __html: renderWithImages(stripLeadingOptionLabel(option.text)) 
                                     }} 
                                   />
                                   {option.isCorrect && ' ✓'}
@@ -1026,9 +1026,9 @@ const TestBuilder: React.FC = () => {
                             <div className="p-3 mt-2 rounded-md bg-green-50 border border-green-200">
                               <p className="text-sm font-semibold text-green-900 mb-1">💡 Solution:</p>
                               <div 
-                                className="text-sm text-green-800 prose prose-sm max-w-none"
+                                className="text-sm text-green-800 prose prose-sm max-w-none question-content"
                                 dangerouslySetInnerHTML={{
-                                  __html: renderMath(question.explanation || '')
+                                  __html: renderWithImages(question.explanation || '')
                                 }}
                               />
                             </div>

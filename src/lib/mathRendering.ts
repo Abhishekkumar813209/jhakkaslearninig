@@ -366,17 +366,30 @@ export const stripLeadingOptionLabel = (text: string): string => {
 };
 
 /**
+ * Helper: Convert [img:URL] tokens to <img> tags
+ */
+function expandImageTokens(text: string): string {
+  return text.replace(/\[img:([^\]]+)\]/g, (_, url) => {
+    return `<img src="${url.trim()}" class="inline-block max-w-full h-auto" alt="Question image" />`;
+  });
+}
+
+/**
  * Render text with math notation while preserving images and line breaks
+ * Also handles [img:URL] tokens for plain text storage compatibility
  * Strips all other HTML tags for security
  */
 export const renderWithImages = (html: string): string => {
   if (!html) return '';
   
+  // First expand any image tokens
+  let text = expandImageTokens(html);
+  
   const tokens: Record<string, string> = {};
   let tokenIndex = 0;
 
   // Step 1: Replace <img> and <br> tags with safe tokens
-  const withTokens = html
+  const withTokens = text
     .replace(/<img[^>]*>/gi, (img) => {
       const token = `IMG§${tokenIndex++}§`;
       tokens[token] = img;

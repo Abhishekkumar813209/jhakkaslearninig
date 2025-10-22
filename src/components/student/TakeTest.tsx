@@ -321,7 +321,7 @@ const TakeTest: React.FC = () => {
               </div>
               <div 
                 className="text-lg font-medium prose prose-sm max-w-none question-content"
-                dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+                dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.question_text) }}
               />
             </div>
           </div>

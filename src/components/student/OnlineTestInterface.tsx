@@ -638,8 +638,8 @@ const OnlineTestInterface: React.FC = () => {
             <CardContent className="p-4 space-y-6">
               {/* Question Text */}
               <div 
-                className="text-lg leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+                className="text-lg leading-relaxed prose prose-sm max-w-none question-content"
+                dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.question_text) }}
               />
 
               {/* Options - NTA Style with Radio Buttons */}

@@ -36,6 +36,31 @@ export function useTableData(tableName: string | null) {
     fetchTableData();
   }, [tableName, page, pageSize, filters]);
 
+  // Real-time subscription for database changes
+  useEffect(() => {
+    if (!tableName) return;
+
+    const channel = supabase
+      .channel(`table-${tableName}-changes`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: tableName
+        },
+        (payload) => {
+          console.log('Real-time change detected:', payload);
+          fetchTableData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tableName]);
+
   const fetchTableData = async () => {
     if (!tableName) return;
 
@@ -162,6 +187,26 @@ export function useTableData(tableName: string | null) {
     setPage(1); // Reset to first page
   };
 
+  const deleteRows = async (ids: string[]) => {
+    if (!tableName || ids.length === 0) {
+      return { success: false, error: 'No rows to delete' };
+    }
+
+    try {
+      const { error } = await (supabase as any)
+        .from(tableName)
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+
+      await fetchTableData();
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
   return {
     data,
     columns,
@@ -175,6 +220,7 @@ export function useTableData(tableName: string | null) {
     setPageSize,
     refresh: fetchTableData,
     searchTable,
-    applyFilters
+    applyFilters,
+    deleteRows
   };
 }

@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight, Filter, Trash2 } from 'lucide-react';
 import { useTableData } from '@/hooks/useTableData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,6 +12,8 @@ import { DatabaseFilterPanel } from './DatabaseFilterPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface TableDataViewerProps {
   tableName: string | null;
@@ -22,7 +24,15 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCell, setEditingCell] = useState<{ row: any; column: string; value: any } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const { data, columns, loading, count, page, pageSize, totalPages, filters, setPage, setPageSize, refresh, searchTable, applyFilters } = useTableData(tableName);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { data, columns, loading, count, page, pageSize, totalPages, filters, setPage, setPageSize, refresh, searchTable, applyFilters, deleteRows } = useTableData(tableName);
+
+  // Clear selection when table changes
+  useState(() => {
+    setSelectedRows(new Set());
+  });
 
   const handleSearch = () => {
     setPage(1);
@@ -99,6 +109,43 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
     return value?.toString() || '';
   };
 
+  const toggleSelectAll = () => {
+    if (selectedRows.size === data.length && data.length > 0) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(data.map(row => row.id).filter(id => id)));
+    }
+  };
+
+  const toggleRowSelection = (id: string) => {
+    const newSelection = new Set(selectedRows);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedRows(newSelection);
+  };
+
+  const handleBulkDelete = async () => {
+    setIsDeleting(true);
+    const ids = Array.from(selectedRows);
+
+    const result = await deleteRows(ids);
+
+    if (result.success) {
+      toast.success(`✅ Successfully deleted ${ids.length} row(s) from ${tableName}`);
+      setSelectedRows(new Set());
+      setShowDeleteDialog(false);
+    } else {
+      toast.error(`❌ Failed to delete rows: ${result.error}`);
+    }
+
+    setIsDeleting(false);
+  };
+
+  const hasIdColumn = columns.some(col => col.name === 'id');
+
   if (!tableName) {
     return (
       <Card className="p-8">
@@ -161,6 +208,35 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
           </div>
         </div>
 
+        {/* Bulk Actions Toolbar */}
+        {selectedRows.size > 0 && hasIdColumn && (
+          <div className="bg-primary/10 border-b px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary" className="text-sm">
+                  {selectedRows.size} row{selectedRows.size !== 1 ? 's' : ''} selected
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedRows(new Set())}
+                >
+                  Clear Selection
+                </Button>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={isDeleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Selected
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Filter Panel */}
         {showFilters && (
           <DatabaseFilterPanel
@@ -187,6 +263,15 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {hasIdColumn && (
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedRows.size === data.length && data.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all rows"
+                        />
+                      </TableHead>
+                    )}
                     {columns.map(col => (
                       <TableHead key={col.name} className="min-w-[150px] whitespace-nowrap">
                         <div className="flex items-center gap-2">
@@ -201,7 +286,19 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                 </TableHeader>
                 <TableBody>
                   {data.map((row, idx) => (
-                    <TableRow key={idx}>
+                    <TableRow 
+                      key={idx}
+                      className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}
+                    >
+                      {hasIdColumn && (
+                        <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedRows.has(row.id)}
+                            onCheckedChange={() => toggleRowSelection(row.id)}
+                            aria-label={`Select row ${idx + 1}`}
+                          />
+                        </TableCell>
+                      )}
                       {columns.map(col => (
                         <TableCell 
                           key={col.name} 
@@ -295,6 +392,35 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
           dataType={typeof editingCell.value}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedRows.size} row{selectedRows.size !== 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected rows from the <strong>{tableName}</strong> table.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

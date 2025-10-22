@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { renderWithImages } from '@/lib/mathRendering';
 
 interface QuestionAnswerInputProps {
   questionType: string;
@@ -105,7 +106,10 @@ export const QuestionAnswerInput = ({
               <RadioGroupItem value={idx.toString()} id={`option-${idx}`} />
               <Label htmlFor={`option-${idx}`} className="cursor-pointer flex-1 font-normal">
                 <span className="font-semibold mr-2">{String.fromCharCode(65 + idx)}.</span>
-                {option}
+                <span 
+                  className="prose prose-sm max-w-none question-content inline"
+                  dangerouslySetInnerHTML={{ __html: renderWithImages(option || '') }}
+                />
               </Label>
             </div>
           ))}
@@ -236,7 +240,10 @@ export const QuestionAnswerInput = ({
             <div key={leftIdx} className="flex items-center gap-2 border rounded-lg p-3">
               <div className="flex-1">
                 <Badge variant="outline">{String.fromCharCode(65 + leftIdx)}</Badge>
-                <span className="ml-2 text-sm">{leftItem}</span>
+                <span 
+                  className="ml-2 text-sm prose prose-sm max-w-none question-content inline"
+                  dangerouslySetInnerHTML={{ __html: renderWithImages(leftItem || '') }}
+                />
               </div>
               <span className="text-muted-foreground">→</span>
               <select

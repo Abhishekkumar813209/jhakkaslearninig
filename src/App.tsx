@@ -40,6 +40,7 @@ import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRed
 import DatabaseExplorer from "./pages/DatabaseExplorer";
 import TestAnalyticsHistory from "./pages/TestAnalyticsHistory";
 import TestQuestionReview from "./pages/TestQuestionReview";
+import AnswerManagement from "./pages/AnswerManagement";
 
 const queryClient = new QueryClient();
 
@@ -188,6 +189,11 @@ const App = () => (
             <Route path="/database-explorer" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <DatabaseExplorer />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/answer-management" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <AnswerManagement />
               </ProtectedRoute>
             } />
             <Route path="/quiz" element={

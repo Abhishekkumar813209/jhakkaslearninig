@@ -73,7 +73,6 @@ const menuGroups: MenuGroup[] = [
       { value: "manual-topics", label: "Add Topics", icon: BookText },
       { value: "lessons", label: "Lesson Builder", icon: BookOpen },
       { value: "question-bank", label: "Question Bank", icon: FileText },
-      { value: "answer-management", label: "Answer Management", icon: CheckCircle },
       { value: "exam-types", label: "Exam Types", icon: Target },
     ],
   },
@@ -122,6 +121,7 @@ const menuGroups: MenuGroup[] = [
 // Separate navigation items (not tabs)
 const navigationItems = [
   { path: "/database-explorer", label: "Database Explorer", icon: Database },
+  { path: "/admin/answer-management", label: "Answer Management", icon: CheckCircle },
 ];
 
 interface AdminSidebarProps {

@@ -226,11 +226,26 @@ serve(async (req) => {
         throw new Error('Missing question_id or correct_answer');
       }
 
-      const { data: question } = await serviceClient
-        .from('question_bank')
+      // Try generated_questions first (Answer Management flow)
+      let { data: question } = await serviceClient
+        .from('generated_questions')
         .select('*')
         .eq('id', question_id)
         .single();
+
+      let table = 'generated_questions';
+      
+      // Fallback to question_bank if not found (legacy flow)
+      if (!question) {
+        const { data: qbQuestion } = await serviceClient
+          .from('question_bank')
+          .select('*')
+          .eq('id', question_id)
+          .single();
+        
+        question = qbQuestion;
+        table = 'question_bank';
+      }
 
       if (!question) throw new Error('Question not found');
 
@@ -245,8 +260,10 @@ serve(async (req) => {
         }
       }
       
+      console.log(`💾 Updating ${table} for question: ${question_id}`);
+      
       const { error } = await serviceClient
-        .from('question_bank')
+        .from(table)
         .update({
           correct_answer: normalized,
           explanation: explanation || null,
@@ -526,7 +543,7 @@ serve(async (req) => {
       if (body.topic_id) filters.topic_id = body.topic_id;
 
       const { data: questions, error } = await serviceClient
-        .from('question_bank')
+        .from('generated_questions')
         .select('*')
         .is('correct_answer', null)
         .match(filters)

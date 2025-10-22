@@ -23,8 +23,13 @@ import {
   Save,
   Edit,
   Eye,
-  BarChart3
+  BarChart3,
+  HelpCircle,
+  CheckCircle,
+  FileQuestion
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
 interface FilterValues {
   exam_domain?: string;
@@ -288,14 +293,16 @@ export const AnswerManagementPanel = () => {
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
+  
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length;
 
   const getStatusBadge = (question: Question) => {
     if (question.admin_reviewed) {
-      return <Badge variant="default" className="bg-green-500">Reviewed</Badge>;
+      return <Badge className="bg-green-500 hover:bg-green-600">✓ Reviewed</Badge>;
     } else if (question.correct_answer) {
-      return <Badge variant="secondary" className="bg-yellow-500">Answered</Badge>;
+      return <Badge className="bg-blue-500 hover:bg-blue-600">✓ Answered</Badge>;
     } else {
-      return <Badge variant="outline" className="text-red-500">Unanswered</Badge>;
+      return <Badge variant="destructive">! Unanswered</Badge>;
     }
   };
 
@@ -303,62 +310,92 @@ export const AnswerManagementPanel = () => {
     <div className="space-y-6">
       {/* Statistics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-l-4 border-l-primary">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Questions
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Questions</CardTitle>
+              <BarChart3 className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.total}</div>
+            <div className="text-3xl font-bold text-primary">{stats.total}</div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-orange-500">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Unanswered
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Unanswered</CardTitle>
+              <HelpCircle className="h-4 w-4 text-orange-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-500">{stats.unanswered}</div>
+            <div className="text-3xl font-bold text-orange-600">{stats.unanswered}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats.total > 0 ? Math.round((stats.unanswered / stats.total) * 100) : 0}% of total
+              {stats.total > 0 ? Math.round((stats.unanswered / stats.total) * 100) : 0}% remaining
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Answered
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Answered</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-blue-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-500">{stats.answered}</div>
+            <div className="text-3xl font-bold text-blue-600">{stats.answered}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats.total > 0 ? Math.round((stats.answered / stats.total) * 100) : 0}% of total
+              {stats.total > 0 ? Math.round((stats.answered / stats.total) * 100) : 0}% completed
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Reviewed
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Reviewed</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-500">{stats.reviewed}</div>
+            <div className="text-3xl font-bold text-green-600">{stats.reviewed}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats.total > 0 ? Math.round((stats.reviewed / stats.total) * 100) : 0}% of total
+              {stats.total > 0 ? Math.round((stats.reviewed / stats.total) * 100) : 0}% verified
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filter Panel */}
-      <QuestionFilterPanel filters={filters} onFiltersChange={setFilters} />
+      <Collapsible defaultOpen>
+        <Card>
+          <CardHeader className="cursor-pointer">
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Badge variant="secondary" className="ml-2">
+                        {activeFilterCount} active
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>Filter questions by domain, batch, subject, chapter, and topic</CardDescription>
+                </div>
+                <ChevronRight className="h-5 w-5 transition-transform duration-200 ui-expanded:rotate-90" />
+              </div>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <QuestionFilterPanel filters={filters} onFiltersChange={setFilters} />
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Search & Bulk Actions */}
       <Card>
@@ -398,12 +435,21 @@ export const AnswerManagementPanel = () => {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : questions.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No questions found</p>
-              <p className="text-sm">Try adjusting your filters or upload new questions</p>
+        <Card className="border-dashed">
+          <CardContent className="py-16">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="p-4 rounded-full bg-muted">
+                  <FileQuestion className="h-12 w-12 text-muted-foreground" />
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No questions found</h3>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                No questions match your current filters. Try adjusting your criteria or extract new questions from PDFs.
+              </p>
+              <Button variant="outline" onClick={() => window.location.href = '/admin/dashboard?tab=question-bank'}>
+                Go to Question Bank Builder
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -421,7 +467,17 @@ export const AnswerManagementPanel = () => {
 
           <div className="space-y-4">
             {questions.map((question, index) => (
-              <Card key={question.id} className="overflow-hidden">
+              <Card 
+                key={question.id} 
+                className="overflow-hidden hover:shadow-md transition-all duration-200 border-l-4"
+                style={{
+                  borderLeftColor: question.admin_reviewed 
+                    ? '#10b981' 
+                    : question.correct_answer 
+                      ? '#3b82f6' 
+                      : '#f59e0b'
+                }}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
                     <Checkbox
@@ -432,18 +488,49 @@ export const AnswerManagementPanel = () => {
                     <div className="flex-1 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">Q{(currentPage - 1) * pageSize + index + 1}</Badge>
-                            <Badge variant="secondary">{question.question_type.replace('_', ' ').toUpperCase()}</Badge>
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <Badge variant="outline" className="font-mono">
+                              Q{(currentPage - 1) * pageSize + index + 1}
+                            </Badge>
+                            <Badge variant={question.question_type === 'mcq' ? 'default' : 'secondary'}>
+                              {question.question_type.replace('_', ' ').toUpperCase()}
+                            </Badge>
                             {getStatusBadge(question)}
                             {question.marks && <Badge variant="outline">{question.marks} marks</Badge>}
+                            {question.difficulty && (
+                              <Badge variant="outline" className="capitalize">{question.difficulty}</Badge>
+                            )}
                           </div>
                           
                           {/* Breadcrumb */}
                           {question.roadmap_topics && (
-                            <p className="text-xs text-muted-foreground mb-2">
-                              {question.exam_domain?.toUpperCase()} › {question.roadmap_topics.subject} › {question.roadmap_topics.chapter.chapter_name} › {question.roadmap_topics.topic_name}
-                            </p>
+                            <Breadcrumb className="mb-2">
+                              <BreadcrumbList className="text-xs">
+                                <BreadcrumbItem>
+                                  <BreadcrumbPage className="text-muted-foreground">
+                                    {question.exam_domain?.toUpperCase()}
+                                  </BreadcrumbPage>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                  <BreadcrumbPage className="text-muted-foreground">
+                                    {question.roadmap_topics.subject}
+                                  </BreadcrumbPage>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                  <BreadcrumbPage className="text-muted-foreground">
+                                    {question.roadmap_topics.chapter.chapter_name}
+                                  </BreadcrumbPage>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                  <BreadcrumbPage className="font-medium">
+                                    {question.roadmap_topics.topic_name}
+                                  </BreadcrumbPage>
+                                </BreadcrumbItem>
+                              </BreadcrumbList>
+                            </Breadcrumb>
                           )}
                         </div>
                       </div>

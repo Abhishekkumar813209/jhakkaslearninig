@@ -349,12 +349,14 @@ serve(async (req) => {
       );
     }
 
-    // ========== finalize_and_link ==========
+    // ========== finalize_and_link (IDEMPOTENT) ==========
     if (action === 'finalize_and_link') {
       const { question_ids, topic_id } = body;
       if (!question_ids || !Array.isArray(question_ids) || !topic_id) {
         throw new Error('Missing question_ids or topic_id');
       }
+
+      console.log(`🔗 Finalizing ${question_ids.length} questions for topic ${topic_id}`);
 
       // Mark as approved
       await serviceClient
@@ -372,13 +374,59 @@ serve(async (req) => {
         .in('id', question_ids);
 
       let linkedCount = 0;
+      let skippedCount = 0;
+
       for (const q of questions || []) {
+        // IDEMPOTENCY CHECK: Look for existing mapping with (topic_id, question_id)
+        const { data: existingMappings } = await serviceClient
+          .from('topic_content_mapping')
+          .select('id')
+          .eq('topic_id', topic_id)
+          .eq('question_id', q.id);
+
+        if (existingMappings && existingMappings.length > 0) {
+          console.log(`⏭️ Mapping already exists for question ${q.id}, skipping...`);
+          skippedCount++;
+          
+          // Check if exercise exists for this mapping
+          const mappingId = existingMappings[0].id;
+          const { data: existingExercise } = await serviceClient
+            .from('gamified_exercises')
+            .select('id')
+            .eq('topic_content_id', mappingId)
+            .limit(1);
+
+          if (!existingExercise || existingExercise.length === 0) {
+            console.log(`⚠️ Mapping exists but exercise missing for ${q.id}, creating exercise...`);
+            
+            const exerciseData = q.question_type === 'mcq'
+              ? { question: q.question_text, options: q.options, correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? 0), marks: q.marks }
+              : { question: q.question_text, answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? ''), marks: q.marks };
+
+            await serviceClient
+              .from('gamified_exercises')
+              .insert({
+                topic_content_id: mappingId,
+                exercise_type: q.question_type,
+                exercise_data: exerciseData,
+                correct_answer: q.correct_answer,
+                explanation: q.explanation,
+                xp_reward: (q.marks || 1) * 10,
+                coin_reward: q.marks || 1,
+                difficulty: q.difficulty || 'medium'
+              });
+          }
+          
+          continue; // Skip to next question
+        }
+
+        // No existing mapping, create new one
         const { count } = await serviceClient
           .from('topic_content_mapping')
           .select('*', { count: 'exact', head: true })
           .eq('topic_id', topic_id);
 
-        const { data: mapping } = await serviceClient
+        const { data: mapping, error: mappingError } = await serviceClient
           .from('topic_content_mapping')
           .insert({
             topic_id,
@@ -389,13 +437,19 @@ serve(async (req) => {
           .select('id')
           .single();
 
-        if (!mapping) continue;
+        if (mappingError || !mapping) {
+          console.error(`❌ Failed to create mapping for question ${q.id}:`, mappingError);
+          continue;
+        }
 
+        console.log(`✅ Created new mapping for question ${q.id}`);
+
+        // Create the exercise
         const exerciseData = q.question_type === 'mcq'
           ? { question: q.question_text, options: q.options, correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? 0), marks: q.marks }
           : { question: q.question_text, answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? ''), marks: q.marks };
 
-        await serviceClient
+        const { error: exerciseError } = await serviceClient
           .from('gamified_exercises')
           .insert({
             topic_content_id: mapping.id,
@@ -408,11 +462,23 @@ serve(async (req) => {
             difficulty: q.difficulty || 'medium'
           });
 
+        if (exerciseError) {
+          console.error(`❌ Failed to create exercise for mapping ${mapping.id}:`, exerciseError);
+          continue;
+        }
+
         linkedCount++;
       }
 
+      console.log(`✅ Finalization complete: ${linkedCount} new links, ${skippedCount} skipped (already existed)`);
+
       return new Response(
-        JSON.stringify({ success: true, linked_count: linkedCount }),
+        JSON.stringify({ 
+          success: true, 
+          linked_count: linkedCount,
+          skipped_count: skippedCount,
+          total_processed: questions?.length || 0
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

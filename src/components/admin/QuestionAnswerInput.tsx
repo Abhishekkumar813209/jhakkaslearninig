@@ -30,8 +30,39 @@ export const QuestionAnswerInput = ({
   const [isValid, setIsValid] = useState(false);
 
   useEffect(() => {
+    // Handle legacy answer formats and normalize them
+    if (currentAnswer === null || currentAnswer === undefined) {
+      setLocalAnswer(null);
+      return;
+    }
+
+    // For MCQ: convert legacy number to { index: number }
+    if ((questionType === 'mcq' || questionType === 'assertion_reason') && typeof currentAnswer === 'number') {
+      setLocalAnswer({ index: currentAnswer });
+      return;
+    }
+
+    // For True/False: convert legacy boolean to { value: boolean }
+    if (questionType === 'true_false' && typeof currentAnswer === 'boolean') {
+      setLocalAnswer({ value: currentAnswer });
+      return;
+    }
+
+    // For Fill Blank: convert legacy string to { text: string }
+    if (questionType === 'fill_blank' && typeof currentAnswer === 'string') {
+      setLocalAnswer({ text: currentAnswer });
+      return;
+    }
+
+    // For Match Column: convert legacy array to { pairs: array }
+    if (questionType === 'match_column' && Array.isArray(currentAnswer)) {
+      setLocalAnswer({ pairs: currentAnswer });
+      return;
+    }
+
+    // Otherwise, use as-is (already in correct format)
     setLocalAnswer(currentAnswer);
-  }, [currentAnswer]);
+  }, [currentAnswer, questionType]);
 
   useEffect(() => {
     // Validate answer

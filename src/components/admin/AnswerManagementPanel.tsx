@@ -295,10 +295,97 @@ export const AnswerManagementPanel = () => {
   
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length;
 
+  // Helper: Check if question has a valid answer (handles 0, false, empty arrays)
+  const hasAnswer = (question: Question): boolean => {
+    const { correct_answer, question_type } = question;
+    
+    if (correct_answer === null || correct_answer === undefined) return false;
+    
+    switch (question_type) {
+      case 'mcq':
+      case 'assertion_reason':
+        // For MCQ: 0 is valid (Option A)
+        return typeof correct_answer === 'number' || 
+               (typeof correct_answer === 'object' && 'index' in correct_answer);
+      
+      case 'true_false':
+        // For boolean: false is valid
+        return typeof correct_answer === 'boolean' ||
+               (typeof correct_answer === 'object' && 'value' in correct_answer);
+      
+      case 'fill_blank':
+      case 'short_answer':
+        // For text: check non-empty string
+        return (typeof correct_answer === 'string' && correct_answer.trim() !== '') ||
+               (typeof correct_answer === 'object' && correct_answer.text);
+      
+      case 'match_column':
+        // For pairs: check array has items
+        return Array.isArray(correct_answer) ||
+               (typeof correct_answer === 'object' && Array.isArray(correct_answer.pairs) && correct_answer.pairs.length > 0);
+      
+      default:
+        return !!correct_answer;
+    }
+  };
+
+  // Helper: Normalize answer for form input (convert DB format to component format)
+  const normalizeAnswerForForm = (question: Question): any => {
+    const { correct_answer, question_type } = question;
+    
+    if (!hasAnswer(question)) return null;
+    
+    switch (question_type) {
+      case 'mcq':
+      case 'assertion_reason':
+        // Ensure { index: number } format
+        if (typeof correct_answer === 'number') {
+          return { index: correct_answer };
+        }
+        if (typeof correct_answer === 'object' && 'index' in correct_answer) {
+          return { index: correct_answer.index };
+        }
+        return { index: 0 };
+      
+      case 'true_false':
+        // Ensure { value: boolean } format
+        if (typeof correct_answer === 'boolean') {
+          return { value: correct_answer };
+        }
+        if (typeof correct_answer === 'object' && 'value' in correct_answer) {
+          return { value: correct_answer.value };
+        }
+        return null;
+      
+      case 'fill_blank':
+        // Ensure { text: string, answers?: string[] } format
+        if (typeof correct_answer === 'string') {
+          return { text: correct_answer };
+        }
+        if (typeof correct_answer === 'object' && 'text' in correct_answer) {
+          return correct_answer;
+        }
+        return null;
+      
+      case 'match_column':
+        // Ensure { pairs: Array } format
+        if (Array.isArray(correct_answer)) {
+          return { pairs: correct_answer };
+        }
+        if (typeof correct_answer === 'object' && 'pairs' in correct_answer) {
+          return correct_answer;
+        }
+        return null;
+      
+      default:
+        return correct_answer;
+    }
+  };
+
   const getStatusBadge = (question: Question) => {
     if (question.admin_reviewed) {
       return <Badge className="bg-green-500 hover:bg-green-600">✓ Reviewed</Badge>;
-    } else if (question.correct_answer) {
+    } else if (hasAnswer(question)) {
       return <Badge className="bg-blue-500 hover:bg-blue-600">✓ Answered</Badge>;
     } else {
       return <Badge variant="destructive">! Unanswered</Badge>;
@@ -472,7 +559,7 @@ export const AnswerManagementPanel = () => {
                 style={{
                   borderLeftColor: question.admin_reviewed 
                     ? '#10b981' 
-                    : question.correct_answer 
+                    : hasAnswer(question)
                       ? '#3b82f6' 
                       : '#f59e0b'
                 }}
@@ -558,7 +645,7 @@ export const AnswerManagementPanel = () => {
 
                 <CardContent className="pt-4">
                   {/* Show existing answer or input */}
-                  {question.correct_answer && !editingAnswers.has(question.id) ? (
+                  {hasAnswer(question) && !editingAnswers.has(question.id) ? (
                     <div className="space-y-3">
                       <div>
                         <Label className="text-sm font-medium">Current Answer:</Label>
@@ -583,7 +670,8 @@ export const AnswerManagementPanel = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          handleAnswerChange(question.id, question.correct_answer);
+                          // Pre-seed the form with normalized answer
+                          handleAnswerChange(question.id, normalizeAnswerForForm(question));
                           handleExplanationChange(question.id, question.explanation || '');
                         }}
                       >

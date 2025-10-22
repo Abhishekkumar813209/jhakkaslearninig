@@ -135,6 +135,9 @@ const cleanPastedHTML = (html: string): string => {
   // Step 1: Remove ALL style blocks (Word's CSS definitions)
   html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   
+  // Step 1.5: Remove CSS comment blocks (Word garbage like /* Font Definitions */)
+  html = html.replace(/\/\*[\s\S]*?\*\//g, '');
+  
   // Step 2: Remove ALL script blocks (security)
   html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   
@@ -169,6 +172,42 @@ const cleanPastedHTML = (html: string): string => {
   });
   
   return html;
+};
+
+// Helper to clean Word/Excel plain text (non-HTML paste that still has Word garbage)
+const cleanWordPlainText = (text: string): string => {
+  let cleaned = text;
+  
+  // Remove HTML/CSS comments
+  cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '');
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+  
+  // Remove &lt;!-- style HTML entities
+  cleaned = cleaned.replace(/&lt;!--[\s\S]*?--&gt;/g, '');
+  
+  // Remove @font-face blocks
+  cleaned = cleaned.replace(/@font-face\s*\{[^}]*\}/gi, '');
+  
+  // Remove mso-* properties and other inline CSS
+  cleaned = cleaned.replace(/mso-[a-z-]+:[^;]+;?/gi, '');
+  cleaned = cleaned.replace(/font-family:[^;]+;?/gi, '');
+  cleaned = cleaned.replace(/font-size:[^;]+;?/gi, '');
+  
+  // Remove leftover CSS rule blocks {...}
+  cleaned = cleaned.replace(/\{[^{}]*mso[^{}]*\}/gi, '');
+  cleaned = cleaned.replace(/\{[^{}]*font-family[^{}]*\}/gi, '');
+  
+  // Remove MsoNormal and WordSection class references
+  cleaned = cleaned.replace(/MsoNormal/gi, '');
+  cleaned = cleaned.replace(/WordSection\d+/gi, '');
+  
+  // Remove "Font Definitions" title
+  cleaned = cleaned.replace(/Font Definitions/gi, '');
+  
+  // Normalize whitespace
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
 };
 
 interface RichQuestionEditorProps {
@@ -352,10 +391,27 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           toast.success('✅ Math text pasted!');
           return true;
         }
+
+        // PRIORITY 3.8: Word/Excel plain text with garbage (detect before generic fallback)
+        if (text && (/(MsoNormal|mso-|@font-face|WordSection|Font Definitions|&lt;!--|<!--)/i.test(text))) {
+          let cleaned = cleanWordPlainText(text);
+          
+          // Preserve math: √14 → $\sqrt{14}$, -1/√14 → $\frac{-1}{\sqrt{14}}$
+          cleaned = cleaned.replace(/√(\d+)/g, '$\\sqrt{$1}$');
+          cleaned = cleaned.replace(/([-−]?\d+)\/√(\d+)/g, '$\\frac{$1}{\\sqrt{$2}}$');
+          
+          // Convert Unicode to notation
+          cleaned = convertUnicodeToNotation(cleaned);
+          
+          editor?.commands.insertContent(cleaned);
+          toast.success('✅ Word/Excel paste cleaned!');
+          console.log('✅ Word garbage removed:', text.substring(0, 100), '→', cleaned);
+          return true;
+        }
         
         // PRIORITY 4: Regular HTML/text
         if (html) {
-          let cleanedHTML = cleanPastedHTML(html); // Now preserves √!
+          let cleanedHTML = cleanPastedHTML(html); // Now preserves √ and removes CSS comments!
           
           // Double-check: if √ still present, convert to LaTeX
           if (cleanedHTML.includes('√')) {

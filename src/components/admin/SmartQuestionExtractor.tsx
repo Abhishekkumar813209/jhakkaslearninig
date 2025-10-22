@@ -37,6 +37,39 @@ const stripHtmlTags = (html: string): string => {
   return div.textContent || div.innerText || '';
 };
 
+// Helper to render math while preserving images and breaks
+const renderWithImages = (html: string): string => {
+  const tokens: Record<string, string> = {};
+  let i = 0;
+  
+  // Tokenize <img> and <br> tags to preserve them
+  const withTokens = html
+    .replace(/<img[^>]*>/gi, (img) => { 
+      const k = `IMG§${i++}§`; 
+      tokens[k] = img; 
+      return k; 
+    })
+    .replace(/<br\s*\/?>/gi, (br) => { 
+      const k = `BR§${i++}§`; 
+      tokens[k] = '<br />'; 
+      return k; 
+    });
+  
+  // Strip other HTML tags but keep text content
+  const textOnly = withTokens.replace(/<[^>]*>/g, '');
+  
+  // Apply math rendering
+  let out = renderMath(textOnly);
+  
+  // Restore image and break tokens
+  for (const [k, v] of Object.entries(tokens)) {
+    const escapedKey = k.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    out = out.replace(new RegExp(escapedKey, 'g'), v);
+  }
+  
+  return out;
+};
+
 interface ExtractedQuestion {
   id: string;
   question_number: string;
@@ -2542,8 +2575,8 @@ export const SmartQuestionExtractor = ({
                   )}
                   
                   <div 
-                    className="text-sm line-clamp-3 mb-3"
-                    dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+                    className="text-sm line-clamp-3 mb-3 prose prose-sm max-w-none question-content"
+                    dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
                   />
                   
                   {/* Correct Answer Input */}
@@ -2589,8 +2622,8 @@ export const SmartQuestionExtractor = ({
                         </DialogHeader>
                         <ScrollArea className="max-h-[60vh] overflow-y-auto">
                           <div 
-                            className="prose prose-sm max-w-none whitespace-pre-wrap break-words p-4"
-                            dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+                            className="prose prose-sm max-w-none question-content whitespace-pre-wrap break-words p-4"
+                            dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
                           />
                           {question.options && (
                             <div className="mt-4 space-y-2 p-4">
@@ -2598,7 +2631,10 @@ export const SmartQuestionExtractor = ({
                               {question.options.map((opt, idx) => (
                                 <div key={idx} className="p-3 border rounded-md bg-muted/30">
                                   <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>{' '}
-                                  <span dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                                  <span 
+                                    className="prose prose-sm max-w-none question-content inline"
+                                    dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} 
+                                  />
                                 </div>
                               ))}
                             </div>
@@ -2656,15 +2692,18 @@ export const SmartQuestionExtractor = ({
                             </div>
                           </div>
                           <div 
-                            className="prose prose-sm max-w-none mt-2"
-                            dangerouslySetInnerHTML={{ __html: renderMath(stripHtmlTags(q.question_text)) }}
+                            className="prose prose-sm max-w-none question-content mt-2"
+                            dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
                           />
                           {q.options && q.options.length > 0 && (
                             <ul className="mt-3 space-y-1">
                               {q.options.map((opt, i) => (
                                 <li key={i} className="text-sm">
                                   <span className="font-medium">{String.fromCharCode(65 + i)})</span>{' '}
-                                  <span dangerouslySetInnerHTML={{ __html: renderMath(stripHtmlTags(opt)) }} />
+                                  <span 
+                                    className="prose prose-sm max-w-none question-content inline"
+                                    dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} 
+                                  />
                                 </li>
                               ))}
                             </ul>

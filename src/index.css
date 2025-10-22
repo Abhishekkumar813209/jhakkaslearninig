@@ -47,7 +47,7 @@
 .vector {
   position: relative;
   display: inline-block;
-  padding-top: 0.6em;
+  padding-top: 0.45em;
   white-space: nowrap;
 }
 
@@ -66,14 +66,14 @@
 .hat {
   position: relative;
   display: inline-block;
-  padding-top: 0.45em;
+  padding-top: 0.3em;
   white-space: nowrap;
 }
 
 .hat::after {
   content: 'ˆ';
   position: absolute;
-  top: -0.15em;
+  top: 0em;
   left: 50%;
   transform: translateX(-50%);
   font-size: 0.75em;

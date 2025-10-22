@@ -289,14 +289,8 @@ export const renderMath = (input: string): string => {
     return placeholder;
   });
   
-  // Step 2: Apply vector notation BEFORE trig normalization
-  let cleaned = applyVectorNotation(protectedInput);
-  
-  // Step 2.5: Apply hat notation for unit vectors
-  cleaned = applyHatNotation(cleaned);
-  
-  // Step 3: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
-  cleaned = normalizeTrigInverse(cleaned);
+  // Step 2: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
+  let cleaned = normalizeTrigInverse(protectedInput);
   
   // Step 3: Clean and normalize input
   cleaned = cleaned
@@ -316,7 +310,7 @@ export const renderMath = (input: string): string => {
     .replace(/->/g, '→')        // Simple -> to proper arrow
     .replace(/<->/g, '⇌');      // Simple <-> to equilibrium arrow
   
-  // Step 5: Escape HTML for safety
+  // Step 5: Escape HTML for safety (CRITICAL: Do this BEFORE injecting any HTML)
   let safe = escapeHtml(cleaned);
   
   // Step 6: Apply square root with vinculum AFTER HTML escape
@@ -333,13 +327,19 @@ export const renderMath = (input: string): string => {
   // Also process \frac outside $...$ (fallback for direct LaTeX paste)
   safe = replaceLatexFractions(safe);
   
-  // Step 8: Apply fraction rendering BEFORE superscripts/subscripts
+  // Step 8: Apply vector notation (AFTER escapeHtml so spans don't get escaped)
+  safe = applyVectorNotation(safe);
+  
+  // Step 9: Apply hat notation for unit vectors (AFTER escapeHtml)
+  safe = applyHatNotation(safe);
+  
+  // Step 10: Apply fraction rendering
   safe = applyFractions(safe);
   
-  // Step 9: Process remaining plain-text math patterns (superscripts/subscripts)
+  // Step 11: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  // Step 10: Restore ALL protected tokens
+  // Step 12: Restore ALL protected tokens
   Object.keys(protectedTokens).forEach(placeholder => {
     safe = safe.replace(placeholder, protectedTokens[placeholder]);
   });

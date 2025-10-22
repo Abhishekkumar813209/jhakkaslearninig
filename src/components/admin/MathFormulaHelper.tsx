@@ -60,6 +60,11 @@ const TEMPLATES = [
   { name: 'Logarithm', formula: 'log_a(xy) = log_a(x) + log_a(y)' },
   { name: 'Trigonometry', formula: 'sin^2(θ) + cos^2(θ) = 1' },
   { name: 'Chemical Reaction', formula: '2H_2 + O_2 → 2H_2O' },
+  { name: 'Vector Equation', formula: '→r = λ(→i + 2→j - →k)' },
+  { name: 'Unit Vector', formula: '\\hat{i} + \\hat{j} + \\hat{k}' },
+  { name: 'Vector Components', formula: '→a = a_x→i + a_y→j + a_z→k' },
+  { name: 'Position Vector', formula: '→r = x\\hat{i} + y\\hat{j} + z\\hat{k}' },
+  { name: 'Vector Addition', formula: '→a + →b = (→i + →j) + (2→i - →k)' },
 ];
 
 export const MathFormulaHelper: React.FC<MathFormulaHelperProps> = ({

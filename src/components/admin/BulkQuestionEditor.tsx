@@ -424,7 +424,23 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
             <Select
               value={question.question_type}
               onValueChange={(value) => {
-                onUpdate({ ...question, question_type: value as any, edited: true });
+                const updates: Partial<ExtractedQuestion> = {
+                  question_type: value as any,
+                  edited: true
+                };
+                
+                // Auto-initialize options array for MCQ/Assertion Reason
+                if ((value === 'mcq' || value === 'assertion_reason') && !question.options) {
+                  updates.options = ['', '', '', ''];
+                }
+                
+                // Auto-initialize columns for Match Column
+                if (value === 'match_column' && (!question.left_column || !question.right_column)) {
+                  updates.left_column = ['', '', '', ''];
+                  updates.right_column = ['', '', '', ''];
+                }
+                
+                onUpdate({ ...question, ...updates });
               }}
             >
               <SelectTrigger className="w-auto h-6 text-xs border-dashed" onClick={(e) => e.stopPropagation()}>

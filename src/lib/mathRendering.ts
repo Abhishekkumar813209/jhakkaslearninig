@@ -50,6 +50,16 @@ export const applyFractions = (t: string): string => {
     prefix + (sign || '') + fracHTML(num, den)
   );
   
+  // Variable over number with optional signs: ±a/5, -x/3, p/2
+  t = t.replace(/(^|[\s,;.=()])(±|−|-)?([A-Za-z]\w*)\s*\/\s*(\d{1,4})(?=[\s,;.=()]|$)/g, (match, prefix, sign, num, den) =>
+    prefix + (sign || '') + fracHTML(num, den)
+  );
+  
+  // Number over variable with optional signs: ±5/a, -3/x, 2/p
+  t = t.replace(/(^|[\s,;.=()])(±|−|-)?(\d{1,4})\s*\/\s*([A-Za-z]\w*)(?=[\s,;.=()]|$)/g, (match, prefix, sign, num, den) =>
+    prefix + (sign || '') + fracHTML(num, den)
+  );
+  
   // Fractions with variables (including subscripts) with optional signs: ±a_1/a_2, -b_1/b_2, x/y
   t = t.replace(/(^|[\s,;.=()])(±|−|-)?([A-Za-z]\w*)\s*\/\s*([A-Za-z]\w*)(?=[\s,;.=()]|$)/g, (match, prefix, sign, num, den) =>
     prefix + (sign || '') + fracHTML(num, den)

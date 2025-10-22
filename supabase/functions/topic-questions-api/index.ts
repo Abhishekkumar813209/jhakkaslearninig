@@ -7,83 +7,91 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, Authorization, x-client-info, apikey, content-type',
 };
 
-// Normalize correct answer to standard JSONB format
+// HTML Stripping helpers
+function stripHtmlTags(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, '')  // Remove all HTML tags
+    .replace(/&nbsp;/g, ' ')   // Replace &nbsp; with space
+    .replace(/&amp;/g, '&')    // Decode &amp;
+    .replace(/&lt;/g, '<')     // Decode &lt;
+    .replace(/&gt;/g, '>')     // Decode &gt;
+    .replace(/&quot;/g, '"')   // Decode &quot;
+    .trim()
+    .replace(/\s+/g, ' ');     // Collapse multiple spaces
+}
+
+function stripHtmlFromOptions(options: string[] | null): string[] | null {
+  if (!options || !Array.isArray(options)) return options;
+  return options.map(opt => stripHtmlTags(opt));
+}
+
+// Normalize correct answer to plain format (MCQ = number, others = structured)
 function normalizeCorrectAnswer(questionType: string, correctAnswer: any, options: string[] | null): any {
   console.log('🔧 Normalizing answer:', { questionType, correctAnswer, options });
   
   if (questionType === 'mcq') {
-    // Handle object format first (from frontend: { index: 3 })
+    // For MCQ, return ONLY the numeric index (simplified storage)
     if (typeof correctAnswer === 'object' && correctAnswer !== null) {
-      // Handle { index: 3 } format from frontend
       if ('index' in correctAnswer && typeof correctAnswer.index === 'number') {
         console.log('✅ Normalized object { index } format:', correctAnswer.index);
-        return { type: 'index', value: correctAnswer.index, options };
+        return correctAnswer.index;
       }
-      // Handle already normalized { value: 3, type: 'index' } format
       if ('value' in correctAnswer && typeof correctAnswer.value === 'number') {
         console.log('✅ Normalized object { value } format:', correctAnswer.value);
-        return { type: 'index', value: correctAnswer.value, options };
+        return correctAnswer.value;
       }
     }
     
-    // Handle number format
     if (typeof correctAnswer === 'number') {
       console.log('✅ Normalized number format:', correctAnswer);
-      return { type: 'index', value: correctAnswer, options };
+      return correctAnswer;
     }
     
-    // Handle string format
     if (typeof correctAnswer === 'string') {
-      // Try parsing as JSON first
       try {
         const parsed = JSON.parse(correctAnswer);
         if (typeof parsed === 'object' && parsed !== null) {
-          // Handle JSON with "value" field (from DB: '{"type":"index","value":3}')
           if ('value' in parsed && typeof parsed.value === 'number') {
             console.log('✅ Normalized JSON string with value:', parsed.value);
-            return { type: 'index', value: parsed.value, options };
+            return parsed.value;
           }
-          // Handle JSON with "index" field (legacy format)
           if ('index' in parsed && typeof parsed.index === 'number') {
             console.log('✅ Normalized JSON string with index:', parsed.index);
-            return { type: 'index', value: parsed.index, options };
+            return parsed.index;
           }
         }
       } catch {
-        // Not JSON, continue with other string parsing
+        // Not JSON, continue
       }
       
       const normalized = correctAnswer.trim().toUpperCase();
       
-      // Handle letter format (A, B, C, D)
       if (normalized.length === 1 && normalized >= 'A' && normalized <= 'Z') {
         const index = normalized.charCodeAt(0) - 65;
         console.log('✅ Normalized letter format:', normalized, '→', index);
-        return { type: 'index', value: index, options };
+        return index;
       }
       
-      // Handle exact text match
       if (options && options.length > 0) {
         const index = options.findIndex(opt => 
           opt.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
         );
         if (index !== -1) {
           console.log('✅ Normalized text match format:', index);
-          return { type: 'index', value: index, options };
+          return index;
         }
       }
       
-      // Handle numeric string
       const parsed = parseInt(correctAnswer);
       if (!isNaN(parsed)) {
         console.log('✅ Normalized numeric string format:', parsed);
-        return { type: 'index', value: parsed, options };
+        return parsed;
       }
     }
     
-    // Fallback
     console.error('❌ Unhandled correctAnswer format:', correctAnswer);
-    return { type: 'index', value: 0, options };
+    return 0;
   }
   
   if (questionType === 'true_false') {
@@ -203,11 +211,11 @@ serve(async (req) => {
 
       // Map to UI-friendly format for admin tool
       const normalized = (questions || []).map(q => {
-        let ans = q.correct_answer ? normalizeCorrectAnswer(q.question_type, q.correct_answer, q.options) : null;
+        let ans = q.correct_answer;
         
-        // For MCQ, admin UI expects { index } format, not { value }
-        if (q.question_type === 'mcq' && ans && typeof ans === 'object') {
-          ans = { index: 'value' in ans ? ans.value : (ans.index ?? 0) };
+        // For MCQ, admin UI expects { index } format if number received
+        if (q.question_type === 'mcq' && typeof ans === 'number') {
+          ans = { index: ans };
         }
         
         return { ...q, correct_answer: ans };
@@ -251,12 +259,11 @@ serve(async (req) => {
 
       const normalized = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
       
-      // Guard against out-of-range indexes
-      if (question.question_type === 'mcq' && normalized.value !== undefined) {
+      // Guard against out-of-range indexes (for MCQ, normalized is now a plain number)
+      if (question.question_type === 'mcq' && typeof normalized === 'number') {
         const optionsLength = question.options?.length || 0;
-        if (normalized.value >= optionsLength) {
-          console.warn(`⚠️ Index ${normalized.value} out of range for ${optionsLength} options`);
-          normalized.value = Math.min(normalized.value, optionsLength - 1);
+        if (normalized >= optionsLength) {
+          console.warn(`⚠️ Index ${normalized} out of range for ${optionsLength} options`);
         }
       }
       
@@ -297,7 +304,7 @@ serve(async (req) => {
               .update({
                 game_data: {
                   ...gameData,
-                  correct_answer: normalized.value
+                  correct_answer: typeof normalized === 'number' ? normalized : (normalized.value ?? 0)
                 },
                 updated_at: new Date().toISOString()
               })
@@ -325,7 +332,7 @@ serve(async (req) => {
                 correct_answer: normalized,
                 exercise_data: {
                   ...exerciseData,
-                  correct_answer: normalized.value
+                  correct_answer: typeof normalized === 'number' ? normalized : (normalized.value ?? 0)
                 },
                 updated_at: new Date().toISOString()
               })
@@ -385,8 +392,8 @@ serve(async (req) => {
         if (!mapping) continue;
 
         const exerciseData = q.question_type === 'mcq'
-          ? { question: q.question_text, options: q.options, correct_answer: q.correct_answer?.value, marks: q.marks }
-          : { question: q.question_text, answer: q.correct_answer?.value, marks: q.marks };
+          ? { question: q.question_text, options: q.options, correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? 0), marks: q.marks }
+          : { question: q.question_text, answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? ''), marks: q.marks };
 
         await serviceClient
           .from('gamified_exercises')
@@ -425,9 +432,9 @@ serve(async (req) => {
         const { data, error } = await serviceClient
           .from('question_bank')
           .insert({
-            question_text: q.question_text,
+            question_text: stripHtmlTags(q.question_text),
             question_type: q.question_type,
-            options: q.options || null,
+            options: stripHtmlFromOptions(q.options || null),
             marks: q.marks || 1,
             difficulty: q.difficulty || 'medium',
             topic_id: topic_id,
@@ -509,7 +516,13 @@ serve(async (req) => {
       const sanitizedUpdates: any = {};
       for (const key of allowedFields) {
         if (key in updates) {
-          sanitizedUpdates[key] = updates[key];
+          if (key === 'question_text' && updates[key]) {
+            sanitizedUpdates[key] = stripHtmlTags(updates[key]);
+          } else if (key === 'options' && updates[key]) {
+            sanitizedUpdates[key] = stripHtmlFromOptions(updates[key]);
+          } else {
+            sanitizedUpdates[key] = updates[key];
+          }
         }
       }
       

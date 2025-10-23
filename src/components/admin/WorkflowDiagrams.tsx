@@ -219,6 +219,45 @@ const workflows: WorkflowData[] = [
     }
   },
   {
+    table: 'topic_content_mapping',
+    description: 'Links approved questions and content to specific topics for organized student access',
+    mermaidDiagram: `graph TD
+    A[topic_learning_content approved] --> B[🔄 Trigger Creates Mapping]
+    B --> C[💾 Insert to topic_content_mapping]
+    C --> D[🔗 Links content_id to topic_id]
+    D --> E[📝 Sets content_type]
+    E --> F{Content Type?}
+    F -->|question| G[🎯 Question ID stored]
+    F -->|video| H[🎥 Video ID stored]
+    F -->|article| I[📄 Article ID stored]
+    G --> J[🎮 Syncs to gamified_exercises]
+    J --> K[📱 DuolingoLessonPath Fetches]
+    K --> L[🎯 Filters by topic_id]
+    L --> M[✅ Shows Content to Student]
+    M --> N[🎮 Student Interacts]
+    N --> O[📊 Tracks Progress]
+    
+    style B fill:#90EE90
+    style C fill:#87CEEB
+    style J fill:#FFB6C1
+    style M fill:#FFD700`,
+    steps: [
+      { title: '1. Content Approval', description: 'Admin approves content in topic_learning_content' },
+      { title: '2. Auto Mapping', description: 'sync_gamified_exercises_from_content trigger creates mapping entry' },
+      { title: '3. Type Detection', description: 'content_type set based on source (question/video/article)' },
+      { title: '4. Reference Link', description: 'content_id stores UUID reference to actual content' },
+      { title: '5. Topic Association', description: 'topic_id links content to specific roadmap topic' },
+      { title: '6. Student Fetch', description: 'DuolingoLessonPath queries by topic_id to get all content' },
+      { title: '7. Content Display', description: 'Shows games, videos, articles in organized learning path' },
+      { title: '8. Progress Tracking', description: 'Records completion in student_topic_game_progress' }
+    ],
+    deleteBehavior: {
+      warning: 'Deleting removes content from student learning path immediately',
+      orphans: ['gamified_exercises (game still exists but unlinked)', 'topic_learning_content (source content unchanged)', 'student_topic_game_progress (may reference deleted mapping)'],
+      cleanup: 'Safe to delete - only breaks the link, not the content itself'
+    }
+  },
+  {
     table: 'referral_credits',
     description: 'Student referral earnings and withdrawal tracking',
     mermaidDiagram: `graph TD

@@ -424,7 +424,10 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCellClick(row, col.name, cellValue);
+                              // Only allow editing non-UUID cells
+                              if (!isUUIDValue) {
+                                handleCellClick(row, col.name, cellValue);
+                              }
                             }}
                             onDoubleClick={(e) => {
                               e.stopPropagation();

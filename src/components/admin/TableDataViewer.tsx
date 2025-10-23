@@ -278,9 +278,11 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
             {/* ID Resolver Result */}
             {searchMode === 'id' && idResult && (
-              <div className="border rounded-lg p-3 bg-accent/50">
-                <IDInfoCard result={idResult} />
-              </div>
+              <ScrollArea className="max-h-[500px] border rounded-lg bg-accent/50">
+                <div className="p-3">
+                  <IDInfoCard result={idResult} />
+                </div>
+              </ScrollArea>
             )}
           </div>
         </div>

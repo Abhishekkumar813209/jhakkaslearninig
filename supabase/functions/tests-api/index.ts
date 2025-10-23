@@ -259,6 +259,13 @@ serve(async (req: Request) => {
 
             console.log('Sanitized values:', { marks, position })
 
+            // Calculate correct answer as index for MCQ questions
+            let correctAnswer = questionData.correct_answer
+            if (questionData.qtype === 'mcq' && questionData.options && Array.isArray(questionData.options)) {
+              const correctIndex = questionData.options.findIndex((opt: any) => opt.isCorrect === true)
+              correctAnswer = correctIndex >= 0 ? correctIndex.toString() : null
+            }
+
             const { data: newQuestion, error: questionError } = await supabase
               .from('questions')
               .insert([{
@@ -266,9 +273,7 @@ serve(async (req: Request) => {
                 question_text: questionData.question_text,
                 question_type: questionData.qtype === 'mcq' ? 'mcq' : 'subjective',
                 options: questionData.options ? JSON.stringify(questionData.options) : null,
-                correct_answer: questionData.correct_answer || (
-                  questionData.options?.find((opt: any) => opt.isCorrect)?.text || null
-                ),
+                correct_answer: correctAnswer,
                 marks: marks,
                 order_num: position,
                 explanation: questionData.explanation,
@@ -319,14 +324,19 @@ serve(async (req: Request) => {
             const { questionId, updates, removeImage } = requestData as any
             console.log('Updating question:', questionId, { ...updates, removeImage })
 
+            // Calculate correct answer as index for MCQ questions
+            let updateCorrectAnswer = updates?.correct_answer
+            if (updates?.qtype === 'mcq' && updates?.options && Array.isArray(updates.options)) {
+              const correctIndex = updates.options.findIndex((opt: any) => opt.isCorrect === true)
+              updateCorrectAnswer = correctIndex >= 0 ? correctIndex.toString() : null
+            }
+
             // Build update payload dynamically so we can force-clear image fields
             const updatePayload: any = {
               question_text: updates?.question_text,
               question_type: updates?.qtype === 'mcq' ? 'mcq' : 'subjective',
               options: updates?.options ? JSON.stringify(updates.options) : null,
-              correct_answer: updates?.correct_answer || (
-                updates?.options?.find((opt: any) => opt.isCorrect)?.text || null
-              ),
+              correct_answer: updateCorrectAnswer,
               marks: updates?.marks,
               order_num: updates?.position,
               explanation: updates?.explanation,

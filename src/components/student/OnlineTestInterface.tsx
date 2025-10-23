@@ -563,12 +563,12 @@ const OnlineTestInterface: React.FC = () => {
                   <div className="space-y-2.5 mt-4">
                     {currentQuestion.options.map((option, index) => {
                   const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
-                  const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
+                  const isSelected = answers[currentQuestion.id]?.selectedOption === index.toString();
                   
                   return (
                     <div
                       key={index}
-                      onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
+                      onClick={() => handleAnswerChange(currentQuestion.id, index.toString(), 'option')}
                   className={`
                     flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer
                     transition-all duration-200 group
@@ -816,12 +816,12 @@ const OnlineTestInterface: React.FC = () => {
                     <div className="space-y-3 mt-6">
                       {currentQuestion.options.map((option, index) => {
                     const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
-                    const isSelected = answers[currentQuestion.id]?.selectedOption === option.text;
+                    const isSelected = answers[currentQuestion.id]?.selectedOption === index.toString();
                     
                     return (
                       <div
                         key={index}
-                        onClick={() => handleAnswerChange(currentQuestion.id, option.text, 'option')}
+                        onClick={() => handleAnswerChange(currentQuestion.id, index.toString(), 'option')}
                         className={`
                           flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer
                           transition-all duration-200 group

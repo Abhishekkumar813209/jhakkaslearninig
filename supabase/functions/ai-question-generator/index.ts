@@ -56,7 +56,8 @@ Requirements:
 - Include clear, unambiguous options
 - Provide brief explanations
 - Avoid trick questions
-- Make distractors plausible but clearly wrong`;
+- Make distractors plausible but clearly wrong
+- In the options array, only ONE option should have "isCorrect": true`;
 
     } else if (type === 'subjective') {
       systemPrompt = `You are an expert educator creating subjective questions that encourage critical thinking and detailed responses. Focus on questions that require analysis, synthesis, and evaluation.

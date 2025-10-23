@@ -234,11 +234,12 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
       const question = questions.find((q: any) => q.id === answer.questionId);
       if (!question) continue;
 
-      if (question.qtype === 'mcq' && question.options) {
-        const options = typeof question.options === 'string' ? JSON.parse(question.options) : question.options;
-        const correctOption = options.find((opt: any) => opt.isCorrect);
+      if (question.qtype === 'mcq') {
+        // Compare indices directly (both are strings: "0", "1", "2", "3")
+        const selectedIndex = answer.selectedOption; // This is now the index string
+        const correctIndex = question.correct_answer; // This is now the index string
         
-        if (correctOption && answer.selectedOption === correctOption.text) {
+        if (selectedIndex === correctIndex) {
           totalScore += question.marks;
           
           // Update answer with score

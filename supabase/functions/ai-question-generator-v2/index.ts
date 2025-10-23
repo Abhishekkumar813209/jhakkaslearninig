@@ -212,8 +212,8 @@ Return ONLY a valid JSON array:
 
       if (question_type === 'mcq') {
         questionData.options = q.options;
-        const correctOption = q.options.find((opt: any) => opt.isCorrect);
-        questionData.correct_answer = correctOption?.text || '';
+        const correctIndex = q.options.findIndex((opt: any) => opt.isCorrect);
+        questionData.correct_answer = correctIndex >= 0 ? correctIndex.toString() : '0';
       } else if (question_type === 'fill_up' || question_type === 'true_false') {
         questionData.correct_answer = q.correct_answer;
       } else if (question_type === 'match_column') {

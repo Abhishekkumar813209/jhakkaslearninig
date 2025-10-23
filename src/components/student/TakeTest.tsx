@@ -333,14 +333,14 @@ const TakeTest: React.FC = () => {
                 <label
                   key={index}
                   className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 ${
-                    currentAnswer?.selectedOption === option.text ? 'border-primary bg-primary/10' : 'border-gray-200'
+                    currentAnswer?.selectedOption === index.toString() ? 'border-primary bg-primary/10' : 'border-gray-200'
                   }`}
                 >
                   <input
                     type="radio"
                     name={`question-${currentQuestion.id}`}
-                    value={option.text}
-                    checked={currentAnswer?.selectedOption === option.text}
+                    value={index.toString()}
+                    checked={currentAnswer?.selectedOption === index.toString()}
                     onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
                     className="text-primary"
                   />

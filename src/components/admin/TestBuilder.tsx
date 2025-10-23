@@ -704,9 +704,9 @@ const TestBuilder: React.FC = () => {
               text: opt,
               isCorrect: idx === (question.correct_answer?.correctAnswerIndex ?? 0)
             })) : undefined,
-          correct_answer: question.question_type === 'mcq' ? 
-            question.options?.[question.correct_answer?.correctAnswerIndex ?? 0] : 
-            question.correct_answer,
+          // For MCQ, the backend will calculate the index from options
+          // For subjective, use the text answer
+          correct_answer: question.question_type !== 'mcq' ? question.correct_answer : undefined,
           marks: question.marks || 1,
           position: questions.length + successCount + 1,
           image_url: question.images?.[0],

@@ -368,7 +368,17 @@ const TestResults: React.FC = () => {
 
       const transformedAnswers = (questionsData || []).map((question: any) => {
         const answer = answerByQuestion.get(question.id) || null;
-        const selectedText = answer?.selected_option ?? (answer?.option_id ? optionTextById.get(answer.option_id) ?? null : null);
+        
+        // For MCQ: selected_option is now an index, need to convert to text for display
+        let selectedText = answer?.selected_option ?? null;
+        if (question.qtype === 'mcq' && selectedText !== null && question.options) {
+          const options = typeof question.options === 'string' ? JSON.parse(question.options) : question.options;
+          const selectedIndex = parseInt(selectedText);
+          if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < options.length) {
+            selectedText = options[selectedIndex]?.text || selectedText;
+          }
+        }
+        
         return {
           id: answer?.id || '',
           attempt_id: attempt.id,

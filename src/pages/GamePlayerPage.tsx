@@ -3,6 +3,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import { MCQGame } from "@/components/student/games/MCQGame";
+import { MatchPairsGame } from "@/components/student/games/MatchPairsGame";
+import { InteractiveBlanks } from "@/components/student/games/InteractiveBlanks";
+import { DragDropSequence } from "@/components/student/games/DragDropSequence";
+import { TypingRaceGame } from "@/components/student/games/TypingRaceGame";
 import { getAdjacentGames, loadGameById, GameNavigationInfo } from "@/lib/gameNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -268,6 +272,93 @@ const GamePlayerPage = () => {
     }
   };
 
+  const renderGame = () => {
+    if (!gameData) return null;
+
+    const exerciseType = gameData.exercise_type;
+    
+    // For MCQ: prefer direct columns, fallback to exercise_data
+    if (exerciseType === 'mcq') {
+      const mcqData = {
+        question: gameData.question_text || gameData.exercise_data?.question || "",
+        options: gameData.options || gameData.exercise_data?.options || [],
+        correct_answer: gameData.correct_answer_index ?? gameData.exercise_data?.correct_answer ?? 0,
+        explanation: gameData.explanation || gameData.exercise_data?.explanation,
+        marks: gameData.marks || gameData.exercise_data?.marks || 1,
+        difficulty: gameData.difficulty || gameData.exercise_data?.difficulty
+      };
+
+      return (
+        <MCQGame
+          gameData={mcqData}
+          onCorrect={handleCorrectAnswer}
+          onWrong={handleWrongAnswer}
+          onComplete={handleGameComplete}
+          onNext={navInfo?.nextGameId ? handleNext : undefined}
+          onPrevious={navInfo?.prevGameId ? handlePrevious : undefined}
+          onExit={handleExit}
+          hasMoreQuestions={!!navInfo?.nextGameId}
+          currentQuestionNum={navInfo?.currentGameNum || 1}
+          totalQuestions={navInfo?.totalGames || 1}
+        />
+      );
+    }
+
+    // For other game types: use exercise_data
+    const commonProps = {
+      onCorrect: handleCorrectAnswer,
+      onWrong: handleWrongAnswer,
+      onComplete: handleGameComplete,
+    };
+
+    switch (exerciseType) {
+      case 'match_pairs':
+        return (
+          <MatchPairsGame
+            gameData={gameData.exercise_data}
+            {...commonProps}
+          />
+        );
+      
+      case 'fill_blank':
+      case 'interactive_blanks':
+        return (
+          <InteractiveBlanks
+            gameData={gameData.exercise_data}
+            {...commonProps}
+          />
+        );
+      
+      case 'drag_drop_sort':
+        return (
+          <DragDropSequence
+            gameData={gameData.exercise_data}
+            {...commonProps}
+          />
+        );
+      
+      case 'typing_race':
+        return (
+          <TypingRaceGame
+            gameData={gameData.exercise_data}
+            {...commonProps}
+          />
+        );
+      
+      default:
+        return (
+          <div className="text-center p-8">
+            <p className="text-muted-foreground">
+              Game type "{exerciseType}" is not yet supported.
+            </p>
+            <Button onClick={handleExit} className="mt-4">
+              Back to Topic
+            </Button>
+          </div>
+        );
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -324,25 +415,7 @@ const GamePlayerPage = () => {
           </span>
         </div>
 
-        <MCQGame
-          gameData={{
-            question: gameData.question_text || "",
-            options: gameData.options || [],
-            correct_answer: gameData.correct_answer_index ?? 0,
-            explanation: gameData.explanation,
-            marks: gameData.marks || 1,
-            difficulty: gameData.difficulty
-          }}
-          onCorrect={handleCorrectAnswer}
-          onWrong={handleWrongAnswer}
-          onComplete={handleGameComplete}
-          onNext={navInfo?.nextGameId ? handleNext : undefined}
-          onPrevious={navInfo?.prevGameId ? handlePrevious : undefined}
-          onExit={handleExit}
-          hasMoreQuestions={!!navInfo?.nextGameId}
-          currentQuestionNum={navInfo?.currentGameNum || 1}
-          totalQuestions={navInfo?.totalGames || 1}
-        />
+        {renderGame()}
       </div>
     </div>
   );

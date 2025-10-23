@@ -27,16 +27,23 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { renderMath, renderWithImages } from '@/lib/mathRendering';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import Navbar from '@/components/Navbar';
 
 interface Question {
   id: string;
   question_text: string;
-  question_type: 'multiple_choice' | 'text';
+  question_type: 'multiple_choice' | 'text' | 'true_false' | 'assertion_reason' | 'fill_blank' | 'match_column';
   options?: { text: string; isCorrect: boolean }[];
   marks: number;
   order_num: number;
   word_limit?: number;
+  assertion?: string; // For assertion_reason type
+  reason?: string; // For assertion_reason type
+  blanks_count?: number; // For fill_blank type
+  left_column?: { text: string }[]; // For match_column type
+  right_column?: { text: string }[]; // For match_column type
 }
 
 interface Test {
@@ -54,8 +61,9 @@ interface Test {
 
 interface Answer {
   questionId: string;
-  selectedOption?: string;
-  textAnswer?: string;
+  selectedOption?: string; // For MCQ, true_false, assertion_reason
+  textAnswer?: string | string[]; // For text and fill_blank (array for multiple blanks)
+  matches?: { [key: number]: number }; // For match_column: {leftIndex: rightIndex}
 }
 
 const OnlineTestInterface: React.FC = () => {
@@ -602,23 +610,176 @@ const OnlineTestInterface: React.FC = () => {
               </>
             )}
 
-            {/* Text Answer Area */}
-            {currentQuestion.question_type === 'text' && (
-              <div className="mt-6">
-                <Textarea
-                  value={answers[currentQuestion.id]?.textAnswer || ''}
-                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value, 'text')}
-                  rows={10}
-                  className="resize-none text-base border-2 focus:border-blue-500"
-                  placeholder="Type your answer here..."
-                />
-                {currentQuestion.word_limit && (
-                  <p className="text-sm text-muted-foreground mt-2 text-right">
-                    {answers[currentQuestion.id]?.textAnswer?.length || 0} / {currentQuestion.word_limit} characters
-                  </p>
-                )}
-              </div>
-            )}
+              {/* Text Answer Area */}
+              {currentQuestion.question_type === 'text' && (
+                <div className="mt-6">
+                  <Textarea
+                    value={answers[currentQuestion.id]?.textAnswer as string || ''}
+                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value, 'text')}
+                    rows={10}
+                    className="resize-none text-base border-2 focus:border-blue-500"
+                    placeholder="Type your answer here..."
+                  />
+                  {currentQuestion.word_limit && (
+                    <p className="text-sm text-muted-foreground mt-2 text-right">
+                      {(answers[currentQuestion.id]?.textAnswer as string)?.length || 0} / {currentQuestion.word_limit} characters
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* True/False Question */}
+              {currentQuestion.question_type === 'true_false' && (
+                <div className="flex gap-4 mt-6">
+                  <Button
+                    size="lg"
+                    variant={answers[currentQuestion.id]?.selectedOption === 'True' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerChange(currentQuestion.id, 'True', 'option')}
+                    className={`flex-1 h-16 text-lg font-semibold ${
+                      answers[currentQuestion.id]?.selectedOption === 'True' ? 'bg-green-500 hover:bg-green-600' : ''
+                    }`}
+                  >
+                    ✓ True
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant={answers[currentQuestion.id]?.selectedOption === 'False' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerChange(currentQuestion.id, 'False', 'option')}
+                    className={`flex-1 h-16 text-lg font-semibold ${
+                      answers[currentQuestion.id]?.selectedOption === 'False' ? 'bg-red-500 hover:bg-red-600' : ''
+                    }`}
+                  >
+                    ✗ False
+                  </Button>
+                </div>
+              )}
+
+              {/* Assertion-Reason Question */}
+              {currentQuestion.question_type === 'assertion_reason' && (
+                <div className="mt-6 space-y-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg space-y-2">
+                    <div>
+                      <span className="font-bold text-blue-700 dark:text-blue-400">Assertion (A): </span>
+                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.assertion || '') }} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-blue-700 dark:text-blue-400">Reason (R): </span>
+                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.reason || '') }} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {['A', 'B', 'C', 'D'].map((option, index) => {
+                      const optionTexts = [
+                        'Both A and R are true and R is the correct explanation of A',
+                        'Both A and R are true but R is not the correct explanation of A',
+                        'A is true but R is false',
+                        'A is false but R is true'
+                      ];
+                      const isSelected = answers[currentQuestion.id]?.selectedOption === option;
+                      return (
+                        <div
+                          key={index}
+                          onClick={() => handleAnswerChange(currentQuestion.id, option, 'option')}
+                          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-border hover:border-blue-400'
+                          }`}
+                        >
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            isSelected ? 'border-blue-500 bg-blue-500' : 'border-muted-foreground/40'
+                          }`}>
+                            {isSelected && <div className="w-3 h-3 bg-white rounded-full" />}
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-bold mr-2">{option}.</span>
+                            <span>{optionTexts[index]}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Fill in the Blanks */}
+              {currentQuestion.question_type === 'fill_blank' && (
+                <div className="mt-6 space-y-4">
+                  {Array.from({ length: currentQuestion.blanks_count || 1 }).map((_, index) => {
+                    const textAnswers = answers[currentQuestion.id]?.textAnswer as string[] || [];
+                    return (
+                      <div key={index}>
+                        <Label className="text-base font-semibold">Blank {index + 1}</Label>
+                        <Input
+                          value={textAnswers[index] || ''}
+                          onChange={(e) => {
+                            const newAnswers = [...(textAnswers || [])];
+                            newAnswers[index] = e.target.value;
+                            const newAnswer: Answer = {
+                              ...answers[currentQuestion.id],
+                              questionId: currentQuestion.id,
+                              textAnswer: newAnswers
+                            };
+                            setAnswers({ ...answers, [currentQuestion.id]: newAnswer });
+                          }}
+                          className="mt-1 text-base border-2"
+                          placeholder={`Answer for blank ${index + 1}`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Match the Column */}
+              {currentQuestion.question_type === 'match_column' && (
+                <div className="mt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-bold text-lg mb-3 text-blue-700 dark:text-blue-400">Column A</h4>
+                      {currentQuestion.left_column?.map((item, index) => (
+                        <div key={index} className="p-3 mb-2 border-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                          <span className="font-bold mr-2">{index + 1}.</span>
+                          <span dangerouslySetInnerHTML={{ __html: renderMath(item.text) }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-3 text-green-700 dark:text-green-400">Match with Column B</h4>
+                      {currentQuestion.left_column?.map((_, leftIndex) => {
+                        const matches = answers[currentQuestion.id]?.matches || {};
+                        return (
+                          <div key={leftIndex} className="mb-2">
+                            <Label className="text-sm font-semibold mb-1 block">Match for {leftIndex + 1}</Label>
+                            <Select
+                              value={matches[leftIndex]?.toString() || ''}
+                              onValueChange={(value) => {
+                                const newMatches = { ...(answers[currentQuestion.id]?.matches || {}) };
+                                newMatches[leftIndex] = parseInt(value);
+                                const newAnswer: Answer = {
+                                  ...answers[currentQuestion.id],
+                                  questionId: currentQuestion.id,
+                                  matches: newMatches
+                                };
+                                setAnswers({ ...answers, [currentQuestion.id]: newAnswer });
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select match" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {currentQuestion.right_column?.map((item, rightIndex) => (
+                                  <SelectItem key={rightIndex} value={rightIndex.toString()}>
+                                    {String.fromCharCode(65 + rightIndex)}. {item.text}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
       </div>
@@ -703,7 +864,7 @@ const OnlineTestInterface: React.FC = () => {
               {currentQuestion.question_type === 'text' && (
                 <div className="mt-6">
                   <Textarea
-                    value={answers[currentQuestion.id]?.textAnswer || ''}
+                    value={answers[currentQuestion.id]?.textAnswer as string || ''}
                     onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value, 'text')}
                     rows={10}
                     className="resize-none text-base border-2 focus:border-blue-500"
@@ -711,9 +872,162 @@ const OnlineTestInterface: React.FC = () => {
                   />
                   {currentQuestion.word_limit && (
                     <p className="text-sm text-muted-foreground mt-2 text-right">
-                      {answers[currentQuestion.id]?.textAnswer?.length || 0} / {currentQuestion.word_limit} characters
+                      {(answers[currentQuestion.id]?.textAnswer as string)?.length || 0} / {currentQuestion.word_limit} characters
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* True/False Question (Desktop) */}
+              {currentQuestion.question_type === 'true_false' && (
+                <div className="flex gap-4 mt-6">
+                  <Button
+                    size="lg"
+                    variant={answers[currentQuestion.id]?.selectedOption === 'True' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerChange(currentQuestion.id, 'True', 'option')}
+                    className={`flex-1 h-16 text-lg font-semibold ${
+                      answers[currentQuestion.id]?.selectedOption === 'True' ? 'bg-green-500 hover:bg-green-600' : ''
+                    }`}
+                  >
+                    ✓ True
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant={answers[currentQuestion.id]?.selectedOption === 'False' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerChange(currentQuestion.id, 'False', 'option')}
+                    className={`flex-1 h-16 text-lg font-semibold ${
+                      answers[currentQuestion.id]?.selectedOption === 'False' ? 'bg-red-500 hover:bg-red-600' : ''
+                    }`}
+                  >
+                    ✗ False
+                  </Button>
+                </div>
+              )}
+
+              {/* Assertion-Reason Question (Desktop) - duplicate of mobile */}
+              {currentQuestion.question_type === 'assertion_reason' && (
+                <div className="mt-6 space-y-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg space-y-2">
+                    <div>
+                      <span className="font-bold text-blue-700 dark:text-blue-400">Assertion (A): </span>
+                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.assertion || '') }} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-blue-700 dark:text-blue-400">Reason (R): </span>
+                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.reason || '') }} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {['A', 'B', 'C', 'D'].map((option, index) => {
+                      const optionTexts = [
+                        'Both A and R are true and R is the correct explanation of A',
+                        'Both A and R are true but R is not the correct explanation of A',
+                        'A is true but R is false',
+                        'A is false but R is true'
+                      ];
+                      const isSelected = answers[currentQuestion.id]?.selectedOption === option;
+                      return (
+                        <div
+                          key={index}
+                          onClick={() => handleAnswerChange(currentQuestion.id, option, 'option')}
+                          className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-border hover:border-blue-400'
+                          }`}
+                        >
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            isSelected ? 'border-blue-500 bg-blue-500' : 'border-muted-foreground/40'
+                          }`}>
+                            {isSelected && <div className="w-3 h-3 bg-white rounded-full" />}
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-bold mr-2">{option}.</span>
+                            <span>{optionTexts[index]}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Fill in the Blanks (Desktop) */}
+              {currentQuestion.question_type === 'fill_blank' && (
+                <div className="mt-6 space-y-4">
+                  {Array.from({ length: currentQuestion.blanks_count || 1 }).map((_, index) => {
+                    const textAnswers = answers[currentQuestion.id]?.textAnswer as string[] || [];
+                    return (
+                      <div key={index}>
+                        <Label className="text-base font-semibold">Blank {index + 1}</Label>
+                        <Input
+                          value={textAnswers[index] || ''}
+                          onChange={(e) => {
+                            const newAnswers = [...(textAnswers || [])];
+                            newAnswers[index] = e.target.value;
+                            const newAnswer: Answer = {
+                              ...answers[currentQuestion.id],
+                              questionId: currentQuestion.id,
+                              textAnswer: newAnswers
+                            };
+                            setAnswers({ ...answers, [currentQuestion.id]: newAnswer });
+                          }}
+                          className="mt-1 text-base border-2"
+                          placeholder={`Answer for blank ${index + 1}`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Match the Column (Desktop) */}
+              {currentQuestion.question_type === 'match_column' && (
+                <div className="mt-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-bold text-lg mb-3 text-blue-700 dark:text-blue-400">Column A</h4>
+                      {currentQuestion.left_column?.map((item, index) => (
+                        <div key={index} className="p-3 mb-2 border-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                          <span className="font-bold mr-2">{index + 1}.</span>
+                          <span dangerouslySetInnerHTML={{ __html: renderMath(item.text) }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-3 text-green-700 dark:text-green-400">Match with Column B</h4>
+                      {currentQuestion.left_column?.map((_, leftIndex) => {
+                        const matches = answers[currentQuestion.id]?.matches || {};
+                        return (
+                          <div key={leftIndex} className="mb-2">
+                            <Label className="text-sm font-semibold mb-1 block">Match for {leftIndex + 1}</Label>
+                            <Select
+                              value={matches[leftIndex]?.toString() || ''}
+                              onValueChange={(value) => {
+                                const newMatches = { ...(answers[currentQuestion.id]?.matches || {}) };
+                                newMatches[leftIndex] = parseInt(value);
+                                const newAnswer: Answer = {
+                                  ...answers[currentQuestion.id],
+                                  questionId: currentQuestion.id,
+                                  matches: newMatches
+                                };
+                                setAnswers({ ...answers, [currentQuestion.id]: newAnswer });
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select match" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {currentQuestion.right_column?.map((item, rightIndex) => (
+                                  <SelectItem key={rightIndex} value={rightIndex.toString()}>
+                                    {String.fromCharCode(65 + rightIndex)}. {item.text}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

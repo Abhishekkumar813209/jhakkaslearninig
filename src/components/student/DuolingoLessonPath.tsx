@@ -110,6 +110,20 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
       // If we have games, build lessons from them
       if (games && games.length > 0) {
+        // Deduplicate games by question_text (safety measure)
+        const uniqueGames = games.reduce((acc, game) => {
+          const isDuplicate = acc.some(g => 
+            g.question_text === game.question_text && 
+            g.exercise_type === game.exercise_type
+          );
+          if (!isDuplicate) {
+            acc.push(game);
+          }
+          return acc;
+        }, [] as typeof games);
+        
+        console.log(`Deduplicated ${games.length} games to ${uniqueGames.length} unique games`);
+        
         // Load student game progress
         const { data: gameProgress } = await supabase
           .from('student_topic_game_progress')
@@ -120,8 +134,8 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
         const completedGameIds = gameProgress?.completed_game_ids || [];
 
-        // Build lessons array from games
-        lessonsData = games.map((game, index) => ({
+        // Build lessons array from unique games
+        lessonsData = uniqueGames.map((game, index) => ({
           id: game.id,
           lesson_type: 'game',
           content_order: game.game_order || (index + 1),

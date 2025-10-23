@@ -847,37 +847,39 @@ export function LessonContentBuilder() {
     
     try {
       for (const lesson of approvedGames) {
-        // Check if already published using content_id
-        const { data: existing } = await supabase
+        // Check if mapping already exists for this topic (reuse it)
+        const { data: existingMapping } = await supabase
           .from('topic_content_mapping')
           .select('id')
-          .eq('content_id', lesson.id)
+          .eq('topic_id', selectedTopic)
           .maybeSingle();
         
-        if (existing) {
-          console.log(`Lesson ${lesson.id} already published, skipping`);
-          published++; // Count as published
-          continue; // Skip duplicates
-        }
-        
-        // Insert into topic_content_mapping
-        const { data: mapping, error: mappingError } = await supabase
-          .from('topic_content_mapping')
-          .insert([{
-            topic_id: selectedTopic,
-            content_type: lesson.game_type as any,
-            order_num: lesson.content_order,
-            is_required: true,
-            xp_value: lesson.xp_reward || 10,
-            difficulty: lesson.game_data?.difficulty || 'medium',
-            content_id: lesson.id // Prevent future duplicates
-          }])
-          .select()
-          .single();
-        
-        if (mappingError) {
-          errors.push(`Mapping error for lesson ${lesson.id}: ${mappingError.message}`);
-          continue;
+        let mapping;
+        if (existingMapping) {
+          // Reuse existing mapping
+          mapping = existingMapping;
+          console.log(`Reusing existing mapping ${mapping.id} for topic ${selectedTopic}`);
+        } else {
+          // Create new mapping only if none exists
+          const { data: newMapping, error: mappingError } = await supabase
+            .from('topic_content_mapping')
+            .insert([{
+              topic_id: selectedTopic,
+              content_type: lesson.game_type as any,
+              order_num: lesson.content_order,
+              is_required: true,
+              xp_value: lesson.xp_reward || 10,
+              difficulty: lesson.game_data?.difficulty || 'medium',
+              content_id: lesson.id
+            }])
+            .select()
+            .single();
+          
+          if (mappingError) {
+            errors.push(`Mapping error for lesson ${lesson.id}: ${mappingError.message}`);
+            continue;
+          }
+          mapping = newMapping;
         }
         
         // Get next available game_order for this topic

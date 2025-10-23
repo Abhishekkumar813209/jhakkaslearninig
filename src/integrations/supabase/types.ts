@@ -4504,7 +4504,7 @@ export type Database = {
           {
             foreignKeyName: "topic_content_mapping_topic_id_fkey"
             columns: ["topic_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "roadmap_topics"
             referencedColumns: ["id"]
           },

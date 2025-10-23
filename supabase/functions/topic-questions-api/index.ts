@@ -213,9 +213,15 @@ serve(async (req) => {
       const normalized = (questions || []).map(q => {
         let ans = q.correct_answer;
         
-        // For MCQ, admin UI expects { index } format if number received
-        if (q.question_type === 'mcq' && typeof ans === 'number') {
-          ans = { index: ans };
+        // For MCQ, ensure 0-based index format
+        if (q.question_type === 'mcq' && ans !== null && ans !== undefined) {
+          if (typeof ans === 'string' && /^\d+$/.test(ans)) {
+            // Already 0-based string index after migration
+            ans = parseInt(ans);
+          } else if (typeof ans === 'number') {
+            // Already 0-based number
+            ans = ans;
+          }
         }
         
         return { ...q, correct_answer: ans };
@@ -257,17 +263,34 @@ serve(async (req) => {
 
       if (!question) throw new Error('Question not found');
 
-      const normalized = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
+      let sanitizedCorrectAnswer = correct_answer;
       
-      // Guard against out-of-range indexes (for MCQ, normalized is now a plain number)
-      if (question.question_type === 'mcq' && typeof normalized === 'number') {
-        const optionsLength = question.options?.length || 0;
-        if (normalized >= optionsLength) {
-          console.warn(`⚠️ Index ${normalized} out of range for ${optionsLength} options`);
+      // For MCQ questions in question_bank, ensure 0-based index
+      if (table === 'question_bank' && question.question_type === 'mcq' && sanitizedCorrectAnswer !== null && sanitizedCorrectAnswer !== undefined) {
+        if (typeof sanitizedCorrectAnswer === 'string' && /^\d+$/.test(sanitizedCorrectAnswer)) {
+          const index = parseInt(sanitizedCorrectAnswer);
+          if (index >= 0 && index < (question.options?.length || 0)) {
+            sanitizedCorrectAnswer = index.toString();
+          }
+        } else if (typeof sanitizedCorrectAnswer === 'number') {
+          if (sanitizedCorrectAnswer >= 0 && sanitizedCorrectAnswer < (question.options?.length || 0)) {
+            sanitizedCorrectAnswer = sanitizedCorrectAnswer.toString();
+          }
+        } else if (typeof sanitizedCorrectAnswer === 'string') {
+          // Text answer - convert to 0-based index
+          const optionIndex = (question.options || []).findIndex(
+            opt => opt.trim().toLowerCase() === sanitizedCorrectAnswer.trim().toLowerCase()
+          );
+          if (optionIndex !== -1) {
+            sanitizedCorrectAnswer = optionIndex.toString();
+          }
         }
+      } else {
+        // For generated_questions table, use existing normalization
+        sanitizedCorrectAnswer = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
       }
       
-      console.log(`💾 Updating ${table} for question: ${question_id}`);
+      console.log(`💾 Updating ${table} for question: ${question_id}, answer: ${sanitizedCorrectAnswer}`);
       
       const { error } = await serviceClient
         .from(table)
@@ -495,6 +518,36 @@ serve(async (req) => {
 
       const savedQuestions = [];
       for (const q of questions) {
+        let correctAnswer = q.correct_answer;
+        
+        // Normalize to 0-based index for MCQs
+        if (q.question_type === 'mcq' && correctAnswer !== null && correctAnswer !== undefined) {
+          if (typeof correctAnswer === 'string' && /^\d+$/.test(correctAnswer)) {
+            const index = parseInt(correctAnswer);
+            // Convert 1-based to 0-based if needed
+            if (index > 0 && index <= (q.options?.length || 0)) {
+              correctAnswer = (index - 1).toString();
+            } else {
+              correctAnswer = index.toString();
+            }
+          } else if (typeof correctAnswer === 'number') {
+            // If AI returns 1-based, convert to 0-based
+            if (correctAnswer > 0 && correctAnswer <= (q.options?.length || 0)) {
+              correctAnswer = (correctAnswer - 1).toString();
+            } else {
+              correctAnswer = correctAnswer.toString();
+            }
+          } else if (typeof correctAnswer === 'string') {
+            // Text answer - find index in options
+            const optionIndex = (q.options || []).findIndex(
+              opt => opt.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
+            );
+            if (optionIndex !== -1) {
+              correctAnswer = optionIndex.toString();
+            }
+          }
+        }
+        
         const { data, error } = await serviceClient
           .from('question_bank')
           .insert({
@@ -509,7 +562,7 @@ serve(async (req) => {
             batch_id: batch_id || null,
             roadmap_id: roadmap_id || null,
             source_id: source_id || null,
-            correct_answer: null,  // Draft mode - no answer yet
+            correct_answer: correctAnswer,  // 0-based index or null for draft
             is_approved: false,     // Not yet approved
             admin_reviewed: false,
             created_at: new Date().toISOString()

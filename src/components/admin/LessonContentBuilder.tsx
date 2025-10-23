@@ -880,24 +880,21 @@ export function LessonContentBuilder() {
           continue;
         }
         
-        // Check if exercise already exists before inserting
-        const { data: existingExercise } = await supabase
+        // Get next available game_order for this topic
+        const { data: maxOrder } = await supabase
           .from('gamified_exercises')
-          .select('id')
+          .select('game_order')
           .eq('topic_content_id', mapping.id)
-          .eq('exercise_type', lesson.game_type as any)
+          .order('game_order', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
-        if (existingExercise) {
-          console.log(`Exercise already exists for content ${mapping.id}, skipping`);
-          published++;
-          continue;
-        }
+        const nextOrder = (maxOrder?.game_order || 0) + 1;
         
-        // Insert into gamified_exercises with simplified structure
+        // Use upsert with game_order to prevent duplicates
         const { error: exerciseError } = await supabase
           .from('gamified_exercises')
-          .insert([{
+          .upsert({
             topic_content_id: mapping.id,
             exercise_type: lesson.game_type as any,
             question_text: lesson.game_data?.question || '',
@@ -907,9 +904,11 @@ export function LessonContentBuilder() {
             explanation: lesson.game_data?.explanation,
             difficulty: lesson.game_data?.difficulty || 'medium',
             xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
-            game_order: lesson.content_order,
+            game_order: nextOrder,
             exercise_data: lesson.game_data || {} // Always populate exercise_data with full game data
-          } as any]); // Type assertion until types regenerate
+          } as any, {
+            onConflict: 'topic_content_id,game_order'
+          })
         
         if (exerciseError) {
           // Handle duplicate key error gracefully

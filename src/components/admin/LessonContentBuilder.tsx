@@ -1054,6 +1054,38 @@ export function LessonContentBuilder() {
     }
   };
 
+  // Helper: Map correct_answer from question to game index
+  const mapCorrectAnswerToGameIndex = (q: any): number | null => {
+    const ans = q.correct_answer;
+    
+    switch (q.question_type) {
+      case 'mcq':
+      case 'assertion_reason':
+        // Handle object with index
+        if (typeof ans?.index === 'number') return ans.index;
+        // Handle legacy number
+        if (typeof ans === 'number') return ans;
+        // Handle string - find matching option
+        if (typeof ans === 'string' && q.options) {
+          const idx = q.options.findIndex((opt: string) => 
+            opt.trim().toLowerCase() === ans.trim().toLowerCase()
+          );
+          return idx >= 0 ? idx : null;
+        }
+        return null;
+      
+      case 'true_false':
+        // Handle object with value
+        if (typeof ans?.value === 'boolean') return ans.value ? 0 : 1;
+        // Handle legacy boolean: true -> 0 (True), false -> 1 (False)
+        if (typeof ans === 'boolean') return ans ? 0 : 1;
+        return null;
+      
+      default:
+        return null;
+    }
+  };
+
   // Validation helper for game data
   const validateGameData = (gameData: any, questionType: string, questionNumber: string): boolean => {
     // Check question text
@@ -1123,7 +1155,7 @@ export function LessonContentBuilder() {
               gameData = {
                 question: q.question_text?.trim() || '',
                 options: q.options || [],
-                correct_answer: 0,
+                correct_answer: mapCorrectAnswerToGameIndex(q) ?? 0,
                 explanation: q.explanation || "Review your textbook for detailed explanation",
                 difficulty: q.difficulty || 'medium',
                 marks: q.marks || 1,
@@ -1165,7 +1197,7 @@ export function LessonContentBuilder() {
               gameData = {
                 question: q.question_text?.trim() || '',
                 options: ['True', 'False'],
-                correct_answer: 0,
+                correct_answer: mapCorrectAnswerToGameIndex(q) ?? 0,
                 explanation: q.explanation || "Review the concept to understand why",
                 difficulty: q.difficulty || 'easy',
                 marks: q.marks || 1,
@@ -1183,7 +1215,7 @@ export function LessonContentBuilder() {
                   'A is true, R is false',
                   'A is false, R is true'
                 ],
-                correct_answer: 0,
+                correct_answer: mapCorrectAnswerToGameIndex(q) ?? 0,
                 explanation: q.explanation || "Analyze both statements carefully",
                 difficulty: q.difficulty || 'medium',
                 marks: q.marks || 1,
@@ -1201,7 +1233,7 @@ export function LessonContentBuilder() {
               gameData = {
                 question: q.question_text?.trim() || '',
                 options: ['Option A', 'Option B'],
-                correct_answer: 0,
+                correct_answer: mapCorrectAnswerToGameIndex(q) ?? 0,
                 explanation: q.explanation || "Review this topic",
                 difficulty: q.difficulty || 'medium',
                 marks: q.marks || 1,

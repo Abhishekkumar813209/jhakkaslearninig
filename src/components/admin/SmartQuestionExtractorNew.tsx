@@ -47,6 +47,47 @@ interface SmartQuestionExtractorNewProps {
   onQuestionsAdded?: (questions: ExtractedQuestion[]) => void;
 }
 
+// Helper: Normalize legacy answer formats into new object shapes
+const normalizeCorrectAnswer = (q: ExtractedQuestion): any => {
+  const ans = q.correct_answer;
+  
+  switch (q.question_type) {
+    case 'mcq':
+    case 'assertion_reason':
+      // Handle legacy number, string, or already-normalized object
+      if (typeof ans === 'number' && ans >= 0) return { index: ans };
+      if (typeof ans === 'string' && q.options) {
+        const idx = q.options.findIndex(opt => 
+          opt.trim().toLowerCase() === ans.trim().toLowerCase()
+        );
+        return idx >= 0 ? { index: idx } : ans;
+      }
+      if (ans?.index !== undefined) return ans; // Already normalized
+      return ans;
+    
+    case 'true_false':
+      // Handle legacy boolean or already-normalized object
+      if (typeof ans === 'boolean') return { value: ans };
+      if (ans?.value !== undefined) return ans; // Already normalized
+      return ans;
+    
+    case 'fill_blank':
+      // Handle legacy string or already-normalized object
+      if (typeof ans === 'string') return { text: ans };
+      if (ans?.text !== undefined) return ans; // Already normalized
+      return ans;
+    
+    case 'match_column':
+      // Handle legacy array or already-normalized object
+      if (Array.isArray(ans)) return { pairs: ans };
+      if (ans?.pairs !== undefined) return ans; // Already normalized
+      return ans;
+    
+    default:
+      return ans;
+  }
+};
+
 export const SmartQuestionExtractorNew = ({
   selectedTopic,
   selectedTopicName,
@@ -132,11 +173,18 @@ export const SmartQuestionExtractorNew = ({
       });
 
       if (data.success) {
-        const questions = data.questions || [];
-        setQuestions(questions);
+        const rawQuestions = data.questions || [];
         
-        if (questions.length > 0) {
-          toast.success(`Loaded ${questions.length} questions from database`);
+        // Normalize all answers to support legacy formats
+        const normalizedQuestions = rawQuestions.map(q => ({
+          ...q,
+          correct_answer: normalizeCorrectAnswer(q)
+        }));
+        
+        setQuestions(normalizedQuestions);
+        
+        if (normalizedQuestions.length > 0) {
+          toast.success(`Loaded ${normalizedQuestions.length} questions from database`);
         } else {
           toast.info(
             selectedTopicName 
@@ -243,20 +291,33 @@ export const SmartQuestionExtractorNew = ({
   };
 
   const validateAnswer = (q: ExtractedQuestion): boolean => {
-    if (!q.correct_answer) return false;
+    const ans = q.correct_answer;
+    if (!ans && ans !== 0 && ans !== false) return false;
     
     switch (q.question_type) {
       case 'mcq':
       case 'assertion_reason':
-        return q.correct_answer?.index !== undefined && q.correct_answer.index >= 0;
+        // Accept both legacy (number) and new (object with index) formats
+        return (typeof ans === 'number' && ans >= 0) || 
+               (typeof ans?.index === 'number' && ans.index >= 0);
+      
       case 'true_false':
-        return q.correct_answer?.value !== undefined;
+        // Accept both legacy (boolean) and new (object with value) formats
+        return typeof ans === 'boolean' || typeof ans?.value === 'boolean';
+      
       case 'fill_blank':
-        return q.correct_answer?.text && q.correct_answer.text.trim().length > 0;
+        // Accept both legacy (string) and new (object with text) formats
+        if (typeof ans === 'string') return ans.trim().length > 0;
+        return !!ans?.text?.trim();
+      
       case 'match_column':
-        return Array.isArray(q.correct_answer?.pairs) && q.correct_answer.pairs.length > 0;
+        // Accept both legacy (array) and new (object with pairs) formats
+        if (Array.isArray(ans)) return ans.length > 0;
+        return Array.isArray(ans?.pairs) && ans.pairs.length > 0;
+      
       case 'short_answer':
         return true; // No strict validation for subjective
+      
       default:
         return false;
     }

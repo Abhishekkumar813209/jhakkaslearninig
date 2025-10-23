@@ -79,7 +79,6 @@ export function MCQGame({
 
   const handleSubmit = () => {
     if (selectedAnswer === null) return;
-
     setHasSubmitted(true);
     
     const correct = selectedAnswer === gameData.correct_answer;

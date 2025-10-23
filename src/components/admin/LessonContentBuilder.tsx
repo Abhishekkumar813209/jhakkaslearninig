@@ -892,8 +892,7 @@ export function LessonContentBuilder() {
             explanation: lesson.game_data?.explanation,
             difficulty: lesson.game_data?.difficulty || 'medium',
             xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
-            game_order: lesson.content_order,
-            exercise_data: {} as any // Temporary for type compatibility
+            game_order: lesson.content_order
           }]);
         
         if (exerciseError) {

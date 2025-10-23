@@ -146,8 +146,7 @@ export const AIContentRefinement = ({
               correct_answer_index: game.correct_answer ?? game.game_data?.correct_answer ?? 0,
               marks: game.marks || 1,
               difficulty: metadata?.difficulty || 'medium',
-              xp_reward: 15,
-              exercise_data: {} as any // Temporary for type compatibility
+              xp_reward: 15
             });
 
           if (gameExerciseError) throw gameExerciseError;

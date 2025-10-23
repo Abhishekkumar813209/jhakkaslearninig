@@ -260,18 +260,18 @@ export const SmartQuestionExtractor = ({
           
           // Transform DB questions to ExtractedQuestion format
           const transformedQuestions: ExtractedQuestion[] = data.questions.map((q: any, index: number) => {
-            // Handle both question_bank and gamified_exercises structures
-            const questionData = q.exercise_data || q;
-            const questionText = questionData.question || q.question_text || '';
+            // Direct field access - no more exercise_data nesting
+            const questionText = q.question_text || '';
             const questionType = q.exercise_type || q.question_type || 'mcq';
-            const options = questionData.options || q.options || [];
-            const marks = questionData.marks || q.marks || 1;
-            const difficulty = questionData.difficulty || q.difficulty || 'medium';
-            const explanation = questionData.explanation || q.explanation || '';
+            const options = q.options || [];
+            const marks = q.marks || 1;
+            const difficulty = q.difficulty || 'medium';
+            const explanation = q.explanation || '';
             
-            let correctAnswer = questionData.correct_answer ?? q.correct_answer;
+            // Use correct_answer_index directly for MCQs
+            let correctAnswer = q.correct_answer_index ?? q.correct_answer;
             
-            // Parse correct_answer if it's still JSONB object (defensive check)
+            // Parse correct_answer if it's still JSONB object (defensive fallback)
             if (questionType === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
               correctAnswer = correctAnswer.value ?? correctAnswer.index ?? 0;
             }

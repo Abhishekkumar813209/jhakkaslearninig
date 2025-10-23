@@ -78,6 +78,10 @@ export const SmartQuestionExtractorNew = ({
   const [cropQuestion, setCropQuestion] = useState<ExtractedQuestion | null>(null);
   const [cropPdfFile, setCropPdfFile] = useState<File | null>(null);
 
+  // Edit tracking state
+  const [editedQuestions, setEditedQuestions] = useState<Map<string, Partial<ExtractedQuestion>>>(new Map());
+  const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
+
   // Auto-load draft questions when topic changes
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/login') {
@@ -167,30 +171,74 @@ export const SmartQuestionExtractorNew = ({
 
 
   const handleAnswerUpdate = async (questionId: string, answer: any, explanation?: string) => {
-    setLoading(true);
+    // Track the edit locally instead of saving immediately
+    setEditedQuestions(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(questionId) || {};
+      newMap.set(questionId, { ...existing, correct_answer: answer, explanation });
+      return newMap;
+    });
+
+    // Update the local state to show the answer immediately
+    setQuestions(prev => prev.map(q =>
+      q.id === questionId
+        ? { ...q, correct_answer: answer, explanation }
+        : q
+    ));
+  };
+
+  const handleQuestionUpdate = async (questionId: string) => {
+    const edits = editedQuestions.get(questionId);
+    if (!edits) {
+      toast.error('No changes to save');
+      return;
+    }
+
+    const question = questions.find(q => q.id === questionId);
+    if (!question) {
+      toast.error('Question not found');
+      return;
+    }
+
+    setSavingQuestionId(questionId);
     try {
       const data = await invokeWithAuth<any, { success: boolean }>({
         name: 'topic-questions-api',
         body: {
-          action: 'update_question_answer',
+          action: 'update_full_question',
           question_id: questionId,
-          correct_answer: answer,
-          explanation
+          question_text: edits.question_text ?? question.question_text,
+          question_type: edits.question_type ?? question.question_type,
+          options: edits.options ?? question.options,
+          marks: edits.marks ?? question.marks,
+          difficulty: edits.difficulty ?? question.difficulty,
+          correct_answer: edits.correct_answer ?? question.correct_answer,
+          explanation: edits.explanation ?? question.explanation,
         }
       });
 
       if (data.success) {
+        // Clear the edit tracking for this question
+        setEditedQuestions(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(questionId);
+          return newMap;
+        });
+
+        // Mark as reviewed
         setQuestions(prev => prev.map(q =>
           q.id === questionId
-            ? { ...q, correct_answer: answer, explanation, admin_reviewed: true }
+            ? { ...q, admin_reviewed: true }
             : q
         ));
-        toast.success('Answer saved');
+
+        toast.success('Changes saved successfully');
       }
-    } catch (error) {
-      toast.error('Failed to save answer');
+    } catch (error: any) {
+      console.error('Failed to save question:', error);
+      toast.error(`Failed to save: ${error.message || 'Unknown error'}`);
     } finally {
-      setLoading(false);
+      setSavingQuestionId(null);
     }
   };
 
@@ -663,82 +711,39 @@ export const SmartQuestionExtractorNew = ({
                         );
                       })()}
 
-                      {/* Answer Status */}
-                      {q.id && validateAnswer(q) && (
+                       {/* Answer Status */}
+                      {q.id && validateAnswer(q) && !editedQuestions.has(q.id) && (
                         <Badge variant="default" className="w-full justify-center">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Answer Saved
                         </Badge>
                       )}
 
-                      {/* View Full Dialog */}
-                      <Dialog>
-                        <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="outline" size="sm" className="w-full">
-                            <Eye className="h-3 w-3 mr-2" />
-                            View Full
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl max-h-[80vh]">
-                          <DialogHeader>
-                            <DialogTitle>
-                              Question {q.question_number || idx + 1}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <ScrollArea className="max-h-[60vh]">
-                            <div className="space-y-4 p-4">
-                              <div className="flex gap-2">
-                                <Badge>{q.question_type}</Badge>
-                                {q.difficulty && <Badge variant="outline">{q.difficulty}</Badge>}
-                                {q.marks && <Badge variant="outline">{q.marks} marks</Badge>}
-                              </div>
-
-                              <div>
-                                <h4 className="font-medium mb-2">Question:</h4>
-                                <div 
-                                  className="text-sm prose prose-sm max-w-none question-content"
-                                  dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
-                                />
-                              </div>
-
-                              {q.options && (
-                                <div>
-                                  <h4 className="font-medium mb-2">Options:</h4>
-                                  <div className="space-y-2">
-                                    {q.options.map((opt, i) => (
-                                      <div key={i} className="text-sm flex gap-2">
-                                        <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
-                                        <span 
-                                          className="flex-1 prose prose-sm max-w-none question-content"
-                                          dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} 
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {q.correct_answer && (
-                                <div className="p-3 bg-green-50 dark:bg-green-950 rounded">
-                                  <h4 className="font-medium mb-1 text-green-700 dark:text-green-300">Answer:</h4>
-                                  <p className="text-sm text-green-600 dark:text-green-400">
-                                    {JSON.stringify(q.correct_answer, null, 2)}
-                                  </p>
-                                   {q.explanation && (
-                                    <>
-                                      <h4 className="font-medium mt-2 mb-1 text-green-700 dark:text-green-300">Explanation:</h4>
-                                      <div 
-                                        className="text-sm text-green-600 dark:text-green-400 prose prose-sm max-w-none question-content"
-                                        dangerouslySetInnerHTML={{ __html: renderWithImages(q.explanation || '') }}
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </ScrollArea>
-                        </DialogContent>
-                      </Dialog>
+                      {/* Save Changes Button (shown when question has edits) */}
+                      {q.id && editedQuestions.has(q.id) && (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleQuestionUpdate(q.id!);
+                          }}
+                          disabled={savingQuestionId === q.id}
+                        >
+                          {savingQuestionId === q.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-3 w-3 mr-2" />
+                              Save Changes
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}

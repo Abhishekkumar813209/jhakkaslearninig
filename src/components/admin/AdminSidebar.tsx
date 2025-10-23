@@ -22,6 +22,7 @@ import {
   Zap,
   Database,
   CheckCircle,
+  FunctionSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -121,6 +122,7 @@ const menuGroups: MenuGroup[] = [
 // Separate navigation items (not tabs)
 const navigationItems = [
   { path: "/database-explorer", label: "Database Explorer", icon: Database },
+  { path: "/edge-function-explorer", label: "Edge Function Explorer", icon: FunctionSquare },
   { path: "/admin/solution-management", label: "Solution Management", icon: CheckCircle },
   { path: "/admin/courses", label: "Course Builder", icon: GraduationCap },
 ];

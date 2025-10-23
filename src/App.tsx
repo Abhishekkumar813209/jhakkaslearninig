@@ -37,6 +37,7 @@ import TopicDetailPage from "./pages/TopicDetailPage";
 import GamePlayerPage from "./pages/GamePlayerPage";
 import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
 import DatabaseExplorer from "./pages/DatabaseExplorer";
+import { EdgeFunctionExplorer } from "./components/admin/EdgeFunctionExplorer";
 import TestAnalyticsHistory from "./pages/TestAnalyticsHistory";
 import TestQuestionReview from "./pages/TestQuestionReview";
 
@@ -204,6 +205,11 @@ const App = () => (
             <Route path="/database-explorer" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <DatabaseExplorer />
+              </ProtectedRoute>
+            } />
+            <Route path="/edge-function-explorer" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <EdgeFunctionExplorer />
               </ProtectedRoute>
             } />
             <Route path="/admin/answer-management" element={

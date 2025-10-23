@@ -32,6 +32,7 @@ import ReferralManagement from "@/components/admin/ReferralManagement";
 import { WithdrawalManagement } from "@/components/admin/WithdrawalManagement";
 import SubscriptionManagement from "@/components/admin/SubscriptionManagement";
 import XPManagement from "@/components/admin/XPManagement";
+import { MigrationStatus } from "@/components/admin/MigrationStatus";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -51,6 +52,7 @@ const AdminDashboard = () => {
 
   const tabItems = [
     { value: "overview", label: "Overview", component: OverviewSection },
+    { value: "migration", label: "MCQ Migration", component: MigrationStatus },
     { value: "students", label: "Students", component: StudentManagement },
     { value: "user-roles", label: "User Roles", component: UserRoleManagement },
     { value: "batches", label: "Batches", component: BatchManagement },

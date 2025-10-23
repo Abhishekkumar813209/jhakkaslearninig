@@ -10,6 +10,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to detect if value is in index format (0-9)
+function isIndexFormat(value: string): boolean {
+  return /^\d$/.test(value);
+}
+
+// Smart comparison function for backward compatibility
+function compareAnswers(selectedOption: string, correctAnswer: string, options: any[]): boolean {
+  // Both are indices (new format)
+  if (isIndexFormat(selectedOption) && isIndexFormat(correctAnswer)) {
+    console.log('Both index format - direct comparison');
+    return selectedOption === correctAnswer;
+  }
+  
+  // Selected is index, correct is text (transition: new answer to old question)
+  if (isIndexFormat(selectedOption) && !isIndexFormat(correctAnswer)) {
+    const selectedText = options[parseInt(selectedOption)]?.text;
+    console.log('Selected index, correct text - converting:', selectedText, '===', correctAnswer);
+    return selectedText === correctAnswer;
+  }
+  
+  // Selected is text, correct is index (transition: old answer to new question)
+  if (!isIndexFormat(selectedOption) && isIndexFormat(correctAnswer)) {
+    const correctText = options[parseInt(correctAnswer)]?.text;
+    console.log('Selected text, correct index - converting:', selectedOption, '===', correctText);
+    return selectedOption === correctText;
+  }
+  
+  // Both are text (old format - legacy data)
+  console.log('Both text format - direct comparison');
+  return selectedOption === correctAnswer;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -227,7 +259,7 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
 
     if (questionsError) throw questionsError;
 
-    // Calculate score for MCQ questions
+    // Calculate score for MCQ questions with backward compatibility
     let totalScore = 0;
     
     for (const answer of answers) {
@@ -235,11 +267,22 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
       if (!question) continue;
 
       if (question.qtype === 'mcq') {
-        // Compare indices directly (both are strings: "0", "1", "2", "3")
-        const selectedIndex = answer.selectedOption; // This is now the index string
-        const correctIndex = question.correct_answer; // This is now the index string
+        // Parse options if needed
+        const options = typeof question.options === 'string' 
+          ? JSON.parse(question.options) 
+          : question.options;
         
-        if (selectedIndex === correctIndex) {
+        // Log format detection for monitoring
+        console.log(`Question ${question.id} - Correct answer format: ${isIndexFormat(question.correct_answer) ? 'INDEX' : 'TEXT'}`);
+        console.log(`Question ${question.id} - Selected option format: ${isIndexFormat(answer.selectedOption) ? 'INDEX' : 'TEXT'}`);
+        
+        const isCorrect = compareAnswers(
+          answer.selectedOption,
+          question.correct_answer,
+          options
+        );
+        
+        if (isCorrect) {
           totalScore += question.marks;
           
           // Update answer with score

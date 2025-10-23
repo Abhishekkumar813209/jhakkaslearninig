@@ -366,17 +366,42 @@ const TestResults: React.FC = () => {
         (answersRows || []).map((a: any) => [a.question_id, a])
       );
 
+      // Helper to detect index format
+      const isIndexFormat = (value: string): boolean => {
+        return /^\d$/.test(value);
+      };
+
       const transformedAnswers = (questionsData || []).map((question: any) => {
         const answer = answerByQuestion.get(question.id) || null;
         
-        // For MCQ: selected_option is now an index, need to convert to text for display
+        // For MCQ: Smart detection for backward compatibility
         let selectedText = answer?.selected_option ?? null;
-        if (question.qtype === 'mcq' && selectedText !== null && question.options) {
+        let correctText = question.correct_answer;
+        
+        if (question.qtype === 'mcq' && question.options) {
           const options = typeof question.options === 'string' ? JSON.parse(question.options) : question.options;
-          const selectedIndex = parseInt(selectedText);
-          if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < options.length) {
-            selectedText = options[selectedIndex]?.text || selectedText;
+          
+          // Handle selected option
+          if (selectedText !== null) {
+            if (isIndexFormat(selectedText)) {
+              // New format: Convert index to text for display
+              const selectedIndex = parseInt(selectedText);
+              if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < options.length) {
+                selectedText = options[selectedIndex]?.text || selectedText;
+              }
+            }
+            // else: Old format - already text, use as-is
           }
+          
+          // Handle correct answer
+          if (isIndexFormat(question.correct_answer)) {
+            // New format: Convert index to text for display
+            const correctIndex = parseInt(question.correct_answer);
+            if (!isNaN(correctIndex) && correctIndex >= 0 && correctIndex < options.length) {
+              correctText = options[correctIndex]?.text || question.correct_answer;
+            }
+          }
+          // else: Old format - already text, use as-is
         }
         
         return {
@@ -393,7 +418,7 @@ const TestResults: React.FC = () => {
             question_text: question.question_text,
             qtype: question.qtype,
             options: question.options,
-            correct_answer: question.correct_answer,
+            correct_answer: correctText, // Display text instead of index
             marks: question.marks,
             explanation: question.explanation,
             order_num: question.order_num,

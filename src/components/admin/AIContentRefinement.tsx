@@ -147,8 +147,8 @@ export const AIContentRefinement = ({
               marks: game.marks || 1,
               difficulty: metadata?.difficulty || 'medium',
               xp_reward: 15,
-              exercise_data: {} // Keep for type compatibility until types regenerate
-            });
+              exercise_data: {}
+            } as any); // Type assertion until types regenerate
 
           if (gameExerciseError) throw gameExerciseError;
         }

@@ -893,8 +893,8 @@ export function LessonContentBuilder() {
             difficulty: lesson.game_data?.difficulty || 'medium',
             xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
             game_order: lesson.content_order,
-            exercise_data: {} // Keep for type compatibility until types regenerate
-          }]);
+            exercise_data: {}
+          } as any]); // Type assertion until types regenerate
         
         if (exerciseError) {
           errors.push(`Exercise error for lesson ${lesson.id}: ${exerciseError.message}`);

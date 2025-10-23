@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EditCellDialog } from './EditCellDialog';
 import { DatabaseFilterPanel } from './DatabaseFilterPanel';
+import { HierarchyFilterPanel } from './HierarchyFilterPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -239,12 +240,26 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
         {/* Filter Panel */}
         {showFilters && (
-          <DatabaseFilterPanel
-            tableName={tableName}
-            columns={columns}
-            currentFilters={filters}
-            onFiltersChange={applyFilters}
-          />
+          <div className="border-b">
+            <div className="p-4 bg-muted/50">
+              <h4 className="text-sm font-medium mb-3">Hierarchy Filters (Board → Class → Subject → Chapter)</h4>
+              <HierarchyFilterPanel 
+                onFiltersChange={(hierarchyFilters) => {
+                  // TODO: Implement hierarchy-based filtering in backend
+                  console.log('Hierarchy filters:', hierarchyFilters);
+                }}
+              />
+            </div>
+            <div className="p-4 bg-muted/30">
+              <h4 className="text-sm font-medium mb-3">Column Filters</h4>
+              <DatabaseFilterPanel
+                tableName={tableName}
+                columns={columns}
+                currentFilters={filters}
+                onFiltersChange={applyFilters}
+              />
+            </div>
+          </div>
         )}
 
         {/* Scrollable Content */}

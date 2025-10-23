@@ -856,9 +856,21 @@ export function LessonContentBuilder() {
         
         let mapping;
         if (existingMapping) {
-          // Reuse existing mapping
+          // Reuse existing mapping and DELETE ALL old games first
           mapping = existingMapping;
           console.log(`Reusing existing mapping ${mapping.id} for topic ${selectedTopic}`);
+          
+          // Delete all existing games for this mapping to start fresh
+          const { error: deleteError } = await supabase
+            .from('gamified_exercises')
+            .delete()
+            .eq('topic_content_id', mapping.id);
+          
+          if (deleteError) {
+            console.error('Error deleting old games:', deleteError);
+          } else {
+            console.log(`Deleted all old games for mapping ${mapping.id}`);
+          }
         } else {
           // Create new mapping only if none exists
           const { data: newMapping, error: mappingError } = await supabase
@@ -882,16 +894,8 @@ export function LessonContentBuilder() {
           mapping = newMapping;
         }
         
-        // Get next available game_order for this topic
-        const { data: maxOrder } = await supabase
-          .from('gamified_exercises')
-          .select('game_order')
-          .eq('topic_content_id', mapping.id)
-          .order('game_order', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        const nextOrder = (maxOrder?.game_order || 0) + 1;
+        // Since we deleted all old games, start fresh with sequential order
+        const nextOrder = approvedGames.indexOf(lesson) + 1;
         
         // Use upsert with game_order to prevent duplicates
         const { error: exerciseError } = await supabase

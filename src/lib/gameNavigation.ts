@@ -11,16 +11,16 @@ export async function getAdjacentGames(
   topicId: string,
   currentGameId: string
 ): Promise<GameNavigationInfo> {
-  // First get mapping IDs for this topic
-  const { data: mappings } = await supabase
-    .from('topic_content_mapping')
-    .select('id')
-    .eq('topic_id', topicId);
+  // First get approved lessons for this topic from topic_learning_content
+  const { data: approvedLessons } = await (supabase as any)
+    .from('topic_learning_content')
+    .select('id, content_order')
+    .eq('topic_id', topicId)
+    .eq('is_approved', true)
+    .order('content_order', { ascending: true });
   
-  const mappingIds = mappings?.map(m => m.id) || [];
-  
-  if (mappingIds.length === 0) {
-    console.error("No content mappings found for topic:", topicId);
+  if (!approvedLessons || approvedLessons.length === 0) {
+    console.error("No approved lessons found for topic:", topicId);
     return {
       prevGameId: null,
       nextGameId: null,
@@ -29,11 +29,28 @@ export async function getAdjacentGames(
     };
   }
   
-  // Then get games using those mapping IDs
+  // Get mapping for this topic
+  const { data: mapping } = await supabase
+    .from('topic_content_mapping')
+    .select('id')
+    .eq('topic_id', topicId)
+    .maybeSingle();
+  
+  if (!mapping) {
+    console.error("No content mapping found for topic:", topicId);
+    return {
+      prevGameId: null,
+      nextGameId: null,
+      currentGameNum: 1,
+      totalGames: 0
+    };
+  }
+  
+  // Get games for this mapping, ordered by game_order
   const { data: games, error } = await supabase
     .from('gamified_exercises')
     .select('id, game_order')
-    .in('topic_content_id', mappingIds)
+    .eq('topic_content_id', mapping.id)
     .order('game_order', { ascending: true });
   
   if (error || !games) {
@@ -46,18 +63,15 @@ export async function getAdjacentGames(
     };
   }
   
-  // Remove duplicates by game ID (in case same game is mapped multiple times)
-  const uniqueGames = Array.from(
-    new Map(games.map(g => [g.id, g])).values()
-  );
-  
-  const currentIndex = uniqueGames.findIndex(g => g.id === currentGameId);
+  // Only use games that match approved lessons count
+  const approvedGames = games.slice(0, approvedLessons.length);
+  const currentIndex = approvedGames.findIndex(g => g.id === currentGameId);
   
   return {
-    prevGameId: currentIndex > 0 ? uniqueGames[currentIndex - 1].id : null,
-    nextGameId: currentIndex < uniqueGames.length - 1 ? uniqueGames[currentIndex + 1].id : null,
+    prevGameId: currentIndex > 0 ? approvedGames[currentIndex - 1].id : null,
+    nextGameId: currentIndex < approvedGames.length - 1 ? approvedGames[currentIndex + 1].id : null,
     currentGameNum: currentIndex + 1,
-    totalGames: uniqueGames.length
+    totalGames: approvedGames.length
   };
 }
 
@@ -81,38 +95,42 @@ export async function isGameUnlocked(
   topicId: string, 
   gameId: string
 ): Promise<boolean> {
-  // First get mapping IDs for this topic
-  const { data: mappings } = await supabase
+  // Get approved lessons count
+  const { data: approvedLessons } = await (supabase as any)
+    .from('topic_learning_content')
+    .select('id')
+    .eq('topic_id', topicId)
+    .eq('is_approved', true);
+  
+  if (!approvedLessons || approvedLessons.length === 0) return false;
+  
+  // Get mapping for this topic
+  const { data: mapping } = await supabase
     .from('topic_content_mapping')
     .select('id')
-    .eq('topic_id', topicId);
+    .eq('topic_id', topicId)
+    .maybeSingle();
   
-  const mappingIds = mappings?.map(m => m.id) || [];
+  if (!mapping) return false;
   
-  if (mappingIds.length === 0) return false;
-  
-  // Get all games for this topic in order
+  // Get games matching approved lessons
   const { data: games } = await supabase
     .from('gamified_exercises')
     .select('id, game_order')
-    .in('topic_content_id', mappingIds)
+    .eq('topic_content_id', mapping.id)
     .order('game_order', { ascending: true });
   
   if (!games || games.length === 0) return false;
   
-  // Remove duplicates
-  const uniqueGames = Array.from(
-    new Map(games.map(g => [g.id, g])).values()
-  );
-  
-  const gameIndex = uniqueGames.findIndex(g => g.id === gameId);
+  const approvedGames = games.slice(0, approvedLessons.length);
+  const gameIndex = approvedGames.findIndex(g => g.id === gameId);
   if (gameIndex === -1) return false;
   
   // First game is always unlocked
   if (gameIndex === 0) return true;
   
   // Check if previous game is completed
-  const previousGameId = uniqueGames[gameIndex - 1].id;
+  const previousGameId = approvedGames[gameIndex - 1].id;
   
   const { data: progress } = await supabase
     .from('student_topic_game_progress')
@@ -123,7 +141,6 @@ export async function isGameUnlocked(
   
   if (!progress) return false;
   
-  // Check if previous game is in completed list
   return progress.completed_game_ids?.includes(previousGameId) ?? false;
 }
 
@@ -131,34 +148,43 @@ export async function getFirstUnlockedGameId(
   studentId: string,
   topicId: string
 ): Promise<string | null> {
-  // First get mapping IDs for this topic
-  const { data: mappings } = await supabase
+  // Get approved lessons count
+  const { data: approvedLessons } = await (supabase as any)
+    .from('topic_learning_content')
+    .select('id')
+    .eq('topic_id', topicId)
+    .eq('is_approved', true);
+  
+  if (!approvedLessons || approvedLessons.length === 0) {
+    console.error("No approved lessons found for topic:", topicId);
+    return null;
+  }
+  
+  // Get mapping for this topic
+  const { data: mapping } = await supabase
     .from('topic_content_mapping')
     .select('id')
-    .eq('topic_id', topicId);
+    .eq('topic_id', topicId)
+    .maybeSingle();
   
-  const mappingIds = mappings?.map(m => m.id) || [];
-  
-  if (mappingIds.length === 0) {
-    console.error("No content mappings found for topic:", topicId);
+  if (!mapping) {
+    console.log("No mapping found for topic:", topicId);
     return null;
   }
   
   const { data: games } = await supabase
     .from('gamified_exercises')
     .select('id, game_order')
-    .in('topic_content_id', mappingIds)
+    .eq('topic_content_id', mapping.id)
     .order('game_order', { ascending: true });
   
   if (!games || games.length === 0) {
-    console.log("No games found for topic mappings:", mappingIds);
+    console.log("No games found for topic mapping:", mapping.id);
     return null;
   }
   
-  // Remove duplicates
-  const uniqueGames = Array.from(
-    new Map(games.map(g => [g.id, g])).values()
-  );
+  // Only use games matching approved lessons
+  const approvedGames = games.slice(0, approvedLessons.length);
   
   // Get progress
   const { data: progress } = await supabase
@@ -171,12 +197,12 @@ export async function getFirstUnlockedGameId(
   const completedIds = progress?.completed_game_ids || [];
   
   // Find first incomplete game
-  for (const game of uniqueGames) {
+  for (const game of approvedGames) {
     if (!completedIds.includes(game.id)) {
       return game.id;
     }
   }
   
   // All completed? Return last game (for review)
-  return uniqueGames[uniqueGames.length - 1].id;
+  return approvedGames[approvedGames.length - 1].id;
 }

@@ -63,18 +63,8 @@ const TopicDetailPage = () => {
           return;
         }
 
-        // Get the first unlocked game for this topic
-        const firstGameId = await getFirstUnlockedGameId(user.id, topicId!);
-        
-        if (firstGameId) {
-          navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${firstGameId}`);
-        } else {
-          toast({
-            title: "No games available",
-            description: "No games found for this topic yet.",
-            variant: "destructive"
-          });
-        }
+        // Navigate directly to the specific game
+        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${lesson.id}`);
       } catch (error) {
         console.error("Error opening game:", error);
         toast({

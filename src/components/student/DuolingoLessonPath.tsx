@@ -39,63 +39,165 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
   useEffect(() => {
     fetchLessons();
+
+    // Realtime subscription for game changes
+    const channel = supabase
+      .channel('game-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'gamified_exercises'
+        },
+        () => {
+          fetchLessons();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'topic_content_mapping'
+        },
+        () => {
+          fetchLessons();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [topicId]);
 
   const fetchLessons = async () => {
     setLoading(true);
     
-    const { data: lessonsData, error: lessonsError } = await supabase
-      .from('topic_learning_content')
-      .select('*')
-      .eq('topic_id', topicId)
-      .eq('human_reviewed', true)
-      .order('content_order', { ascending: true });
-
-    if (lessonsError) {
-      toast({ title: "Error", description: lessonsError.message, variant: "destructive" });
-      setLoading(false);
-      return;
-    }
-
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) {
       setLoading(false);
       return;
     }
 
-    const { data: progressData } = await supabase
-      .from('student_lesson_progress')
-      .select('*')
-      .eq('student_id', user.user.id)
+    // First, try to load games dynamically from gamified_exercises
+    const { data: mappings, error: mappingError } = await supabase
+      .from('topic_content_mapping')
+      .select('id')
       .eq('topic_id', topicId);
 
-    const progressMap: Record<string, LessonProgress> = {};
-    progressData?.forEach((p) => {
-      progressMap[p.lesson_content_id] = p as LessonProgress;
-    });
+    if (mappingError) {
+      console.error("Error fetching topic_content_mapping:", mappingError);
+    }
 
-    // Auto-unlock first lesson if no progress exists
-    if (lessonsData && lessonsData.length > 0 && !progressMap[lessonsData[0].id]) {
-      await supabase.from('student_lesson_progress').insert({
-        student_id: user.user.id,
-        topic_id: topicId,
-        lesson_content_id: lessonsData[0].id,
-        status: 'unlocked',
-        total_steps: 1,
-      });
+    let lessonsData: Lesson[] = [];
+    const progressMap: Record<string, LessonProgress> = {};
+
+    // If we have mappings, load games
+    if (mappings && mappings.length > 0) {
+      const mappingIds = mappings.map(m => m.id);
       
-      const { data: newProgress } = await supabase
-        .from('student_lesson_progress')
+      const { data: games, error: gamesError } = await supabase
+        .from('gamified_exercises')
         .select('*')
-        .eq('lesson_content_id', lessonsData[0].id)
-        .single();
-      
-      if (newProgress) {
-        progressMap[lessonsData[0].id] = newProgress as LessonProgress;
+        .in('topic_content_id', mappingIds)
+        .order('game_order', { ascending: true });
+
+      if (gamesError) {
+        console.error("Error fetching games:", gamesError);
+      }
+
+      // If we have games, build lessons from them
+      if (games && games.length > 0) {
+        // Load student game progress
+        const { data: gameProgress } = await supabase
+          .from('student_topic_game_progress')
+          .select('completed_game_ids')
+          .eq('student_id', user.user.id)
+          .eq('topic_id', topicId)
+          .single();
+
+        const completedGameIds = gameProgress?.completed_game_ids || [];
+
+        // Build lessons array from games
+        lessonsData = games.map((game, index) => ({
+          id: game.id,
+          lesson_type: 'game',
+          content_order: game.game_order || (index + 1),
+          game_type: game.exercise_type || 'mcq',
+          xp_reward: 10, // Default XP for games
+          estimated_time_minutes: 3, // Default time estimate
+        }));
+
+        // Build progress map from completed games
+        lessonsData.forEach((lesson, index) => {
+          const isCompleted = completedGameIds.includes(lesson.id);
+          const isPreviousCompleted = index === 0 || completedGameIds.includes(lessonsData[index - 1].id);
+          
+          progressMap[lesson.id] = {
+            id: `progress_${lesson.id}`,
+            lesson_content_id: lesson.id,
+            status: isCompleted ? 'completed' : (isPreviousCompleted ? 'unlocked' : 'locked'),
+            current_step: 0,
+            total_steps: 1,
+            steps_completed: isCompleted ? 1 : 0,
+          };
+        });
       }
     }
 
-    setLessons(lessonsData as Lesson[]);
+    // Fallback to topic_learning_content if no games found
+    if (lessonsData.length === 0) {
+      const { data: contentLessons, error: lessonsError } = await supabase
+        .from('topic_learning_content')
+        .select('*')
+        .eq('topic_id', topicId)
+        .eq('human_reviewed', true)
+        .order('content_order', { ascending: true });
+
+      if (lessonsError) {
+        toast({ title: "Error", description: lessonsError.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      lessonsData = contentLessons as Lesson[];
+
+      // Load traditional lesson progress
+      const { data: progressData } = await supabase
+        .from('student_lesson_progress')
+        .select('*')
+        .eq('student_id', user.user.id)
+        .eq('topic_id', topicId);
+
+      progressData?.forEach((p) => {
+        progressMap[p.lesson_content_id] = p as LessonProgress;
+      });
+
+      // Auto-unlock first lesson if no progress exists
+      if (lessonsData.length > 0 && !progressMap[lessonsData[0].id]) {
+        await supabase.from('student_lesson_progress').insert({
+          student_id: user.user.id,
+          topic_id: topicId,
+          lesson_content_id: lessonsData[0].id,
+          status: 'unlocked',
+          total_steps: 1,
+        });
+        
+        const { data: newProgress } = await supabase
+          .from('student_lesson_progress')
+          .select('*')
+          .eq('lesson_content_id', lessonsData[0].id)
+          .single();
+        
+        if (newProgress) {
+          progressMap[lessonsData[0].id] = newProgress as LessonProgress;
+        }
+      }
+    }
+
+    setLessons(lessonsData);
     setProgress(progressMap);
     setLoading(false);
   };

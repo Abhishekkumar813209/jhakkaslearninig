@@ -77,8 +77,28 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
     refresh();
   };
 
+  const isUUID = (value: any): boolean => {
+    if (typeof value !== 'string') return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(value);
+  };
+
   const handleCellClick = (row: any, column: string, value: any) => {
     setEditingCell({ row, column, value });
+  };
+
+  const handleCellDoubleClick = (value: any) => {
+    if (isUUID(value)) {
+      // Switch to ID Resolver mode
+      setSearchMode('id');
+      // Set the search term
+      setSearchTerm(value);
+      // Trigger the search
+      setSearchParams({ mode: 'id', search: value });
+      resolveID(value);
+      // Scroll to top to show the result
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleCellSave = async (newValue: any) => {
@@ -392,21 +412,37 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                           />
                         </TableCell>
                       )}
-                      {columns.map(col => (
-                        <TableCell 
-                          key={col.name} 
-                          className="font-mono text-xs whitespace-nowrap group cursor-pointer hover:bg-accent"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCellClick(row, col.name, row[col.name]);
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{formatValue(row[col.name])}</span>
-                            <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
-                          </div>
-                        </TableCell>
-                      ))}
+                      {columns.map(col => {
+                        const cellValue = row[col.name];
+                        const isUUIDValue = isUUID(cellValue);
+                        
+                        return (
+                          <TableCell 
+                            key={col.name} 
+                            className={`font-mono text-xs whitespace-nowrap group hover:bg-accent ${
+                              isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCellClick(row, col.name, cellValue);
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              handleCellDoubleClick(cellValue);
+                            }}
+                            title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{formatValue(cellValue)}</span>
+                              {isUUIDValue ? (
+                                <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+                              ) : (
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                              )}
+                            </div>
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   ))}
                 </TableBody>

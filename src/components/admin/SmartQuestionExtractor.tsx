@@ -170,6 +170,9 @@ export const SmartQuestionExtractor = ({
   // State for managing existing questions
   const [existingQuestions, setExistingQuestions] = useState<ExtractedQuestion[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Track questions already in lesson to prevent duplicates
+  const [existingQuestionIds, setExistingQuestionIds] = useState<Set<string>>(new Set());
 
   // Persist extracted questions across page refreshes
   const {
@@ -232,6 +235,7 @@ export const SmartQuestionExtractor = ({
       
       if (!activeTopicId) {
         setExtractedQuestions([]);
+        setExistingQuestionIds(new Set());
         return;
       }
       
@@ -245,7 +249,26 @@ export const SmartQuestionExtractor = ({
       clearProgress();
       setHasUnsavedChanges(false);
       
-      // STEP 3: Fetch from database
+      // STEP 3: Fetch questions already in lesson (topic_content_mapping)
+      if (mode === 'lesson-builder') {
+        try {
+          const { data: mappingData } = await supabase
+            .from('topic_content_mapping')
+            .select('question_id')
+            .eq('topic_id', activeTopicId)
+            .not('question_id', 'is', null);
+          
+          if (mappingData) {
+            const existingIds = new Set(mappingData.map(d => d.question_id));
+            setExistingQuestionIds(existingIds);
+            console.log('📌 Found existing questions in lesson:', existingIds.size);
+          }
+        } catch (error) {
+          console.error('Error fetching existing questions:', error);
+        }
+      }
+      
+      // STEP 4: Fetch from database
       try {
         setAuthError(false);
         const action = mode === 'question-bank' ? 'get_topic_questions' : 'get_by_topic';
@@ -1419,9 +1442,9 @@ export const SmartQuestionExtractor = ({
   };
 
   const handleUpdateAnswer = async (questionId: string, answer: any) => {
-    // Update local state immediately for responsiveness
+    // Update local state immediately for responsiveness AND sync correct_answer field
     setExtractedQuestions(prev => prev.map(q => 
-      q.id === questionId ? { ...q, correct_answer: answer } : q
+      q.id === questionId ? { ...q, correct_answer: answer, edited: true } : q
     ));
     
     // Track that this question has been edited
@@ -1533,8 +1556,25 @@ export const SmartQuestionExtractor = ({
 
   const validateAnswer = (question: ExtractedQuestion): boolean => {
     const answer = question.correct_answer;
+    
+    // For MCQ, check if correct_answer is set OR if any option has isCorrect=true
+    if (question.question_type === 'mcq') {
+      // Check if answer object exists with index
+      if (answer && typeof answer === 'object' && typeof answer.index === 'number' && answer.index >= 0) {
+        return true;
+      }
+      // Check if any option is marked as correct
+      if (question.options?.some((opt: any) => opt.isCorrect === true)) {
+        return true;
+      }
+      // Check if answer is a plain number (index)
+      if (typeof answer === 'number' && answer >= 0) {
+        return true;
+      }
+      return false;
+    }
+    
     switch (question.question_type) {
-      case 'mcq':
       case 'assertion_reason':
         return typeof answer?.index === 'number' && answer.index >= 0;
       case 'true_false':
@@ -2085,15 +2125,35 @@ export const SmartQuestionExtractor = ({
       return;
     }
 
-    // Check if all selected questions have valid answers
-    const invalidQuestions = selected.filter(q => !validateAnswer(q));
+    // Filter out questions already in the lesson
+    const questionsToAdd = selected.filter(q => !existingQuestionIds.has(q.id));
+    
+    if (questionsToAdd.length === 0) {
+      toast.error('All selected questions are already in the lesson');
+      return;
+    }
+    
+    if (questionsToAdd.length < selected.length) {
+      const skippedCount = selected.length - questionsToAdd.length;
+      toast.warning(`${skippedCount} question(s) skipped (already in lesson)`);
+    }
+
+    // Check if questions to add have valid answers
+    const invalidQuestions = questionsToAdd.filter(q => !validateAnswer(q));
     if (invalidQuestions.length > 0) {
       toast.error(`${invalidQuestions.length} question(s) missing correct answers. Please provide answers before adding.`);
       return;
     }
 
-    onQuestionsAdded(selected);
-    toast.success(`Adding ${selected.length} questions to lesson builder...`);
+    onQuestionsAdded(questionsToAdd);
+    toast.success(`Adding ${questionsToAdd.length} questions to lesson builder...`);
+    
+    // Update existingQuestionIds to include newly added questions
+    setExistingQuestionIds(prev => {
+      const updated = new Set(prev);
+      questionsToAdd.forEach(q => updated.add(q.id));
+      return updated;
+    });
     
     // Clear selection and saved progress after successful addition
     setSelectedIds([]);
@@ -2535,11 +2595,31 @@ export const SmartQuestionExtractor = ({
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <Checkbox 
-                      checked={selectedIds.includes(question.id)}
-                      onCheckedChange={() => toggleSelection(question.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                    {existingQuestionIds.has(question.id) ? (
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="default" className="bg-green-500 text-white">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Already in Lesson
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-6"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTab('preview');
+                          }}
+                        >
+                          View in Lesson
+                        </Button>
+                      </div>
+                    ) : (
+                      <Checkbox 
+                        checked={selectedIds.includes(question.id)}
+                        onCheckedChange={() => toggleSelection(question.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Badge className={getQuestionTypeColor(question.question_type)}>

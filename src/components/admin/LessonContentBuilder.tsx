@@ -856,6 +856,7 @@ export function LessonContentBuilder() {
         
         if (existing) {
           console.log(`Lesson ${lesson.id} already published, skipping`);
+          published++; // Count as published
           continue; // Skip duplicates
         }
         
@@ -879,6 +880,20 @@ export function LessonContentBuilder() {
           continue;
         }
         
+        // Check if exercise already exists before inserting
+        const { data: existingExercise } = await supabase
+          .from('gamified_exercises')
+          .select('id')
+          .eq('topic_content_id', mapping.id)
+          .eq('exercise_type', lesson.game_type as any)
+          .maybeSingle();
+
+        if (existingExercise) {
+          console.log(`Exercise already exists for content ${mapping.id}, skipping`);
+          published++;
+          continue;
+        }
+        
         // Insert into gamified_exercises with simplified structure
         const { error: exerciseError } = await supabase
           .from('gamified_exercises')
@@ -897,6 +912,13 @@ export function LessonContentBuilder() {
           } as any]); // Type assertion until types regenerate
         
         if (exerciseError) {
+          // Handle duplicate key error gracefully
+          if (exerciseError.code === '23505') {
+            console.warn('Duplicate exercise detected, treating as published');
+            published++;
+            continue;
+          }
+          
           errors.push(`Exercise error for lesson ${lesson.id}: ${exerciseError.message}`);
           // Rollback mapping
           await supabase.from('topic_content_mapping').delete().eq('id', mapping.id);
@@ -1141,9 +1163,41 @@ export function LessonContentBuilder() {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error('Not authenticated');
 
+      // Step 1: Get all content_ids already mapped to this topic
+      const { data: existingMappings } = await supabase
+        .from('topic_content_mapping')
+        .select('content_id')
+        .eq('topic_id', selectedTopic);
+
+      const existingContentIds = new Set(
+        existingMappings?.map(m => m.content_id).filter(Boolean) || []
+      );
+
+      // Step 2: Filter out questions already added (by checking their id against content_ids)
+      const questionsToAdd = questions.filter(q => 
+        q.id && !existingContentIds.has(q.id)
+      );
+
+      if (questionsToAdd.length === 0) {
+        toast({ 
+          title: "Already Added", 
+          description: "All selected questions are already in this lesson",
+          variant: "default"
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (questionsToAdd.length < questions.length) {
+        toast({ 
+          title: "Filtering Duplicates", 
+          description: `${questions.length - questionsToAdd.length} question(s) already added, adding ${questionsToAdd.length} new ones`
+        });
+      }
+
       const lessonsToInsert = [];
 
-      for (const q of questions) {
+      for (const q of questionsToAdd) {
         let gameType: GameType;
         let gameData: any;
         let lessonType: LessonType = 'game';

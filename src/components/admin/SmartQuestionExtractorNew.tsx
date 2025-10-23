@@ -123,6 +123,9 @@ export const SmartQuestionExtractorNew = ({
   const [editedQuestions, setEditedQuestions] = useState<Map<string, Partial<ExtractedQuestion>>>(new Map());
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
 
+  // Track published questions
+  const [publishedQuestionIds, setPublishedQuestionIds] = useState<Set<string>>(new Set());
+
   // Auto-load draft questions when topic changes
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/login') {
@@ -183,8 +186,26 @@ export const SmartQuestionExtractorNew = ({
         
         setQuestions(normalizedQuestions);
         
+        // Load published questions for this topic
+        const { data: mappings } = await supabase
+          .from('topic_content_mapping')
+          .select('content_id')
+          .eq('topic_id', selectedTopic)
+          .not('content_id', 'is', null);
+
+        const publishedIds = new Set(
+          mappings?.map(m => m.content_id).filter(Boolean) || []
+        );
+        setPublishedQuestionIds(publishedIds);
+        
         if (normalizedQuestions.length > 0) {
-          toast.success(`Loaded ${normalizedQuestions.length} questions from database`);
+          const publishedCount = normalizedQuestions.filter(q => q.id && publishedIds.has(q.id)).length;
+          toast.success(
+            `Loaded ${normalizedQuestions.length} questions from database`,
+            publishedCount > 0 ? {
+              description: `${publishedCount} already published in this lesson`
+            } : undefined
+          );
         } else {
           toast.info(
             selectedTopicName 
@@ -364,6 +385,13 @@ export const SmartQuestionExtractorNew = ({
 
   const toggleSelection = (id?: string) => {
     if (!id) return;
+    
+    // Prevent selecting published questions
+    if (publishedQuestionIds.has(id)) {
+      toast.info('This question is already published in this lesson');
+      return;
+    }
+    
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -376,7 +404,10 @@ export const SmartQuestionExtractorNew = ({
   };
 
   const selectAll = () => {
-    const allIds = filteredQuestions.filter(q => q.id).map(q => q.id!);
+    // Only select non-published questions
+    const allIds = filteredQuestions
+      .filter(q => q.id && !publishedQuestionIds.has(q.id))
+      .map(q => q.id!);
     setSelectedIds(new Set(allIds));
   };
 
@@ -648,14 +679,23 @@ export const SmartQuestionExtractorNew = ({
                           {q.id && (
                             <Checkbox
                               checked={selectedIds.has(q.id)}
+                              disabled={publishedQuestionIds.has(q.id)}
                               onCheckedChange={() => toggleSelection(q.id)}
                               onClick={(e) => e.stopPropagation()}
                             />
                           )}
                           <div className="flex flex-wrap gap-1">
                             <Badge variant="secondary" className="text-xs">
+                              Q{idx + 1}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
                               {q.question_type}
                             </Badge>
+                            {q.id && publishedQuestionIds.has(q.id) && (
+                              <Badge className="text-xs bg-green-500 hover:bg-green-600">
+                                ✓ Published
+                              </Badge>
+                            )}
                             {q.difficulty && (
                               <Badge variant="outline" className="text-xs">
                                 {q.difficulty}

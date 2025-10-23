@@ -112,10 +112,22 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
       if (games && games.length > 0) {
         // Deduplicate games by question_text (safety measure)
         const uniqueGames = games.reduce((acc, game) => {
-          const isDuplicate = acc.some(g => 
-            g.question_text === game.question_text && 
-            g.exercise_type === game.exercise_type
-          );
+          const isDuplicate = acc.some(g => {
+            // Extract actual question text from exercise_data or question_text
+            const existingQuestion = (typeof g.exercise_data === 'object' && g.exercise_data && 'question' in g.exercise_data) 
+              ? (g.exercise_data as any).question 
+              : g.question_text;
+            const newQuestion = (typeof game.exercise_data === 'object' && game.exercise_data && 'question' in game.exercise_data)
+              ? (game.exercise_data as any).question 
+              : game.question_text;
+            
+            return (
+              existingQuestion === newQuestion &&
+              existingQuestion !== null &&           // Don't treat NULLs as duplicates
+              existingQuestion !== '' &&             // Don't treat empty strings as duplicates
+              g.exercise_type === game.exercise_type
+            );
+          });
           if (!isDuplicate) {
             acc.push(game);
           }

@@ -1,20 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight, Filter, Trash2 } from 'lucide-react';
+import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight, Filter, Trash2, Link2, X } from 'lucide-react';
 import { useTableData } from '@/hooks/useTableData';
+import { useIDResolver } from '@/hooks/useIDResolver';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EditCellDialog } from './EditCellDialog';
 import { DatabaseFilterPanel } from './DatabaseFilterPanel';
 import { HierarchyFilterPanel } from './HierarchyFilterPanel';
+import { IDInfoCard } from './IDInfoCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TableDataViewerProps {
   tableName: string | null;
@@ -22,22 +26,55 @@ interface TableDataViewerProps {
 }
 
 export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [searchMode, setSearchMode] = useState<'table' | 'id'>(searchParams.get('mode') as any || 'table');
   const [editingCell, setEditingCell] = useState<{ row: any; column: string; value: any } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { data, columns, loading, count, page, pageSize, totalPages, filters, setPage, setPageSize, refresh, searchTable, applyFilters, deleteRows } = useTableData(tableName);
+  const { resolveID, loading: idLoading, result: idResult } = useIDResolver();
 
   // Clear selection when table changes
   useState(() => {
     setSelectedRows(new Set());
   });
 
+  // Auto-detect UUID and switch mode
+  useEffect(() => {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTerm.trim());
+    if (isUUID && searchTerm.length === 36) {
+      setSearchMode('id');
+    }
+  }, [searchTerm]);
+
+  // Persist search in URL
+  useEffect(() => {
+    if (searchTerm) {
+      setSearchParams({ search: searchTerm, mode: searchMode });
+    } else {
+      setSearchParams({});
+    }
+  }, [searchTerm, searchMode]);
+
   const handleSearch = () => {
-    setPage(1);
-    searchTable(searchTerm);
+    const trimmed = searchTerm.trim();
+    if (!trimmed) return;
+
+    if (searchMode === 'id') {
+      resolveID(trimmed);
+    } else {
+      setPage(1);
+      searchTable(trimmed);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSearchParams({});
+    refresh();
   };
 
   const handleCellClick = (row: any, column: string, value: any) => {
@@ -194,18 +231,57 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <div className="flex-1 flex gap-2">
-              <Input
-                placeholder="Search in all columns..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <Button onClick={handleSearch} disabled={loading}>
-                <Search className="h-4 w-4" />
+          <div className="space-y-3">
+            {/* Search Mode Toggle */}
+            <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as any)}>
+              <TabsList className="grid w-full max-w-[300px] grid-cols-2">
+                <TabsTrigger value="table" className="text-xs">
+                  <Search className="h-3 w-3 mr-1" />
+                  Table Search
+                </TabsTrigger>
+                <TabsTrigger value="id" className="text-xs">
+                  <Link2 className="h-3 w-3 mr-1" />
+                  ID Resolver
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Search Input */}
+            <div className="flex gap-2">
+              <div className="flex-1 flex gap-2 relative">
+                <Input
+                  placeholder={searchMode === 'id' ? 'Paste UUID to resolve...' : 'Search in all columns...'}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className={searchMode === 'id' ? 'font-mono' : ''}
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={clearSearch}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <Button onClick={handleSearch} disabled={loading || idLoading || !searchTerm.trim()}>
+                {searchMode === 'id' ? (
+                  <Link2 className="h-4 w-4" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
               </Button>
             </div>
+
+            {/* ID Resolver Result */}
+            {searchMode === 'id' && idResult && (
+              <div className="border rounded-lg p-3 bg-accent/50">
+                <IDInfoCard result={idResult} />
+              </div>
+            )}
           </div>
         </div>
 

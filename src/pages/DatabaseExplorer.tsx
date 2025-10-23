@@ -10,6 +10,7 @@ import { TableSelector } from '@/components/admin/TableSelector';
 import { TableDataViewer } from '@/components/admin/TableDataViewer';
 import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
 import { IDResolver } from '@/components/admin/IDResolver';
+import { WorkflowDiagrams } from '@/components/admin/WorkflowDiagrams';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -575,47 +576,7 @@ const DatabaseExplorer = () => {
               </TabsContent>
 
               <TabsContent value="flows" className="flex-1 mt-4 overflow-auto">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Critical Data Flows</CardTitle>
-                    <CardDescription>
-                      Understand how data moves through the system
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div>
-                      <h3 className="font-semibold mb-2">📝 Student Signup Flow</h3>
-                      <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
-                        <p>1. User signs up → <code className="bg-muted px-1">auth.users</code> created</p>
-                        <p>2. Trigger fires → <code className="bg-muted px-1">profiles</code> row created</p>
-                        <p>3. Batch auto-assigned → <code className="bg-muted px-1">profiles.batch_id</code> updated</p>
-                        <p>4. Roadmap synced → <code className="bg-muted px-1">student_roadmaps</code> entry created</p>
-                        <p>5. Initialize rewards → <code className="bg-muted px-1">student_xp_coins</code> created</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold mb-2">🎮 Game Completion Flow</h3>
-                      <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
-                        <p>1. Student plays game → Answer submitted</p>
-                        <p>2. Correct answer → XP/coins added</p>
-                        <p>3. Game ID added to completed list</p>
-                        <p>4. All games done → Topic marked complete</p>
-                        <p>5. Roadmap progress updated</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="font-semibold mb-2">📊 Test Attempt Flow</h3>
-                      <div className="text-sm space-y-1 text-muted-foreground pl-4 border-l-2">
-                        <p>1. Student starts test → <code className="bg-muted px-1">test_attempts</code> created</p>
-                        <p>2. Answers saved → Array updated</p>
-                        <p>3. Submit → Score calculated</p>
-                        <p>4. Analytics updated → Rankings recalculated</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <WorkflowDiagrams />
               </TabsContent>
             </Tabs>
           </ResizablePanel>

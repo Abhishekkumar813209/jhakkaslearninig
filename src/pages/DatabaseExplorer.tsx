@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableSelector } from '@/components/admin/TableSelector';
 import { TableDataViewer } from '@/components/admin/TableDataViewer';
 import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
+import { IDResolver } from '@/components/admin/IDResolver';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -427,8 +428,9 @@ const DatabaseExplorer = () => {
             <TableSelector value={selectedTable} onChange={setSelectedTable} />
             
             <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-3 shrink-0">
+              <TabsList className="grid w-full grid-cols-4 shrink-0">
                 <TabsTrigger value="data">Live Data</TabsTrigger>
+                <TabsTrigger value="resolver">ID Resolver</TabsTrigger>
                 <TabsTrigger value="columns">Column Details</TabsTrigger>
                 <TabsTrigger value="flows">User Flows</TabsTrigger>
               </TabsList>
@@ -438,6 +440,10 @@ const DatabaseExplorer = () => {
                   tableName={selectedTable} 
                   onRowSelect={setSelectedRow}
                 />
+              </TabsContent>
+
+              <TabsContent value="resolver" className="flex-1 mt-4 overflow-auto">
+                <IDResolver />
               </TabsContent>
 
               <TabsContent value="columns" className="flex-1 mt-4 overflow-auto">

@@ -178,7 +178,7 @@ serve(async (req) => {
     console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // Enforce admin only for specific actions
-    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed'];
+    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question', 'update_full_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed'];
     if (adminActions.includes(action) && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
@@ -658,6 +658,188 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== update_full_question: Update all editable fields of a question ==========
+    if (action === 'update_full_question') {
+      const { 
+        question_id, 
+        question_text, 
+        question_type, 
+        options, 
+        left_column, 
+        right_column, 
+        assertion, 
+        reason, 
+        blanks_count, 
+        marks, 
+        difficulty, 
+        correct_answer, 
+        explanation 
+      } = body;
+
+      if (!question_id) {
+        throw new Error('Missing question_id');
+      }
+
+      console.log(`📝 Full update for question: ${question_id}`);
+
+      // Get existing question to determine type if not provided
+      const { data: existingQuestion, error: fetchError } = await serviceClient
+        .from('question_bank')
+        .select('*')
+        .eq('id', question_id)
+        .single();
+
+      if (fetchError || !existingQuestion) {
+        throw new Error('Question not found');
+      }
+
+      const qType = question_type || existingQuestion.question_type;
+
+      // Build update object with cleaned data
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (question_text !== undefined) {
+        updateData.question_text = stripHtmlTags(question_text);
+      }
+
+      if (question_type !== undefined) {
+        updateData.question_type = question_type;
+      }
+
+      if (options !== undefined) {
+        updateData.options = stripHtmlFromOptions(options);
+      }
+
+      if (left_column !== undefined) {
+        updateData.left_column = stripHtmlFromOptions(left_column);
+      }
+
+      if (right_column !== undefined) {
+        updateData.right_column = stripHtmlFromOptions(right_column);
+      }
+
+      if (assertion !== undefined) {
+        updateData.assertion = stripHtmlTags(assertion);
+      }
+
+      if (reason !== undefined) {
+        updateData.reason = stripHtmlTags(reason);
+      }
+
+      if (blanks_count !== undefined) {
+        updateData.blanks_count = blanks_count;
+      }
+
+      if (marks !== undefined) {
+        updateData.marks = marks;
+      }
+
+      if (difficulty !== undefined) {
+        updateData.difficulty = difficulty;
+      }
+
+      if (explanation !== undefined) {
+        updateData.explanation = explanation;
+      }
+
+      // Handle correct_answer normalization
+      if (correct_answer !== undefined && correct_answer !== null) {
+        const finalOptions = options !== undefined ? options : existingQuestion.options;
+        const normalizedAnswer = normalizeCorrectAnswer(qType, correct_answer, finalOptions);
+        
+        // For MCQ, ensure 0-based index string
+        if (qType === 'mcq' && typeof normalizedAnswer === 'number') {
+          updateData.correct_answer = normalizedAnswer.toString();
+        } else {
+          updateData.correct_answer = normalizedAnswer;
+        }
+      }
+
+      // Perform update
+      const { error: updateError } = await serviceClient
+        .from('question_bank')
+        .update(updateData)
+        .eq('id', question_id);
+
+      if (updateError) {
+        console.error('❌ Update failed:', updateError);
+        throw updateError;
+      }
+
+      console.log(`✅ Full question update successful: ${question_id}`);
+
+      // Sync to gamified_exercises if already linked
+      const { data: mappings } = await serviceClient
+        .from('topic_content_mapping')
+        .select('id')
+        .eq('question_id', question_id);
+
+      if (mappings && mappings.length > 0) {
+        console.log(`🔄 Syncing ${mappings.length} linked exercise(s)`);
+        
+        for (const mapping of mappings) {
+          const { data: exercise } = await serviceClient
+            .from('gamified_exercises')
+            .select('*')
+            .eq('topic_content_id', mapping.id)
+            .single();
+
+          if (exercise) {
+            const exerciseUpdate: any = {
+              updated_at: new Date().toISOString()
+            };
+
+            // Update exercise_data with new question content
+            const newExerciseData = { ...exercise.exercise_data };
+            if (question_text !== undefined) {
+              newExerciseData.question = stripHtmlTags(question_text);
+            }
+            if (options !== undefined && qType === 'mcq') {
+              newExerciseData.options = stripHtmlFromOptions(options);
+            }
+            if (marks !== undefined) {
+              newExerciseData.marks = marks;
+            }
+            if (difficulty !== undefined) {
+              newExerciseData.difficulty = difficulty;
+            }
+            if (correct_answer !== undefined && correct_answer !== null) {
+              const finalOptions = options !== undefined ? options : existingQuestion.options;
+              const normalizedAnswer = normalizeCorrectAnswer(qType, correct_answer, finalOptions);
+              if (qType === 'mcq') {
+                newExerciseData.correctAnswerIndex = typeof normalizedAnswer === 'number' ? normalizedAnswer : 0;
+                exerciseUpdate.correct_answer = normalizedAnswer;
+              } else {
+                exerciseUpdate.correct_answer = normalizedAnswer;
+              }
+            }
+
+            exerciseUpdate.exercise_data = newExerciseData;
+            if (explanation !== undefined) {
+              exerciseUpdate.explanation = explanation;
+            }
+            if (difficulty !== undefined) {
+              exerciseUpdate.difficulty = difficulty;
+            }
+
+            await serviceClient
+              .from('gamified_exercises')
+              .update(exerciseUpdate)
+              .eq('id', exercise.id);
+          }
+        }
+
+        console.log(`✅ Synced to gamified_exercises`);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, question_id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

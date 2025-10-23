@@ -999,6 +999,7 @@ export type Database = {
         Row: {
           coin_reward: number | null
           correct_answer: Json | null
+          correct_answer_index: number | null
           created_at: string | null
           difficulty: string | null
           exercise_data: Json
@@ -1006,12 +1007,16 @@ export type Database = {
           explanation: string | null
           game_order: number | null
           id: string
+          marks: number | null
+          options: Json
+          question_text: string
           topic_content_id: string
           xp_reward: number | null
         }
         Insert: {
           coin_reward?: number | null
           correct_answer?: Json | null
+          correct_answer_index?: number | null
           created_at?: string | null
           difficulty?: string | null
           exercise_data: Json
@@ -1019,12 +1024,16 @@ export type Database = {
           explanation?: string | null
           game_order?: number | null
           id?: string
+          marks?: number | null
+          options?: Json
+          question_text: string
           topic_content_id: string
           xp_reward?: number | null
         }
         Update: {
           coin_reward?: number | null
           correct_answer?: Json | null
+          correct_answer_index?: number | null
           created_at?: string | null
           difficulty?: string | null
           exercise_data?: Json
@@ -1032,6 +1041,9 @@ export type Database = {
           explanation?: string | null
           game_order?: number | null
           id?: string
+          marks?: number | null
+          options?: Json
+          question_text?: string
           topic_content_id?: string
           xp_reward?: number | null
         }

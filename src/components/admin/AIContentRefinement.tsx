@@ -135,16 +135,19 @@ export const AIContentRefinement = ({
 
           if (gameMappingError) throw gameMappingError;
 
-          // Create gamified exercise for the game
+          // Create gamified exercise for the game with simplified structure
           const { error: gameExerciseError } = await supabase
             .from('gamified_exercises')
             .insert({
               topic_content_id: gameMappingData.id,
               exercise_type: game.game_type || 'match_column',
-              exercise_data: game.game_data || game,
-              correct_answer: game.correct_answer,
+              question_text: game.game_data?.question || game.question || '',
+              options: game.game_data?.options || game.options || [],
+              correct_answer_index: game.correct_answer ?? game.game_data?.correct_answer ?? 0,
+              marks: game.marks || 1,
               difficulty: metadata?.difficulty || 'medium',
               xp_reward: 15,
+              exercise_data: {} as any // Temporary for type compatibility
             });
 
           if (gameExerciseError) throw gameExerciseError;

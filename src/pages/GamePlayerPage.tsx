@@ -326,20 +326,11 @@ const GamePlayerPage = () => {
 
         <MCQGame
           gameData={{
-            question: gameData.exercise_data?.question || "Question text",
-            options: gameData.exercise_data?.options || [],
-            correct_answer: (() => {
-              // Backend now sends plain number; fallback for legacy objects
-              if (typeof gameData.correct_answer === 'number') return gameData.correct_answer;
-              if (typeof gameData.correct_answer === 'object' && gameData.correct_answer !== null) {
-                return (gameData.correct_answer as any).correctAnswerIndex ?? 
-                       (gameData.correct_answer as any).value ?? 
-                       (gameData.correct_answer as any).index ?? 0;
-              }
-              return gameData.exercise_data?.correctAnswerIndex ?? 0;
-            })(),
+            question: gameData.question_text || "",
+            options: gameData.options || [],
+            correct_answer: gameData.correct_answer_index ?? 0,
             explanation: gameData.explanation,
-            marks: gameData.exercise_data?.marks || 1,
+            marks: gameData.marks || 1,
             difficulty: gameData.difficulty
           }}
           onCorrect={handleCorrectAnswer}

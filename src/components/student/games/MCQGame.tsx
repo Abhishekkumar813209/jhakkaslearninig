@@ -82,16 +82,7 @@ export function MCQGame({
 
     setHasSubmitted(true);
     
-    // Simplified: Backend now sends plain numbers, with fallback for legacy objects
-    let correctAnswerIndex: number = gameData.correct_answer;
-    if (typeof gameData.correct_answer === 'object' && gameData.correct_answer !== null) {
-      const answerObj = gameData.correct_answer as any;
-      correctAnswerIndex = answerObj.value ?? answerObj.index ?? answerObj.correctAnswerIndex ?? 0;
-    } else if (typeof gameData.correct_answer !== 'number') {
-      correctAnswerIndex = parseInt(String(gameData.correct_answer)) || 0;
-    }
-    
-    const correct = selectedAnswer === correctAnswerIndex;
+    const correct = selectedAnswer === gameData.correct_answer;
     setIsCorrect(correct);
 
     if (correct) {
@@ -232,15 +223,7 @@ export function MCQGame({
           >
             {gameData.options.map((option, index) => {
               const isSelected = selectedAnswer === index;
-              // Normalize correct answer for UI display
-              let correctIndex = gameData.correct_answer;
-              if (typeof correctIndex === 'object' && correctIndex !== null) {
-                const answerObj = correctIndex as any;
-                correctIndex = answerObj.value ?? answerObj.index ?? answerObj.correctAnswerIndex ?? 0;
-              } else if (typeof correctIndex !== 'number') {
-                correctIndex = parseInt(String(correctIndex)) || 0;
-              }
-              const isCorrectOption = index === correctIndex;
+              const isCorrectOption = index === gameData.correct_answer;
               const showAsCorrect = hasSubmitted && isCorrectOption;
               const showAsWrong = hasSubmitted && isSelected && !isCorrect;
 

@@ -879,18 +879,21 @@ export function LessonContentBuilder() {
           continue;
         }
         
-        // Insert into gamified_exercises
+        // Insert into gamified_exercises with simplified structure
         const { error: exerciseError } = await supabase
           .from('gamified_exercises')
           .insert([{
             topic_content_id: mapping.id,
             exercise_type: lesson.game_type as any,
-            exercise_data: lesson.game_data as any,
-            correct_answer: lesson.game_data?.correct_answer as any,
+            question_text: lesson.game_data?.question || '',
+            options: lesson.game_data?.options || [],
+            correct_answer_index: lesson.game_data?.correct_answer ?? 0,
+            marks: lesson.game_data?.marks || 1,
             explanation: lesson.game_data?.explanation,
             difficulty: lesson.game_data?.difficulty || 'medium',
             xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
-            game_order: lesson.content_order
+            game_order: lesson.content_order,
+            exercise_data: {} as any // Temporary for type compatibility
           }]);
         
         if (exerciseError) {

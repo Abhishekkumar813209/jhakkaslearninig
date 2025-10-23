@@ -1002,7 +1002,7 @@ export type Database = {
           correct_answer_index: number | null
           created_at: string | null
           difficulty: string | null
-          exercise_data: Json
+          exercise_data: Json | null
           exercise_type: Database["public"]["Enums"]["exercise_type"]
           explanation: string | null
           game_order: number | null
@@ -1019,7 +1019,7 @@ export type Database = {
           correct_answer_index?: number | null
           created_at?: string | null
           difficulty?: string | null
-          exercise_data: Json
+          exercise_data?: Json | null
           exercise_type: Database["public"]["Enums"]["exercise_type"]
           explanation?: string | null
           game_order?: number | null
@@ -1036,7 +1036,7 @@ export type Database = {
           correct_answer_index?: number | null
           created_at?: string | null
           difficulty?: string | null
-          exercise_data?: Json
+          exercise_data?: Json | null
           exercise_type?: Database["public"]["Enums"]["exercise_type"]
           explanation?: string | null
           game_order?: number | null

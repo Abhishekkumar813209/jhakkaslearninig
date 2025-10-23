@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download, Grid3x3, PenLine, EyeIcon } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download, Grid3x3, PenLine, EyeIcon, Save } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkQuestionEditor } from './BulkQuestionEditor';
 import { cn } from "@/lib/utils";
@@ -162,6 +162,8 @@ export const SmartQuestionExtractor = ({
   const [authError, setAuthError] = useState(false);
   const [uploadedPdfUrl, setUploadedPdfUrl] = useState<string | null>(null);
   const [uploadedPdfFile, setUploadedPdfFile] = useState<File | null>(null);
+  const [editedQuestions, setEditedQuestions] = useState<Map<string, Partial<ExtractedQuestion>>>(new Map());
+  const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
 
   const SUPABASE_URL = "https://qajmtfcphpncqwcrzphm.supabase.co";
   
@@ -1422,28 +1424,72 @@ export const SmartQuestionExtractor = ({
       q.id === questionId ? { ...q, correct_answer: answer } : q
     ));
     
-    // Update in database if question exists
+    // Track that this question has been edited
+    setEditedQuestions(prev => {
+      const newMap = new Map(prev);
+      const existingEdits = newMap.get(questionId) || {};
+      newMap.set(questionId, { ...existingEdits, correct_answer: answer });
+      return newMap;
+    });
+  };
+
+  const handleSaveAllChanges = async (questionId: string) => {
+    setSavingQuestionId(questionId);
+    const edits = editedQuestions.get(questionId);
+    const question = extractedQuestions.find(q => q.id === questionId);
+    
+    if (!question || !edits) {
+      setSavingQuestionId(null);
+      return;
+    }
+    
+    const updatedQuestion = { ...question, ...edits };
+    
     try {
-      const questionToUpdate = extractedQuestions.find(q => q.id === questionId);
-      if (questionToUpdate && isUUID(questionToUpdate.id)) {
+      // Only save to database if it's a valid UUID (already in DB)
+      if (isUUID(questionId)) {
         await invokeWithAuth({
           name: 'topic-questions-api',
           body: {
-            action: 'update_question_answer',
+            action: 'update_full_question',
             question_id: questionId,
-            question_type: questionToUpdate.question_type,
-            options: questionToUpdate.options || null,
-            correct_answer: answer,
-            explanation: questionToUpdate.explanation || null
+            question_text: updatedQuestion.question_text,
+            question_type: updatedQuestion.question_type,
+            options: updatedQuestion.options,
+            left_column: updatedQuestion.left_column,
+            right_column: updatedQuestion.right_column,
+            assertion: updatedQuestion.assertion,
+            reason: updatedQuestion.reason,
+            blanks_count: updatedQuestion.blanks_count,
+            marks: updatedQuestion.marks,
+            difficulty: updatedQuestion.difficulty,
+            correct_answer: updatedQuestion.correct_answer,
+            explanation: updatedQuestion.explanation
           }
         });
         
-        toast.success('Answer saved to database');
+        toast.success('All changes saved successfully');
         setReloadKey((k) => k + 1);
+      } else {
+        toast.success('Changes saved locally');
       }
-    } catch (error) {
-      console.error('Error updating answer in database:', error);
-      toast.error('Failed to save answer to database');
+      
+      // Update local state
+      setExtractedQuestions(prev => prev.map(q => 
+        q.id === questionId ? updatedQuestion : q
+      ));
+      
+      // Clear edit tracking
+      setEditedQuestions(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(questionId);
+        return newMap;
+      });
+    } catch (error: any) {
+      console.error('Error saving changes:', error);
+      toast.error('Failed to save changes: ' + (error.message || 'Unknown error'));
+    } finally {
+      setSavingQuestionId(null);
     }
   };
 
@@ -2606,42 +2652,7 @@ export const SmartQuestionExtractor = ({
                       <Edit className="h-3 w-3 mr-1" />
                       Edit
                     </Button>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={(e) => e.stopPropagation()}>
-                          <Eye className="h-3 w-3 mr-1" />
-                          View Full
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Question {question.question_number}</DialogTitle>
-                          <DialogDescription>
-                            {getQuestionTypeLabel(question.question_type)} • {question.marks || 1} marks • {question.difficulty || 'medium'}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <ScrollArea className="max-h-[60vh] overflow-y-auto">
-                          <div 
-                            className="prose prose-sm max-w-none question-content whitespace-pre-wrap break-words p-4"
-                            dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
-                          />
-                          {question.options && (
-                            <div className="mt-4 space-y-2 p-4">
-                              <p className="font-semibold text-sm text-muted-foreground mb-2">Options:</p>
-                              {question.options.map((opt, idx) => (
-                                <div key={idx} className="p-3 border rounded-md bg-muted/30">
-                                  <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>{' '}
-                                  <span 
-                                    className="prose prose-sm max-w-none question-content inline"
-                                    dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} 
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </ScrollArea>
-                      </DialogContent>
-                    </Dialog>
+                    
                     <Button
                       variant="outline"
                       size="sm"
@@ -2656,6 +2667,32 @@ export const SmartQuestionExtractor = ({
                       Preview
                     </Button>
                   </div>
+
+                  {/* Save Changes Button (shown when question has edits) */}
+                  {question.id && editedQuestions.has(question.id) && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full mt-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSaveAllChanges(question.id!);
+                      }}
+                      disabled={savingQuestionId === question.id}
+                    >
+                      {savingQuestionId === question.id ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-3 w-3 mr-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

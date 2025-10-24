@@ -31,10 +31,44 @@ const GamePlayerPage = () => {
       return;
     }
     loadGameData();
+    
+    // Listen for game deletion while student is playing
+    const channel = supabase
+      .channel(`game-${gameId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'gamified_exercises',
+          filter: `id=eq.${gameId}`
+        },
+        (payload) => {
+          console.log('Current game was deleted:', payload);
+          
+          toast({
+            title: "Game Removed",
+            description: "This game was deleted. Redirecting to next available game...",
+            variant: "destructive"
+          });
+          
+          // Try to navigate to next game, or back to topic if none available
+          setTimeout(async () => {
+            if (navInfo?.nextGameId) {
+              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
+            } else {
+              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+            }
+          }, 2000);
+        }
+      )
+      .subscribe();
+    
     return () => {
       if (autoAdvanceTimeout) {
         clearTimeout(autoAdvanceTimeout);
       }
+      supabase.removeChannel(channel);
     };
   }, [gameId]);
 
@@ -371,15 +405,65 @@ const GamePlayerPage = () => {
   }
 
   if (!gameData) {
+    // Auto-redirect to next available game or topic view
+    useEffect(() => {
+      const redirectToNextGame = async () => {
+        if (!topicId) return;
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        // Try to find the first unlocked game in this topic
+        const { data: mapping } = await supabase
+          .from('topic_content_mapping')
+          .select('id')
+          .eq('topic_id', topicId)
+          .maybeSingle();
+        
+        if (mapping) {
+          const { data: games } = await supabase
+            .from('gamified_exercises')
+            .select('id, game_order')
+            .eq('topic_content_id', mapping.id)
+            .order('game_order', { ascending: true })
+            .limit(1);
+          
+          if (games && games.length > 0) {
+            toast({
+              title: "Game Not Found",
+              description: "Redirecting to next available game...",
+            });
+            
+            setTimeout(() => {
+              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${games[0].id}`);
+            }, 2000);
+            return;
+          }
+        }
+        
+        // No games found, go back to topic
+        toast({
+          title: "No Games Available",
+          description: "Returning to topic view...",
+          variant: "destructive"
+        });
+        
+        setTimeout(() => {
+          handleExit();
+        }, 2000);
+      };
+      
+      redirectToNextGame();
+    }, []);
+    
     return (
       <div className="min-h-screen">
         <Navbar />
-        <div className="container py-8">
-          <div>Game not found</div>
-          <Button onClick={handleExit} className="mt-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Topic
-          </Button>
+        <div className="container py-8 text-center">
+          <div className="animate-pulse">
+            <p className="text-lg mb-4">Game not found. Searching for next available game...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
         </div>
       </div>
     );

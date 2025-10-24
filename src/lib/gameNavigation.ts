@@ -63,6 +63,18 @@ export async function getAdjacentGames(
     };
   }
   
+  // Verify current game still exists
+  const currentGameExists = games.some(g => g.id === currentGameId);
+  if (!currentGameExists) {
+    console.warn(`Game ${currentGameId} no longer exists. Returning first game.`);
+    return {
+      prevGameId: null,
+      nextGameId: games.length > 1 ? games[1].id : null,
+      currentGameNum: 1,
+      totalGames: games.length
+    };
+  }
+  
   // Only use games that match approved lessons count
   const approvedGames = games.slice(0, approvedLessons.length);
   const currentIndex = approvedGames.findIndex(g => g.id === currentGameId);

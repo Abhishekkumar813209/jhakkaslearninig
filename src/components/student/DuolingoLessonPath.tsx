@@ -50,7 +50,19 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           schema: 'public',
           table: 'gamified_exercises'
         },
-        () => {
+        (payload) => {
+          console.log('Game change detected:', payload.eventType, payload);
+          
+          // If a game was deleted, show notification
+          if (payload.eventType === 'DELETE') {
+            toast({
+              title: "Content Updated",
+              description: "A lesson was removed. Refreshing...",
+              variant: "default"
+            });
+          }
+          
+          // Refetch lessons to update UI
           fetchLessons();
         }
       )
@@ -61,7 +73,8 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           schema: 'public',
           table: 'topic_content_mapping'
         },
-        () => {
+        (payload) => {
+          console.log('Content mapping change:', payload.eventType);
           fetchLessons();
         }
       )
@@ -159,7 +172,18 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
         // Build progress map from completed games
         lessonsData.forEach((lesson, index) => {
           const isCompleted = completedGameIds.includes(lesson.id);
-          const isPreviousCompleted = index === 0 || completedGameIds.includes(lessonsData[index - 1].id);
+          
+          // First game is always unlocked
+          // For subsequent games: unlock if ANY previous game is completed
+          let isPreviousCompleted = false;
+          if (index === 0) {
+            isPreviousCompleted = true; // First game always unlocked
+          } else {
+            // Check if at least one previous game is completed
+            isPreviousCompleted = lessonsData
+              .slice(0, index) // Get all previous games
+              .some(prevLesson => completedGameIds.includes(prevLesson.id));
+          }
           
           progressMap[lesson.id] = {
             id: `progress_${lesson.id}`,

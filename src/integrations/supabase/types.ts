@@ -350,6 +350,45 @@ export type Database = {
           },
         ]
       }
+      content_deletion_log: {
+        Row: {
+          affected_attempts_count: number | null
+          affected_students_count: number | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_item_data: Json
+          deleted_item_id: string
+          deleted_item_type: string
+          deletion_reason: string | null
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          affected_attempts_count?: number | null
+          affected_students_count?: number | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_item_data: Json
+          deleted_item_id: string
+          deleted_item_type: string
+          deletion_reason?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          affected_attempts_count?: number | null
+          affected_students_count?: number | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_item_data?: Json
+          deleted_item_id?: string
+          deleted_item_type?: string
+          deletion_reason?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
       content_modification_history: {
         Row: {
           content_id: string
@@ -4968,6 +5007,16 @@ export type Database = {
         Returns: boolean
       }
       check_batch_capacity: { Args: { p_batch_id: string }; Returns: undefined }
+      check_lesson_deletion_impact: {
+        Args: { p_lesson_id: string }
+        Returns: {
+          affected_students: number
+          estimated_lost_progress: string
+          games_count: number
+          lesson_type: string
+          total_attempts: number
+        }[]
+      }
       complete_withdrawal: {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined

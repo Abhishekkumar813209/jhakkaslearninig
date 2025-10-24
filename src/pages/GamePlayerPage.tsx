@@ -361,14 +361,30 @@ const GamePlayerPage = () => {
     
     // For MCQ: prefer direct columns, fallback to exercise_data
     if (exerciseType === 'mcq') {
+      // Get raw correct answer with multiple fallbacks
+      let rawCorrectAnswer = (typeof gameData.correct_answer_index === 'number')
+        ? gameData.correct_answer_index
+        : (gameData.correct_answer?.correctAnswerIndex ?? 
+           gameData.exercise_data?.correct_answer ?? 
+           gameData.exercise_data?.correctAnswerIndex ?? 
+           0);
+
+      // Safeguard: Parse numeric strings and validate
+      let correctAnswerIndex = 0;
+      if (typeof rawCorrectAnswer === 'number') {
+        correctAnswerIndex = rawCorrectAnswer;
+      } else if (typeof rawCorrectAnswer === 'string' && /^\d+$/.test(rawCorrectAnswer)) {
+        correctAnswerIndex = parseInt(rawCorrectAnswer, 10);
+      } else if (typeof rawCorrectAnswer === 'object' && rawCorrectAnswer?.correctAnswerIndex !== undefined) {
+        correctAnswerIndex = rawCorrectAnswer.correctAnswerIndex;
+      }
+
       const mcqData = {
         question: gameData.question_text || gameData.exercise_data?.question || "",
         options: (gameData.options && gameData.options.length > 0) 
           ? gameData.options 
           : (gameData.exercise_data?.options || []),
-        correct_answer: (typeof gameData.correct_answer_index === 'number') 
-          ? gameData.correct_answer_index 
-          : (gameData.exercise_data?.correct_answer ?? gameData.exercise_data?.correctAnswerIndex ?? 0),
+        correct_answer: correctAnswerIndex,
         explanation: gameData.explanation || gameData.exercise_data?.explanation,
         marks: gameData.marks || gameData.exercise_data?.marks || 1,
         difficulty: gameData.difficulty || gameData.exercise_data?.difficulty
@@ -378,6 +394,7 @@ const GamePlayerPage = () => {
         hasOptions: mcqData.options.length > 0,
         optionsCount: mcqData.options.length,
         correctAnswer: mcqData.correct_answer,
+        rawAnswer: rawCorrectAnswer,
         question: mcqData.question.substring(0, 50) + '...'
       });
 

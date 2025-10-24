@@ -352,6 +352,19 @@ export const SmartQuestionExtractorNew = ({
       return;
     }
 
+    // Check for unsaved edits
+    const unsavedCount = editedQuestions.size;
+    if (unsavedCount > 0) {
+      const unsavedIds = Array.from(editedQuestions.keys());
+      const unsavedSelected = unsavedIds.filter(id => selectedIds.has(id));
+      if (unsavedSelected.length > 0) {
+        toast.error(`You have ${unsavedSelected.length} unsaved question(s) in your selection`, {
+          description: 'Click "Save Changes" on each edited question before adding to library'
+        });
+        return;
+      }
+    }
+
     // Validate all selected questions have answers
     const missingAnswers = selectedQuestions.filter(q => !validateAnswer(q));
     if (missingAnswers.length > 0) {

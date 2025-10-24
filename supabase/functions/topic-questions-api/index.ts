@@ -392,6 +392,40 @@ serve(async (req) => {
 
       console.log(`🔗 Finalizing ${question_ids.length} questions for topic ${topic_id}`);
 
+      const { data: questions } = await serviceClient
+        .from('question_bank')
+        .select('*')
+        .in('id', question_ids);
+
+      // 🛡️ VALIDATION: Check all MCQ questions have valid answers
+      const invalidQuestions = (questions || []).filter(q => {
+        if (q.question_type === 'mcq' || q.question_type === 'assertion_reason') {
+          const ans = q.correct_answer;
+          if (ans === null || ans === undefined) return true;
+          
+          // Accept numbers, numeric strings, or objects with index/value
+          if (typeof ans === 'number' && ans >= 0) return false;
+          if (typeof ans === 'string' && /^\d+$/.test(ans) && parseInt(ans) >= 0) return false;
+          if (typeof ans === 'object' && (
+            (typeof ans.index === 'number' && ans.index >= 0) ||
+            (typeof ans.value === 'number' && ans.value >= 0)
+          )) return false;
+          
+          return true; // Invalid format
+        }
+        return false; // Non-MCQ questions pass
+      });
+
+      if (invalidQuestions.length > 0) {
+        const invalidIds = invalidQuestions.map(q => q.id).join(', ');
+        console.error(`❌ ${invalidQuestions.length} questions have invalid/null answers:`, invalidQuestions.map(q => ({
+          id: q.id,
+          type: q.question_type,
+          answer: q.correct_answer
+        })));
+        throw new Error(`Cannot approve: ${invalidQuestions.length} question(s) don't have valid answers. Please use "Save Changes" to set answers first. Question IDs: ${invalidIds}`);
+      }
+
       // Mark as approved
       await serviceClient
         .from('question_bank')
@@ -402,13 +436,9 @@ serve(async (req) => {
         })
         .in('id', question_ids);
 
-      const { data: questions } = await serviceClient
-        .from('question_bank')
-        .select('*')
-        .in('id', question_ids);
-
       let linkedCount = 0;
       let skippedCount = 0;
+      let repairedCount = 0;
 
       for (const q of questions || []) {
         // IDEMPOTENCY CHECK: Look for existing mapping with (topic_id, question_id)
@@ -419,23 +449,48 @@ serve(async (req) => {
           .eq('question_id', q.id);
 
         if (existingMappings && existingMappings.length > 0) {
-          console.log(`⏭️ Mapping already exists for question ${q.id}, skipping...`);
+          console.log(`⏭️ Mapping already exists for question ${q.id}`);
           skippedCount++;
           
           // Check if exercise exists for this mapping
           const mappingId = existingMappings[0].id;
-          const { data: existingExercise } = await serviceClient
+          const { data: existingExercises } = await serviceClient
             .from('gamified_exercises')
-            .select('id')
-            .eq('topic_content_id', mappingId)
-            .limit(1);
+            .select('id, correct_answer, exercise_data')
+            .eq('topic_content_id', mappingId);
 
-          if (!existingExercise || existingExercise.length === 0) {
-            console.log(`⚠️ Mapping exists but exercise missing for ${q.id}, creating exercise...`);
+          if (!existingExercises || existingExercises.length === 0) {
+            console.log(`⚠️ Mapping exists but exercise missing for ${q.id}, creating...`);
+            
+            // Normalize MCQ index
+            let mcqIndex = 0;
+            if (q.question_type === 'mcq') {
+              const ans = q.correct_answer;
+              if (typeof ans === 'number') {
+                mcqIndex = ans;
+              } else if (typeof ans === 'string' && /^\d+$/.test(ans)) {
+                mcqIndex = parseInt(ans, 10);
+              } else if (ans?.value !== undefined && typeof ans.value === 'number') {
+                mcqIndex = ans.value;
+              } else if (ans?.index !== undefined && typeof ans.index === 'number') {
+                mcqIndex = ans.index;
+              }
+              console.log(`🎯 Creating exercise for Q${q.id}: mcqIndex = ${mcqIndex}`);
+            }
             
             const exerciseData = q.question_type === 'mcq'
-              ? { question: q.question_text, options: q.options, correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? 0), marks: q.marks }
-              : { question: q.question_text, answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? ''), marks: q.marks };
+              ? { 
+                  question: q.question_text, 
+                  options: q.options, 
+                  correct_answer: mcqIndex,
+                  correctAnswerIndex: mcqIndex,
+                  marks: q.marks 
+                }
+              : { 
+                  question: q.question_text, 
+                  answer: q.correct_answer || '', 
+                  marks: q.marks 
+                };
 
             await serviceClient
               .from('gamified_exercises')
@@ -443,12 +498,62 @@ serve(async (req) => {
                 topic_content_id: mappingId,
                 exercise_type: q.question_type,
                 exercise_data: exerciseData,
-                correct_answer: q.correct_answer,
+                correct_answer: q.question_type === 'mcq' 
+                  ? { correctAnswerIndex: mcqIndex }
+                  : q.correct_answer,
                 explanation: q.explanation,
                 xp_reward: (q.marks || 1) * 10,
                 coin_reward: q.marks || 1,
                 difficulty: q.difficulty || 'medium'
               });
+          } else {
+            // 🔧 REPAIR: Check if existing exercise has null/invalid answer
+            const exercise = existingExercises[0];
+            const needsRepair = (
+              q.question_type === 'mcq' &&
+              (
+                exercise.correct_answer === null ||
+                !exercise.correct_answer?.correctAnswerIndex ||
+                !exercise.exercise_data?.correct_answer ||
+                exercise.exercise_data?.correctAnswerIndex === undefined
+              )
+            );
+
+            if (needsRepair) {
+              console.log(`🔧 Repairing null answer for exercise ${exercise.id}`);
+              
+              // Normalize MCQ index
+              let mcqIndex = 0;
+              const ans = q.correct_answer;
+              if (typeof ans === 'number') {
+                mcqIndex = ans;
+              } else if (typeof ans === 'string' && /^\d+$/.test(ans)) {
+                mcqIndex = parseInt(ans, 10);
+              } else if (ans?.value !== undefined && typeof ans.value === 'number') {
+                mcqIndex = ans.value;
+              } else if (ans?.index !== undefined && typeof ans.index === 'number') {
+                mcqIndex = ans.index;
+              }
+              
+              console.log(`🎯 Repair: Q${q.id} → mcqIndex = ${mcqIndex}`);
+              
+              const repairedExerciseData = {
+                ...exercise.exercise_data,
+                correct_answer: mcqIndex,
+                correctAnswerIndex: mcqIndex
+              };
+
+              await serviceClient
+                .from('gamified_exercises')
+                .update({
+                  correct_answer: { correctAnswerIndex: mcqIndex },
+                  exercise_data: repairedExerciseData,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', exercise.id);
+              
+              repairedCount++;
+            }
           }
           
           continue; // Skip to next question
@@ -478,23 +583,59 @@ serve(async (req) => {
 
         console.log(`✅ Created new mapping for question ${q.id}`);
 
-        // Create the exercise
+        // Normalize MCQ index robustly
+        let mcqIndex = 0;
+        if (q.question_type === 'mcq') {
+          const ans = q.correct_answer;
+          if (typeof ans === 'number') {
+            mcqIndex = ans;
+          } else if (typeof ans === 'string' && /^\d+$/.test(ans)) {
+            mcqIndex = parseInt(ans, 10);
+          } else if (ans?.value !== undefined && typeof ans.value === 'number') {
+            mcqIndex = ans.value;
+          } else if (ans?.index !== undefined && typeof ans.index === 'number') {
+            mcqIndex = ans.index;
+          }
+          console.log(`🎯 New exercise for Q${q.id}: mcqIndex = ${mcqIndex}`);
+        }
+
+        // Create the exercise with properly formatted answer
         const exerciseData = q.question_type === 'mcq'
-          ? { question: q.question_text, options: q.options, correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? 0), marks: q.marks }
-          : { question: q.question_text, answer: typeof q.correct_answer === 'number' ? q.correct_answer : (q.correct_answer?.value ?? ''), marks: q.marks };
+          ? { 
+              question: q.question_text, 
+              options: q.options, 
+              correct_answer: mcqIndex,
+              correctAnswerIndex: mcqIndex,
+              marks: q.marks 
+            }
+          : { 
+              question: q.question_text, 
+              answer: q.correct_answer || '', 
+              marks: q.marks 
+            };
+
+        const gamifiedExercise = {
+          topic_content_id: mapping.id,
+          exercise_type: q.question_type,
+          exercise_data: exerciseData,
+          correct_answer: q.question_type === 'mcq' 
+            ? { correctAnswerIndex: mcqIndex }
+            : q.correct_answer,
+          explanation: q.explanation,
+          xp_reward: (q.marks || 1) * 10,
+          coin_reward: q.marks || 1,
+          difficulty: q.difficulty || 'medium'
+        };
+
+        console.log(`📦 Creating gamified_exercise:`, {
+          question_id: q.id,
+          correct_answer: gamifiedExercise.correct_answer,
+          exercise_data_answer: exerciseData.correct_answer
+        });
 
         const { error: exerciseError } = await serviceClient
           .from('gamified_exercises')
-          .insert({
-            topic_content_id: mapping.id,
-            exercise_type: q.question_type,
-            exercise_data: exerciseData,
-            correct_answer: q.correct_answer,
-            explanation: q.explanation,
-            xp_reward: (q.marks || 1) * 10,
-            coin_reward: q.marks || 1,
-            difficulty: q.difficulty || 'medium'
-          });
+          .insert(gamifiedExercise);
 
         if (exerciseError) {
           console.error(`❌ Failed to create exercise for mapping ${mapping.id}:`, exerciseError);
@@ -504,13 +645,14 @@ serve(async (req) => {
         linkedCount++;
       }
 
-      console.log(`✅ Finalization complete: ${linkedCount} new links, ${skippedCount} skipped (already existed)`);
+      console.log(`✅ Finalization complete: ${linkedCount} new links, ${skippedCount} skipped, ${repairedCount} repaired`);
 
       return new Response(
         JSON.stringify({ 
           success: true, 
           linked_count: linkedCount,
           skipped_count: skippedCount,
+          repaired_count: repairedCount,
           total_processed: questions?.length || 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -824,8 +966,11 @@ serve(async (req) => {
               const finalOptions = options !== undefined ? options : existingQuestion.options;
               const normalizedAnswer = normalizeCorrectAnswer(qType, correct_answer, finalOptions);
               if (qType === 'mcq') {
-                newExerciseData.correctAnswerIndex = typeof normalizedAnswer === 'number' ? normalizedAnswer : 0;
-                exerciseUpdate.correct_answer = normalizedAnswer;
+                const answerNumber = typeof normalizedAnswer === 'number' ? normalizedAnswer : 0;
+                newExerciseData.correct_answer = answerNumber;
+                newExerciseData.correctAnswerIndex = answerNumber;
+                exerciseUpdate.correct_answer = { correctAnswerIndex: answerNumber };
+                console.log(`🔄 Syncing MCQ answer: Q${question_id} → answerNumber = ${answerNumber}`);
               } else {
                 exerciseUpdate.correct_answer = normalizedAnswer;
               }

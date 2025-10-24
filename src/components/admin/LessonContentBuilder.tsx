@@ -95,70 +95,82 @@ function SortableLesson({
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div 
+    <Card 
       ref={setNodeRef} 
       style={style} 
-      className={`bg-card border rounded-lg p-4 mb-2 transition-colors ${isSelected ? 'border-primary bg-primary/5' : ''}`}
+      className={`transition-all hover:shadow-lg ${isSelected ? 'ring-2 ring-primary shadow-md' : ''}`}
     >
-      <div className="flex items-center gap-3">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onToggleSelection(lesson.id!)}
-          className="h-5 w-5"
-        />
-        
-        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-          <GripVertical className="h-5 w-5 text-muted-foreground" />
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline">{lesson.lesson_type}</Badge>
-            {(lesson.game_data?.original_type || lesson.game_type) && (
-              <Badge variant="secondary">{lesson.game_data?.original_type || lesson.game_type}</Badge>
-            )}
-            {lesson.svg_type && <Badge variant="secondary">{lesson.svg_type}</Badge>}
-            <span className="text-sm text-muted-foreground ml-auto">{lesson.estimated_time_minutes} min</span>
+      <CardContent className="p-4 space-y-3">
+        {/* Top Controls */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelection(lesson.id!)}
+              className="h-4 w-4"
+            />
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
           
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{lesson.xp_reward} XP</span>
-            {lesson.human_reviewed ? (
-              <Badge variant="default" className="bg-green-500">
-                <Check className="h-3 w-3 mr-1" /> Approved
-              </Badge>
-            ) : (
-              <Badge variant="secondary">
-                <X className="h-3 w-3 mr-1" /> Pending
-              </Badge>
-            )}
-          </div>
+          {lesson.human_reviewed ? (
+            <Badge variant="default" className="bg-green-500">
+              <Check className="h-3 w-3 mr-1" /> Approved
+            </Badge>
+          ) : (
+            <Badge variant="secondary">
+              <X className="h-3 w-3 mr-1" /> Pending
+            </Badge>
+          )}
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            <Eye className="h-4 w-4 mr-1" />
+        {/* Content Type Badges */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="font-medium">{lesson.lesson_type}</Badge>
+          {(lesson.game_data?.original_type || lesson.game_type) && (
+            <Badge variant="secondary">{lesson.game_data?.original_type || lesson.game_type}</Badge>
+          )}
+          {lesson.svg_type && <Badge variant="secondary">{lesson.svg_type}</Badge>}
+        </div>
+
+        {/* Stats */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="font-semibold text-foreground">{lesson.xp_reward}</span> XP
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="font-semibold text-foreground">{lesson.estimated_time_minutes}</span> min
+          </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={onEdit} className="w-full justify-start">
+            <Eye className="h-4 w-4 mr-2" />
             Preview
           </Button>
           
-          {!lesson.human_reviewed && (
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={onApprove}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Check className="h-4 w-4 mr-1" />
-              Approve
+          <div className="flex gap-2">
+            {!lesson.human_reviewed && (
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={onApprove}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Approve
+              </Button>
+            )}
+            
+            <Button variant="destructive" size="sm" onClick={onDelete} className={lesson.human_reviewed ? 'flex-1' : ''}>
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-          
-          <Button variant="destructive" size="sm" onClick={onDelete}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2050,20 +2062,22 @@ export function LessonContentBuilder() {
 
                       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={lessons.map((l) => l.id || '')} strategy={verticalListSortingStrategy}>
-                          {lessons.map((lesson) => (
-                            <SortableLesson
-                              key={lesson.id}
-                              lesson={lesson}
-                              onEdit={() => {
-                                setPreviewLesson(lesson);
-                                setShowPreview(true);
-                              }}
-                              onDelete={() => handleDeleteLesson(lesson.id!)}
-                              onApprove={() => handleApproveLesson(lesson.id!)}
-                              isSelected={selectedLessonIds.includes(lesson.id!)}
-                              onToggleSelection={toggleLessonSelection}
-                            />
-                          ))}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {lessons.map((lesson) => (
+                              <SortableLesson
+                                key={lesson.id}
+                                lesson={lesson}
+                                onEdit={() => {
+                                  setPreviewLesson(lesson);
+                                  setShowPreview(true);
+                                }}
+                                onDelete={() => handleDeleteLesson(lesson.id!)}
+                                onApprove={() => handleApproveLesson(lesson.id!)}
+                                isSelected={selectedLessonIds.includes(lesson.id!)}
+                                onToggleSelection={toggleLessonSelection}
+                              />
+                            ))}
+                          </div>
                         </SortableContext>
                       </DndContext>
                     </>

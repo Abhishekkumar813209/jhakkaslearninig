@@ -363,12 +363,23 @@ const GamePlayerPage = () => {
     if (exerciseType === 'mcq') {
       const mcqData = {
         question: gameData.question_text || gameData.exercise_data?.question || "",
-        options: gameData.options || gameData.exercise_data?.options || [],
-        correct_answer: gameData.correct_answer_index ?? gameData.exercise_data?.correct_answer ?? 0,
+        options: (gameData.options && gameData.options.length > 0) 
+          ? gameData.options 
+          : (gameData.exercise_data?.options || []),
+        correct_answer: (typeof gameData.correct_answer_index === 'number') 
+          ? gameData.correct_answer_index 
+          : (gameData.exercise_data?.correct_answer ?? gameData.exercise_data?.correctAnswerIndex ?? 0),
         explanation: gameData.explanation || gameData.exercise_data?.explanation,
         marks: gameData.marks || gameData.exercise_data?.marks || 1,
         difficulty: gameData.difficulty || gameData.exercise_data?.difficulty
       };
+
+      console.log('[GamePlayerPage] MCQ Data prepared:', {
+        hasOptions: mcqData.options.length > 0,
+        optionsCount: mcqData.options.length,
+        correctAnswer: mcqData.correct_answer,
+        question: mcqData.question.substring(0, 50) + '...'
+      });
 
       return (
         <MCQGame

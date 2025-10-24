@@ -268,7 +268,18 @@ ${file_content}
 - Check type priority: Assertion-Reason FIRST, then Match, then Fill Blank, then MCQ
 - Return valid JSON only (no markdown)`;
 
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    // Smart model selection based on document size
+    const documentSize = file_content.length;
+    const estimatedQuestions = (file_content.match(/\[QUESTION_\d+\]/g) || []).length;
+    const useProModel = documentSize > 20000 || estimatedQuestions > 40;
+
+    const model = useProModel ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+    const maxTokens = useProModel ? 32000 : 8000;
+
+    console.log(`📊 Document stats: ${documentSize} chars, ~${estimatedQuestions} questions`);
+    console.log(`🤖 Using model: ${model} (max tokens: ${maxTokens})`);
+
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -282,7 +293,7 @@ ${file_content}
         }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 12000,
+          maxOutputTokens: maxTokens,
         }
       }),
     });
@@ -307,8 +318,8 @@ ${file_content}
         });
       }
       const errorText = await aiResponse.text();
-      console.error('Lovable AI error:', aiResponse.status, errorText);
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      console.error('Gemini API error:', aiResponse.status, errorText);
+      throw new Error(`Gemini API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
@@ -336,6 +347,25 @@ ${file_content}
     }
 
     const questionsArr = Array.isArray(extractedData?.questions) ? extractedData.questions : [];
+
+    // Validate and flag MCQs with empty options
+    let emptyOptionsCount = 0;
+    questionsArr.forEach((q: any, idx: number) => {
+      if (q.question_type === 'mcq') {
+        const emptyOpts = q.options?.filter((opt: string) => !opt || opt.trim() === '').length || 0;
+        if (emptyOpts > 0) {
+          emptyOptionsCount++;
+          q.requires_manual_review = true;
+          q.confidence = 'low';
+          q.extraction_issues = [`${emptyOpts} empty options detected`];
+          console.warn(`⚠️ Q${q.question_number || idx+1}: ${emptyOpts} empty options - flagged for review`);
+        }
+      }
+    });
+
+    if (emptyOptionsCount > 0) {
+      console.warn(`🚨 Total questions with empty options: ${emptyOptionsCount}/${questionsArr.length}`);
+    }
 
     console.log('🤖 AI Raw Response:', {
       total_questions: extractedData.total_found || extractedData.questions?.length || 0,

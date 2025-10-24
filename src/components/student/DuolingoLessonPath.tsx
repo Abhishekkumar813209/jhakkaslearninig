@@ -54,8 +54,11 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
         (payload) => {
           console.log('Game change detected:', payload.eventType, payload);
           
-          // If a game was deleted, show notification
+          // Immediately clear lessons on DELETE to prevent showing stale nodes
           if (payload.eventType === 'DELETE') {
+            setLessons([]);
+            setLoading(true);
+            
             toast({
               title: "Content Updated",
               description: "A lesson was removed. Refreshing...",
@@ -63,13 +66,13 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
             });
           }
           
-          // Debounce refetch to avoid rapid consecutive calls
+          // Debounce refetch with shorter delay
           if (refetchTimeout) {
             clearTimeout(refetchTimeout);
           }
           const timeout = setTimeout(() => {
             fetchLessons();
-          }, 500);
+          }, 200); // Reduced from 500ms to 200ms
           setRefetchTimeout(timeout);
         }
       )
@@ -139,10 +142,13 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
         console.error("Error fetching games:", gamesError);
       }
 
+      // Filter out any null/undefined games (defensive check)
+      const validGames = (games || []).filter(g => g && g.id);
+
       // If we have games, build lessons from them
-      if (games && games.length > 0) {
+      if (validGames.length > 0) {
         // Deduplicate games by question_text (safety measure)
-        const uniqueGames = games.reduce((acc, game) => {
+        const uniqueGames = validGames.reduce((acc, game) => {
           const isDuplicate = acc.some(g => {
             // Extract actual question text from exercise_data or question_text
             const existingQuestion = (typeof g.exercise_data === 'object' && g.exercise_data && 'question' in g.exercise_data) 
@@ -163,9 +169,9 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
             acc.push(game);
           }
           return acc;
-        }, [] as typeof games);
+        }, [] as typeof validGames);
         
-        console.log(`Deduplicated ${games.length} games to ${uniqueGames.length} unique games`);
+        console.log(`Deduplicated ${validGames.length} games to ${uniqueGames.length} unique games`);
         
         // Load student game progress
         const { data: gameProgress } = await supabase
@@ -300,8 +306,14 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="py-8">
+        <div className="flex flex-col items-center gap-8">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse">
+              <div className="w-[280px] h-[120px] bg-muted rounded-2xl" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

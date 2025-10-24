@@ -121,6 +121,54 @@ const GamePlayerPage = () => {
     }
   };
 
+  // Auto-redirect when game not found
+  useEffect(() => {
+    if (!loading && !gameData && topicId && roadmapId) {
+      const findNextGame = async () => {
+        // Try to find the first available game in this topic
+        const { data: mapping } = await supabase
+          .from('topic_content_mapping')
+          .select('id')
+          .eq('topic_id', topicId)
+          .maybeSingle();
+        
+        if (mapping) {
+          const { data: games } = await supabase
+            .from('gamified_exercises')
+            .select('id, game_order')
+            .eq('topic_content_id', mapping.id)
+            .order('game_order', { ascending: true })
+            .limit(1);
+          
+          if (games && games.length > 0) {
+            toast({
+              title: "Game Not Found",
+              description: "Redirecting to next available game...",
+            });
+            
+            setTimeout(() => {
+              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${games[0].id}`, { replace: true });
+            }, 1500);
+            return;
+          }
+        }
+        
+        // No games found, go back to topic
+        toast({
+          title: "No Games Available",
+          description: "Returning to topic view...",
+          variant: "destructive"
+        });
+        
+        setTimeout(() => {
+          handleExit();
+        }, 1500);
+      };
+      
+      findNextGame();
+    }
+  }, [loading, gameData, topicId, roadmapId]);
+
   const markGameCompleted = async (studentId: string, topicId: string, gameId: string) => {
     const { data: progress } = await supabase
       .from('student_topic_game_progress')
@@ -405,57 +453,6 @@ const GamePlayerPage = () => {
   }
 
   if (!gameData) {
-    // Auto-redirect to next available game or topic view
-    useEffect(() => {
-      const redirectToNextGame = async () => {
-        if (!topicId) return;
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        
-        // Try to find the first unlocked game in this topic
-        const { data: mapping } = await supabase
-          .from('topic_content_mapping')
-          .select('id')
-          .eq('topic_id', topicId)
-          .maybeSingle();
-        
-        if (mapping) {
-          const { data: games } = await supabase
-            .from('gamified_exercises')
-            .select('id, game_order')
-            .eq('topic_content_id', mapping.id)
-            .order('game_order', { ascending: true })
-            .limit(1);
-          
-          if (games && games.length > 0) {
-            toast({
-              title: "Game Not Found",
-              description: "Redirecting to next available game...",
-            });
-            
-            setTimeout(() => {
-              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${games[0].id}`);
-            }, 2000);
-            return;
-          }
-        }
-        
-        // No games found, go back to topic
-        toast({
-          title: "No Games Available",
-          description: "Returning to topic view...",
-          variant: "destructive"
-        });
-        
-        setTimeout(() => {
-          handleExit();
-        }, 2000);
-      };
-      
-      redirectToNextGame();
-    }, []);
-    
     return (
       <div className="min-h-screen">
         <Navbar />

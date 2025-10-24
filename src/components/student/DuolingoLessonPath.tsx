@@ -36,6 +36,7 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<Record<string, LessonProgress>>({});
   const [loading, setLoading] = useState(true);
+  const [refetchTimeout, setRefetchTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchLessons();
@@ -62,8 +63,14 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
             });
           }
           
-          // Refetch lessons to update UI
-          fetchLessons();
+          // Debounce refetch to avoid rapid consecutive calls
+          if (refetchTimeout) {
+            clearTimeout(refetchTimeout);
+          }
+          const timeout = setTimeout(() => {
+            fetchLessons();
+          }, 500);
+          setRefetchTimeout(timeout);
         }
       )
       .on(
@@ -75,15 +82,26 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
         },
         (payload) => {
           console.log('Content mapping change:', payload.eventType);
-          fetchLessons();
+          
+          // Debounce refetch
+          if (refetchTimeout) {
+            clearTimeout(refetchTimeout);
+          }
+          const timeout = setTimeout(() => {
+            fetchLessons();
+          }, 500);
+          setRefetchTimeout(timeout);
         }
       )
       .subscribe();
 
     return () => {
+      if (refetchTimeout) {
+        clearTimeout(refetchTimeout);
+      }
       supabase.removeChannel(channel);
     };
-  }, [topicId]);
+  }, [topicId, refetchTimeout]);
 
   const fetchLessons = async () => {
     setLoading(true);

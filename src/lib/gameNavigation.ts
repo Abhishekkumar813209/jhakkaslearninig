@@ -92,7 +92,7 @@ export async function loadGameById(gameId: string) {
     .from('gamified_exercises')
     .select('*')
     .eq('id', gameId)
-    .single();
+    .maybeSingle();
   
   if (error) {
     console.error("Error loading game:", error);

@@ -747,27 +747,33 @@ export const SmartQuestionExtractorNew = ({
 
                     <CardContent className="p-4 pt-2 space-y-3">
                       {/* Question Text */}
-                      <div 
-                        className="text-sm line-clamp-3 prose prose-sm max-w-none question-content"
-                        dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
-                      />
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">Question:</div>
+                        <div 
+                          className="text-sm prose prose-sm max-w-none question-content bg-muted/30 p-3 rounded-md"
+                          dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
+                        />
+                      </div>
 
                       {/* Options */}
-                        {q.options && q.options.length > 0 && (
-                          <div className="space-y-1">
-                            {q.options.slice(0, 4).map((opt, i) => (
-                              <div key={i} className="text-xs text-muted-foreground flex gap-1">
-                                <span className="font-medium shrink-0">{String.fromCharCode(65 + i)}.</span>
+                      {q.options && q.options.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Options:</div>
+                          <div className="space-y-1.5">
+                            {q.options.map((opt, i) => (
+                              <div key={i} className="text-xs flex gap-2 items-start bg-muted/20 p-2 rounded">
+                                <span className="font-semibold shrink-0 text-primary">{String.fromCharCode(65 + i)}.</span>
                                 <span 
-                                  className="line-clamp-1 flex-1" 
+                                  className="flex-1 prose prose-xs max-w-none" 
                                   dangerouslySetInnerHTML={{ 
-                                    __html: renderWithImages(opt.slice(0, 50) + (opt.length > 50 ? '...' : '')) 
+                                    __html: renderWithImages(opt) 
                                   }} 
                                 />
                               </div>
                             ))}
                           </div>
-                        )}
+                        </div>
+                      )}
 
                        {/* Answer Input (always show for questions with IDs) */}
                       {q.id && (() => {

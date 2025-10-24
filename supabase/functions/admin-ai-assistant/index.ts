@@ -13,12 +13,12 @@ serve(async (req) => {
 
   try {
     const { messages, context } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
 
     // Initialize Supabase client for database queries
@@ -79,42 +79,60 @@ gamification ideas, and provide technical guidance. Be concise and practical.`;
 
     console.log('Starting AI chat with', messages.length, 'messages');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${GEMINI_API_KEY}&alt=sse`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages
-        ],
-        tools: tools,
-        stream: true,
+        contents: messages.map(m => ({
+          role: m.role === 'system' ? 'user' : m.role,
+          parts: [{ text: m.content }]
+        })),
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        tools: [{
+          functionDeclarations: [{
+            name: "query_database",
+            description: "Execute read-only SQL queries on the database. Use SELECT statements to analyze table structure, count rows, find relationships, etc. Only SELECT queries are allowed.",
+            parameters: {
+              type: "OBJECT",
+              properties: {
+                query: {
+                  type: "STRING",
+                  description: "SELECT query to execute (read-only, no INSERT/UPDATE/DELETE)"
+                }
+              },
+              required: ["query"]
+            }
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please wait a moment and try again.' }), 
+          JSON.stringify({ error: 'Rate limit exceeded with Gemini API. Please wait a moment and try again.' }), 
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Free usage limit reached. Please add credits to your Lovable workspace.' }), 
+          JSON.stringify({ error: 'Gemini API usage limit reached. Please check your quota at Google AI Studio.' }), 
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     // Stream the response and handle tool calls
@@ -125,7 +143,7 @@ gamification ideas, and provide technical guidance. Be concise and practical.`;
     const stream = new ReadableStream({
       async start(controller) {
         let buffer = '';
-        let toolCalls: any[] = [];
+        let currentToolCall: any = null;
         
         while (true) {
           const { done, value } = await reader!.read();
@@ -147,71 +165,77 @@ gamification ideas, and provide technical guidance. Be concise and practical.`;
             
             try {
               const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta;
               
-              // Check for tool calls
-              if (delta?.tool_calls) {
-                for (const tc of delta.tool_calls) {
-                  if (!toolCalls[tc.index]) {
-                    toolCalls[tc.index] = { id: tc.id, type: tc.type, function: { name: '', arguments: '' } };
+              const candidate = parsed.candidates?.[0];
+              const parts = candidate?.content?.parts || [];
+              
+              // Check for function calls in parts
+              const functionCallPart = parts.find((part: any) => part.functionCall);
+              
+              if (functionCallPart) {
+                currentToolCall = {
+                  function: {
+                    name: functionCallPart.functionCall.name,
+                    arguments: JSON.stringify(functionCallPart.functionCall.args)
                   }
-                  if (tc.function?.name) toolCalls[tc.index].function.name = tc.function.name;
-                  if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
-                }
+                };
               }
               
-              // Forward non-tool content
-              if (delta?.content || parsed.choices?.[0]?.finish_reason === 'stop') {
-                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              // Forward text content
+              const textPart = parts.find((part: any) => part.text);
+              if (textPart?.text) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                  choices: [{ delta: { content: textPart.text } }]
+                })}\n\n`));
               }
               
-              // Execute tool if finish_reason is tool_calls
-              if (parsed.choices?.[0]?.finish_reason === 'tool_calls' && toolCalls.length > 0) {
-                for (const toolCall of toolCalls) {
-                  if (toolCall.function.name === 'query_database') {
-                    try {
-                      const args = JSON.parse(toolCall.function.arguments);
-                      const query = args.query.trim();
+              // If we have a complete tool call and finish reason indicates function call
+              if (currentToolCall && candidate?.finishReason === 'FUNCTION_CALL') {
+                try {
+                  const args = JSON.parse(currentToolCall.function.arguments);
+                  
+                  if (currentToolCall.function.name === 'query_database') {
+                    const query = args.query;
+                    
+                    // Validate it's a SELECT query
+                    if (!query.trim().toUpperCase().startsWith('SELECT')) {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                        choices: [{ delta: { content: '\n\n⚠️ Error: Only SELECT queries are allowed for security reasons.\n\n' } }]
+                      })}\n\n`));
+                    } else {
+                      // Execute the query
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                        choices: [{ delta: { content: `\n\n🔍 Executing query:\n\`\`\`sql\n${query}\n\`\`\`\n\n` } }]
+                      })}\n\n`));
                       
-                      // Validate SELECT only
-                      if (!query.toUpperCase().startsWith('SELECT')) {
-                        throw new Error('Only SELECT queries are allowed');
-                      }
-                      
-                      console.log('Executing query:', query);
-                      const startTime = Date.now();
-                      
-                      // Use .rpc() to execute raw SQL
-                      const { data: queryData, error: queryError, count } = await supabase.rpc('exec_raw_sql', { 
-                        sql_query: query 
+                      const { data: queryResult, error: queryError } = await supabase.rpc('exec_raw_sql', {
+                        sql_query: query
                       });
                       
-                      const executionTime = Date.now() - startTime;
-                      
                       if (queryError) {
-                        console.error('Query error:', queryError);
-                        const errorResult = `Query failed: ${queryError.message}`;
                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                          choices: [{ delta: { content: `\n\n❌ ${errorResult}\n\n` } }]
+                          choices: [{ delta: { content: `❌ Query error: ${queryError.message}\n\n` } }]
                         })}\n\n`));
                       } else {
-                        const rowCount = Array.isArray(queryData) ? queryData.length : 0;
-                        const resultText = `\n\n✅ Query executed in ${executionTime}ms (${rowCount} rows):\n\`\`\`json\n${JSON.stringify(queryData, null, 2).substring(0, 2000)}${JSON.stringify(queryData).length > 2000 ? '\n...(truncated)' : ''}\n\`\`\`\n\n`;
+                        const resultText = JSON.stringify(queryResult, null, 2);
                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                          choices: [{ delta: { content: resultText } }]
+                          choices: [{ delta: { content: `✅ Query results:\n\`\`\`json\n${resultText}\n\`\`\`\n\n` } }]
                         })}\n\n`));
                       }
-                    } catch (error) {
-                      console.error('Tool execution error:', error);
-                      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                        choices: [{ delta: { content: `\n\n❌ Error: ${errorMsg}\n\n` } }]
-                      })}\n\n`));
                     }
                   }
+                  
+                  currentToolCall = null;
+                } catch (e) {
+                  console.error('Tool execution error:', e);
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                    choices: [{ delta: { content: `\n\n❌ Error executing tool: ${e.message}\n\n` } }]
+                  })}\n\n`));
                 }
-                
-                // Send completion marker after tool execution
+              }
+              
+              // Check for stream end
+              if (candidate?.finishReason === 'STOP') {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               }
             } catch (e) {

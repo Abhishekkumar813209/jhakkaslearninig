@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -50,20 +50,22 @@ Output MUST be valid JSON with this exact structure:
   }
 }`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract syllabus structure from this ${examType} syllabus:\n\n${pdfText.substring(0, 10000)}` }
-        ],
-        temperature: 0.3,
-        max_tokens: 3000
+        contents: [{
+          parts: [
+            { text: systemPrompt },
+            { text: `Extract syllabus structure from this ${examType} syllabus:\n\n${pdfText.substring(0, 10000)}` }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 3000
+        }
       }),
     });
 
@@ -87,12 +89,12 @@ Output MUST be valid JSON with this exact structure:
 
     const aiData = await aiResponse.json();
     
-    if (!aiData.choices?.[0]?.message?.content) {
+    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
       console.error('Unexpected AI response structure:', aiData);
       throw new Error('Failed to extract syllabus structure from PDF');
     }
 
-    const extractedData = JSON.parse(aiData.choices[0].message.content);
+    const extractedData = JSON.parse(aiData.candidates[0].content.parts[0].text);
 
     console.log('Extracted:', {
       subjects: extractedData.subjects.length,

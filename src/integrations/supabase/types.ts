@@ -5008,12 +5008,11 @@ export type Database = {
       }
       check_batch_capacity: { Args: { p_batch_id: string }; Returns: undefined }
       check_lesson_deletion_impact: {
-        Args: { p_lesson_id: string }
+        Args: { lesson_id: string }
         Returns: {
-          affected_students: number
-          estimated_lost_progress: string
-          games_count: number
-          lesson_type: string
+          games_to_delete: number
+          impact_summary: Json
+          students_affected: number
           total_attempts: number
         }[]
       }

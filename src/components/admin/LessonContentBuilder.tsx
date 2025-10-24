@@ -856,21 +856,9 @@ export function LessonContentBuilder() {
         
         let mapping;
         if (existingMapping) {
-          // Reuse existing mapping and DELETE ALL old games first
+          // Reuse existing mapping - DO NOT delete existing games
           mapping = existingMapping;
           console.log(`Reusing existing mapping ${mapping.id} for topic ${selectedTopic}`);
-          
-          // Delete all existing games for this mapping to start fresh
-          const { error: deleteError } = await supabase
-            .from('gamified_exercises')
-            .delete()
-            .eq('topic_content_id', mapping.id);
-          
-          if (deleteError) {
-            console.error('Error deleting old games:', deleteError);
-          } else {
-            console.log(`Deleted all old games for mapping ${mapping.id}`);
-          }
         } else {
           // Create new mapping only if none exists
           const { data: newMapping, error: mappingError } = await supabase
@@ -894,13 +882,36 @@ export function LessonContentBuilder() {
           mapping = newMapping;
         }
         
-        // Since we deleted all old games, start fresh with sequential order
-        const nextOrder = approvedGames.indexOf(lesson) + 1;
+        // Get the next available game_order slot
+        const { data: existingGames } = await supabase
+          .from('gamified_exercises')
+          .select('game_order')
+          .eq('topic_content_id', mapping.id)
+          .order('game_order', { ascending: false })
+          .limit(1);
         
-        // Use upsert with game_order to prevent duplicates
+        const nextOrder = existingGames && existingGames.length > 0 
+          ? (existingGames[0].game_order ?? 0) + 1 
+          : approvedGames.indexOf(lesson) + 1;
+        
+        // Check if this exact game already exists to avoid duplicates
+        const { data: existingGame } = await supabase
+          .from('gamified_exercises')
+          .select('id')
+          .eq('topic_content_id', mapping.id)
+          .eq('question_text', lesson.game_data?.question || '')
+          .maybeSingle();
+        
+        if (existingGame) {
+          console.log(`Game already published for lesson ${lesson.id}, skipping`);
+          published++;
+          continue;
+        }
+        
+        // Insert new game
         const { error: exerciseError } = await supabase
           .from('gamified_exercises')
-          .upsert({
+          .insert({
             topic_content_id: mapping.id,
             exercise_type: lesson.game_type as any,
             question_text: lesson.game_data?.question || '',
@@ -912,9 +923,7 @@ export function LessonContentBuilder() {
             xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
             game_order: nextOrder,
             exercise_data: lesson.game_data || {} // Always populate exercise_data with full game data
-          } as any, {
-            onConflict: 'topic_content_id,game_order'
-          })
+          } as any)
         
         if (exerciseError) {
           // Handle duplicate key error gracefully

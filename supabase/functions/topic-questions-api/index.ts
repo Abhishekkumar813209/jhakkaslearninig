@@ -295,7 +295,7 @@ serve(async (req) => {
       const { error } = await serviceClient
         .from(table)
         .update({
-          correct_answer: normalized,
+          correct_answer: sanitizedCorrectAnswer,
           explanation: explanation || null,
           admin_reviewed: true,
           reviewed_at: new Date().toISOString(),
@@ -902,8 +902,8 @@ serve(async (req) => {
         query = query.ilike('question_text', `%${search_term}%`);
       }
 
-      // Pagination
-      query = query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
+      // Pagination - stable sort by ID (no movement on updates)
+      query = query.range(offset, offset + limit - 1).order('id', { ascending: true });
 
       const { data: questions, error, count } = await query;
 

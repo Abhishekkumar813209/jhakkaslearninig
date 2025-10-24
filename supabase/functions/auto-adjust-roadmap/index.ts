@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -108,20 +108,12 @@ Rules:
       estimated_days: ch.estimated_days
     }));
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Reschedule these chapters:\n${JSON.stringify(chaptersInfo, null, 2)}` }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000
+        contents: [{ parts: [{ text: systemPrompt }, { text: `Reschedule these chapters:\n${JSON.stringify(chaptersInfo, null, 2)}` }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
       }),
     });
 
@@ -145,12 +137,12 @@ Rules:
 
     const aiData = await aiResponse.json();
     
-    if (!aiData.choices?.[0]?.message?.content) {
+    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
       console.error('Unexpected AI response structure:', aiData);
       throw new Error('Invalid AI response format');
     }
     
-    const schedule = JSON.parse(aiData.choices[0].message.content);
+    const schedule = JSON.parse(aiData.candidates[0].content.parts[0].text);
 
     // Update database with new schedule
     for (const daySchedule of schedule) {

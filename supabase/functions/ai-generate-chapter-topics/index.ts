@@ -35,9 +35,9 @@ Deno.serve(async (req) => {
       has_image: !!syllabus_image
     });
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
 
     let contentToProcess = syllabus_text || '';
@@ -46,33 +46,17 @@ Deno.serve(async (req) => {
     if (input_mode === 'image' && syllabus_image) {
       console.log('Processing image with Vision API...');
       
-      const visionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const visionResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Extract ALL text from this syllabus image. Preserve structure, bullets, numbering, and headings. Return only the extracted text, nothing else.`
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: syllabus_image
-                  }
-                }
-              ]
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 3000
+          contents: [{
+            parts: [
+              { text: `Extract ALL text from this syllabus image. Preserve structure, bullets, numbering, and headings. Return only the extracted text, nothing else.` },
+              { inline_data: { mime_type: syllabus_image.startsWith('data:image/png') ? 'image/png' : 'image/jpeg', data: syllabus_image.split(',')[1] } }
+            ]
+          }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 3000 }
         }),
       });
 
@@ -83,7 +67,7 @@ Deno.serve(async (req) => {
       }
 
       const visionData = await visionResponse.json();
-      contentToProcess = visionData.choices?.[0]?.message?.content || '';
+      contentToProcess = visionData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
       console.log('Extracted text from image:', contentToProcess.substring(0, 200));
       
@@ -162,20 +146,12 @@ EXAM CONTEXT:
 - Include practical, exam-oriented content
 - Topics should prepare students effectively within the time budget`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000
+        contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
       }),
     });
 
@@ -192,7 +168,7 @@ EXAM CONTEXT:
     }
 
     const aiResponse = await response.json();
-    const generatedText = aiResponse.choices?.[0]?.message?.content;
+    const generatedText = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!generatedText) {
       throw new Error('No content generated from AI');

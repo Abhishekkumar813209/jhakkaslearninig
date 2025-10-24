@@ -23,9 +23,9 @@ serve(async (req) => {
 
     console.log('Generating AI content for:', { topic_name, lesson_types, difficulty });
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
 
     // Build comprehensive prompt
@@ -98,27 +98,29 @@ ${lesson_types.includes('quiz') ? `
 
 Return ONLY valid JSON. No markdown formatting, no code blocks.`;
 
-    // Call Lovable AI
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Gemini API directly
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
+        contents: [{
+          parts: [
+            { text: systemPrompt },
+            { text: userPrompt }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 3000,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API Error:', response.status, errorText);
+      console.error('Gemini API Error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -133,7 +135,7 @@ Return ONLY valid JSON. No markdown formatting, no code blocks.`;
     const aiResponse = await response.json();
     console.log('AI Response received');
 
-    let content = aiResponse.choices[0]?.message?.content;
+    let content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!content) {
       throw new Error('No content generated');
     }
@@ -167,7 +169,7 @@ Return ONLY valid JSON. No markdown formatting, no code blocks.`;
         chapter_name,
         book_page_reference,
         lesson_types,
-        ai_model: 'google/gemini-2.5-flash'
+        ai_model: 'gemini-2.5-flash'
       }
     };
 

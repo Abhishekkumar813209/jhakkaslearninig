@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -160,20 +160,22 @@ ${chunkContent}
 - Return valid JSON only`;
 
       try {
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.1,
-            max_tokens: 16000
+            contents: [{
+              parts: [
+                { text: systemPrompt },
+                { text: userPrompt }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 16000,
+            }
           }),
         });
 
@@ -183,7 +185,7 @@ ${chunkContent}
         }
 
         const aiData = await aiResponse.json();
-        let extractedContent = aiData.choices[0].message.content.trim();
+        let extractedContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
         
         // Clean markdown
         if (extractedContent.startsWith('```json')) {

@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,8 +17,8 @@ serve(async (req) => {
   try {
     const { prompt, subject, class: className, difficulty, count = 5, type = 'mcq' } = await req.json();
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('Lovable API key not configured');
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
     }
 
     let systemPrompt = '';
@@ -91,20 +91,22 @@ Requirements:
 
     console.log('Generating questions with prompt:', userPrompt);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        contents: [{
+          parts: [
+            { text: systemPrompt },
+            { text: userPrompt }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: 2000,
+        }
       }),
     });
 
@@ -122,7 +124,7 @@ Requirements:
       if (response.status === 402) {
         return new Response(JSON.stringify({ 
           success: false,
-          error: 'AI usage limit reached. Please add credits to your Lovable workspace.',
+          error: 'AI usage limit reached. Please add credits to your workspace.',
           details: 'Payment required'
         }), {
           status: 402,
@@ -130,14 +132,14 @@ Requirements:
         });
       }
       const errorData = await response.text();
-      console.error('Lovable AI error:', errorData);
+      console.error('Gemini API error:', errorData);
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('OpenAI response:', data);
+    console.log('Gemini response:', data);
 
-    const generatedText = data.choices[0].message.content;
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     // Parse the JSON response
     let questions;

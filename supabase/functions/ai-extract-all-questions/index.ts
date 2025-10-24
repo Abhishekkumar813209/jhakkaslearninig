@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -268,20 +268,22 @@ ${file_content}
 - Check type priority: Assertion-Reason FIRST, then Match, then Fill Blank, then MCQ
 - Return valid JSON only (no markdown)`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.1, // Reduced for deterministic output
-        max_tokens: 12000 // Increased for longer documents
+        contents: [{
+          parts: [
+            { text: systemPrompt },
+            { text: userPrompt }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 12000,
+        }
       }),
     });
 
@@ -311,12 +313,12 @@ ${file_content}
 
     const aiData = await aiResponse.json();
     
-    if (!aiData.choices?.[0]?.message?.content) {
+    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
       console.error('Unexpected AI response structure:', aiData);
       throw new Error('Failed to extract questions from document');
     }
 
-    let extractedContent = aiData.choices[0].message.content.trim();
+    let extractedContent = aiData.candidates[0].content.parts[0].text.trim();
     
     // Remove markdown code blocks if present
     if (extractedContent.startsWith('```json')) {

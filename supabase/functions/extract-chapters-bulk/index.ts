@@ -11,11 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { subject, exam_type, exam_name, input_mode, chapters_text, syllabus_image } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const { exam_type, exam_name, student_class, board } = await req.json();
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
 
     let contentToProcess = '';
@@ -24,30 +24,17 @@ serve(async (req) => {
     if (input_mode === 'file' && syllabus_image) {
       console.log('Processing file with Vision API...');
       
-      const visionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const visionResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Extract ALL chapter names and topics from this ${subject} syllabus document/image. Return ONLY the chapter names in a clear list format. Be thorough and extract every chapter mentioned.`
-                },
-                {
-                  type: 'image_url',
-                  image_url: { url: syllabus_image }
-                }
-              ]
-            }
-          ],
-          max_tokens: 2000
+          contents: [{
+            parts: [
+              { text: `Extract ALL chapter names and topics from this ${subject} syllabus document/image. Return ONLY the chapter names in a clear list format. Be thorough and extract every chapter mentioned.` },
+              { inline_data: { mime_type: syllabus_image.startsWith('data:image/png') ? 'image/png' : 'image/jpeg', data: syllabus_image.split(',')[1] } }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 2000 }
         }),
       });
 
@@ -58,7 +45,7 @@ serve(async (req) => {
       }
       
       const visionData = await visionResponse.json();
-      contentToProcess = visionData.choices?.[0]?.message?.content || '';
+      contentToProcess = visionData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       console.log('Extracted text from file:', contentToProcess.substring(0, 200));
     } else {
       contentToProcess = chapters_text || '';
@@ -80,19 +67,12 @@ RULES:
 6. If you see topics/subtopics, extract only the main chapter names
 7. Remove any chapter numbers, bullets, or formatting symbols`;
 
-    const extractionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const extractionResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract chapters from this text:\n\n${contentToProcess}` }
-        ],
-        max_tokens: 3000
+        contents: [{ parts: [{ text: systemPrompt }, { text: `Extract chapters from this text:\n\n${contentToProcess}` }] }],
+        generationConfig: { maxOutputTokens: 3000 }
       }),
     });
 
@@ -103,7 +83,7 @@ RULES:
     }
 
     const extractionData = await extractionResponse.json();
-    const rawResponse = extractionData.choices?.[0]?.message?.content || '';
+    const rawResponse = extractionData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     console.log('AI Response:', rawResponse);
 

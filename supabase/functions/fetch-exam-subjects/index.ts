@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -147,20 +147,12 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
       ? `Generate subjects for ${exam_type} exam: ${exam_name}`
       : `Generate standard subjects for ${exam_type} exam type`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 500
+        contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
       }),
     });
 
@@ -184,18 +176,18 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
 
     const aiData = await aiResponse.json();
     
-    if (!aiData.choices?.[0]?.message?.content) {
+    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
       console.error('Unexpected AI response structure:', aiData);
       throw new Error('Invalid AI response format');
     }
     
     let subjects;
     try {
-      const cleanedContent = stripMarkdownCodeBlocks(aiData.choices[0].message.content);
+      const cleanedContent = stripMarkdownCodeBlocks(aiData.candidates[0].content.parts[0].text);
       subjects = JSON.parse(cleanedContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      console.error('Raw content:', aiData.choices[0].message.content);
+      console.error('Raw content:', aiData.candidates[0].content.parts[0].text);
       throw new Error('Failed to parse subjects from AI response');
     }
 

@@ -308,6 +308,7 @@ serve(async (req) => {
 
       // Sync student-facing content (topic_learning_content & gamified_exercises)
       console.log('🔄 Syncing student-facing content for question:', question_id);
+      console.log('📊 Final sanitizedCorrectAnswer being written:', sanitizedCorrectAnswer, 'type:', typeof sanitizedCorrectAnswer);
       
       // Update topic_learning_content rows
       const { data: learningContent, error: lcFetchError } = await serviceClient
@@ -322,12 +323,17 @@ serve(async (req) => {
         for (const lc of learningContent) {
           const gameData = lc.game_data as any;
           if (gameData?.question === question.question_text) {
+            const correctAnswerValue = typeof sanitizedCorrectAnswer === 'string' 
+              ? parseInt(sanitizedCorrectAnswer, 10) 
+              : sanitizedCorrectAnswer;
+            console.log('📝 Updating topic_learning_content with correct_answer:', correctAnswerValue);
             await serviceClient
               .from('topic_learning_content')
               .update({
                 game_data: {
                   ...gameData,
-                  correct_answer: typeof normalized === 'number' ? normalized : (normalized.value ?? 0)
+                  correct_answer: correctAnswerValue,
+                  correctAnswerIndex: correctAnswerValue
                 },
                 updated_at: new Date().toISOString()
               })
@@ -349,13 +355,18 @@ serve(async (req) => {
         for (const ex of exercises) {
           const exerciseData = ex.exercise_data as any;
           if (exerciseData?.question === question.question_text) {
+            const correctAnswerValue = typeof sanitizedCorrectAnswer === 'string' 
+              ? parseInt(sanitizedCorrectAnswer, 10) 
+              : sanitizedCorrectAnswer;
+            console.log('🎮 Updating gamified_exercises with correct_answer:', correctAnswerValue);
             await serviceClient
               .from('gamified_exercises')
               .update({
-                correct_answer: normalized,
+                correct_answer: { correctAnswerIndex: correctAnswerValue },
                 exercise_data: {
                   ...exerciseData,
-                  correct_answer: typeof normalized === 'number' ? normalized : (normalized.value ?? 0)
+                  correct_answer: correctAnswerValue,
+                  correctAnswerIndex: correctAnswerValue
                 },
                 updated_at: new Date().toISOString()
               })
@@ -902,8 +913,8 @@ serve(async (req) => {
         query = query.ilike('question_text', `%${search_term}%`);
       }
 
-      // Pagination - stable sort by ID (no movement on updates)
-      query = query.range(offset, offset + limit - 1).order('id', { ascending: true });
+      // Pagination - stable sort by creation time (insertion order, no movement on updates)
+      query = query.range(offset, offset + limit - 1).order('created_at', { ascending: true });
 
       const { data: questions, error, count } = await query;
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,12 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { data, columns, loading, count, page, pageSize, totalPages, filters, setPage, setPageSize, refresh, searchTable, applyFilters, deleteRows } = useTableData(tableName);
   const { resolveID, loading: idLoading, result: idResult } = useIDResolver();
+
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
+  const headerThRefs = useRef<(HTMLTableCellElement | null)[]>([]);
+  const isSyncingRef = useRef(false);
+  const [colWidths, setColWidths] = useState<number[]>([]);
 
   // Clear selection when table changes
   useState(() => {
@@ -204,6 +210,61 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
   const hasIdColumn = columns.some(col => col.name === 'id');
 
+  const measureColWidths = () => {
+    const ths = headerThRefs.current;
+    if (!ths || ths.length === 0) return;
+    const widths = ths.map((th) => (th ? th.offsetWidth : 0));
+    setColWidths(widths);
+  };
+
+  useEffect(() => {
+    const headerEl = headerScrollRef.current;
+    const bodyEl = bodyScrollRef.current;
+    if (!headerEl || !bodyEl) return;
+
+    const onBodyScroll = () => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      headerEl.scrollLeft = bodyEl.scrollLeft;
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
+    };
+    const onHeaderScroll = () => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      bodyEl.scrollLeft = headerEl.scrollLeft;
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
+    };
+
+    bodyEl.addEventListener('scroll', onBodyScroll, { passive: true } as any);
+    headerEl.addEventListener('scroll', onHeaderScroll, { passive: true } as any);
+
+    return () => {
+      bodyEl.removeEventListener('scroll', onBodyScroll);
+      headerEl.removeEventListener('scroll', onHeaderScroll);
+    };
+  }, [columns.length]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(measureColWidths);
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns, data.length, hasIdColumn]);
+
+  useEffect(() => {
+    if (!bodyScrollRef.current) return;
+    const ro = new ResizeObserver(() => {
+      measureColWidths();
+    });
+    ro.observe(bodyScrollRef.current);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns.length]);
+
+
   if (!tableName) {
     return (
       <Card className="p-8">
@@ -360,8 +421,55 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
           </div>
         )}
 
+        {/* Header Table (static, horizontal scroll only) */}
+        {!loading && data.length > 0 && (
+          <div ref={headerScrollRef} className="overflow-x-auto border-b bg-background shadow-sm">
+            <div className="min-w-full">
+              <table className="w-full table-fixed caption-bottom text-sm">
+                <colgroup>
+                  {hasIdColumn && <col style={{ width: colWidths[0] ? `${colWidths[0]}px` : '48px' }} />}
+                  {columns.map((_, i) => {
+                    const idx = (hasIdColumn ? 1 : 0) + i;
+                    const w = colWidths[idx];
+                    return <col key={i} style={{ width: w ? `${w}px` : undefined }} />;
+                  })}
+                </colgroup>
+                <thead className="bg-background">
+                  <tr className="hover:bg-transparent">
+                    {hasIdColumn && (
+                      <th
+                        ref={el => (headerThRefs.current[0] = el)}
+                        className="w-12 px-4 text-left align-middle"
+                      >
+                        <Checkbox
+                          checked={selectedRows.size === data.length && data.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all rows"
+                        />
+                      </th>
+                    )}
+                    {columns.map((col, i) => (
+                      <th
+                        key={col.name}
+                        ref={el => (headerThRefs.current[(hasIdColumn ? 1 : 0) + i] = el)}
+                        className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap min-w-[150px]"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="truncate">{col.name}</span>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {col.type}
+                          </Badge>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              </table>
+            </div>
+          </div>
+        )}
         {/* Scrollable Content */}
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-auto">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">
               <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
@@ -374,32 +482,14 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
           ) : (
             <div className="min-w-full">
               <table className="w-full table-fixed caption-bottom text-sm">
-                <thead className="border-b bg-background">
-                  <tr className="hover:bg-transparent">
-                    {hasIdColumn && (
-                      <th className="sticky top-0 z-30 bg-background w-12 px-4 text-left align-middle shadow-sm">
-                        <Checkbox
-                          checked={selectedRows.size === data.length && data.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                          aria-label="Select all rows"
-                        />
-                      </th>
-                    )}
-                    {columns.map(col => (
-                      <th
-                        key={col.name}
-                        className="sticky top-0 z-30 bg-background h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap min-w-[150px] shadow-sm"
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="truncate">{col.name}</span>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {col.type}
-                          </Badge>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+                <colgroup>
+                  {hasIdColumn && <col style={{ width: colWidths[0] ? `${colWidths[0]}px` : '48px' }} />}
+                  {columns.map((_, i) => {
+                    const idx = (hasIdColumn ? 1 : 0) + i;
+                    const w = colWidths[idx];
+                    return <col key={i} style={{ width: w ? `${w}px` : undefined }} />;
+                  })}
+                </colgroup>
                 <tbody>
                   {data.map((row, idx) => (
                     <tr key={idx} className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}>

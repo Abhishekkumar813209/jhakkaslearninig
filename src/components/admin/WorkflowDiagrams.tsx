@@ -379,9 +379,7 @@ export const WorkflowDiagrams: React.FC = () => {
   const filteredWorkflows = workflows.filter(
     (wf) => wf.table.toLowerCase().includes(q) || wf.description.toLowerCase().includes(q),
   );
-  console.log(workflows.map((e)=>
-    e.table;
-  ));
+  console.log(workflows.map((e) => e.table));
   return (
     <div className="flex flex-col gap-4">
       <div className="relative">

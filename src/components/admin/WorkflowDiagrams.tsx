@@ -380,7 +380,7 @@ export const WorkflowDiagrams: React.FC = () => {
     (wf) => wf.table.toLowerCase().includes(q) || wf.description.toLowerCase().includes(q),
   );
   console.log(workflows.map((e)=>(
-    {e.table}
+    {e.table};
   )));
   return (
     <div className="flex flex-col gap-4">

@@ -361,7 +361,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
         )}
 
         {/* Scrollable Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">
               <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
@@ -372,89 +372,83 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
               <p>No data found</p>
             </div>
           ) : (
-            <div className="flex flex-col h-full min-w-max">
-              <Table>
-                <TableHeader className="sticky top-0 z-20 bg-background border-b">
-                  <TableRow className="hover:bg-transparent">
+            <Table>
+              <TableHeader className="sticky top-0 z-20 bg-background border-b">
+                <TableRow className="hover:bg-transparent">
+                  {hasIdColumn && (
+                    <TableHead className="bg-background w-12">
+                      <Checkbox
+                        checked={selectedRows.size === data.length && data.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all rows"
+                      />
+                    </TableHead>
+                  )}
+                  {columns.map(col => (
+                    <TableHead key={col.name} className="bg-background min-w-[150px] whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {col.name}
+                        <Badge variant="outline" className="text-xs">
+                          {col.type}
+                        </Badge>
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((row, idx) => (
+                  <TableRow 
+                    key={idx}
+                    className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}
+                  >
                     {hasIdColumn && (
-                      <TableHead className="bg-background w-12">
+                      <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
-                          checked={selectedRows.size === data.length && data.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                          aria-label="Select all rows"
+                          checked={selectedRows.has(row.id)}
+                          onCheckedChange={() => toggleRowSelection(row.id)}
+                          aria-label={`Select row ${idx + 1}`}
                         />
-                      </TableHead>
+                      </TableCell>
                     )}
-                    {columns.map(col => (
-                      <TableHead key={col.name} className="bg-background min-w-[150px] whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {col.name}
-                          <Badge variant="outline" className="text-xs">
-                            {col.type}
-                          </Badge>
-                        </div>
-                      </TableHead>
-                    ))}
+                    {columns.map(col => {
+                      const cellValue = row[col.name];
+                      const isUUIDValue = isUUID(cellValue);
+                      
+                      return (
+                        <TableCell 
+                          key={col.name} 
+                          className={`font-mono text-xs whitespace-nowrap group hover:bg-accent ${
+                            isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Only allow editing non-UUID cells
+                            if (!isUUIDValue) {
+                              handleCellClick(row, col.name, cellValue);
+                            }
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            handleCellDoubleClick(cellValue);
+                          }}
+                          title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{formatValue(cellValue)}</span>
+                            {isUUIDValue ? (
+                              <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+                            ) : (
+                              <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
-                </TableHeader>
-              </Table>
-              <div className="flex-1 overflow-auto">
-                <Table>
-                  <TableBody>
-                    {data.map((row, idx) => (
-                      <TableRow 
-                        key={idx}
-                        className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}
-                      >
-                        {hasIdColumn && (
-                          <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={selectedRows.has(row.id)}
-                              onCheckedChange={() => toggleRowSelection(row.id)}
-                              aria-label={`Select row ${idx + 1}`}
-                            />
-                          </TableCell>
-                        )}
-                        {columns.map(col => {
-                          const cellValue = row[col.name];
-                          const isUUIDValue = isUUID(cellValue);
-                          
-                          return (
-                            <TableCell 
-                              key={col.name} 
-                              className={`font-mono text-xs whitespace-nowrap group hover:bg-accent ${
-                                isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
-                              }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Only allow editing non-UUID cells
-                                if (!isUUIDValue) {
-                                  handleCellClick(row, col.name, cellValue);
-                                }
-                              }}
-                              onDoubleClick={(e) => {
-                                e.stopPropagation();
-                                handleCellDoubleClick(cellValue);
-                              }}
-                              title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span>{formatValue(cellValue)}</span>
-                                {isUUIDValue ? (
-                                  <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
-                                ) : (
-                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
-                                )}
-                              </div>
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </div>
 

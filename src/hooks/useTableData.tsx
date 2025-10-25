@@ -110,8 +110,13 @@ export function useTableData(tableName: string | null) {
         }
       });
 
-      // Default sort by created_at descending (newest first)
-      query = query.order('created_at', { ascending: false });
+      // Try to sort by created_at descending (newest first)
+      // If column doesn't exist, query will continue without this ordering
+      try {
+        query = query.order('created_at', { ascending: false });
+      } catch (error) {
+        console.warn(`Cannot sort by created_at on table ${tableName}`);
+      }
 
       // Apply pagination
       query = query.range(from, to);

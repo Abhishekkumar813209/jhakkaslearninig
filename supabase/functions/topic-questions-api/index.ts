@@ -200,7 +200,7 @@ serve(async (req) => {
         .from('question_bank')
         .select('*')
         .eq('topic_id', topic_id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Database error:', error);
@@ -1058,8 +1058,8 @@ serve(async (req) => {
         query = query.ilike('question_text', `%${search_term}%`);
       }
 
-      // Pagination - stable sort by creation time (insertion order, no movement on updates)
-      query = query.range(offset, offset + limit - 1).order('created_at', { ascending: true });
+      // Pagination - stable sort by creation time (newest first)
+      query = query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
 
       const { data: questions, error, count } = await query;
 

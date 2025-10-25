@@ -120,7 +120,7 @@ async function createTestAttempt(supabase: any, testId: string, studentId: strin
       .from('tests')
       .select('id, created_at')
       .eq('is_published', true)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     const isOldestTest = allTests && allTests.length > 0 && allTests[0].id === testId;
 

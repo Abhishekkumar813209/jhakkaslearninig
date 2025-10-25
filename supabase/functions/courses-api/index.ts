@@ -55,7 +55,7 @@ serve(async (req: Request) => {
             .select('id, title, total_marks, duration_minutes')
             .eq('course_id', courseId)
             .eq('is_published', true)
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: false })
 
           if (videosError) console.error('Error fetching videos for course', courseId, videosError)
           if (testsError) console.error('Error fetching tests for course', courseId, testsError)

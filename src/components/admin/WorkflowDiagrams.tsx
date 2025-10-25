@@ -353,10 +353,11 @@ const workflows: WorkflowData[] = [
 
 export const WorkflowDiagrams: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const q = searchQuery.trim().toLowerCase();
 
   const filteredWorkflows = workflows.filter(wf =>
-    wf.table.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    wf.description.toLowerCase().includes(searchQuery.toLowerCase())
+    wf.table.toLowerCase().includes(q) ||
+    wf.description.toLowerCase().includes(q)
   );
 
   return (

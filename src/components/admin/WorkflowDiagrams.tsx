@@ -360,27 +360,24 @@ export const WorkflowDiagrams: React.FC = () => {
   );
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader>
-        <CardTitle>📊 Database Workflow Diagrams</CardTitle>
-        <CardDescription>
-          Complete data flows organized by table - shows what happens on every action
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search workflows by table name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+    <div className="flex flex-col gap-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search workflows by table name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
-        <div className="flex-1 overflow-auto">
-          <Accordion type="single" collapsible className="space-y-2">
-            {filteredWorkflows.map((workflow) => (
+      {filteredWorkflows.length === 0 ? (
+        <div className="flex items-center justify-center text-muted-foreground py-8">
+          <p>No workflows found matching "{searchQuery}"</p>
+        </div>
+      ) : (
+        <Accordion type="single" collapsible className="space-y-2">
+          {filteredWorkflows.map((workflow) => (
               <AccordionItem key={workflow.table} value={workflow.table} className="border rounded-lg px-4">
                 <AccordionTrigger className="hover:no-underline">
                   <div className="flex items-center gap-3">
@@ -454,16 +451,9 @@ export const WorkflowDiagrams: React.FC = () => {
                   </Alert>
                 </AccordionContent>
               </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-
-        {filteredWorkflows.length === 0 && (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <p>No workflows found matching "{searchQuery}"</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          ))}
+        </Accordion>
+      )}
+    </div>
   );
 };

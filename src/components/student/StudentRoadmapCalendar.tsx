@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
 
 interface RoadmapTopic {
   id: string;
@@ -66,56 +67,73 @@ const ChapterPill = ({
   isToday, 
   isPast,
   isFirstChapter,
-  onTopicClick 
+  onTopicClick,
+  topicStatuses
 }: { 
   chapter: CalendarChapter; 
   isToday: boolean; 
   isPast: boolean;
   isFirstChapter: boolean;
   onTopicClick?: (topicId: string, chapterName: string, subject: string) => void;
+  topicStatuses: Record<string, string>;
 }) => {
   const [showTopics, setShowTopics] = useState(false);
-  const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
+  const borderClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
   
   // First chapter is always unlocked, otherwise lock future dates
   const isLocked = !isFirstChapter && !isPast && !isToday;
-  const completedTopics = chapter.topics.filter(t => t.is_completed).length;
+  
+  // Calculate chapter status based on game completion (60%+ topics green = chapter green)
+  const topicsWithGames = chapter.topics.filter(t => {
+    const status = topicStatuses[t.id];
+    return status && status !== 'grey'; // Only count topics with games
+  });
+  
+  const greenTopics = chapter.topics.filter(t => topicStatuses[t.id] === 'green').length;
   const totalTopics = chapter.topics.length;
+  const topicsWithGamesCount = topicsWithGames.length;
+  
+  // Chapter is green if 60%+ of topics with games are green
+  const chapterStatus = topicsWithGamesCount > 0 && (greenTopics / topicsWithGamesCount) >= 0.6 ? 'green' : 'red';
+  const bgColor = chapterStatus === 'green' ? 'bg-green-600' : 'bg-red-600';
+  const textColor = 'text-white';
 
   return (
-    <div className={`p-2 border rounded-lg ${colorClass} relative mb-2`}>
+    <div className={`p-2 border rounded-lg ${bgColor} ${textColor} ${borderClass} relative mb-2`}>
+      {/* Status badge */}
+      <div className="absolute top-1 right-1">
+        <Badge variant="outline" className={`text-xs ${chapterStatus === 'green' ? 'bg-green-800 text-white border-green-400' : 'bg-red-800 text-white border-red-400'}`}>
+          {chapterStatus === 'green' ? "✅ Done" : "❌ Not Done"}
+        </Badge>
+      </div>
+
       {/* Subject tag */}
-      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="text-xs font-semibold text-white/80 uppercase tracking-wide">
         {chapter.subject}
       </div>
 
       {/* Chapter name */}
-      <div className="font-medium text-sm flex items-center justify-between gap-2">
+      <div className="font-medium text-sm flex items-center justify-between gap-2 pr-16">
         <span>{chapter.chapterName}</span>
-        {isLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+        {isLocked && <Lock className="h-3 w-3 text-white/70" />}
         {isToday && <Badge variant="secondary" className="text-xs">Today</Badge>}
       </div>
 
       {/* Progress */}
       {totalTopics > 0 && (
-        <div className="mt-1 flex items-center gap-2">
-          <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
-            <div 
-              className="bg-primary h-full transition-all"
-              style={{ width: `${(completedTopics / totalTopics) * 100}%` }}
-            />
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {completedTopics}/{totalTopics}
-          </span>
+        <div className="mt-1 text-xs text-white/90">
+          {greenTopics}/{topicsWithGamesCount > 0 ? topicsWithGamesCount : totalTopics} topics done
         </div>
       )}
 
       {/* Topics toggle */}
       {totalTopics > 0 && (
         <button
-          onClick={() => setShowTopics(!showTopics)}
-          className="text-xs text-primary hover:underline mt-1 flex items-center gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowTopics(!showTopics);
+          }}
+          className="text-xs text-white hover:underline mt-1 flex items-center gap-1"
           disabled={isLocked}
         >
           <FileText className="h-3 w-3" />
@@ -123,41 +141,41 @@ const ChapterPill = ({
         </button>
       )}
 
-      {/* Topics list */}
+      {/* Topics list with auto-status indicators */}
       {showTopics && totalTopics > 0 && (
-        <div className="mt-2 space-y-1 border-t pt-2">
+        <div className="mt-2 space-y-1 border-t border-white/20 pt-2">
           {chapter.topics.map((topic, topicIndex) => {
-            // First topic is always unlocked if chapter is unlocked
             const isTopicLocked = isLocked && topicIndex !== 0;
+            const topicStatus = topicStatuses[topic.id] || 'grey';
+            const statusColor = {
+              green: 'bg-green-500',
+              yellow: 'bg-yellow-500',
+              red: 'bg-red-500',
+              grey: 'bg-gray-400'
+            }[topicStatus];
             
             return (
               <button
                 key={topic.id}
                 onClick={() => !isTopicLocked && onTopicClick?.(topic.id, chapter.chapterName, chapter.subject)}
                 disabled={isTopicLocked}
-                className={`w-full text-left text-xs p-1.5 rounded flex items-center gap-2 transition-colors ${
+                className={`w-full text-left text-xs p-1.5 rounded flex items-center gap-2 bg-white/20 text-white ${
                   isTopicLocked 
                     ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:bg-white/50 cursor-pointer'
+                    : 'hover:bg-white/30 cursor-pointer'
                 }`}
               >
-                {topic.is_completed ? (
-                  <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
-                ) : topic.theory_completed ? (
-                  <FileText className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                ) : isTopicLocked ? (
-                  <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                ) : (
-                  <div className="h-3 w-3 border border-muted-foreground rounded-full flex-shrink-0" />
-                )}
-                <span className={topic.is_completed ? 'line-through text-muted-foreground' : ''}>
-                  {topic.topic_name}
-                </span>
+                <div className={`h-3 w-3 ${statusColor} rounded-full flex-shrink-0`} />
+                <span>{topic.topic_name}</span>
               </button>
             );
           })}
         </div>
       )}
+      
+      <div className="mt-2 text-[10px] text-white/70">
+        🤖 Auto-updated (60% games = green)
+      </div>
     </div>
   );
 };
@@ -169,7 +187,54 @@ export const StudentRoadmapCalendar = ({
   onTopicClick
 }: StudentRoadmapCalendarProps) => {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
+  const [topicStatuses, setTopicStatuses] = useState<Record<string, string>>({});
+
+  // Fetch topic statuses from backend
+  useEffect(() => {
+    if (user?.id) {
+      fetchTopicStatuses();
+      
+      // Setup realtime subscription
+      const channel = supabase
+        .channel('student-topic-status-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'student_topic_status',
+            filter: `student_id=eq.${user.id}`
+          },
+          () => {
+            fetchTopicStatuses();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user?.id]);
+
+  const fetchTopicStatuses = async () => {
+    if (!user?.id) return;
+    
+    const { data, error } = await supabase
+      .from('student_topic_status')
+      .select('topic_id, status')
+      .eq('student_id', user.id);
+
+    if (!error && data) {
+      const statusMap: Record<string, string> = {};
+      data.forEach(item => {
+        statusMap[item.topic_id] = item.status;
+      });
+      setTopicStatuses(statusMap);
+    }
+  };
 
   // Transform subjectsData to calendar chapters
   const chapters: CalendarChapter[] = subjectsData.flatMap(subject =>
@@ -310,6 +375,7 @@ export const StudentRoadmapCalendar = ({
                               isPast={isPast}
                               isFirstChapter={chapter.id === firstChapterId}
                               onTopicClick={onTopicClick}
+                              topicStatuses={topicStatuses}
                             />
                           ))}
                           {(!groupedByDateSubject[date][selectedSubject] || groupedByDateSubject[date][selectedSubject].length === 0) && (
@@ -329,6 +395,7 @@ export const StudentRoadmapCalendar = ({
                                 isPast={isPast}
                                 isFirstChapter={chapter.id === firstChapterId}
                                 onTopicClick={onTopicClick}
+                                topicStatuses={topicStatuses}
                               />
                             ))}
                             {groupedByDateSubject[date][subject].length === 0 && (
@@ -347,12 +414,30 @@ export const StudentRoadmapCalendar = ({
       </Card>
 
       <div className="text-sm text-muted-foreground space-y-1 bg-muted/50 p-4 rounded-lg">
-        <p className="font-semibold">📚 Legend:</p>
+        <p className="font-semibold">📚 Legend (Auto-Updated from Backend):</p>
         <ul className="list-disc list-inside ml-2 space-y-1">
-          <li><CheckCircle2 className="inline h-3 w-3 text-green-600" /> Completed topics</li>
-          <li><FileText className="inline h-3 w-3 text-blue-600" /> Theory read (not completed)</li>
-          <li><Lock className="inline h-3 w-3" /> Locked topics (future dates)</li>
-          <li>Click on topics to start learning</li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-4 h-4 bg-green-600 border border-green-400 rounded"></div>
+            <span>Done (Green) - 60%+ games completed in chapter topics</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-4 h-4 bg-red-600 border border-red-400 rounded"></div>
+            <span>Not Done (Red) - Less than 60% games completed</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-3 h-3 bg-green-500 rounded-full"></div>
+            <span>Topic Green - 60%+ games completed</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <span>Topic Yellow - 40-60% games completed</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-3 h-3 bg-red-500 rounded-full"></div>
+            <span>Topic Red - Below 40% games completed</span>
+          </li>
+          <li>🤖 Status updates automatically when you complete games</li>
+          <li>✨ Real-time updates via database triggers</li>
         </ul>
       </div>
     </div>

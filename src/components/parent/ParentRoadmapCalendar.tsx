@@ -82,18 +82,18 @@ const ChapterPill = ({
   const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
   
   // Calculate chapter status based on topic statuses (auto from backend)
-  const topicStatusCounts = chapter.topics.reduce((acc, topic) => {
-    const status = topicStatuses[topic.id] || 'grey';
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // Filter out topics with no games (grey status means no games assigned)
+  const topicsWithGames = chapter.topics.filter(t => {
+    const status = topicStatuses[t.id];
+    return status && status !== 'grey'; // Only count topics that have games
+  });
   
   const totalTopics = chapter.topics.length;
-  const greenTopics = topicStatusCounts['green'] || 0;
-  const redTopics = topicStatusCounts['red'] || 0;
+  const topicsWithGamesCount = topicsWithGames.length;
+  const greenTopics = chapter.topics.filter(t => topicStatuses[t.id] === 'green').length;
   
-  // Auto-calculate chapter status: green if 60%+ topics are green
-  const autoChapterStatus = totalTopics > 0 && (greenTopics / totalTopics) >= 0.6 ? 'green' : 'red';
+  // Auto-calculate chapter status: green if 60%+ topics WITH GAMES are green
+  const autoChapterStatus = topicsWithGamesCount > 0 && (greenTopics / topicsWithGamesCount) >= 0.6 ? 'green' : 'red';
   const bgColor = autoChapterStatus === 'green' ? 'bg-green-600' : 'bg-red-600';
   const textColor = 'text-white';
 

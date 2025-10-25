@@ -195,10 +195,81 @@ export const UIFlowGuide = () => {
         </CardContent>
       </Card>
 
+      {/* Step 4: Roadmap Calendar - Game Completion Tracking */}
+      <Card className="border-2 border-cyan-500 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-cyan-50 to-teal-50">
+          <CardTitle className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-cyan-600 text-white rounded-full flex items-center justify-center font-bold">4</div>
+            Roadmap Calendar - Auto Game Completion Tracking
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <div className="bg-gradient-to-r from-cyan-100 to-teal-100 p-4 rounded-lg border border-cyan-300">
+            <p className="font-semibold text-cyan-900 mb-2">📍 Location: Student & Parent Roadmap Calendar Views</p>
+            <p className="text-sm text-cyan-800">Real-time game completion status displayed on calendar</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-600 mt-1" />
+              <div>
+                <p className="font-semibold">Topic-Level Status (Auto-Calculated)</p>
+                <p className="text-sm text-muted-foreground">
+                  • <span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span> Green: 60%+ games completed<br/>
+                  • <span className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></span> Yellow: 40-60% games completed<br/>
+                  • <span className="inline-block w-3 h-3 bg-red-500 rounded-full"></span> Red: Below 40% games completed<br/>
+                  • <span className="inline-block w-3 h-3 bg-gray-400 rounded-full"></span> Grey: No games started yet
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Target className="h-5 w-5 text-blue-600 mt-1" />
+              <div>
+                <p className="font-semibold">Chapter-Level Status (Auto-Calculated)</p>
+                <p className="text-sm text-muted-foreground">
+                  • <span className="inline-block w-4 h-4 bg-green-600 border border-green-400 rounded"></span> Green Cell: 60%+ topics in chapter are green<br/>
+                  • <span className="inline-block w-4 h-4 bg-red-600 border border-red-400 rounded"></span> Red Cell: Less than 60% topics completed<br/>
+                  • Updates automatically when students complete games
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 bg-cyan-50 p-3 rounded border border-cyan-300">
+              <BarChart3 className="h-5 w-5 text-cyan-600 mt-1" />
+              <div>
+                <p className="font-semibold text-cyan-900">Database-Driven Updates 🤖</p>
+                <p className="text-sm text-cyan-800">
+                  • Game completion triggers `calculate_topic_status()` database function<br/>
+                  • Status stored in `student_topic_status` table<br/>
+                  • Real-time Supabase subscriptions update calendar instantly<br/>
+                  • Works for both student and parent views simultaneously
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Users className="h-5 w-5 text-purple-600 mt-1" />
+              <div>
+                <p className="font-semibold">Parent & Student View</p>
+                <p className="text-sm text-muted-foreground">
+                  • Students see their own progress updating in real-time<br/>
+                  • Parents see automatic updates without manual tracking<br/>
+                  • Calendar cells change color as games are completed<br/>
+                  • Expand topics to see individual topic status dots
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Badge className="bg-cyan-600">Real-time sync via Supabase Realtime</Badge>
+        </CardContent>
+      </Card>
+
       {/* Summary */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8 rounded-xl shadow-2xl text-center space-y-4">
         <h2 className="text-3xl font-bold">🎉 Website Ab 100% Launch Ready Hai!</h2>
-        <div className="grid md:grid-cols-3 gap-4 mt-6">
+        <div className="grid md:grid-cols-4 gap-4 mt-6">
           <div className="bg-white/10 backdrop-blur p-4 rounded-lg">
             <p className="text-2xl font-bold mb-2">✅</p>
             <p className="font-semibold">Test Flow</p>
@@ -213,6 +284,11 @@ export const UIFlowGuide = () => {
             <p className="text-2xl font-bold mb-2">🏆</p>
             <p className="font-semibold">Leaderboards</p>
             <p className="text-sm opacity-90">Live competition data</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur p-4 rounded-lg">
+            <p className="text-2xl font-bold mb-2">📅</p>
+            <p className="font-semibold">Roadmap Calendar</p>
+            <p className="text-sm opacity-90">Auto game completion tracking</p>
           </div>
         </div>
       </div>

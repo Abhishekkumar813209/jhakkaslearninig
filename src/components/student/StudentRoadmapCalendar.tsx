@@ -433,11 +433,12 @@ export const StudentRoadmapCalendar = ({
             <span>Topic Yellow - 40-60% games completed</span>
           </li>
           <li className="flex items-center gap-2">
-            <div className="inline-block w-3 h-3 bg-red-500 rounded-full"></div>
-            <span>Topic Red - Below 40% games completed</span>
+            <div className="inline-block w-3 h-3 bg-gray-400 rounded-full"></div>
+            <span>Topic Grey - No games started yet</span>
           </li>
           <li>🤖 Status updates automatically when you complete games</li>
           <li>✨ Real-time updates via database triggers</li>
+          <li>Click topics to start learning</li>
         </ul>
       </div>
     </div>

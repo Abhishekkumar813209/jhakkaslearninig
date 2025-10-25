@@ -5,7 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Search, AlertTriangle, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
+import { Button } from "@/components/ui/button";
 interface WorkflowData {
   table: string;
   description: string;
@@ -381,7 +381,7 @@ export const WorkflowDiagrams: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 pb-20">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -390,6 +390,19 @@ export const WorkflowDiagrams: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
         />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 -mt-2">
+        <span className="text-xs text-muted-foreground">Quick jump:</span>
+        <Button variant="secondary" size="sm" onClick={() => setSearchQuery('student_topic_status')}>
+          student_topic_status
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setSearchQuery('student_topic_game_progress')}>
+          student_topic_game_progress
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+          Clear
+        </Button>
       </div>
 
       {filteredWorkflows.length === 0 ? (

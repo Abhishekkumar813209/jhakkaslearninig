@@ -509,15 +509,15 @@ const DatabaseExplorer = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="flows" className="flex-1 mt-0 overflow-auto">
-            <Card className="h-full">
+          <TabsContent value="flows" className="flex-1 mt-0 overflow-hidden">
+            <Card className="h-full flex flex-col min-h-0">
               <CardHeader>
                 <CardTitle>User Workflow Diagrams</CardTitle>
                 <CardDescription>
                   Visual representations of key system workflows
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 overflow-y-auto">
                 <WorkflowDiagrams />
               </CardContent>
             </Card>

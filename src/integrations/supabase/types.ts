@@ -4995,7 +4995,15 @@ export type Database = {
       }
       calculate_topic_status: {
         Args: { p_student_id: string; p_topic_id: string }
-        Returns: string
+        Returns: {
+          game_completion_rate: number
+          games_completed: number
+          status: string
+          student_id: string
+          test_avg_score: number
+          topic_id: string
+          total_games: number
+        }[]
       }
       calculate_zone_rankings: { Args: never; Returns: undefined }
       can_see_question_answers: {

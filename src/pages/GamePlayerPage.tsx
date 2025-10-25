@@ -170,6 +170,26 @@ const GamePlayerPage = () => {
   }, [loading, gameData, topicId, roadmapId]);
 
   const markGameCompleted = async (studentId: string, topicId: string, gameId: string) => {
+    // Step 1: Get the actual total count of games for this topic
+    const { data: mapping } = await supabase
+      .from('topic_content_mapping')
+      .select('id')
+      .eq('topic_id', topicId)
+      .maybeSingle();
+    
+    if (!mapping) {
+      console.error('No content mapping found for topic:', topicId);
+      return;
+    }
+    
+    const { count: totalGamesCount } = await supabase
+      .from('gamified_exercises')
+      .select('id', { count: 'exact' })
+      .eq('topic_content_id', mapping.id);
+    
+    const totalGames = totalGamesCount || 0;
+    
+    // Step 2: Check for existing progress
     const { data: progress } = await supabase
       .from('student_topic_game_progress')
       .select('*')
@@ -178,14 +198,14 @@ const GamePlayerPage = () => {
       .maybeSingle();
 
     if (!progress) {
-      // Create new progress record
+      // Create new progress record with CORRECT total_questions
       await supabase.from('student_topic_game_progress').insert({
         student_id: studentId,
         topic_id: topicId,
         completed_game_ids: [gameId],
         questions_completed: 1,
         questions_correct: 1,
-        total_questions: 1
+        total_questions: totalGames
       });
     } else {
       // Update existing progress
@@ -196,7 +216,8 @@ const GamePlayerPage = () => {
           .update({
             completed_game_ids: [...completedIds, gameId],
             questions_completed: progress.questions_completed + 1,
-            questions_correct: progress.questions_correct + 1
+            questions_correct: progress.questions_correct + 1,
+            total_questions: totalGames
           })
           .eq('id', progress.id);
       }

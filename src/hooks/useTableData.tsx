@@ -110,6 +110,9 @@ export function useTableData(tableName: string | null) {
         }
       });
 
+      // Default sort by created_at descending (newest first)
+      query = query.order('created_at', { ascending: false });
+
       // Apply pagination
       query = query.range(from, to);
       

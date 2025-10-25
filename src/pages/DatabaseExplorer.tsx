@@ -8,13 +8,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableSelector } from '@/components/admin/TableSelector';
 import { TableDataViewer } from '@/components/admin/TableDataViewer';
-import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
 import { IDResolver } from '@/components/admin/IDResolver';
 import { WorkflowDiagrams } from '@/components/admin/WorkflowDiagrams';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 const databaseSchema = {
   profiles: {
@@ -423,177 +421,102 @@ const DatabaseExplorer = () => {
       </header>
 
       <main className="flex-1 p-6 overflow-hidden min-h-0">
-        <ResizablePanelGroup direction="horizontal" className="h-full gap-6">
-          {/* Left: Database Viewer (60%) */}
-          <ResizablePanel defaultSize={60} minSize={30} className="flex flex-col gap-4 min-w-0 overflow-hidden">
-            <TableSelector value={selectedTable} onChange={setSelectedTable} />
-            
-            <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-4 shrink-0">
-                <TabsTrigger value="data">Live Data</TabsTrigger>
-                <TabsTrigger value="resolver">ID Resolver</TabsTrigger>
-                <TabsTrigger value="columns">Column Details</TabsTrigger>
-                <TabsTrigger value="flows">User Flows</TabsTrigger>
-              </TabsList>
+        <Tabs defaultValue="data" className="h-full flex flex-col">
+          <TabsList className="grid w-full grid-cols-4 mb-6 shrink-0">
+            <TabsTrigger value="data">Live Data</TabsTrigger>
+            <TabsTrigger value="resolver">ID Resolver</TabsTrigger>
+            <TabsTrigger value="columns">Column Details</TabsTrigger>
+            <TabsTrigger value="flows">User Flows</TabsTrigger>
+          </TabsList>
 
-              <TabsContent value="data" className="flex-1 mt-4 overflow-hidden">
-                <TableDataViewer 
-                  tableName={selectedTable} 
-                  onRowSelect={setSelectedRow}
-                />
-              </TabsContent>
-
-              <TabsContent value="resolver" className="flex-1 mt-4 overflow-auto">
-                <IDResolver />
-              </TabsContent>
-
-              <TabsContent value="columns" className="flex-1 mt-4 overflow-auto">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Column-Level Documentation</CardTitle>
-                    <CardDescription>
-                      Understand why each column exists and what breaks without it
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Accordion type="multiple" className="w-full">
-                      {Object.entries(columnDocumentation).map(([table, columns]) => (
-                        <AccordionItem key={table} value={table}>
-                          <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">{table}</Badge>
-                              <span className="text-sm text-muted-foreground">{Object.keys(columns).length} critical columns</span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="space-y-4 pt-2">
-                              {Object.entries(columns).map(([colName, col]: [string, any]) => (
-                                <div key={colName} className="border-l-2 border-primary pl-4 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <code className="text-sm font-mono bg-muted px-2 py-1 rounded">{colName}</code>
-                                    <Badge variant={col.criticality === 'critical' ? 'destructive' : 'secondary'}>
-                                      {col.criticality}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground">{col.why}</p>
-                                  <Alert variant={col.criticality === 'critical' ? 'destructive' : 'default'}>
-                                    <AlertDescription>
-                                      <strong>Without it:</strong>
-                                      <ul className="list-disc list-inside mt-1">
-                                        {col.without.map((item: string, idx: number) => (
-                                          <li key={idx}>{item}</li>
-                                        ))}
-                                      </ul>
-                                    </AlertDescription>
-                                  </Alert>
-                                  {col.example && (
-                                    <p className="text-xs text-muted-foreground italic">Example: {col.example}</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="question-system" className="flex-1 mt-4 overflow-auto px-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Database className="h-5 w-5" />
-                      {questionExtractionDocs.title}
-                    </CardTitle>
-                    <CardDescription>{questionExtractionDocs.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">📊 Database Tables</h3>
-                      <div className="space-y-4">
-                        {questionExtractionDocs.tables.map((table: any) => (
-                          <Card key={table.name}>
-                            <CardHeader>
-                              <CardTitle className="text-base">{table.name}</CardTitle>
-                              <CardDescription>{table.description}</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="space-y-2">
-                                {table.columns.map((col: any) => (
-                                  <div key={col.name} className="flex gap-2 text-sm">
-                                    <Badge variant="outline">{col.name}</Badge>
-                                    <span className="text-muted-foreground">{col.type}</span>
-                                    <span>- {col.description}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">🔄 Workflow</h3>
-                      <div className="space-y-2">
-                        {questionExtractionDocs.workflow.map((step: string, idx: number) => (
-                          <Alert key={idx}>
-                            <AlertDescription>{step}</AlertDescription>
-                          </Alert>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">🔌 API Endpoints (topic-questions-api)</h3>
-                      <div className="space-y-2">
-                        {questionExtractionDocs.apiEndpoints.map((endpoint: any) => (
-                          <div key={endpoint.action} className="p-3 border rounded-md">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge>{endpoint.action}</Badge>
-                              <span className="text-sm text-muted-foreground">{endpoint.description}</span>
-                            </div>
-                            <code className="text-xs text-muted-foreground">{endpoint.params}</code>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">🔒 Security</h3>
-                      <div className="space-y-2">
-                        {questionExtractionDocs.securityNotes.map((note: string, idx: number) => (
-                          <Alert key={idx} variant={note.includes('⚠️') ? 'destructive' : 'default'}>
-                            <AlertDescription>{note}</AlertDescription>
-                          </Alert>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="flows" className="flex-1 mt-4 overflow-auto">
-                <WorkflowDiagrams />
-              </TabsContent>
-            </Tabs>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle className="bg-border" />
-
-          {/* Right: AI Assistant (40%) */}
-          <ResizablePanel defaultSize={40} minSize={25} className="overflow-hidden flex flex-col h-full">
-            <AIAssistantPanel
-              context={{
-                tableName: selectedTable || undefined,
-                selectedRow: selectedRow,
-                tableCount: undefined
-              }}
+          <TabsContent value="data" className="flex-1 mt-0 overflow-hidden">
+            <TableDataViewer 
+              tableName={selectedTable} 
+              onRowSelect={setSelectedRow}
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          </TabsContent>
+
+          <TabsContent value="resolver" className="flex-1 mt-0 overflow-auto">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>ID Resolver</CardTitle>
+                <CardDescription>
+                  Paste any UUID to find associated information across all tables
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <IDResolver />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="columns" className="flex-1 mt-0 overflow-auto">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>Column-Level Documentation</CardTitle>
+                <CardDescription>
+                  Understand why each column exists and what breaks without it
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="multiple" className="w-full">
+                  {Object.entries(columnDocumentation).map(([table, columns]) => (
+                    <AccordionItem key={table} value={table}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{table}</Badge>
+                          <span className="text-sm text-muted-foreground">{Object.keys(columns).length} critical columns</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4 pt-2">
+                          {Object.entries(columns).map(([colName, col]: [string, any]) => (
+                            <div key={colName} className="border-l-2 border-primary pl-4 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <code className="text-sm font-mono bg-muted px-2 py-1 rounded">{colName}</code>
+                                <Badge variant={col.criticality === 'critical' ? 'destructive' : 'secondary'}>
+                                  {col.criticality}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{col.why}</p>
+                              <Alert variant={col.criticality === 'critical' ? 'destructive' : 'default'}>
+                                <AlertDescription>
+                                  <strong>Without it:</strong>
+                                  <ul className="list-disc list-inside mt-1">
+                                    {col.without.map((item: string, idx: number) => (
+                                      <li key={idx}>{item}</li>
+                                    ))}
+                                  </ul>
+                                </AlertDescription>
+                              </Alert>
+                              {col.example && (
+                                <p className="text-xs text-muted-foreground italic">Example: {col.example}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="flows" className="flex-1 mt-0 overflow-auto">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>User Workflow Diagrams</CardTitle>
+                <CardDescription>
+                  Visual representations of key system workflows
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <WorkflowDiagrams />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
         </div>
     );

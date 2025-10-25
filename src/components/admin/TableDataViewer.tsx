@@ -374,10 +374,10 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
           ) : (
             <div className="min-w-full">
               <table className="w-full table-fixed caption-bottom text-sm">
-                <thead className="sticky top-0 z-30 bg-background border-b shadow-sm">
+                <thead className="border-b bg-background">
                   <tr className="hover:bg-transparent">
                     {hasIdColumn && (
-                      <th className="w-12 px-4 text-left align-middle">
+                      <th className="sticky top-0 z-30 bg-background w-12 px-4 text-left align-middle shadow-sm">
                         <Checkbox
                           checked={selectedRows.size === data.length && data.length > 0}
                           onCheckedChange={toggleSelectAll}
@@ -388,11 +388,11 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                     {columns.map(col => (
                       <th
                         key={col.name}
-                        className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap min-w-[150px]"
+                        className="sticky top-0 z-30 bg-background h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap min-w-[150px] shadow-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          {col.name}
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="truncate">{col.name}</span>
+                          <Badge variant="outline" className="text-xs shrink-0">
                             {col.type}
                           </Badge>
                         </div>

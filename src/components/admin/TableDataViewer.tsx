@@ -373,10 +373,10 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
             </div>
           ) : (
             <Table>
-              <TableHeader className="sticky top-0 z-20 bg-background border-b">
+              <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   {hasIdColumn && (
-                    <TableHead className="bg-background w-12">
+                    <TableHead className="sticky top-0 z-30 bg-background border-b w-12">
                       <Checkbox
                         checked={selectedRows.size === data.length && data.length > 0}
                         onCheckedChange={toggleSelectAll}
@@ -385,7 +385,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                     </TableHead>
                   )}
                   {columns.map(col => (
-                    <TableHead key={col.name} className="bg-background min-w-[150px] whitespace-nowrap">
+                    <TableHead key={col.name} className="sticky top-0 z-30 bg-background border-b min-w-[150px] whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {col.name}
                         <Badge variant="outline" className="text-xs">

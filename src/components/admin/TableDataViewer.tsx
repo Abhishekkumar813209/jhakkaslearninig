@@ -424,14 +424,14 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
         {/* Header Table (static, horizontal scroll only) */}
         {!loading && data.length > 0 && (
           <div ref={headerScrollRef} className="overflow-x-auto border-b bg-background shadow-sm">
-            <div className="min-w-full">
-              <table className="w-full table-fixed caption-bottom text-sm">
+            <div className="min-w-full inline-block">
+              <table className="w-auto caption-bottom text-sm border-collapse">
                 <colgroup>
-                  {hasIdColumn && <col style={{ width: colWidths[0] ? `${colWidths[0]}px` : '48px' }} />}
-                  {columns.map((_, i) => {
-                    const idx = (hasIdColumn ? 1 : 0) + i;
-                    const w = colWidths[idx];
-                    return <col key={i} style={{ width: w ? `${w}px` : undefined }} />;
+                  {hasIdColumn && <col style={{ width: '56px', minWidth: '56px' }} />}
+                  {columns.map((col) => {
+                    const isUUIDType = col.type.toLowerCase().includes('uuid');
+                    const width = isUUIDType ? '320px' : '220px';
+                    return <col key={col.name} style={{ width, minWidth: width }} />;
                   })}
                 </colgroup>
                 <thead className="bg-background">
@@ -439,7 +439,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                     {hasIdColumn && (
                       <th
                         ref={el => (headerThRefs.current[0] = el)}
-                        className="w-12 px-4 text-left align-middle"
+                        className="w-14 px-4 text-left align-middle border-r"
                       >
                         <Checkbox
                           checked={selectedRows.size === data.length && data.length > 0}
@@ -448,20 +448,25 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                         />
                       </th>
                     )}
-                    {columns.map((col, i) => (
-                      <th
-                        key={col.name}
-                        ref={el => (headerThRefs.current[(hasIdColumn ? 1 : 0) + i] = el)}
-                        className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap min-w-[150px]"
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="truncate">{col.name}</span>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {col.type}
-                          </Badge>
-                        </div>
-                      </th>
-                    ))}
+                    {columns.map((col, i) => {
+                      const isUUIDType = col.type.toLowerCase().includes('uuid');
+                      return (
+                        <th
+                          key={col.name}
+                          ref={el => (headerThRefs.current[(hasIdColumn ? 1 : 0) + i] = el)}
+                          className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground border-r ${
+                            isUUIDType ? 'min-w-[320px]' : 'min-w-[220px]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{col.name}</span>
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {col.type}
+                            </Badge>
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
               </table>
@@ -480,21 +485,21 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
               <p>No data found</p>
             </div>
           ) : (
-            <div className="min-w-full">
-              <table className="w-full table-fixed caption-bottom text-sm">
+            <div className="min-w-full inline-block">
+              <table className="w-auto caption-bottom text-sm border-collapse">
                 <colgroup>
-                  {hasIdColumn && <col style={{ width: colWidths[0] ? `${colWidths[0]}px` : '48px' }} />}
-                  {columns.map((_, i) => {
-                    const idx = (hasIdColumn ? 1 : 0) + i;
-                    const w = colWidths[idx];
-                    return <col key={i} style={{ width: w ? `${w}px` : undefined }} />;
+                  {hasIdColumn && <col style={{ width: '56px', minWidth: '56px' }} />}
+                  {columns.map((col) => {
+                    const isUUIDType = col.type.toLowerCase().includes('uuid');
+                    const width = isUUIDType ? '320px' : '220px';
+                    return <col key={col.name} style={{ width, minWidth: width }} />;
                   })}
                 </colgroup>
                 <tbody>
                   {data.map((row, idx) => (
-                    <tr key={idx} className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}>
+                    <tr key={idx} className={`border-b hover:bg-accent/50 ${selectedRows.has(row.id) ? 'bg-accent/50' : ''}`}>
                       {hasIdColumn && (
-                        <td className="w-12 px-4" onClick={(e) => e.stopPropagation()}>
+                        <td className="w-14 px-4 border-r" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedRows.has(row.id)}
                             onCheckedChange={() => toggleRowSelection(row.id)}
@@ -505,13 +510,14 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                       {columns.map(col => {
                         const cellValue = row[col.name];
                         const isUUIDValue = isUUID(cellValue);
+                        const isUUIDType = col.type.toLowerCase().includes('uuid');
 
                         return (
                           <td
                             key={col.name}
-                            className={`p-4 align-middle font-mono text-xs whitespace-nowrap group hover:bg-accent ${
+                            className={`p-4 align-middle font-mono text-xs group hover:bg-accent border-r ${
                               isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
-                            }`}
+                            } ${isUUIDType ? 'min-w-[320px]' : 'min-w-[220px]'}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!isUUIDValue) {
@@ -525,11 +531,11 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                             title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
                           >
                             <div className="flex items-center gap-2">
-                              <span>{formatValue(cellValue)}</span>
+                              <span className="break-all">{formatValue(cellValue)}</span>
                               {isUUIDValue ? (
-                                <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+                                <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 shrink-0" />
                               ) : (
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground shrink-0" />
                               )}
                             </div>
                           </td>

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, RefreshCw, Download, Database, Edit2, ChevronLeft, ChevronRight, Filter, Trash2, Link2, X } from 'lucide-react';
 import { useTableData } from '@/hooks/useTableData';
 import { useIDResolver } from '@/hooks/useIDResolver';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EditCellDialog } from './EditCellDialog';
 import { DatabaseFilterPanel } from './DatabaseFilterPanel';
@@ -361,7 +361,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
         )}
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">
               <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
@@ -372,83 +372,84 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
               <p>No data found</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  {hasIdColumn && (
-                    <TableHead className="sticky top-0 z-30 bg-background border-b w-12">
-                      <Checkbox
-                        checked={selectedRows.size === data.length && data.length > 0}
-                        onCheckedChange={toggleSelectAll}
-                        aria-label="Select all rows"
-                      />
-                    </TableHead>
-                  )}
-                  {columns.map(col => (
-                    <TableHead key={col.name} className="sticky top-0 z-30 bg-background border-b min-w-[150px] whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {col.name}
-                        <Badge variant="outline" className="text-xs">
-                          {col.type}
-                        </Badge>
-                      </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.map((row, idx) => (
-                  <TableRow 
-                    key={idx}
-                    className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}
-                  >
+            <div className="min-w-full">
+              <table className="w-full table-fixed caption-bottom text-sm">
+                <thead className="sticky top-0 z-30 bg-background border-b shadow-sm">
+                  <tr className="hover:bg-transparent">
                     {hasIdColumn && (
-                      <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                      <th className="w-12 px-4 text-left align-middle">
                         <Checkbox
-                          checked={selectedRows.has(row.id)}
-                          onCheckedChange={() => toggleRowSelection(row.id)}
-                          aria-label={`Select row ${idx + 1}`}
+                          checked={selectedRows.size === data.length && data.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all rows"
                         />
-                      </TableCell>
+                      </th>
                     )}
-                    {columns.map(col => {
-                      const cellValue = row[col.name];
-                      const isUUIDValue = isUUID(cellValue);
-                      
-                      return (
-                        <TableCell 
-                          key={col.name} 
-                          className={`font-mono text-xs whitespace-nowrap group hover:bg-accent ${
-                            isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Only allow editing non-UUID cells
-                            if (!isUUIDValue) {
-                              handleCellClick(row, col.name, cellValue);
-                            }
-                          }}
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            handleCellDoubleClick(cellValue);
-                          }}
-                          title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{formatValue(cellValue)}</span>
-                            {isUUIDValue ? (
-                              <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
-                            ) : (
-                              <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
-                            )}
-                          </div>
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    {columns.map(col => (
+                      <th
+                        key={col.name}
+                        className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap min-w-[150px]"
+                      >
+                        <div className="flex items-center gap-2">
+                          {col.name}
+                          <Badge variant="outline" className="text-xs">
+                            {col.type}
+                          </Badge>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row, idx) => (
+                    <tr key={idx} className={selectedRows.has(row.id) ? 'bg-accent/50' : ''}>
+                      {hasIdColumn && (
+                        <td className="w-12 px-4" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedRows.has(row.id)}
+                            onCheckedChange={() => toggleRowSelection(row.id)}
+                            aria-label={`Select row ${idx + 1}`}
+                          />
+                        </td>
+                      )}
+                      {columns.map(col => {
+                        const cellValue = row[col.name];
+                        const isUUIDValue = isUUID(cellValue);
+
+                        return (
+                          <td
+                            key={col.name}
+                            className={`p-4 align-middle font-mono text-xs whitespace-nowrap group hover:bg-accent ${
+                              isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isUUIDValue) {
+                                handleCellClick(row, col.name, cellValue);
+                              }
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              handleCellDoubleClick(cellValue);
+                            }}
+                            title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{formatValue(cellValue)}</span>
+                              {isUUIDValue ? (
+                                <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+                              ) : (
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

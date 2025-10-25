@@ -404,19 +404,25 @@ const DatabaseExplorer = () => {
   return (
     <div className="h-screen w-full bg-background flex flex-col">
       {/* Header with back button */}
-      <header className="h-14 border-b border-border bg-card px-6 flex items-center gap-4 sticky top-0 z-10 shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/admin')}
-          className="gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Admin
-        </Button>
-        <div className="flex items-center gap-2">
-          <Database className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold text-foreground">Database Explorer & AI Assistant</h1>
+      <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/admin')}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Admin
+          </Button>
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-semibold text-foreground">Database Explorer</h1>
+          </div>
+        </div>
+        
+        <div className="w-64">
+          <TableSelector value={selectedTable} onChange={setSelectedTable} />
         </div>
       </header>
 

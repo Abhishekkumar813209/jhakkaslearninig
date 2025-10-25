@@ -414,8 +414,6 @@ export const WorkflowDiagrams: React.FC = () => {
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <span>📈 Visual Flow</span>
                   </h4>
-                  {console.log(workflow.mermaidDiagram)}
-
                   <div
                     dangerouslySetInnerHTML={{
                       __html: `<lov-mermaid>${workflow.mermaidDiagram}</lov-mermaid>`,

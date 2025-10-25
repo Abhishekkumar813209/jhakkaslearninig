@@ -359,17 +359,38 @@ const GamePlayerPage = () => {
 
     const exerciseType = gameData.exercise_type;
     
-    // For MCQ: prefer direct columns, fallback to exercise_data
+    // For MCQ: Extract correct answer with CORRECT priority order
     if (exerciseType === 'mcq') {
-      // Get raw correct answer with multiple fallbacks
-      let rawCorrectAnswer = (typeof gameData.correct_answer_index === 'number')
-        ? gameData.correct_answer_index
-        : (gameData.correct_answer?.correctAnswerIndex ?? 
-           gameData.exercise_data?.correct_answer ?? 
-           gameData.exercise_data?.correctAnswerIndex ?? 
-           0);
+      let rawCorrectAnswer: any;
+      let answerSource = '';
+      
+      // Priority 1: correct_answer.correctAnswerIndex (our new format)
+      if (gameData.correct_answer?.correctAnswerIndex !== undefined) {
+        rawCorrectAnswer = gameData.correct_answer.correctAnswerIndex;
+        answerSource = 'correct_answer.correctAnswerIndex';
+      }
+      // Priority 2: exercise_data.correctAnswerIndex
+      else if (gameData.exercise_data?.correctAnswerIndex !== undefined) {
+        rawCorrectAnswer = gameData.exercise_data.correctAnswerIndex;
+        answerSource = 'exercise_data.correctAnswerIndex';
+      }
+      // Priority 3: exercise_data.correct_answer
+      else if (gameData.exercise_data?.correct_answer !== undefined) {
+        rawCorrectAnswer = gameData.exercise_data.correct_answer;
+        answerSource = 'exercise_data.correct_answer';
+      }
+      // Priority 4: LAST RESORT - legacy correct_answer_index column
+      else if (typeof gameData.correct_answer_index === 'number') {
+        rawCorrectAnswer = gameData.correct_answer_index;
+        answerSource = 'correct_answer_index (legacy)';
+      }
+      // Final fallback
+      else {
+        rawCorrectAnswer = 0;
+        answerSource = 'default fallback';
+      }
 
-      // Safeguard: Parse numeric strings and validate
+      // Parse and validate the answer
       let correctAnswerIndex = 0;
       if (typeof rawCorrectAnswer === 'number') {
         correctAnswerIndex = rawCorrectAnswer;
@@ -395,6 +416,7 @@ const GamePlayerPage = () => {
         optionsCount: mcqData.options.length,
         correctAnswer: mcqData.correct_answer,
         rawAnswer: rawCorrectAnswer,
+        source: answerSource,
         question: mcqData.question.substring(0, 50) + '...'
       });
 

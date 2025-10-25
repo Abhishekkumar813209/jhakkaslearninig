@@ -294,6 +294,60 @@ const workflows: WorkflowData[] = [
       orphans: ['withdrawal_requests (references student_id)', 'referral_signups (tracks who was referred)'],
       cleanup: 'Use soft delete or archive to different table'
     }
+  },
+  {
+    table: 'student_topic_status',
+    description: 'Real-time game completion tracking for roadmap calendar (auto-calculated, auto-updated)',
+    mermaidDiagram: `graph TD
+    A[🎮 Student Completes Game] --> B[✅ markGameCompleted in GamePlayerPage]
+    B --> C[💾 Upserts student_topic_game_progress]
+    C --> D[total_questions = actual game count]
+    C --> E[questions_completed++]
+    C --> F[completed_game_ids array updated]
+    D --> G[🔔 Trigger: update_topic_status_trigger]
+    G --> H[📊 calculate_topic_status function]
+    H --> I[game_completion_rate = completed/total * 100]
+    I --> J{Rate >= 60%?}
+    J -->|Yes| K[status = green ✅]
+    J -->|No| L{Rate >= 40%?}
+    L -->|Yes| M[status = yellow ⚠️]
+    L -->|No| N{Rate > 0%?}
+    N -->|Yes| O[status = red ❌]
+    N -->|No| P[status = grey ⚪]
+    K --> Q[💾 Upserts student_topic_status]
+    M --> Q
+    O --> Q
+    P --> Q
+    Q --> R[🔄 Realtime Subscription Fires]
+    R --> S[📅 Student Calendar Updates]
+    R --> T[👨‍👩‍👧 Parent Calendar Updates]
+    S --> U{60%+ topics green?}
+    U -->|Yes| V[Chapter cell turns GREEN]
+    U -->|No| W[Chapter cell stays RED]
+    T --> U
+    
+    style B fill:#90EE90
+    style H fill:#FFD700
+    style Q fill:#87CEEB
+    style R fill:#FFB6C1
+    style V fill:#98FB98`,
+    steps: [
+      { title: '1. Game Completion', description: 'Student answers game correctly in GamePlayerPage' },
+      { title: '2. Progress Update', description: 'markGameCompleted fetches actual total_games from gamified_exercises' },
+      { title: '3. Database Write', description: 'Updates student_topic_game_progress with correct total_questions' },
+      { title: '4. Trigger Activation', description: 'update_topic_status_trigger fires automatically' },
+      { title: '5. Status Calculation', description: 'calculate_topic_status computes game_completion_rate' },
+      { title: '6. Color Assignment', description: 'Status set based PURELY on game completion (60% threshold)' },
+      { title: '7. Upsert Status', description: 'Updates student_topic_status with new status + metrics' },
+      { title: '8. Realtime Broadcast', description: 'Supabase broadcasts change via postgres_changes channel' },
+      { title: '9. Frontend Sync', description: 'Both Student & Parent calendars subscribe and auto-update' },
+      { title: '10. Chapter Status', description: 'Calendar calculates chapter green if 60%+ topics are green' }
+    ],
+    deleteBehavior: {
+      warning: 'Auto-recalculated on next game completion - safe to delete for reset',
+      orphans: ['None - gets recreated by trigger when student plays games'],
+      cleanup: 'Will automatically rebuild from student_topic_game_progress data'
+    }
   }
 ];
 

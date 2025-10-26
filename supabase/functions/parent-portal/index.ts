@@ -719,15 +719,17 @@ serve(async (req) => {
         // Get topic completion status
         const topicIds = (topics || []).map(t => t.id);
         const { data: completionData } = await supabase
-          .from('student_topic_game_progress')
-          .select('topic_id, is_completed, completed_game_ids')
+          .from('student_topic_status')
+          .select('topic_id, status, game_completion_rate, games_completed, total_games')
           .eq('student_id', studentId)
           .in('topic_id', topicIds);
 
         const completionMap = new Map(
           (completionData || []).map(c => [c.topic_id, {
-            is_completed: c.is_completed,
-            games_completed: c.completed_game_ids?.length || 0
+            status: c.status || 'grey',
+            game_completion_rate: c.game_completion_rate || 0,
+            games_completed: c.games_completed || 0,
+            total_games: c.total_games || 0
           }])
         );
 
@@ -738,8 +740,10 @@ serve(async (req) => {
           acc[topic.chapter_id].push({
             id: topic.id,
             topic_name: topic.topic_name,
-            status: completion?.is_completed ? 'completed' : 'unlocked',
-            progress_percentage: completion?.is_completed ? 100 : 0
+            status: completion?.status || 'grey',
+            progress_percentage: completion?.game_completion_rate || 0,
+            games_completed: completion?.games_completed || 0,
+            total_games: completion?.total_games || 0
           });
           return acc;
         }, {});
@@ -747,7 +751,7 @@ serve(async (req) => {
         // Calculate chapter progress
         const chaptersWithTopics = chapters.map((chapter: any) => {
           const chapterTopics = topicsByChapter[chapter.id] || [];
-          const completedTopics = chapterTopics.filter((t: any) => t.status === 'completed').length;
+          const completedTopics = chapterTopics.filter((t: any) => t.status === 'green').length;
           const totalTopics = chapterTopics.length;
           
           return {

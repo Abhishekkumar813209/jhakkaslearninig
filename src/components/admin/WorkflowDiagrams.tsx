@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -374,14 +374,57 @@ const workflows: WorkflowData[] = [
 
 export const WorkflowDiagrams: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const TARGET_TABLE = "student_topic_status";
+  
   const q = searchQuery.trim().toLowerCase();
+
+  // Debug logging - All tables in source
+  useEffect(() => {
+    console.log("🔍 DEBUG: All workflow tables:", workflows.map(w => w.table));
+    console.log(`🎯 DEBUG: Is "${TARGET_TABLE}" in workflows?`, workflows.some(w => w.table === TARGET_TABLE));
+  }, []);
+
+  // Debug logging - Search query
+  useEffect(() => {
+    console.log("🔎 DEBUG: Search query:", { raw: searchQuery, normalized: q });
+  }, [searchQuery, q]);
 
   const filteredWorkflows = workflows.filter(
     (wf) => wf.table.toLowerCase().includes(q) || wf.description.toLowerCase().includes(q),
   );
-  console.log(workflows.map((e) => e.table));
+
+  // Debug logging - Filtered results
+  useEffect(() => {
+    console.log("✅ DEBUG: Filtered workflows:", filteredWorkflows.map(w => w.table));
+    const isTargetFiltered = filteredWorkflows.some(w => w.table === TARGET_TABLE);
+    console.log(`🎯 DEBUG: Is "${TARGET_TABLE}" in filtered list?`, isTargetFiltered);
+    if (!isTargetFiltered && q === "") {
+      console.warn(`⚠️ WARNING: "${TARGET_TABLE}" is missing from filtered list even with empty search!`);
+    }
+  }, [filteredWorkflows, q]);
+
+  // Debug logging - Layout/scroll metrics
+  useEffect(() => {
+    if (rootRef.current) {
+      const { clientHeight, scrollHeight } = rootRef.current;
+      const canScroll = scrollHeight > clientHeight;
+      console.log("📐 DEBUG: Container metrics:", { clientHeight, scrollHeight, canScroll });
+    }
+  }, [filteredWorkflows]);
+
+  // Debug logging - Actual DOM rendered items
+  useEffect(() => {
+    setTimeout(() => {
+      const renderedItems = document.querySelectorAll('[data-debug-table]');
+      const renderedTables = Array.from(renderedItems).map(el => el.getAttribute('data-debug-table'));
+      console.log("🎨 DEBUG: Actually rendered accordion items:", renderedTables);
+      console.log(`🎯 DEBUG: Is "${TARGET_TABLE}" actually in DOM?`, renderedTables.includes(TARGET_TABLE));
+    }, 100);
+  }, [filteredWorkflows]);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div ref={rootRef} className="flex flex-col gap-4">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -399,7 +442,12 @@ export const WorkflowDiagrams: React.FC = () => {
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
           {filteredWorkflows.map((workflow) => (
-            <AccordionItem key={workflow.table} value={workflow.table} className="border rounded-lg px-4">
+            <AccordionItem 
+              key={workflow.table} 
+              value={workflow.table} 
+              className="border rounded-lg px-4"
+              data-debug-table={workflow.table}
+            >
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="font-mono">

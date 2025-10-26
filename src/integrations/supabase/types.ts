@@ -3044,14 +3044,18 @@ export type Database = {
           daily_attendance_xp: number | null
           exam_domain: string | null
           exam_name: string | null
+          exercise_xp: number | null
+          game_xp: number | null
           id: string
           last_activity_date: string | null
           level: number | null
           longest_streak_days: number | null
+          quest_xp: number | null
           referral_xp: number | null
           social_share_xp: number | null
           student_class: string | null
           student_id: string
+          theory_xp: number | null
           total_xp: number | null
           updated_at: string | null
         }
@@ -3061,14 +3065,18 @@ export type Database = {
           daily_attendance_xp?: number | null
           exam_domain?: string | null
           exam_name?: string | null
+          exercise_xp?: number | null
+          game_xp?: number | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
           longest_streak_days?: number | null
+          quest_xp?: number | null
           referral_xp?: number | null
           social_share_xp?: number | null
           student_class?: string | null
           student_id: string
+          theory_xp?: number | null
           total_xp?: number | null
           updated_at?: string | null
         }
@@ -3078,14 +3086,18 @@ export type Database = {
           daily_attendance_xp?: number | null
           exam_domain?: string | null
           exam_name?: string | null
+          exercise_xp?: number | null
+          game_xp?: number | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
           longest_streak_days?: number | null
+          quest_xp?: number | null
           referral_xp?: number | null
           social_share_xp?: number | null
           student_class?: string | null
           student_id?: string
+          theory_xp?: number | null
           total_xp?: number | null
           updated_at?: string | null
         }

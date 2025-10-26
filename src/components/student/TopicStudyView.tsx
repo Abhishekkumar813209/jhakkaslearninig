@@ -409,18 +409,27 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     }
   };
 
-  // Phase 6: Game completion handler
-  const handleGameComplete = async (gameIndex: number, gameDifficulty: Difficulty = 'medium') => {
-    const xpAmount = calculateXP('game', gameDifficulty);
-    
+  // Phase 6: Game completion handler - Uses actual XP from database
+  const handleGameComplete = async (gameIndex: number, gameId?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Fetch actual XP reward from database
+      let xpAmount = 10; // Default fallback
+      if (gameId) {
+        const { data: gameData } = await supabase
+          .from('gamified_exercises')
+          .select('xp_reward')
+          .eq('id', gameId)
+          .single();
+        xpAmount = gameData?.xp_reward || 10;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       
-      // Award XP
+      // Award XP from database value
       await supabase.functions.invoke("jhakkas-points-system", {
         body: { 
           action: "add", 
@@ -429,8 +438,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           metadata: { 
             topic_id: topicId, 
             topic_name: topicName,
-            difficulty: gameDifficulty,
-            game_index: gameIndex
+            game_index: gameIndex,
+            game_id: gameId
           }
         },
         headers
@@ -465,7 +474,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       
       toast({ 
         title: `🎮 Game Complete! +${xpAmount} XP`,
-        description: `${gameDifficulty.toUpperCase()} difficulty conquered!`
+        description: `You earned ${xpAmount} Jhakkas Points!`
       });
 
       // Trigger XP refresh

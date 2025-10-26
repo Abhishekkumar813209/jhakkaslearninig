@@ -186,6 +186,14 @@ serve(async (req) => {
         updateData.social_share_xp = (existingData?.social_share_xp || 0) + xp_amount;
       } else if (activity_type === 'referral') {
         updateData.referral_xp = (existingData?.referral_xp || 0) + xp_amount;
+      } else if (activity_type === 'game_completed') {
+        updateData.game_xp = (existingData?.game_xp || 0) + xp_amount;
+      } else if (activity_type === 'theory_read') {
+        updateData.theory_xp = (existingData?.theory_xp || 0) + xp_amount;
+      } else if (activity_type === 'exercise_completed') {
+        updateData.exercise_xp = (existingData?.exercise_xp || 0) + xp_amount;
+      } else if (activity_type === 'quest_completion') {
+        updateData.quest_xp = (existingData?.quest_xp || 0) + xp_amount;
       }
 
       const { data: gamificationData, error: gamificationError } = await supabase

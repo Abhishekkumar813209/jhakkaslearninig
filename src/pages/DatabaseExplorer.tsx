@@ -417,7 +417,7 @@ const DatabaseExplorer = () => {
           </Button>
           <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">Database Explorer</h1>
+            <h1 className="text-lg font-semibold text-foreground">Data Explorer</h1>
           </div>
         </div>
         

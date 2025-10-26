@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Search, AlertTriangle, Info } from "lucide-react";
+import { Search, Database, AlertCircle, X, Target, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 interface WorkflowData {
   table: string;
@@ -374,78 +375,185 @@ const workflows: WorkflowData[] = [
 
 export const WorkflowDiagrams: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debugBannerVisible, setDebugBannerVisible] = useState(true);
+  const [highlightTarget, setHighlightTarget] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const TARGET_TABLE = "student_topic_status";
   
   const q = searchQuery.trim().toLowerCase();
 
-  // Debug logging - All tables in source
-  useEffect(() => {
-    console.log("🔍 DEBUG: All workflow tables:", workflows.map(w => w.table));
-    console.log(`🎯 DEBUG: Is "${TARGET_TABLE}" in workflows?`, workflows.some(w => w.table === TARGET_TABLE));
-  }, []);
-
-  // Debug logging - Search query
-  useEffect(() => {
-    console.log("🔎 DEBUG: Search query:", { raw: searchQuery, normalized: q });
-  }, [searchQuery, q]);
-
   const filteredWorkflows = workflows.filter(
     (wf) => wf.table.toLowerCase().includes(q) || wf.description.toLowerCase().includes(q),
   );
 
-  // Debug logging - Filtered results
-  useEffect(() => {
-    console.log("✅ DEBUG: Filtered workflows:", filteredWorkflows.map(w => w.table));
-    const isTargetFiltered = filteredWorkflows.some(w => w.table === TARGET_TABLE);
-    console.log(`🎯 DEBUG: Is "${TARGET_TABLE}" in filtered list?`, isTargetFiltered);
-    if (!isTargetFiltered && q === "") {
-      console.warn(`⚠️ WARNING: "${TARGET_TABLE}" is missing from filtered list even with empty search!`);
-    }
-  }, [filteredWorkflows, q]);
+  // Debug state
+  const inSource = workflows.some(w => w.table === TARGET_TABLE);
+  const inFiltered = filteredWorkflows.some(w => w.table === TARGET_TABLE);
+  const [inDOM, setInDOM] = useState(false);
+  const [containerMetrics, setContainerMetrics] = useState({ clientHeight: 0, scrollHeight: 0, canScroll: false });
 
-  // Debug logging - Layout/scroll metrics
+  // Check DOM presence
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const element = document.getElementById(`wf-${TARGET_TABLE}`);
+      setInDOM(!!element);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [filteredWorkflows]);
+
+  // Update container metrics
   useEffect(() => {
     if (rootRef.current) {
       const { clientHeight, scrollHeight } = rootRef.current;
-      const canScroll = scrollHeight > clientHeight;
-      console.log("📐 DEBUG: Container metrics:", { clientHeight, scrollHeight, canScroll });
+      setContainerMetrics({ clientHeight, scrollHeight, canScroll: scrollHeight > clientHeight });
     }
   }, [filteredWorkflows]);
 
-  // Debug logging - Actual DOM rendered items
+  // Global debug handle
   useEffect(() => {
+    (window as any).__WF_DEBUG__ = {
+      tables: workflows.map(w => w.table),
+      hasStudentTopicStatus: inSource,
+      getFiltered: () => filteredWorkflows.map(w => w.table),
+      scrollToSTS: () => {
+        const element = document.getElementById(`wf-${TARGET_TABLE}`);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightTarget(true);
+        setTimeout(() => setHighlightTarget(false), 2000);
+      },
+      setSearch: (s: string) => setSearchQuery(s),
+      containerMetrics: () => containerMetrics,
+      dumpDOM: () => {
+        const items = document.querySelectorAll('[data-debug-table]');
+        return Array.from(items).map(el => el.getAttribute('data-debug-table'));
+      }
+    };
+
+    (window as any).__WF_DEBUG_PRINT = () => {
+      console.group("🔍 WorkflowDiagrams Debug Report");
+      console.log("All tables:", workflows.map(w => w.table));
+      console.log(`"${TARGET_TABLE}" in source:`, inSource);
+      console.log(`"${TARGET_TABLE}" in filtered:`, inFiltered);
+      console.log(`"${TARGET_TABLE}" in DOM:`, inDOM);
+      console.log("Container metrics:", containerMetrics);
+      console.log("DOM items:", (window as any).__WF_DEBUG__.dumpDOM());
+      console.groupEnd();
+    };
+
+    return () => {
+      delete (window as any).__WF_DEBUG__;
+      delete (window as any).__WF_DEBUG_PRINT;
+    };
+  }, [filteredWorkflows, inSource, inFiltered, inDOM, containerMetrics]);
+
+  const forceInclude = () => {
+    setSearchQuery("");
     setTimeout(() => {
-      const renderedItems = document.querySelectorAll('[data-debug-table]');
-      const renderedTables = Array.from(renderedItems).map(el => el.getAttribute('data-debug-table'));
-      console.log("🎨 DEBUG: Actually rendered accordion items:", renderedTables);
-      console.log(`🎯 DEBUG: Is "${TARGET_TABLE}" actually in DOM?`, renderedTables.includes(TARGET_TABLE));
+      const element = document.getElementById(`wf-${TARGET_TABLE}`);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setHighlightTarget(true);
+      setTimeout(() => setHighlightTarget(false), 2000);
     }, 100);
-  }, [filteredWorkflows]);
+  };
+
+  const scrollToTarget = () => {
+    const element = document.getElementById(`wf-${TARGET_TABLE}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightTarget(true);
+      setTimeout(() => setHighlightTarget(false), 2000);
+    }
+  };
 
   return (
-    <div ref={rootRef} className="flex flex-col gap-4">
+    <div ref={rootRef} className="flex flex-col gap-4 pb-24">
+      {/* Debug Banner */}
+      {debugBannerVisible && (
+        <Alert className="bg-purple-500/10 border-purple-500/50">
+          <Sparkles className="h-4 w-4 text-purple-500" />
+          <AlertDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 space-y-2 text-sm">
+                <div className="font-bold text-purple-700 dark:text-purple-300">🔍 Workflow Debug Panel - ACTIVE</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div>Total workflows: <Badge variant="outline" className="ml-1">{workflows.length}</Badge></div>
+                  <div>Filtered: <Badge variant="outline" className="ml-1">{filteredWorkflows.length}</Badge></div>
+                  <div>In source: <Badge variant={inSource ? "default" : "destructive"} className="ml-1">{inSource ? "✓" : "✗"}</Badge></div>
+                  <div>In filtered: <Badge variant={inFiltered ? "default" : "destructive"} className="ml-1">{inFiltered ? "✓" : "✗"}</Badge></div>
+                  <div>In DOM: <Badge variant={inDOM ? "default" : "destructive"} className="ml-1">{inDOM ? "✓" : "✗"}</Badge></div>
+                  <div>Can scroll: <Badge variant={containerMetrics.canScroll ? "default" : "secondary"} className="ml-1">{containerMetrics.canScroll ? "Yes" : "No"}</Badge></div>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={forceInclude}>
+                    <Target className="h-3 w-3 mr-1" />
+                    Force Include
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={scrollToTarget} disabled={!inDOM}>
+                    <Search className="h-3 w-3 mr-1" />
+                    Scroll to {TARGET_TABLE}
+                  </Button>
+                </div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 shrink-0"
+                onClick={() => setDebugBannerVisible(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Alert if student_topic_status missing from filtered */}
+      {!inFiltered && q === "" && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            ⚠️ <strong>student_topic_status</strong> is missing from filtered workflows even with empty search!
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Alert if in filtered but not in DOM */}
+      {inFiltered && !inDOM && (
+        <Alert className="bg-orange-500/10 border-orange-500/50">
+          <AlertCircle className="h-4 w-4 text-orange-500" />
+          <AlertDescription>
+            ⚠️ <strong>student_topic_status</strong> is in filtered list but NOT in DOM. Container canScroll: {containerMetrics.canScroll ? "true" : "false"}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search workflows by table name..."
+          placeholder="Search workflows by table name or description..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
+          className="pl-9"
         />
       </div>
 
       {filteredWorkflows.length === 0 ? (
-        <div className="flex items-center justify-center text-muted-foreground py-8">
-          <p>No workflows found matching "{searchQuery}"</p>
-        </div>
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>No workflows found matching your search.</AlertDescription>
+        </Alert>
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
           {filteredWorkflows.map((workflow) => (
             <AccordionItem 
               key={workflow.table} 
+              id={workflow.table === TARGET_TABLE ? `wf-${TARGET_TABLE}` : undefined}
               value={workflow.table} 
-              className="border rounded-lg px-4"
+              className={`border rounded-lg px-4 transition-all ${
+                workflow.table === TARGET_TABLE && highlightTarget 
+                  ? "ring-4 ring-yellow-400 shadow-lg shadow-yellow-400/50" 
+                  : ""
+              }`}
               data-debug-table={workflow.table}
             >
               <AccordionTrigger className="hover:no-underline">
@@ -453,69 +561,56 @@ export const WorkflowDiagrams: React.FC = () => {
                   <Badge variant="outline" className="font-mono">
                     {workflow.table}
                   </Badge>
-                  <span className="text-sm text-muted-foreground text-left">{workflow.description}</span>
+                  <span className="text-sm text-muted-foreground">{workflow.description}</span>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="space-y-6 pt-4">
-                {/* Mermaid Diagram */}
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <span>📈 Visual Flow</span>
-                  </h4>
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: `<lov-mermaid>${workflow.mermaidDiagram}</lov-mermaid>`,
-                    }}
-                  />
-                </div>
-
-                {/* Step-by-Step Breakdown */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <span>🔄 Step-by-Step Breakdown</span>
-                  </h4>
-                  <div className="space-y-2">
-                    {workflow.steps.map((step, idx) => (
-                      <div key={idx} className="flex gap-3 items-start">
-                        <Badge variant="secondary" className="mt-0.5 min-w-[60px] justify-center">
-                          Step {idx + 1}
-                        </Badge>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{step.title}</p>
-                          <p className="text-xs text-muted-foreground">{step.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Delete Behavior */}
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="space-y-2">
-                      <p className="font-semibold">⚠️ What Happens on Delete</p>
-                      <p className="text-sm">{workflow.deleteBehavior.warning}</p>
-
-                      <div className="mt-3">
-                        <p className="font-medium text-sm mb-1">Orphaned Records:</p>
-                        <ul className="text-xs space-y-1 list-disc list-inside ml-2">
-                          {workflow.deleteBehavior.orphans.map((orphan, idx) => (
-                            <li key={idx}>{orphan}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="mt-3 p-2 bg-background rounded border">
-                        <p className="font-medium text-sm mb-1 flex items-center gap-2">
-                          <Info className="h-3 w-3" />
-                          Recommended Cleanup:
-                        </p>
-                        <p className="text-xs">{workflow.deleteBehavior.cleanup}</p>
-                      </div>
+              <AccordionContent>
+                <div className="space-y-6 pt-2">
+                  {/* Mermaid Diagram */}
+                  <div className="border-2 border-primary/20 rounded-lg p-4 bg-muted/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Database className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-foreground">Visual Workflow</span>
                     </div>
-                  </AlertDescription>
-                </Alert>
+                    <div
+                      className="mermaid bg-background p-4 rounded"
+                      dangerouslySetInnerHTML={{ __html: workflow.mermaidDiagram }}
+                    />
+                  </div>
+
+                  {/* Step by Step Breakdown */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 text-foreground">Step-by-Step Breakdown</h4>
+                    <div className="space-y-2">
+                      {workflow.steps.map((step, idx) => (
+                        <div key={idx} className="flex gap-3 text-sm">
+                          <span className="text-primary font-mono shrink-0">{step.title}</span>
+                          <span className="text-muted-foreground">{step.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Delete Behavior Warning */}
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-semibold">⚠️ Delete Behavior</p>
+                        <p>{workflow.deleteBehavior.warning}</p>
+                        <div>
+                          <p className="font-semibold mt-2">Orphaned Records:</p>
+                          <ul className="list-disc list-inside">
+                            {workflow.deleteBehavior.orphans.map((orphan, idx) => (
+                              <li key={idx}>{orphan}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <p className="font-semibold mt-2">Cleanup: {workflow.deleteBehavior.cleanup}</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
               </AccordionContent>
             </AccordionItem>
           ))}

@@ -512,10 +512,17 @@ const DatabaseExplorer = () => {
           <TabsContent value="flows" className="flex-1 mt-0 overflow-hidden">
             <Card className="h-full flex flex-col min-h-0">
               <CardHeader>
-                <CardTitle>User Workflow Diagrams</CardTitle>
-                <CardDescription>
-                  Visual representations of key system workflows
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>User Workflow Diagrams</CardTitle>
+                    <CardDescription>
+                      Visual representations of key system workflows
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/50">
+                    🐛 WF Debug Active
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto">
                 <WorkflowDiagrams />

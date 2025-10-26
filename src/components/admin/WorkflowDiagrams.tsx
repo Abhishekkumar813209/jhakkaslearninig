@@ -373,18 +373,32 @@ const workflows: WorkflowData[] = [
   },
 ];
 
+const BUILD_TIMESTAMP = new Date().toISOString();
+
 export const WorkflowDiagrams: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debugBannerVisible, setDebugBannerVisible] = useState(true);
   const [highlightTarget, setHighlightTarget] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState<string | undefined>("student_topic_status");
   const rootRef = useRef<HTMLDivElement>(null);
   const TARGET_TABLE = "student_topic_status";
   
   const q = searchQuery.trim().toLowerCase();
 
-  const filteredWorkflows = workflows.filter(
-    (wf) => wf.table.toLowerCase().includes(q) || wf.description.toLowerCase().includes(q),
-  );
+  // Pin student_topic_status to the top
+  const filteredWorkflows = (() => {
+    const baseFiltered = workflows.filter(
+      (wf) => wf.table.toLowerCase().includes(q) || wf.description.toLowerCase().includes(q),
+    );
+    
+    // Always put student_topic_status first
+    const stsIndex = baseFiltered.findIndex(w => w.table === TARGET_TABLE);
+    if (stsIndex > 0) {
+      const sts = baseFiltered[stsIndex];
+      return [sts, ...baseFiltered.filter((_, i) => i !== stsIndex)];
+    }
+    return baseFiltered;
+  })();
 
   // Debug state
   const inSource = workflows.some(w => w.table === TARGET_TABLE);
@@ -467,14 +481,19 @@ export const WorkflowDiagrams: React.FC = () => {
 
   return (
     <div ref={rootRef} className="flex flex-col gap-4 pb-24">
-      {/* Debug Banner */}
+      {/* Debug Banner - UNMISSABLE */}
       {debugBannerVisible && (
-        <Alert className="bg-purple-500/10 border-purple-500/50">
-          <Sparkles className="h-4 w-4 text-purple-500" />
+        <Alert className="bg-yellow-300/50 dark:bg-yellow-600/30 border-4 border-yellow-600 sticky top-0 z-50">
+          <Sparkles className="h-5 w-5 text-yellow-900 dark:text-yellow-100" />
           <AlertDescription>
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2 text-sm">
-                <div className="font-bold text-purple-700 dark:text-purple-300">🔍 Workflow Debug Panel - ACTIVE</div>
+              <div className="flex-1 space-y-2">
+                <div className="font-bold text-yellow-900 dark:text-yellow-100 text-lg">
+                  🚨 NEW BUILD LOADED - {BUILD_TIMESTAMP.slice(11, 19)} UTC
+                </div>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200 font-semibold">
+                  ✅ If you see this, window.__WF_DEBUG__ exists!
+                </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <div>Total workflows: <Badge variant="outline" className="ml-1">{workflows.length}</Badge></div>
                   <div>Filtered: <Badge variant="outline" className="ml-1">{filteredWorkflows.length}</Badge></div>
@@ -543,7 +562,7 @@ export const WorkflowDiagrams: React.FC = () => {
           <AlertDescription>No workflows found matching your search.</AlertDescription>
         </Alert>
       ) : (
-        <Accordion type="single" collapsible className="space-y-2">
+        <Accordion type="single" collapsible value={openAccordion} onValueChange={setOpenAccordion} className="space-y-2">
           {filteredWorkflows.map((workflow) => (
             <AccordionItem 
               key={workflow.table} 

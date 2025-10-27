@@ -930,6 +930,68 @@ const criticalFindings: CriticalFinding[] = [
     },
     recommendation: "Implement TrueFalseGame.tsx, AssertionReasonGame.tsx, and MatchColumnGame.tsx components. Add corresponding exercise_type enum values to database.",
   },
+  {
+    title: "💥 Game XP Never Updates student_gamification Table",
+    severity: "high",
+    description: "Game XP updates profiles.xp but Test XP updates student_gamification.current_xp - creates XP data fragmentation",
+    details: {
+      impact: "XP leaderboards show incomplete data, analytics cannot track game vs test XP separately, potential student confusion",
+      location: {
+        frontend: "XPDisplay.tsx fetches inconsistently | GamePlayerPage.tsx calls increment_student_xp() RPC → profiles.xp | TakeTest.tsx calls jhakkas-points-system → student_gamification.current_xp",
+        db: "profiles.xp (game XP) vs student_gamification.current_xp (test XP) - NO unified source",
+      },
+      database: "Two separate XP storage locations: profiles.xp contains game XP totals, student_gamification.current_xp contains test XP totals",
+      frontend: "XPDisplay.tsx fetches from profiles.xp for games OR student_gamification for tests inconsistently",
+    },
+    recommendation: "UNIFY XP SYSTEMS:\n1. Deprecate profiles.xp for XP storage\n2. Route ALL XP (game + test) through jhakkas-points-system edge function\n3. Use student_gamification.current_xp as single source of truth\n4. Create xp_transactions table to track: { student_id, source_type: 'game'|'test', source_id, xp_amount, created_at }",
+  },
+  {
+    title: "♻️ Test XP Awards Full Amount on Every Retake",
+    severity: "high",
+    description: "Students can farm XP by repeatedly taking easy tests - no diminishing returns implemented",
+    details: {
+      impact: "XP inflation, leaderboard manipulation, progression system broken",
+      location: {
+        frontend: "TestsOverview.tsx shows attempt count but doesn't prevent retakes",
+        db: "test_attempts stores all attempts but post-test-analytics doesn't query for previous attempts",
+        edgeFunctions: ["post-test-analytics/index.ts (no attempt check before awarding XP)"],
+      },
+      example: "Student takes 10-question test 5 times → gets 100 XP each time = 500 XP total for same test",
+      database: "test_attempts stores all attempts but post-test-analytics edge function doesn't query for previous attempts before awarding XP",
+    },
+    recommendation: "IMPLEMENT DIMINISHING RETURNS:\n1. In post-test-analytics: Query test_attempts for previous attempts before awarding XP\n2. Apply formula:\n   - Attempt 1: 100% XP (base + marks + bonuses)\n   - Attempt 2: 50% XP (only marks XP, no bonuses)\n   - Attempt 3+: 25% XP (only marks XP, no bonuses)\n3. Store attempt_number in test_attempts\n4. Show 'Reduced XP' badge in UI for retakes",
+  },
+  {
+    title: "⚙️ Game XP Not Configurable (Hardcoded in xpConfig.ts)",
+    severity: "medium",
+    description: "Test XP has full admin UI configuration (XPManagement.tsx), but Game XP is hardcoded - inconsistent admin control",
+    details: {
+      impact: "Cannot adjust game XP for difficulty balancing, cannot run XP events for games, admins must edit code to change game XP",
+      location: {
+        frontend: "src/lib/xpConfig.ts (hardcoded ATTEMPT_XP) | XPManagement.tsx (test XP has full admin UI) | No Game XP Management UI exists",
+        db: "tests table has xp_config columns, gamified_exercises has no xp_reward configuration",
+      },
+      database: "tests table has xp_config columns for admin configuration, but gamified_exercises has no xp_reward or difficulty_multiplier columns",
+      frontend: "No Game XP Management UI exists - admins must edit src/lib/xpConfig.ts code directly",
+    },
+    recommendation: "CREATE GAME XP CONFIGURATION UI:\n1. Add columns to gamified_exercises: base_xp_reward, difficulty_multiplier\n2. Create GameXPManagement.tsx component similar to XPManagement.tsx\n3. Allow admins to set XP per difficulty: { easy: 20-40, medium: 30-50, hard: 40-60 }\n4. Deprecate hardcoded xpConfig.ts values\n5. Fetch XP config from database when awarding game XP",
+  },
+  {
+    title: "📊 No XP Transaction History Table",
+    severity: "medium",
+    description: "Cannot audit XP sources, no rollback capability, difficult to debug XP discrepancies",
+    details: {
+      impact: "Cannot answer questions like: 'Where did this student's XP come from?', 'How much XP from games vs tests?', 'Has XP been manipulated?' | Cannot generate reports: 'XP earned per day', 'XP by source type', 'Top XP activities', 'XP manipulation detection'",
+      location: {
+        frontend: "No analytics UI for XP breakdown | Cannot generate XP transaction reports",
+        db: "No xp_transactions or xp_history table exists | increment_student_xp() directly updates profiles.xp with no transaction log | test_attempts.xp_earned records test XP but not linked to student_gamification updates",
+        edgeFunctions: ["jhakkas-points-system/index.ts (no transaction logging)", "increment_student_xp RPC (no audit trail)"],
+      },
+      database: "No xp_transactions or xp_history table exists to track XP sources and changes over time",
+      frontend: "No analytics UI for XP transaction history, source breakdown, or manipulation detection",
+    },
+    recommendation: "CREATE XP TRANSACTIONS TABLE:\n```sql\nCREATE TABLE xp_transactions (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  student_id uuid REFERENCES profiles(id),\n  source_type text CHECK (source_type IN ('game', 'test', 'achievement', 'bonus', 'admin_adjustment')),\n  source_id uuid, -- game_id or test_attempt_id\n  xp_amount int NOT NULL,\n  previous_xp int,\n  new_xp int,\n  metadata jsonb, -- { difficulty, attempt_number, etc }\n  created_at timestamptz DEFAULT now()\n);\n```\nModify jhakkas-points-system to INSERT transaction record on every XP award",
+  },
 ];
 
 const BUILD_TIMESTAMP = new Date().toISOString();

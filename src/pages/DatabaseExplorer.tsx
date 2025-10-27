@@ -404,35 +404,48 @@ const DatabaseExplorer = () => {
   return (
     <div className="h-screen w-full bg-background flex flex-col">
       {/* Header with back button */}
-      <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-between sticky top-0 z-10 shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="border-b border-border bg-card px-3 md:px-6 py-3 md:py-0 md:h-14 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-0 md:justify-between sticky top-0 z-10 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate('/admin')}
-            className="gap-2"
+            className="gap-1 md:gap-2 px-2 md:px-4"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Admin
+            <span className="hidden sm:inline">Back to Admin</span>
+            <span className="sm:hidden">Back</span>
           </Button>
           <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">Data Explorer</h1>
+            <h1 className="text-base md:text-lg font-semibold text-foreground">Data Explorer</h1>
           </div>
         </div>
         
-        <div className="w-64">
+        <div className="w-full md:w-64">
           <TableSelector value={selectedTable} onChange={setSelectedTable} />
         </div>
       </header>
 
-      <main className="flex-1 p-6 overflow-hidden min-h-0">
+      <main className="flex-1 p-3 md:p-6 overflow-hidden min-h-0">
         <Tabs defaultValue="data" className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 mb-6 shrink-0">
-            <TabsTrigger value="data">Live Data</TabsTrigger>
-            <TabsTrigger value="resolver">ID Resolver</TabsTrigger>
-            <TabsTrigger value="columns">Column Details</TabsTrigger>
-            <TabsTrigger value="flows">User Flows</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-4 md:mb-6 shrink-0">
+            <TabsTrigger value="data" className="text-xs md:text-sm">
+              <span className="hidden sm:inline">Live Data</span>
+              <span className="sm:hidden">Data</span>
+            </TabsTrigger>
+            <TabsTrigger value="resolver" className="text-xs md:text-sm">
+              <span className="hidden sm:inline">ID Resolver</span>
+              <span className="sm:hidden">IDs</span>
+            </TabsTrigger>
+            <TabsTrigger value="columns" className="text-xs md:text-sm">
+              <span className="hidden sm:inline">Column Details</span>
+              <span className="sm:hidden">Columns</span>
+            </TabsTrigger>
+            <TabsTrigger value="flows" className="text-xs md:text-sm">
+              <span className="hidden sm:inline">User Flows</span>
+              <span className="sm:hidden">Flows</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="data" className="flex-1 mt-0 overflow-hidden">
@@ -444,13 +457,13 @@ const DatabaseExplorer = () => {
 
           <TabsContent value="resolver" className="flex-1 mt-0 overflow-auto">
             <Card className="h-full">
-              <CardHeader>
-                <CardTitle>ID Resolver</CardTitle>
-                <CardDescription>
+              <CardHeader className="px-3 md:px-6 py-4 md:py-6">
+                <CardTitle className="text-lg md:text-xl">ID Resolver</CardTitle>
+                <CardDescription className="text-xs md:text-sm">
                   Paste any UUID to find associated information across all tables
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 md:px-6">
                 <IDResolver />
               </CardContent>
             </Card>
@@ -458,20 +471,20 @@ const DatabaseExplorer = () => {
 
           <TabsContent value="columns" className="flex-1 mt-0 overflow-auto">
             <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Column-Level Documentation</CardTitle>
-                <CardDescription>
+              <CardHeader className="px-3 md:px-6 py-4 md:py-6">
+                <CardTitle className="text-lg md:text-xl">Column-Level Documentation</CardTitle>
+                <CardDescription className="text-xs md:text-sm">
                   Understand why each column exists and what breaks without it
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Accordion type="multiple" className="w-full">
+              <CardContent className="px-3 md:px-6">
+                <Accordion type="multiple" className="w-full space-y-2">
                   {Object.entries(columnDocumentation).map(([table, columns]) => (
                     <AccordionItem key={table} value={table}>
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{table}</Badge>
-                          <span className="text-sm text-muted-foreground">{Object.keys(columns).length} critical columns</span>
+                      <AccordionTrigger className="hover:no-underline text-left">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                          <Badge variant="outline" className="text-xs">{table}</Badge>
+                          <span className="text-xs sm:text-sm text-muted-foreground">{Object.keys(columns).length} critical columns</span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
@@ -511,20 +524,20 @@ const DatabaseExplorer = () => {
 
           <TabsContent value="flows" className="flex-1 mt-0 overflow-hidden">
             <Card className="h-full flex flex-col min-h-0">
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="px-3 md:px-6 py-4 md:py-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle>User Workflow Diagrams</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-lg md:text-xl">User Workflow Diagrams</CardTitle>
+                    <CardDescription className="text-xs md:text-sm">
                       Visual representations of key system workflows
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/50">
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/50 shrink-0 text-xs">
                     🐛 WF Debug Active
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto">
+              <CardContent className="flex-1 overflow-y-auto px-3 md:px-6">
                 <WorkflowDiagrams />
               </CardContent>
             </Card>

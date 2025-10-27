@@ -35,10 +35,10 @@ export function TableSelector({ value, onChange }: TableSelectorProps) {
   const categories = Array.from(new Set(AVAILABLE_TABLES.map(t => t.category)));
 
   return (
-    <div className="flex items-center gap-2">
-      <Database className="h-5 w-5 text-muted-foreground" />
+    <div className="flex items-center gap-2 w-full">
+      <Database className="h-5 w-5 text-muted-foreground hidden md:block shrink-0" />
       <Select value={value || undefined} onValueChange={onChange}>
-        <SelectTrigger className="w-[300px]">
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Select a table to explore" />
         </SelectTrigger>
         <SelectContent>

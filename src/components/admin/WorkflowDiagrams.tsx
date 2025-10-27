@@ -844,81 +844,81 @@ export const WorkflowDiagrams: React.FC = () => {
         <>
           {/* Critical Findings Section */}
           <Card className="border-4 border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                <AlertCircle className="h-5 w-5" />
-                🚨 Critical System Findings
+            <CardHeader className="px-3 md:px-6 py-4 md:py-6">
+              <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400 text-lg md:text-xl">
+                <AlertCircle className="h-5 w-5 shrink-0" />
+                <span>🚨 Critical System Findings</span>
               </CardTitle>
-              <CardDescription className="text-red-600 dark:text-red-300">
+              <CardDescription className="text-red-600 dark:text-red-300 text-xs md:text-sm">
                 Important issues and mismatches detected in the roadmap, XP, and topic status system
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 md:px-6">
               <Accordion type="single" collapsible className="space-y-2">
                 {criticalFindings.map((finding, idx) => (
                   <AccordionItem 
                     key={idx} 
                     value={`finding-${idx}`}
-                    className="border rounded-lg px-4 bg-background"
+                    className="border rounded-lg px-2 md:px-4 bg-background"
                   >
                     <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-left">
                         <Badge 
                           variant={
                             finding.severity === 'high' ? 'destructive' : 
                             finding.severity === 'medium' ? 'default' : 
                             'secondary'
                           }
-                          className="uppercase text-xs"
+                          className="uppercase text-xs shrink-0 self-start sm:self-auto"
                         >
                           {finding.severity}
                         </Badge>
-                        <span className="text-sm font-semibold">{finding.title}</span>
+                        <span className="text-xs md:text-sm font-semibold">{finding.title}</span>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4 pt-2">
-                        <p className="text-sm text-muted-foreground">{finding.description}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">{finding.description}</p>
                         
-                        <div className="space-y-2 text-sm">
+                        <div className="space-y-2 text-xs md:text-sm">
                           {finding.details.database && (
-                            <div>
+                            <div className="break-words">
                               <span className="font-semibold text-foreground">Database Logic: </span>
                               <span className="text-muted-foreground">{finding.details.database}</span>
                             </div>
                           )}
                           {finding.details.frontend && (
-                            <div>
+                            <div className="break-words">
                               <span className="font-semibold text-foreground">Frontend Logic: </span>
                               <span className="text-muted-foreground">{finding.details.frontend}</span>
                             </div>
                           )}
                           {finding.details.impact && (
-                            <div>
+                            <div className="break-words">
                               <span className="font-semibold text-foreground">Impact: </span>
                               <span className="text-muted-foreground">{finding.details.impact}</span>
                             </div>
                           )}
                           {finding.details.manual && (
-                            <div>
+                            <div className="break-words">
                               <span className="font-semibold text-foreground">Manual Method: </span>
                               <span className="text-muted-foreground">{finding.details.manual}</span>
                             </div>
                           )}
                           {finding.details.automatic && (
-                            <div>
+                            <div className="break-words">
                               <span className="font-semibold text-foreground">Automatic Method: </span>
                               <span className="text-muted-foreground">{finding.details.automatic}</span>
                             </div>
                           )}
                           {finding.details.formula && (
-                            <div>
+                            <div className="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
                               <span className="font-semibold text-foreground">Formula: </span>
-                              <code className="text-xs bg-muted px-2 py-1 rounded">{finding.details.formula}</code>
+                              <code className="text-xs bg-muted px-2 py-1 rounded inline-block">{finding.details.formula}</code>
                             </div>
                           )}
                           {finding.details.example && (
-                            <div>
+                            <div className="break-words">
                               <span className="font-semibold text-foreground">Example: </span>
                               <span className="text-muted-foreground">{finding.details.example}</span>
                             </div>
@@ -926,15 +926,15 @@ export const WorkflowDiagrams: React.FC = () => {
                           {finding.details.location && (
                             <div className="mt-3">
                               <span className="font-semibold text-foreground">File Locations:</span>
-                              <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                              <ul className="list-disc list-inside ml-2 md:ml-4 mt-1 space-y-1">
                                 {finding.details.location.db && (
-                                  <li className="text-xs font-mono text-muted-foreground">{finding.details.location.db}</li>
+                                  <li className="text-xs font-mono text-muted-foreground break-all">{finding.details.location.db}</li>
                                 )}
                                 {finding.details.location.frontend && (
-                                  <li className="text-xs font-mono text-muted-foreground">{finding.details.location.frontend}</li>
+                                  <li className="text-xs font-mono text-muted-foreground break-all">{finding.details.location.frontend}</li>
                                 )}
                                 {finding.details.location.edgeFunctions && finding.details.location.edgeFunctions.map((ef, i) => (
-                                  <li key={i} className="text-xs font-mono text-muted-foreground">supabase/functions/{ef}</li>
+                                  <li key={i} className="text-xs font-mono text-muted-foreground break-all">supabase/functions/{ef}</li>
                                 ))}
                               </ul>
                             </div>

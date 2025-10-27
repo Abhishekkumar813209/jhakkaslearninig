@@ -70,7 +70,8 @@ const TopicCard = ({
   chapterName,
   gameCompletionRate,
   isToday, 
-  isPast
+  isPast,
+  isEmpty
 }: { 
   topic: RoadmapTopic; 
   subject: string;
@@ -78,7 +79,25 @@ const TopicCard = ({
   gameCompletionRate: number;
   isToday: boolean; 
   isPast: boolean;
+  isEmpty?: boolean;
 }) => {
+  // Empty chapter placeholder
+  if (isEmpty) {
+    return (
+      <div className="p-2 border rounded-lg bg-muted border-border mb-2 hover:shadow-md transition-all">
+        <div className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">
+          {subject}
+        </div>
+        <div className="font-medium text-sm mt-1 text-foreground">
+          {chapterName}
+        </div>
+        <div className="text-xs mt-2 italic text-muted-foreground flex items-center gap-1">
+          📚 Topics coming soon
+        </div>
+      </div>
+    );
+  }
+
   const color = getTopicColor(gameCompletionRate);
 
   return (
@@ -124,7 +143,7 @@ export const ParentRoadmapCalendar = ({
   const isMobile = useIsMobile();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
 
-  // Transform to topic-level cards
+  // Transform to topic-level cards (including empty chapters)
   interface CalendarTopic {
     id: string;
     date: string;
@@ -133,31 +152,48 @@ export const ParentRoadmapCalendar = ({
     topicName: string;
     gameCompletionRate: number;
     status: string;
+    isEmpty?: boolean;
   }
 
   const topics: CalendarTopic[] = subjectsData.flatMap(subject =>
-    subject.chapters.flatMap(chapter =>
-      (chapter.topics || []).map(topic => {
-        const rate = topic.progress_percentage || 0;
-        
-        // FIX: Use topic's day_number, not chapter's day_start
-        const topicDate = topic.day_number 
-          ? format(addDays(startDate, topic.day_number - 1), 'yyyy-MM-dd')
-          : (chapter.day_start 
-            ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
-            : format(startDate, 'yyyy-MM-dd'));
-        
-        return {
-          id: topic.id,
-          date: topicDate,
+    subject.chapters.flatMap(chapter => {
+      // If chapter has topics, show them
+      if (chapter.topics && chapter.topics.length > 0) {
+        return chapter.topics.map(topic => {
+          const rate = topic.progress_percentage || 0;
+          
+          // Use topic's day_number, not chapter's day_start
+          const topicDate = topic.day_number 
+            ? format(addDays(startDate, topic.day_number - 1), 'yyyy-MM-dd')
+            : (chapter.day_start 
+              ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
+              : format(startDate, 'yyyy-MM-dd'));
+          
+          return {
+            id: topic.id,
+            date: topicDate,
+            subject: subject.name,
+            chapterName: chapter.chapter_name,
+            topicName: topic.topic_name,
+            gameCompletionRate: rate,
+            status: topic.status || 'not_started',
+            isEmpty: false
+          } as CalendarTopic;
+        });
+      } else {
+        // Chapter has no topics - show placeholder
+        return [{
+          id: `empty-${chapter.id}`,
+          date: format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd'),
           subject: subject.name,
           chapterName: chapter.chapter_name,
-          topicName: topic.topic_name,
-          gameCompletionRate: rate,
-          status: topic.status || 'not_started'
-        };
-      })
-    )
+          topicName: '📚 Topics not yet added',
+          gameCompletionRate: 0,
+          status: 'not_started',
+          isEmpty: true
+        } as CalendarTopic];
+      }
+    })
   );
 
   const subjects = subjectsData.map(s => s.name);
@@ -277,6 +313,7 @@ export const ParentRoadmapCalendar = ({
                                 gameCompletionRate={topicItem.gameCompletionRate}
                                 isToday={isToday}
                                 isPast={isPast}
+                                isEmpty={topicItem.isEmpty}
                               />
                           ))}
                           {(!groupedByDateSubject[date][selectedSubject] || groupedByDateSubject[date][selectedSubject].length === 0) && (
@@ -297,6 +334,7 @@ export const ParentRoadmapCalendar = ({
                               gameCompletionRate={topicItem.gameCompletionRate}
                               isToday={isToday}
                               isPast={isPast}
+                              isEmpty={topicItem.isEmpty}
                             />
                             ))}
                             {groupedByDateSubject[date][subject].length === 0 && (

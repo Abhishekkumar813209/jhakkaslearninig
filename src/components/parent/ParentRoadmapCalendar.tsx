@@ -63,104 +63,59 @@ const SUBJECT_COLORS: Record<string, string> = {
   default: 'border-gray-200'
 };
 
-const ChapterPill = ({ 
-  chapter, 
+const TopicCard = ({ 
+  topic, 
+  subject, 
+  chapterName,
+  gameCompletionRate,
   isToday, 
-  isPast,
-  isCompleted,
-  onDoubleClick,
-  topicStatuses
+  isPast
 }: { 
-  chapter: CalendarChapter; 
+  topic: RoadmapTopic; 
+  subject: string;
+  chapterName: string;
+  gameCompletionRate: number;
   isToday: boolean; 
   isPast: boolean;
-  isCompleted: boolean;
-  onDoubleClick: (chapterId: string) => void;
-  topicStatuses: Record<string, string>;
 }) => {
-  const [showTopics, setShowTopics] = useState(false);
-  const colorClass = SUBJECT_COLORS[chapter.subject] || SUBJECT_COLORS.default;
-  
-  // Calculate chapter status based on topic statuses (auto from backend)
-  // Filter out topics with no games (grey status means no games assigned)
-  const topicsWithGames = chapter.topics.filter(t => {
-    const status = topicStatuses[t.id];
-    return status && status !== 'grey'; // Only count topics that have games
-  });
-  
-  const totalTopics = chapter.topics.length;
-  const topicsWithGamesCount = topicsWithGames.length;
-  const greenTopics = chapter.topics.filter(t => topicStatuses[t.id] === 'green').length;
-  
-  // Auto-calculate chapter status: green if 60%+ topics WITH GAMES are green
-  const autoChapterStatus = topicsWithGamesCount > 0 && (greenTopics / topicsWithGamesCount) >= 0.6 ? 'green' : 'red';
-  const bgColor = autoChapterStatus === 'green' ? 'bg-green-600' : 'bg-red-600';
-  const textColor = 'text-white';
+  // Color logic with new 70/50 thresholds
+  const getTopicColor = (rate: number) => {
+    if (rate > 70) return { bg: 'bg-green-600', badge: 'green', icon: '✅', text: 'Excellent' };
+    if (rate >= 50) return { bg: 'bg-gray-500', badge: 'grey', icon: '⏳', text: 'In Progress' };
+    if (rate > 0) return { bg: 'bg-red-600', badge: 'red', icon: '🔴', text: 'Needs Attention' };
+    return { bg: 'bg-gray-400', badge: 'grey', icon: '⚪', text: 'Not Started' };
+  };
+
+  const color = getTopicColor(gameCompletionRate);
 
   return (
-    <div 
-      className={`p-2 border rounded-lg ${bgColor} ${textColor} ${colorClass} relative mb-2 cursor-pointer select-none transition-colors hover:shadow-md hover:opacity-90`}
-      onDoubleClick={() => onDoubleClick(chapter.id)}
-    >
-      {/* Status badge - Auto-updated from backend */}
+    <div className={`p-2 border rounded-lg ${color.bg} text-white relative mb-2 hover:shadow-md transition-all`}>
+      {/* Subject Tag */}
+      <div className="text-xs font-semibold uppercase text-white/80 tracking-wide">
+        {subject}
+      </div>
+
+      {/* Topic Name */}
+      <div className="font-medium text-sm mt-1 flex items-center justify-between">
+        <span>{topic.topic_name}</span>
+        {isToday && <Badge variant="secondary" className="text-xs ml-2">Today</Badge>}
+      </div>
+
+      {/* Chapter Reference */}
+      <div className="text-xs mt-1 text-white/80">
+        Chapter: {chapterName}
+      </div>
+
+      {/* Progress Badge */}
       <div className="absolute top-1 right-1">
-        <Badge variant="outline" className={`text-xs ${autoChapterStatus === 'green' ? 'bg-green-800 text-white border-green-400' : 'bg-red-800 text-white border-red-400'}`}>
-          {autoChapterStatus === 'green' ? "✅ Done" : "❌ Not Done"}
+        <Badge className={`text-xs ${color.badge === 'green' ? 'bg-green-800 border-green-400' : color.badge === 'red' ? 'bg-red-800 border-red-400' : 'bg-gray-600 border-gray-400'}`}>
+          {color.icon} {gameCompletionRate.toFixed(0)}%
         </Badge>
       </div>
 
-      {/* Subject tag */}
-      <div className="text-xs font-semibold text-white/80 uppercase tracking-wide">
-        {chapter.subject}
-      </div>
-
-      {/* Chapter name */}
-      <div className="font-medium text-sm flex items-center justify-between gap-2 pr-16">
-        <span>{chapter.chapterName}</span>
-        {isToday && <Badge variant="secondary" className="text-xs">Today</Badge>}
-      </div>
-
-      {/* Topics toggle */}
-      {totalTopics > 0 && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowTopics(!showTopics);
-          }}
-          className="text-xs text-white hover:underline mt-1 flex items-center gap-1"
-        >
-          <FileText className="h-3 w-3" />
-          {showTopics ? 'Hide' : 'Show'} Topics ({totalTopics})
-        </button>
-      )}
-
-      {/* Topics list with auto-status indicators */}
-      {showTopics && totalTopics > 0 && (
-        <div className="mt-2 space-y-1 border-t border-white/20 pt-2">
-          {chapter.topics.map((topic) => {
-            const topicStatus = topicStatuses[topic.id] || 'grey';
-            const statusColor = {
-              green: 'bg-green-500',
-              yellow: 'bg-yellow-500',
-              red: 'bg-red-500',
-              grey: 'bg-gray-400'
-            }[topicStatus];
-            
-            return (
-              <div
-                key={topic.id}
-                className="w-full text-left text-xs p-1.5 rounded flex items-center gap-2 bg-white/20 text-white"
-              >
-                <div className={`h-3 w-3 ${statusColor} rounded-full flex-shrink-0`} />
-                <span>{topic.topic_name}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      
+      {/* Status Text */}
       <div className="mt-2 text-[10px] text-white/70">
-        🤖 Auto-updated from backend (60% games = green)
+        {color.text}
       </div>
     </div>
   );
@@ -176,7 +131,7 @@ export const ParentRoadmapCalendar = ({
 }: ParentRoadmapCalendarProps) => {
   const isMobile = useIsMobile();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
-  const [autoTopicStatuses, setAutoTopicStatuses] = useState<Record<string, string>>({});
+  const [autoTopicStatuses, setAutoTopicStatuses] = useState<Record<string, { status: string; rate: number }>>({});
 
   // Fetch automatic topic statuses from backend
   useEffect(() => {
@@ -211,44 +166,50 @@ export const ParentRoadmapCalendar = ({
     
     const { data, error } = await supabase
       .from('student_topic_status')
-      .select('topic_id, status')
+      .select('topic_id, status, game_completion_rate')
       .eq('student_id', studentId);
 
     if (!error && data) {
-      const statusMap: Record<string, string> = {};
+      const statusMap: Record<string, { status: string; rate: number }> = {};
       data.forEach(item => {
-        statusMap[item.topic_id] = item.status;
+        statusMap[item.topic_id] = {
+          status: item.status,
+          rate: item.game_completion_rate || 0
+        };
       });
       setAutoTopicStatuses(statusMap);
     }
   };
 
-  // Transform subjectsData to calendar chapters
-  const chapters: CalendarChapter[] = subjectsData.flatMap(subject =>
-    subject.chapters.map(chapter => {
-      const topics: RoadmapTopic[] = (chapter.topics || []).map(topic => ({
-        id: topic.id,
-        topic_name: topic.topic_name,
-        day_number: 1,
-        is_completed: false, // Always show as not completed for parent view
-        theory_completed: false
-      }));
+  // Transform to topic-level cards
+  interface CalendarTopic {
+    id: string;
+    date: string;
+    subject: string;
+    chapterName: string;
+    topicName: string;
+    gameCompletionRate: number;
+    status: string;
+  }
 
-      // Calculate date from day_start
-      const chapterDate = chapter.day_start 
-        ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
-        : format(startDate, 'yyyy-MM-dd');
-
-      return {
-        id: chapter.id,
-        date: chapterDate,
-        subject: subject.name,
-        chapterName: chapter.chapter_name,
-        estimatedDays: (chapter.day_end - chapter.day_start + 1) || 1,
-        topics,
-        progress: chapter.progress || 0
-      };
-    })
+  const topics: CalendarTopic[] = subjectsData.flatMap(subject =>
+    subject.chapters.flatMap(chapter =>
+      (chapter.topics || []).map(topic => {
+        const topicStatus = autoTopicStatuses[topic.id] || { status: 'grey', rate: 0 };
+        
+        return {
+          id: topic.id,
+          date: chapter.day_start 
+            ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
+            : format(startDate, 'yyyy-MM-dd'),
+          subject: subject.name,
+          chapterName: chapter.chapter_name,
+          topicName: topic.topic_name,
+          gameCompletionRate: topicStatus.rate,
+          status: topicStatus.status
+        };
+      })
+    )
   );
 
   const subjects = subjectsData.map(s => s.name);
@@ -264,14 +225,16 @@ export const ParentRoadmapCalendar = ({
   const allDates = generateDateRange(startDate, totalDays);
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  // Group chapters by date AND subject
+  // Group topics by date AND subject (not by chapter)
   const groupedByDateSubject = allDates.reduce((acc, date) => {
     acc[date] = {};
     subjects.forEach(subject => {
-      acc[date][subject] = chapters.filter(ch => ch.date === date && ch.subject === subject);
+      acc[date][subject] = topics.filter(t => 
+        t.date === date && t.subject === subject
+      );
     });
     return acc;
-  }, {} as Record<string, Record<string, CalendarChapter[]>>);
+  }, {} as Record<string, Record<string, CalendarTopic[]>>);
 
   return (
     <div className="space-y-4">
@@ -354,15 +317,15 @@ export const ParentRoadmapCalendar = ({
                     {isMobile ? (
                       <td className="border p-2 align-top">
                         <div className="min-h-[80px]">
-                          {groupedByDateSubject[date][selectedSubject]?.map(chapter => (
-                              <ChapterPill
-                                key={chapter.id}
-                                chapter={chapter}
+                          {groupedByDateSubject[date][selectedSubject]?.map(topicItem => (
+                              <TopicCard
+                                key={topicItem.id}
+                                topic={{ id: topicItem.id, topic_name: topicItem.topicName, day_number: 0, is_completed: false, theory_completed: false }}
+                                subject={topicItem.subject}
+                                chapterName={topicItem.chapterName}
+                                gameCompletionRate={topicItem.gameCompletionRate}
                                 isToday={isToday}
                                 isPast={isPast}
-                                isCompleted={chapterStatuses[chapter.id] || false}
-                                onDoubleClick={onChapterDoubleClick}
-                                topicStatuses={autoTopicStatuses}
                               />
                           ))}
                           {(!groupedByDateSubject[date][selectedSubject] || groupedByDateSubject[date][selectedSubject].length === 0) && (
@@ -374,15 +337,15 @@ export const ParentRoadmapCalendar = ({
                       subjects.map(subject => (
                         <td key={`${date}-${subject}`} className="border p-2 align-top">
                           <div className="min-h-[80px]">
-                            {groupedByDateSubject[date][subject].map(chapter => (
-                            <ChapterPill
-                              key={chapter.id}
-                              chapter={chapter}
+                            {groupedByDateSubject[date][subject].map(topicItem => (
+                            <TopicCard
+                              key={topicItem.id}
+                              topic={{ id: topicItem.id, topic_name: topicItem.topicName, day_number: 0, is_completed: false, theory_completed: false }}
+                              subject={topicItem.subject}
+                              chapterName={topicItem.chapterName}
+                              gameCompletionRate={topicItem.gameCompletionRate}
                               isToday={isToday}
                               isPast={isPast}
-                              isCompleted={chapterStatuses[chapter.id] || false}
-                              onDoubleClick={onChapterDoubleClick}
-                              topicStatuses={autoTopicStatuses}
                             />
                             ))}
                             {groupedByDateSubject[date][subject].length === 0 && (
@@ -404,26 +367,18 @@ export const ParentRoadmapCalendar = ({
         <p className="font-semibold">📚 Legend (Auto-Updated from Backend):</p>
         <ul className="list-disc list-inside ml-2 space-y-1">
           <li className="flex items-center gap-2">
-            <div className="inline-block w-4 h-4 bg-green-600 border border-green-400 rounded"></div>
-            <span>Done (Green) - 60%+ games completed in chapter topics</span>
+            <div className="inline-block w-4 h-4 bg-green-600 rounded"></div>
+            <span>Green - &gt;70% games completed</span>
           </li>
           <li className="flex items-center gap-2">
-            <div className="inline-block w-4 h-4 bg-red-600 border border-red-400 rounded"></div>
-            <span>Not Done (Red) - Less than 60% games completed</span>
+            <div className="inline-block w-4 h-4 bg-gray-500 rounded"></div>
+            <span>Grey - 50-70% games completed</span>
           </li>
           <li className="flex items-center gap-2">
-            <div className="inline-block w-3 h-3 bg-green-500 rounded-full"></div>
-            <span>Topic Green - 60%+ games & tests completed</span>
+            <div className="inline-block w-4 h-4 bg-red-600 rounded"></div>
+            <span>Red - &lt;50% games completed</span>
           </li>
-          <li className="flex items-center gap-2">
-            <div className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <span>Topic Yellow - 40-60% completed</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="inline-block w-3 h-3 bg-red-500 rounded-full"></div>
-            <span>Topic Red - Below 40% completed</span>
-          </li>
-          <li>🤖 Status updates automatically when student completes games/tests</li>
+          <li>🤖 Auto-updates when student completes games</li>
           <li>✨ Real-time updates via Supabase Realtime</li>
         </ul>
       </div>

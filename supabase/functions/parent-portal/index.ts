@@ -580,11 +580,20 @@ serve(async (req) => {
           );
         }
 
-        // Get completion status for all topics
+        // Get completion status for all topics (including game totals)
         const topicIds = roadmapTopics.map(t => t.id);
+        
+        // Get game progress data
         const { data: completionData } = await supabase
           .from('student_topic_game_progress')
           .select('topic_id, is_completed, last_accessed_at, completed_game_ids')
+          .eq('student_id', studentId)
+          .in('topic_id', topicIds);
+        
+        // Get topic status (includes game_completion_rate and total_games)
+        const { data: statusData } = await supabase
+          .from('student_topic_status')
+          .select('topic_id, game_completion_rate, total_games')
           .eq('student_id', studentId)
           .in('topic_id', topicIds);
 
@@ -592,11 +601,17 @@ serve(async (req) => {
         const completionMap = new Map(
           (completionData || []).map(c => [c.topic_id, c])
         );
+        
+        // Create status map
+        const statusMap = new Map(
+          (statusData || []).map(s => [s.topic_id, s])
+        );
 
         // Build daily progress with dates
         const roadmapStart = new Date(roadmapDetails.start_date);
         const dailyProgress = roadmapTopics.map((topic: any) => {
           const completion = completionMap.get(topic.id);
+          const status = statusMap.get(topic.id);
           const scheduledDate = new Date(roadmapStart);
           scheduledDate.setDate(scheduledDate.getDate() + (topic.day_number - 1));
 
@@ -610,7 +625,9 @@ serve(async (req) => {
             topic_name: topic.topic_name,
             is_completed: completion?.is_completed || false,
             completed_at: completion?.last_accessed_at || null,
-            games_completed: completion?.completed_game_ids?.length || 0
+            games_completed: completion?.completed_game_ids?.length || 0,
+            total_games: status?.total_games || 0,
+            game_completion_rate: status?.game_completion_rate || 0
           };
         });
 

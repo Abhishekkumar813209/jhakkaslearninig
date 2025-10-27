@@ -26,6 +26,7 @@ import {
   Compass,
   Heart
 } from "lucide-react";
+import { getTopicColor } from "@/lib/progressColors";
 import { 
   DndContext, 
   closestCenter, 
@@ -244,41 +245,35 @@ const SortableChapterCard = ({
       
       {showTopics && hasTopics && (
         <div className="ml-6 space-y-1 pt-2 border-t mt-2">
-          {chapter.topics!.map((topic) => (
-            <div 
-              key={topic.id} 
-              className="flex items-center justify-between text-xs text-muted-foreground py-1 hover:bg-accent/50 -mx-2 px-2 rounded"
-            >
-              <div className="flex items-center gap-2">
-                <FileText className="h-3 w-3" />
-                <span>{topic.topic_name}</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {topic.status === 'completed' && (
-                  <CheckCircle className="h-3 w-3 text-green-500" />
-                )}
-                {topic.status === 'in_progress' && (
-                  <Clock className="h-3 w-3 text-yellow-500" />
-                )}
-                {topic.status === 'locked' && (
-                  <Lock className="h-3 w-3 text-muted-foreground" />
-                )}
+          {chapter.topics!.map((topic) => {
+            const topicColor = getTopicColor(topic.progress_percentage || 0);
+            
+            return (
+              <div 
+                key={topic.id} 
+                className="flex items-center justify-between text-xs text-muted-foreground py-1 hover:bg-accent/50 -mx-2 px-2 rounded"
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${topicColor.bg}`} />
+                  <span>{topic.topic_name}</span>
+                </div>
                 
-                {topic.estimated_hours && (
-                  <Badge variant="outline" className="text-[10px] px-1 py-0">
-                    {topic.estimated_hours}h
-                  </Badge>
-                )}
-                
-                {topic.progress_percentage !== undefined && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {topic.progress_percentage}%
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {topic.estimated_hours && (
+                    <Badge variant="outline" className="text-[10px] px-1 py-0">
+                      {topic.estimated_hours}h
+                    </Badge>
+                  )}
+                  
+                  {topic.progress_percentage !== undefined && (
+                    <Badge variant="outline" className={`text-[10px] px-1 py-0 ${topicColor.badgeClass}`}>
+                      {topicColor.icon} {topic.progress_percentage.toFixed(0)}%
+                    </Badge>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

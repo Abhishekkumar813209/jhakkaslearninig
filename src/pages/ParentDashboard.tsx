@@ -531,7 +531,6 @@ export default function ParentDashboard() {
                 subjectsData={roadmapCalendar.subjectsData}
                 chapterStatuses={chapterStatuses}
                 onChapterDoubleClick={toggleChapterStatus}
-                studentId={selectedStudent}
               />
             )}
 

@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { CheckCircle2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getTopicColor } from "@/lib/progressColors";
 
 interface DailyTopicProgress {
   date: string;
@@ -81,12 +82,12 @@ export function RoadmapDailyCalendar({ dailyProgress }: RoadmapDailyCalendarProp
                         <h4 className="font-semibold text-sm text-muted-foreground">{subject}</h4>
                         {dailyProgress[date][subject].map((topic, idx) => {
                           const completionRate = topic.total_games > 0 ? (topic.games_completed / topic.total_games) * 100 : 0;
+                          const color = getTopicColor(completionRate);
                           
                           const getBackgroundColor = () => {
-                            if (completionRate > 70) return 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800';
-                            if (completionRate >= 50) return 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800';
-                            if (completionRate > 0) return 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800';
-                            return 'bg-muted/30 border-muted';
+                            if (color.key === 'green') return 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800';
+                            if (color.key === 'red') return 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800';
+                            return 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800';
                           };
 
                           return (
@@ -95,14 +96,10 @@ export function RoadmapDailyCalendar({ dailyProgress }: RoadmapDailyCalendarProp
                               className={`flex items-center justify-between p-3 rounded-lg border ml-4 transition-colors ${getBackgroundColor()}`}
                             >
                               <div className="flex items-center gap-3 flex-1">
-                                {completionRate > 70 ? (
+                                {color.key === 'green' ? (
                                   <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                                ) : completionRate >= 50 ? (
-                                  <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                                ) : completionRate > 0 ? (
-                                  <Clock className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
                                 ) : (
-                                  <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                  <Clock className={`h-5 w-5 flex-shrink-0 ${color.key === 'red' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`} />
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium">{topic.topic_name}</p>
@@ -110,23 +107,9 @@ export function RoadmapDailyCalendar({ dailyProgress }: RoadmapDailyCalendarProp
                                 </div>
                               </div>
                               <div className="text-right ml-4">
-                                {completionRate > 70 ? (
-                                  <Badge className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
-                                    ✓ Excellent
-                                  </Badge>
-                                ) : completionRate >= 50 ? (
-                                  <Badge className="bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-800">
-                                    ⏳ In Progress
-                                  </Badge>
-                                ) : completionRate > 0 ? (
-                                  <Badge className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
-                                    🔴 Needs Attention
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary">
-                                    ⚪ Not Started
-                                  </Badge>
-                                )}
+                                <Badge className={`${color.key === 'green' ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : color.key === 'red' ? 'bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800' : 'bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-800'}`}>
+                                  {color.icon} {color.label}
+                                </Badge>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   {topic.games_completed}/{topic.total_games} games ({completionRate.toFixed(0)}%)
                                 </p>

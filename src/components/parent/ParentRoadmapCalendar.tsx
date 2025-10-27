@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { format, addDays, parseISO, getWeek } from 'date-fns';
-import { Calendar, Lock, FileText } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
+import { getTopicColor } from '@/lib/progressColors';
 
 interface RoadmapTopic {
   id: string;
@@ -49,7 +48,6 @@ interface ParentRoadmapCalendarProps {
   subjectsData: SubjectData[];
   chapterStatuses: Record<string, boolean>;
   onChapterDoubleClick: (chapterId: string) => void;
-  studentId?: string; // Add student ID for auto-status
 }
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -78,14 +76,6 @@ const TopicCard = ({
   isToday: boolean; 
   isPast: boolean;
 }) => {
-  // Color logic with new 70/50 thresholds
-  const getTopicColor = (rate: number) => {
-    if (rate > 70) return { bg: 'bg-green-600', badge: 'green', icon: '✅', text: 'Excellent' };
-    if (rate >= 50) return { bg: 'bg-gray-500', badge: 'grey', icon: '⏳', text: 'In Progress' };
-    if (rate > 0) return { bg: 'bg-red-600', badge: 'red', icon: '🔴', text: 'Needs Attention' };
-    return { bg: 'bg-gray-400', badge: 'grey', icon: '⚪', text: 'Not Started' };
-  };
-
   const color = getTopicColor(gameCompletionRate);
 
   return (
@@ -108,14 +98,14 @@ const TopicCard = ({
 
       {/* Progress Badge */}
       <div className="absolute top-1 right-1">
-        <Badge className={`text-xs ${color.badge === 'green' ? 'bg-green-800 border-green-400' : color.badge === 'red' ? 'bg-red-800 border-red-400' : 'bg-gray-600 border-gray-400'}`}>
+        <Badge className={`text-xs ${color.badgeClass} text-white`}>
           {color.icon} {gameCompletionRate.toFixed(0)}%
         </Badge>
       </div>
 
       {/* Status Text */}
       <div className="mt-2 text-[10px] text-white/70">
-        {color.text}
+        {color.label}
       </div>
     </div>
   );
@@ -126,60 +116,10 @@ export const ParentRoadmapCalendar = ({
   totalDays,
   subjectsData,
   chapterStatuses,
-  onChapterDoubleClick,
-  studentId
+  onChapterDoubleClick
 }: ParentRoadmapCalendarProps) => {
   const isMobile = useIsMobile();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
-  const [autoTopicStatuses, setAutoTopicStatuses] = useState<Record<string, { status: string; rate: number }>>({});
-
-  // Fetch automatic topic statuses from backend
-  useEffect(() => {
-    if (studentId) {
-      fetchTopicStatuses();
-      
-      // Setup realtime subscription
-      const channel = supabase
-        .channel('topic-status-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'student_topic_status',
-            filter: `student_id=eq.${studentId}`
-          },
-          () => {
-            fetchTopicStatuses();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [studentId]);
-
-  const fetchTopicStatuses = async () => {
-    if (!studentId) return;
-    
-    const { data, error } = await supabase
-      .from('student_topic_status')
-      .select('topic_id, status, game_completion_rate')
-      .eq('student_id', studentId);
-
-    if (!error && data) {
-      const statusMap: Record<string, { status: string; rate: number }> = {};
-      data.forEach(item => {
-        statusMap[item.topic_id] = {
-          status: item.status,
-          rate: item.game_completion_rate || 0
-        };
-      });
-      setAutoTopicStatuses(statusMap);
-    }
-  };
 
   // Transform to topic-level cards
   interface CalendarTopic {
@@ -195,7 +135,8 @@ export const ParentRoadmapCalendar = ({
   const topics: CalendarTopic[] = subjectsData.flatMap(subject =>
     subject.chapters.flatMap(chapter =>
       (chapter.topics || []).map(topic => {
-        const topicStatus = autoTopicStatuses[topic.id] || { status: 'grey', rate: 0 };
+        // Use progress_percentage from edge function data
+        const rate = topic.progress_percentage || 0;
         
         return {
           id: topic.id,
@@ -205,8 +146,8 @@ export const ParentRoadmapCalendar = ({
           subject: subject.name,
           chapterName: chapter.chapter_name,
           topicName: topic.topic_name,
-          gameCompletionRate: topicStatus.rate,
-          status: topicStatus.status
+          gameCompletionRate: rate,
+          status: topic.status || 'not_started'
         };
       })
     )
@@ -238,14 +179,9 @@ export const ParentRoadmapCalendar = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Roadmap Calendar - Auto-Updated</h3>
-        </div>
-        <Badge variant="default" className="text-xs">
-          🤖 Backend Controlled - Updates Automatically
-        </Badge>
+      <div className="flex items-center gap-2">
+        <Calendar className="h-5 w-5 text-primary" />
+        <h3 className="text-lg font-semibold">Student Roadmap Calendar</h3>
       </div>
 
       {isMobile && (

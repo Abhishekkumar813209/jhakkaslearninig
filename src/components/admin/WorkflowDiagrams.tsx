@@ -371,6 +371,120 @@ const workflows: WorkflowData[] = [
       cleanup: "Will automatically rebuild from student_topic_game_progress data",
     },
   },
+  {
+    table: "student_gamification",
+    description: "Jhakkas Points (XP) reward system - auto-distributes XP budgets and tracks all earning sources",
+    mermaidDiagram: `graph TD
+    A[👨‍💼 Admin Sets XP Budget] --> B[💾 roadmap_topics.xp_reward = 30/40/50]
+    B --> C[🤖 auto-distribute-xp Edge Function]
+    C --> D[📊 Fetches All Games for Topic]
+    D --> E[🔢 Distribution Algorithm]
+    E --> F[baseXP = floor budget / game_count]
+    F --> G[remainder = budget % game_count]
+    G --> H[First N games get baseXP + 1]
+    H --> I[💾 Updates gamified_exercises.xp_reward]
+    
+    I --> J[🎮 Student Completes Game]
+    J --> K[📱 TopicStudyView.handleGameComplete]
+    K --> L[🔍 Fetches actual xp_reward from DB]
+    L --> M[⚡ jhakkas-points-system Edge Function]
+    M --> N{Activity Type?}
+    
+    N -->|game_completed| O[game_xp += reward]
+    N -->|theory_read| P[theory_xp += 30/40/50]
+    N -->|attendance| Q[attendance_xp += 5]
+    N -->|social_share| R[social_share_xp += 10]
+    N -->|referral| S[referral_xp += 50]
+    N -->|exercise_completed| T[exercise_xp += reward]
+    N -->|quest_completion| U[quest_xp += reward]
+    
+    O --> V[📊 Update Totals]
+    P --> V
+    Q --> V
+    R --> V
+    S --> V
+    T --> V
+    U --> V
+    
+    V --> W[total_xp = sum of all XP fields]
+    W --> X[level = floor total_xp / 100]
+    X --> Y{Check Last Activity}
+    Y -->|Yesterday| Z[current_streak_days++]
+    Y -->|Today| AA[Keep Streak]
+    Y -->|Older| AB[current_streak_days = 1]
+    
+    Z --> AC[💾 Update student_gamification]
+    AA --> AC
+    AB --> AC
+    
+    AC --> AD[📊 Leaderboard Query]
+    AD --> AE[Filter by exam_domain]
+    AE --> AF[Filter by student_class]
+    AF --> AG[Filter by exam_name]
+    AG --> AH[📋 Top 100 Students]
+    
+    style A fill:#90EE90
+    style C fill:#9370DB
+    style I fill:#87CEEB
+    style M fill:#9370DB
+    style V fill:#FFD700
+    style AC fill:#FFB6C1
+    style AH fill:#98FB98`,
+    steps: [
+      { 
+        title: "1. XP Budget Setup", 
+        description: "Admin sets topic XP (30/40/50) in roadmap_topics.xp_reward during roadmap creation" 
+      },
+      { 
+        title: "2. Auto-Distribution", 
+        description: "Edge function auto-distribute-xp divides budget evenly: baseXP=floor(budget/games), remainder distributed to first N games" 
+      },
+      { 
+        title: "3. Game XP Assignment", 
+        description: "Updates gamified_exercises.xp_reward for each game (typically 2-5 XP per game)" 
+      },
+      { 
+        title: "4. Game Completion", 
+        description: "Student plays game in GamePlayerPage, TopicStudyView fetches actual xp_reward from database" 
+      },
+      { 
+        title: "5. XP Award", 
+        description: "jhakkas-points-system edge function receives activity_type and xp_amount" 
+      },
+      { 
+        title: "6. Breakdown Tracking", 
+        description: "Updates specific XP field: game_xp (2-5), theory_xp (30-50), attendance_xp (5), social_share_xp (10, 24h cooldown), referral_xp (50), exercise_xp, quest_xp" 
+      },
+      { 
+        title: "7. Total Calculation", 
+        description: "Sums all XP fields to update total_xp in student_gamification" 
+      },
+      { 
+        title: "8. Level Progression", 
+        description: "level = floor(total_xp / 100). Level 1: 0-99 XP, Level 2: 100-199 XP, etc." 
+      },
+      { 
+        title: "9. Streak Update", 
+        description: "Checks last_activity_date: if yesterday → streak++, if today → keep, if older → reset to 1" 
+      },
+      { 
+        title: "10. Leaderboard Sync", 
+        description: "Leaderboard queries filter by exam_domain, student_class, exam_name to show relevant top 100 students" 
+      },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ NEVER delete student_gamification - breaks entire reward system, levels, streaks, and leaderboards!",
+      orphans: [
+        "daily_attendance (xp_awarded references become invalid)",
+        "daily_quests (XP awards have no destination)",
+        "referral_credits (referral XP tracking breaks)",
+        "XPDisplay component shows errors",
+        "Leaderboard becomes empty",
+        "All XP history and progress lost permanently"
+      ],
+      cleanup: "Archive to student_gamification_archive table instead of deleting. Never hard delete this table.",
+    },
+  },
 ];
 
 const BUILD_TIMESTAMP = new Date().toISOString();

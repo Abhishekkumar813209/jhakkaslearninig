@@ -485,6 +485,171 @@ const workflows: WorkflowData[] = [
       cleanup: "Archive to student_gamification_archive table instead of deleting. Never hard delete this table.",
     },
   },
+  {
+    table: "roadmap_xp_topic_complete_flow",
+    description: "🎯 COMPLETE SYSTEM: Roadmap Structure → XP Distribution → Topic Status Calculation → Parent-Student Portal Sync",
+    mermaidDiagram: `graph TD
+    A[📚 Admin Creates Roadmap] --> B[batch_roadmaps]
+    B --> C[roadmap_chapters]
+    C --> D[roadmap_topics]
+    D --> E[topic_content_mapping]
+    E --> F[gamified_exercises]
+    
+    F --> G[💰 XP Distribution]
+    G --> H{XP Budget Source?}
+    H -->|Topic Level| I[roadmap_topics.xp_reward]
+    H -->|Auto-Distribute| J[auto-distribute-xp Edge Function]
+    J --> K[Divides XP evenly: floor budget/games]
+    K --> L[Remainder to first N games]
+    L --> F
+    
+    F --> M[🎮 Student Plays Game]
+    M --> N[TopicStudyView.handleGameComplete]
+    N --> O[Fetch xp_reward from gamified_exercises]
+    O --> P[⚡ jhakkas-points-system Edge Function]
+    P --> Q[student_gamification.current_xp += reward]
+    Q --> R[total_xp, level, streaks updated]
+    
+    N --> S[💾 student_topic_game_progress]
+    S --> T[completed_game_ids.push game_id]
+    T --> U[questions_completed++]
+    U --> V[🔔 Trigger: update_topic_status_trigger]
+    V --> W[📊 calculate_topic_status DB Function]
+    
+    W --> X[game_completion_rate = completed/total * 100]
+    X --> Y{⚠️ OLD DB Logic}
+    Y -->|Rate >= 60%| Z[status = 'green']
+    Y -->|Rate >= 40%| AA[status = 'yellow']
+    Y -->|Rate < 40%| AB[status = 'red']
+    Y -->|Rate = 0%| AC[status = 'grey']
+    
+    Z --> AD[💾 student_topic_status upsert]
+    AA --> AD
+    AB --> AD
+    AC --> AD
+    
+    AD --> AE[📅 Parent Portal: parent-portal Edge Function]
+    AD --> AF[📅 Student Portal: student-roadmap-api Edge Function]
+    
+    AE --> AG[ParentRoadmapCalendar.tsx]
+    AF --> AH[StudentRoadmapCalendar.tsx]
+    
+    AG --> AI{⚠️ NEW Frontend Logic - progressColors.ts}
+    AH --> AI
+    AI -->|Rate > 70%| AJ[Display GREEN ✅]
+    AI -->|Rate 50-70%| AK[Display GREY ⏳]
+    AI -->|Rate < 50%| AL[Display RED 🔴]
+    AI -->|Rate = 0%| AM[Display GREY NOT STARTED ⚪]
+    
+    AN[📊 MISMATCH ZONE] -.->|60% completion| AO[DB says GREEN]
+    AN -.->|60% completion| AP[Frontend shows GREY]
+    
+    style A fill:#90EE90
+    style G fill:#FFD700
+    style J fill:#9370DB
+    style P fill:#87CEEB
+    style W fill:#FFB6C1
+    style Y fill:#FF6B6B
+    style AI fill:#FF4500
+    style AN fill:#FF0000
+    style AO fill:#00FF00
+    style AP fill:#808080`,
+    steps: [
+      { title: "1. Roadmap Structure", description: "batch_roadmaps → roadmap_chapters → roadmap_topics → topic_content_mapping → gamified_exercises" },
+      { title: "2. Topic XP Budget", description: "Admin sets roadmap_topics.xp_reward (30 easy / 40 medium / 50 hard) OR uses auto-distribute" },
+      { title: "3. Auto-Distribution", description: "Edge function: auto-distribute-xp/index.ts divides topic budget evenly among games" },
+      { title: "4. XP Formula", description: "baseXP = floor(topic_xp_reward / total_games), remainder distributed to first N games" },
+      { title: "5. Game XP Storage", description: "Each gamified_exercises.xp_reward updated (typically 2-5 XP per game)" },
+      { title: "6. Student Completion", description: "GamePlayerPage → TopicStudyView.handleGameComplete fetches xp_reward from DB" },
+      { title: "7. XP Award", description: "Edge function: jhakkas-points-system/index.ts receives activity='game_completed' + xp_amount" },
+      { title: "8. Gamification Update", description: "Updates student_gamification: game_xp, total_xp, level (floor(total_xp/100)), streaks" },
+      { title: "9. Progress Tracking", description: "Adds game_id to student_topic_game_progress.completed_game_ids[] array" },
+      { title: "10. Status Trigger", description: "DB Trigger: update_topic_status_trigger fires → calculate_topic_status() function" },
+      { title: "11. ⚠️ DB Color Logic", description: "OLD THRESHOLDS: Green >= 60%, Yellow >= 40%, Red < 40%, Grey = 0% (in migrations/*.sql)" },
+      { title: "12. Status Upsert", description: "Updates student_topic_status with game_completion_rate, test_average, status" },
+      { title: "13. Portal Fetch - Parent", description: "Edge function: parent-portal/index.ts fetches roadmap + student_topic_status" },
+      { title: "14. Portal Fetch - Student", description: "Edge function: student-roadmap-api/index.ts fetches roadmap + student_topic_status" },
+      { title: "15. ⚠️ Frontend Color Logic", description: "NEW THRESHOLDS: Green > 70%, Grey 50-70%, Red < 50%, Grey = 0% (src/lib/progressColors.ts)" },
+      { title: "16. Calendar Display", description: "ParentRoadmapCalendar.tsx & StudentRoadmapCalendar.tsx use getTopicColor() from progressColors.ts" },
+      { title: "17. 🚨 CRITICAL MISMATCH", description: "60% completion: DB marks 'green', Frontend displays GREY → User confusion!" },
+    ],
+    deleteBehavior: {
+      warning: "🚨 CRITICAL COLOR THRESHOLD MISMATCH: Database uses >= 60% green, Frontend uses > 70% green!",
+      orphans: [
+        "⚠️ student_topic_status recalculates on next game completion",
+        "⚠️ student_gamification XP preserved even if games deleted",
+        "⚠️ roadmap_topics orphaned if batch_roadmap deleted",
+        "⚠️ 60-70% completion range shows as GREY instead of GREEN",
+      ],
+      cleanup: "UPDATE calculate_topic_status() function in migrations to use >70% threshold to match progressColors.ts",
+    },
+  },
+];
+
+interface CriticalFinding {
+  title: string;
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  details: {
+    database?: string;
+    frontend?: string;
+    impact?: string;
+    location?: {
+      db?: string;
+      frontend?: string;
+      edgeFunctions?: string[];
+    };
+    manual?: string;
+    automatic?: string;
+    formula?: string;
+    example?: string;
+  };
+  recommendation: string;
+}
+
+const criticalFindings: CriticalFinding[] = [
+  {
+    title: "🚨 Color Threshold Mismatch",
+    severity: "high",
+    description: "Database and Frontend use different thresholds for topic status colors, causing 60-70% completion to show as GREY instead of GREEN",
+    details: {
+      database: "Green >= 60%, Yellow >= 40%, Red < 40%, Grey = 0% (calculate_topic_status function)",
+      frontend: "Green > 70%, Grey 50-70%, Red < 50%, Grey = 0% (src/lib/progressColors.ts getTopicColor function)",
+      impact: "60% completion shows as GREY on frontend but should be GREEN per DB logic. 65% also shows GREY. Only 71%+ shows GREEN.",
+      location: {
+        db: "supabase/migrations/*-create-topic-status-function.sql (calculate_topic_status)",
+        frontend: "src/lib/progressColors.ts (getTopicColor function)",
+        edgeFunctions: ["parent-portal/index.ts", "student-roadmap-api/index.ts"],
+      },
+    },
+    recommendation: "Update calculate_topic_status() SQL function to use CASE WHEN game_completion_rate > 70 THEN 'green' to match frontend logic",
+  },
+  {
+    title: "⚡ XP Distribution Flow",
+    severity: "medium",
+    description: "XP can be set at topic level OR auto-distributed from batch budget - needs clear documentation",
+    details: {
+      manual: "Admin sets roadmap_topics.xp_reward directly (30/40/50 based on difficulty)",
+      automatic: "auto-distribute-xp edge function divides topic budget evenly among all games",
+      formula: "baseXP = floor(topic_xp_reward / total_games), remainder = budget % total_games, first N games get baseXP + 1",
+      example: "Topic with 100 XP budget + 10 games = 10 XP per game. Topic with 30 XP + 8 games = 3 XP for first 6 games, 4 XP for last 2 games",
+    },
+    recommendation: "Document which method is used for each batch. Consider UI indicator showing 'Manual' vs 'Auto-Distributed' XP",
+  },
+  {
+    title: "📊 Complete Data Flow Tables",
+    severity: "low",
+    description: "Reference of all database tables involved in the roadmap → XP → topic status system",
+    details: {
+      database: "batch_roadmaps, roadmap_chapters, roadmap_topics, topic_content_mapping, gamified_exercises, student_topic_game_progress, student_topic_status, student_gamification, student_xp_coins",
+      frontend: "ParentRoadmapCalendar.tsx, StudentRoadmapCalendar.tsx, TopicStudyView.tsx, GamePlayerPage.tsx, DuolingoLessonPath.tsx",
+      impact: "Complete system requires 9 tables + 4 edge functions + 3 frontend components + 2 DB triggers + 1 color utility",
+      location: {
+        edgeFunctions: ["parent-portal/index.ts", "student-roadmap-api/index.ts", "jhakkas-points-system/index.ts", "auto-distribute-xp/index.ts"],
+      },
+    },
+    recommendation: "Keep this workflow documentation updated when adding new features to roadmap or XP systems",
+  },
 ];
 
 const BUILD_TIMESTAMP = new Date().toISOString();
@@ -676,78 +841,194 @@ export const WorkflowDiagrams: React.FC = () => {
           <AlertDescription>No workflows found matching your search.</AlertDescription>
         </Alert>
       ) : (
-        <Accordion type="single" collapsible value={openAccordion} onValueChange={setOpenAccordion} className="space-y-2">
-          {filteredWorkflows.map((workflow) => (
-            <AccordionItem 
-              key={workflow.table} 
-              id={workflow.table === TARGET_TABLE ? `wf-${TARGET_TABLE}` : undefined}
-              value={workflow.table} 
-              className={`border rounded-lg px-4 transition-all ${
-                workflow.table === TARGET_TABLE && highlightTarget 
-                  ? "ring-4 ring-yellow-400 shadow-lg shadow-yellow-400/50" 
-                  : ""
-              }`}
-              data-debug-table={workflow.table}
-            >
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="font-mono">
-                    {workflow.table}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">{workflow.description}</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-6 pt-2">
-                  {/* Mermaid Diagram */}
-                  <div className="border-2 border-primary/20 rounded-lg p-4 bg-muted/50">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Database className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold text-foreground">Visual Workflow</span>
-                    </div>
-                    <div
-                      className="mermaid bg-background p-4 rounded"
-                      dangerouslySetInnerHTML={{ __html: workflow.mermaidDiagram }}
-                    />
-                  </div>
-
-                  {/* Step by Step Breakdown */}
-                  <div>
-                    <h4 className="text-sm font-semibold mb-3 text-foreground">Step-by-Step Breakdown</h4>
-                    <div className="space-y-2">
-                      {workflow.steps.map((step, idx) => (
-                        <div key={idx} className="flex gap-3 text-sm">
-                          <span className="text-primary font-mono shrink-0">{step.title}</span>
-                          <span className="text-muted-foreground">{step.description}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Delete Behavior Warning */}
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <div className="space-y-2">
-                        <p className="font-semibold">⚠️ Delete Behavior</p>
-                        <p>{workflow.deleteBehavior.warning}</p>
-                        <div>
-                          <p className="font-semibold mt-2">Orphaned Records:</p>
-                          <ul className="list-disc list-inside">
-                            {workflow.deleteBehavior.orphans.map((orphan, idx) => (
-                              <li key={idx}>{orphan}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <p className="font-semibold mt-2">Cleanup: {workflow.deleteBehavior.cleanup}</p>
+        <>
+          {/* Critical Findings Section */}
+          <Card className="border-4 border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                <AlertCircle className="h-5 w-5" />
+                🚨 Critical System Findings
+              </CardTitle>
+              <CardDescription className="text-red-600 dark:text-red-300">
+                Important issues and mismatches detected in the roadmap, XP, and topic status system
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible className="space-y-2">
+                {criticalFindings.map((finding, idx) => (
+                  <AccordionItem 
+                    key={idx} 
+                    value={`finding-${idx}`}
+                    className="border rounded-lg px-4 bg-background"
+                  >
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <Badge 
+                          variant={
+                            finding.severity === 'high' ? 'destructive' : 
+                            finding.severity === 'medium' ? 'default' : 
+                            'secondary'
+                          }
+                          className="uppercase text-xs"
+                        >
+                          {finding.severity}
+                        </Badge>
+                        <span className="text-sm font-semibold">{finding.title}</span>
                       </div>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 pt-2">
+                        <p className="text-sm text-muted-foreground">{finding.description}</p>
+                        
+                        <div className="space-y-2 text-sm">
+                          {finding.details.database && (
+                            <div>
+                              <span className="font-semibold text-foreground">Database Logic: </span>
+                              <span className="text-muted-foreground">{finding.details.database}</span>
+                            </div>
+                          )}
+                          {finding.details.frontend && (
+                            <div>
+                              <span className="font-semibold text-foreground">Frontend Logic: </span>
+                              <span className="text-muted-foreground">{finding.details.frontend}</span>
+                            </div>
+                          )}
+                          {finding.details.impact && (
+                            <div>
+                              <span className="font-semibold text-foreground">Impact: </span>
+                              <span className="text-muted-foreground">{finding.details.impact}</span>
+                            </div>
+                          )}
+                          {finding.details.manual && (
+                            <div>
+                              <span className="font-semibold text-foreground">Manual Method: </span>
+                              <span className="text-muted-foreground">{finding.details.manual}</span>
+                            </div>
+                          )}
+                          {finding.details.automatic && (
+                            <div>
+                              <span className="font-semibold text-foreground">Automatic Method: </span>
+                              <span className="text-muted-foreground">{finding.details.automatic}</span>
+                            </div>
+                          )}
+                          {finding.details.formula && (
+                            <div>
+                              <span className="font-semibold text-foreground">Formula: </span>
+                              <code className="text-xs bg-muted px-2 py-1 rounded">{finding.details.formula}</code>
+                            </div>
+                          )}
+                          {finding.details.example && (
+                            <div>
+                              <span className="font-semibold text-foreground">Example: </span>
+                              <span className="text-muted-foreground">{finding.details.example}</span>
+                            </div>
+                          )}
+                          {finding.details.location && (
+                            <div className="mt-3">
+                              <span className="font-semibold text-foreground">File Locations:</span>
+                              <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                                {finding.details.location.db && (
+                                  <li className="text-xs font-mono text-muted-foreground">{finding.details.location.db}</li>
+                                )}
+                                {finding.details.location.frontend && (
+                                  <li className="text-xs font-mono text-muted-foreground">{finding.details.location.frontend}</li>
+                                )}
+                                {finding.details.location.edgeFunctions && finding.details.location.edgeFunctions.map((ef, i) => (
+                                  <li key={i} className="text-xs font-mono text-muted-foreground">supabase/functions/{ef}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                          <AlertDescription>
+                            <p className="font-semibold text-blue-900 dark:text-blue-100">💡 Recommendation:</p>
+                            <p className="text-blue-800 dark:text-blue-200 text-sm mt-1">{finding.recommendation}</p>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+
+          {/* Workflows Section */}
+          <Accordion type="single" collapsible value={openAccordion} onValueChange={setOpenAccordion} className="space-y-2">
+            {filteredWorkflows.map((workflow) => (
+              <AccordionItem 
+                key={workflow.table} 
+                id={workflow.table === TARGET_TABLE ? `wf-${TARGET_TABLE}` : undefined}
+                value={workflow.table} 
+                className={`border rounded-lg px-4 transition-all ${
+                  workflow.table === TARGET_TABLE && highlightTarget 
+                    ? "ring-4 ring-yellow-400 shadow-lg shadow-yellow-400/50" 
+                    : ""
+                }`}
+                data-debug-table={workflow.table}
+              >
+                <AccordionTrigger className="hover:no-underline">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="font-mono">
+                      {workflow.table}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">{workflow.description}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-6 pt-2">
+                    {/* Mermaid Diagram */}
+                    <div className="border-2 border-primary/20 rounded-lg p-4 bg-muted/50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Database className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-semibold text-foreground">Visual Workflow</span>
+                      </div>
+                      <div
+                        className="mermaid bg-background p-4 rounded"
+                        dangerouslySetInnerHTML={{ __html: workflow.mermaidDiagram }}
+                      />
+                    </div>
+
+                    {/* Step by Step Breakdown */}
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 text-foreground">Step-by-Step Breakdown</h4>
+                      <div className="space-y-2">
+                        {workflow.steps.map((step, idx) => (
+                          <div key={idx} className="flex gap-3 text-sm">
+                            <span className="text-primary font-mono shrink-0">{step.title}</span>
+                            <span className="text-muted-foreground">{step.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Delete Behavior Warning */}
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        <div className="space-y-2">
+                          <p className="font-semibold">⚠️ Delete Behavior</p>
+                          <p>{workflow.deleteBehavior.warning}</p>
+                          <div>
+                            <p className="font-semibold mt-2">Orphaned Records:</p>
+                            <ul className="list-disc list-inside">
+                              {workflow.deleteBehavior.orphans.map((orphan, idx) => (
+                                <li key={idx}>{orphan}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <p className="font-semibold mt-2">Cleanup: {workflow.deleteBehavior.cleanup}</p>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </>
       )}
     </div>
   );

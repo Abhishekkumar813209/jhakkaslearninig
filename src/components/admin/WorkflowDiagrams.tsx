@@ -584,6 +584,232 @@ const workflows: WorkflowData[] = [
       cleanup: "UPDATE calculate_topic_status() function in migrations to use >70% threshold to match progressColors.ts",
     },
   },
+  {
+    table: "game_selection_unlocking_system",
+    description: "Complete documentation of game selection flow, unlocking mechanics, and roadmap display systems",
+    mermaidDiagram: `graph TD
+    A[👨‍🎓 Student Opens Topic] --> B[TopicDetailPage loads]
+    B --> C[DuolingoLessonPath fetches games]
+    C --> D[Query: gamified_exercises WHERE topic_content_id IN...]
+    D --> E[Query: student_topic_game_progress]
+    E --> F{Deduplication Logic}
+    F -->|Same question_text| G[❌ Filters Out Duplicates]
+    F -->|Unique| H[✅ Keeps Game]
+    
+    H --> I{Unlocking Logic Check}
+    I -->|Bug: checks ANY previous| J[🚨 All Games Unlock After 1 Completion]
+    I -->|Should: check ONLY prev| K[✅ Sequential Unlock]
+    
+    H --> L[🎮 Student Clicks Game]
+    L --> M[GamePlayerPage loads]
+    M --> N[Plays Game & Submits]
+    N --> O[handleGameComplete fires]
+    O --> P{Has nextGameId?}
+    P -->|Yes| Q[Navigate to next game]
+    P -->|No| R[🚨 Bug: Navigate back to topic]
+    
+    R --> S[Why No Next Game?]
+    S --> T[getAdjacentGames filters by approved_lessons]
+    T --> U[Only returns games with content_status=approved]
+    U --> V[Should return ALL games in order]
+    
+    style J fill:#FF6B6B
+    style R fill:#FF6B6B
+    style G fill:#FFE4B5
+    style K fill:#90EE90
+    style V fill:#90EE90`,
+    steps: [
+      { title: "1. Topic Page Load", description: "TopicDetailPage.tsx renders DuolingoLessonPath component with topicId" },
+      { title: "2. Fetch Games", description: "Queries gamified_exercises JOIN topic_content_mapping WHERE topic_id = ?" },
+      { title: "3. Fetch Progress", description: "Queries student_topic_game_progress for completed_game_ids array" },
+      { title: "4. Deduplication Bug", description: "🚨 Lines 150-172 filter by unique question_text, causing only 1 game per topic" },
+      { title: "5. Unlocking Bug", description: "🚨 Lines 197-220 check lessonsData.slice(0, index).some(...) unlocking ALL after 1 completion" },
+      { title: "6. Game Click", description: "Student clicks game → navigates to /game/:gameId" },
+      { title: "7. Game Play", description: "GamePlayerPage.tsx loads game data and renders appropriate game component" },
+      { title: "8. Completion", description: "handleGameComplete calls jhakkas-points-system edge function" },
+      { title: "9. Navigation Bug", description: "🚨 getAdjacentGames filters by approved_lessons, returns null next_game_id" },
+      { title: "10. Redirect Issue", description: "🚨 No nextGameId → navigates back to /topic/:topicId instead of next game" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ CRITICAL BUGS IDENTIFIED IN GAME FLOW",
+      orphans: [
+        "Bug 1: Deduplication removes valid games (lines 150-172 DuolingoLessonPath.tsx)",
+        "Bug 2: Mass unlock after 1 completion (lines 197-220 DuolingoLessonPath.tsx)",
+        "Bug 3: Navigation returns to topic instead of next game (GamePlayerPage.tsx line 89)",
+        "Bug 4: getAdjacentGames filters by approved_lessons (gameNavigation.ts line 22)",
+      ],
+      cleanup: "Fix sequential unlocking logic + remove approved_lessons filter in getAdjacentGames + remove deduplication",
+    },
+  },
+  {
+    table: "roadmap_unlocking_mechanisms",
+    description: "How Calendar, Card, and Path views determine which topics are locked/unlocked",
+    mermaidDiagram: `graph TD
+    A[📅 Roadmap Display] --> B{View Type?}
+    B -->|Calendar| C[StudentRoadmapCalendar.tsx]
+    B -->|Card| D[RoadmapCardView.tsx]
+    B -->|Path| E[DuolingoLessonPath.tsx]
+    
+    C --> F[First topic always unlocked]
+    C --> G[Today/past topics unlocked]
+    C --> H[Future topics locked]
+    C --> I[Shows game_completion_rate from student_topic_status]
+    
+    D --> J[No explicit locking]
+    D --> K[All chapters/topics clickable]
+    D --> L[Shows average progress_percentage]
+    
+    E --> M{Sequential Unlock Logic}
+    M -->|Current Bug| N[All unlock after 1 completion]
+    M -->|Intended| O[Unlock only after prev game completed]
+    
+    I --> P[Color Calculation]
+    P --> Q{game_completion_rate}
+    Q -->|> 0.70| R[🟢 Green]
+    Q -->|0.50-0.70| S[⚪ Grey]
+    Q -->|< 0.50| T[🔴 Red]
+    Q -->|= 0| U[⚪ Grey Not Started]
+    
+    style N fill:#FF6B6B
+    style O fill:#90EE90
+    style R fill:#90EE90
+    style T fill:#FF6B6B`,
+    steps: [
+      { title: "1. Calendar View", description: "First topic + today/past = unlocked, future = locked (StudentRoadmapCalendar.tsx)" },
+      { title: "2. Card View", description: "No locking mechanism - all topics clickable (RoadmapCardView.tsx)" },
+      { title: "3. Path View", description: "Sequential unlocking intended, but buggy (DuolingoLessonPath.tsx)" },
+      { title: "4. Progress Fetch", description: "Queries student_topic_status for game_completion_rate" },
+      { title: "5. Color Calculation", description: "progressColors.ts getTopicColor: >70% green, 50-70% grey, <50% red" },
+      { title: "6. Status Update", description: "calculate_topic_status DB function recalculates on game completion" },
+      { title: "7. Parent Sync", description: "parent-portal edge function fetches same student_topic_status data" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ No cascading deletes for roadmap items - manual cleanup required",
+      orphans: [
+        "student_topic_status (recalculates on next completion)",
+        "roadmap_topics (orphaned if batch_roadmap deleted)",
+        "topic_content_mapping (orphaned if topic deleted)",
+      ],
+      cleanup: "Manually delete from student_topic_status when roadmap deleted to reset progress",
+    },
+  },
+  {
+    table: "game_formation_system",
+    description: "How games are created from questions - AI generation, admin review, and game type conversion",
+    mermaidDiagram: `graph TD
+    A[🤖 AI Question Generation] --> B{Source Type?}
+    B -->|PDF Upload| C[ai-extract-all-questions-chunked]
+    B -->|Manual Input| D[Admin fills QuestionBankBuilder]
+    B -->|Topic Generator| E[ai-question-generator-v2]
+    
+    C --> F[💾 question_bank table]
+    D --> F
+    E --> F
+    
+    F --> G[Admin Reviews in SmartQuestionExtractor]
+    G --> H{Question Type?}
+    H -->|MCQ| I[Sets 4 options + correct_answer_index]
+    H -->|Match Pairs| J[Sets pairs array in options jsonb]
+    H -->|Fill Blank| K[Sets blanks array in question_text]
+    H -->|True/False| L[Sets 2 options True/False]
+    H -->|Assertion-Reason| M[🚧 Not Implemented Yet]
+    H -->|Match Column| N[🚧 Not Implemented Yet]
+    
+    I --> O[Admin clicks Convert to Game]
+    J --> O
+    K --> O
+    L --> O
+    
+    O --> P[Creates in topic_learning_content]
+    P --> Q[Admin approves human_reviewed=true]
+    Q --> R[🔄 Trigger: sync_gamified_exercises_from_content]
+    R --> S[💾 gamified_exercises table]
+    
+    S --> T{Game Component Mapping}
+    T -->|exercise_type=mcq| U[MCQGame.tsx]
+    T -->|exercise_type=match_pairs| V[MatchPairsGame.tsx]
+    T -->|exercise_type=fill_blank| W[InteractiveBlanks.tsx]
+    T -->|exercise_type=drag_drop_sort| X[DragDropSequence.tsx]
+    T -->|exercise_type=typing_race| Y[TypingRaceGame.tsx]
+    
+    style M fill:#FFE4B5
+    style N fill:#FFE4B5
+    style S fill:#87CEEB
+    style R fill:#90EE90`,
+    steps: [
+      { title: "1. Question Source", description: "AI extracts from PDF OR admin manually creates OR AI generates from topic" },
+      { title: "2. Save to question_bank", description: "Question saved with is_approved=false, awaiting review" },
+      { title: "3. Admin Review", description: "Admin opens AnswerManagementPanel to add options and correct answer" },
+      { title: "4. Game Type Selection", description: "Admin chooses game type: MCQ, Match Pairs, Fill Blank, True/False" },
+      { title: "5. Answer Configuration", description: "Admin sets options array and correct_answer based on game type" },
+      { title: "6. Convert to Game", description: "Creates entry in topic_learning_content with human_reviewed=false" },
+      { title: "7. Approval", description: "Admin sets human_reviewed=true to publish" },
+      { title: "8. Trigger Sync", description: "sync_gamified_exercises_from_content copies to gamified_exercises" },
+      { title: "9. Student Visibility", description: "Game appears in DuolingoLessonPath for students" },
+      { title: "10. Game Rendering", description: "GamePlayerPage loads appropriate component based on exercise_type" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ Deleting question_bank does NOT delete topic_learning_content or gamified_exercises",
+      orphans: [
+        "topic_learning_content (no cascade from question_bank)",
+        "gamified_exercises (no cascade from topic_learning_content)",
+        "student_question_attempts (orphaned if game deleted)",
+      ],
+      cleanup: "Manually delete from all 3 tables when removing a question completely",
+    },
+  },
+  {
+    table: "xp_progress_calculation_flow",
+    description: "How XP is awarded and progress is calculated after game completion",
+    mermaidDiagram: `sequenceDiagram
+    participant Student
+    participant GamePlayerPage
+    participant Edge as jhakkas-points-system
+    participant DB as student_gamification
+    participant Progress as student_topic_game_progress
+    participant Trigger as update_topic_status_trigger
+    participant Calc as calculate_topic_status()
+    participant Status as student_topic_status
+    
+    Student->>GamePlayerPage: Completes game
+    GamePlayerPage->>Edge: POST /jhakkas-points-system
+    Note over Edge: xp_earned, coins_earned, game_id
+    Edge->>DB: UPDATE current_xp += xp_earned
+    Edge->>DB: UPDATE coins += coins_earned
+    Edge-->>GamePlayerPage: Success response
+    
+    GamePlayerPage->>Progress: UPDATE completed_game_ids
+    Note over Progress: Adds game_id to array
+    Progress->>Trigger: ON UPDATE fires
+    Trigger->>Calc: EXECUTE calculate_topic_status(topic_id)
+    
+    Note over Calc: completed = array_length(completed_game_ids)<br/>total = count(*) FROM gamified_exercises<br/>rate = completed / total
+    
+    Calc->>Calc: CASE WHEN rate >= 0.60 THEN green<br/>WHEN rate >= 0.40 THEN yellow<br/>ELSE red
+    Calc->>Status: UPSERT game_completion_rate, status
+    Status-->>Student: Updated progress visible`,
+    steps: [
+      { title: "1. Game Completion", description: "Student submits answer in GamePlayerPage.tsx" },
+      { title: "2. XP Award Call", description: "handleGameComplete calls jhakkas-points-system edge function" },
+      { title: "3. Update Gamification", description: "Edge function updates student_gamification.current_xp and coins" },
+      { title: "4. Record Progress", description: "Adds game_id to student_topic_game_progress.completed_game_ids array" },
+      { title: "5. Trigger Fires", description: "update_topic_status_trigger detects UPDATE on student_topic_game_progress" },
+      { title: "6. Calculate Rate", description: "calculate_topic_status() counts completed vs total games" },
+      { title: "7. Determine Color", description: "⚠️ Uses >=60% green threshold (MISMATCH with frontend 70%)" },
+      { title: "8. Upsert Status", description: "Updates student_topic_status with game_completion_rate and status" },
+      { title: "9. Calendar Fetch", description: "StudentRoadmapCalendar queries student_topic_status for display" },
+      { title: "10. Color Apply", description: "progressColors.ts applies frontend logic (>70% green)" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ XP is permanent - deleting games does NOT reduce student XP",
+      orphans: [
+        "student_gamification.current_xp (never decremented)",
+        "student_topic_game_progress (recalculates on next completion)",
+        "completed_game_ids array may contain deleted game IDs",
+      ],
+      cleanup: "No automatic cleanup - consider manual XP adjustment if game deleted",
+    },
+  },
 ];
 
 interface CriticalFinding {
@@ -649,6 +875,60 @@ const criticalFindings: CriticalFinding[] = [
       },
     },
     recommendation: "Keep this workflow documentation updated when adding new features to roadmap or XP systems",
+  },
+  {
+    title: "🎮 Game Navigation Breaks After First Completion",
+    severity: "high",
+    description: "Students are redirected back to topic page after completing one game instead of advancing to next game",
+    details: {
+      impact: "Poor UX - students must manually click each game instead of flowing through them sequentially",
+      location: {
+        frontend: "src/pages/GamePlayerPage.tsx (line 89), src/lib/gameNavigation.ts (line 22)",
+        db: "topic_learning_content.content_status filter issue",
+      },
+      database: "getAdjacentGames() filters by content_status='approved' in topic_learning_content, returns null for next_game_id",
+      frontend: "GamePlayerPage navigates to /topic/:topicId when nextGameId is null instead of staying on game",
+    },
+    recommendation: "Remove approved_lessons filter in gameNavigation.ts line 22-24. Return ALL games in game_order sequence regardless of content_status. Only check human_reviewed in topic_learning_content.",
+  },
+  {
+    title: "🔓 All Games Unlock After Completing First Game",
+    severity: "high",
+    description: "Sequential unlocking logic is broken - completing one game unlocks ALL remaining games instead of just the next one",
+    details: {
+      impact: "Students can skip ahead without completing games in order, breaking progression system",
+      location: {
+        frontend: "src/components/student/DuolingoLessonPath.tsx (lines 197-220)",
+      },
+      database: "lessonsData.slice(0, index).some(prev => completedGameIds.includes(prev.id)) checks if ANY previous game is completed",
+      frontend: "Should check ONLY the immediately previous game: completedGameIds.includes(lessonsData[index - 1]?.id)",
+    },
+    recommendation: "Fix line 208-210 in DuolingoLessonPath.tsx:\n\nChange FROM:\nconst isPreviousCompleted = lessonsData.slice(0, index).some(prev => completedGameIds.includes(prev.id));\n\nChange TO:\nconst isPreviousCompleted = index === 0 || completedGameIds.includes(lessonsData[index - 1]?.id);",
+  },
+  {
+    title: "🔍 Deduplication Logic Removes Valid Games",
+    severity: "medium",
+    description: "Only one game per topic is shown because deduplication filters by question_text, removing games with similar questions",
+    details: {
+      impact: "Topics with multiple MCQs on same concept show only 1 game, hiding other valid exercises",
+      location: {
+        frontend: "src/components/student/DuolingoLessonPath.tsx (lines 150-172)",
+      },
+      database: "Queries return all games but frontend filters by unique question_text",
+      frontend: "const seenQuestions = new Set<string>(); gameData = gameData.filter(game => !seenQuestions.has(game.question_text))",
+    },
+    recommendation: "Remove deduplication logic entirely OR change to dedupe by game.id instead of question_text. Games should be unique by database ID, not by question text.",
+  },
+  {
+    title: "🚧 Missing Game Types: True/False, Assertion-Reason, Match Column",
+    severity: "low",
+    description: "Only 5 game types implemented out of 8 planned types",
+    details: {
+      database: "gamified_exercises.exercise_type enum allows: mcq, match_pairs, fill_blank, drag_drop_sort, typing_race",
+      frontend: "Components exist: MCQGame, MatchPairsGame, InteractiveBlanks, DragDropSequence, TypingRaceGame",
+      impact: "Cannot create True/False, Assertion-Reason, or Match Column games yet",
+    },
+    recommendation: "Implement TrueFalseGame.tsx, AssertionReasonGame.tsx, and MatchColumnGame.tsx components. Add corresponding exercise_type enum values to database.",
   },
 ];
 

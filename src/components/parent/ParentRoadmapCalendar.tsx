@@ -36,8 +36,11 @@ interface SubjectData {
     topics: Array<{
       id: string;
       topic_name: string;
+      day_number: number;
       status: string;
       progress_percentage: number;
+      games_completed?: number;
+      total_games?: number;
     }>;
   }>;
 }
@@ -135,14 +138,18 @@ export const ParentRoadmapCalendar = ({
   const topics: CalendarTopic[] = subjectsData.flatMap(subject =>
     subject.chapters.flatMap(chapter =>
       (chapter.topics || []).map(topic => {
-        // Use progress_percentage from edge function data
         const rate = topic.progress_percentage || 0;
+        
+        // FIX: Use topic's day_number, not chapter's day_start
+        const topicDate = topic.day_number 
+          ? format(addDays(startDate, topic.day_number - 1), 'yyyy-MM-dd')
+          : (chapter.day_start 
+            ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
+            : format(startDate, 'yyyy-MM-dd'));
         
         return {
           id: topic.id,
-          date: chapter.day_start 
-            ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
-            : format(startDate, 'yyyy-MM-dd'),
+          date: topicDate,
           subject: subject.name,
           chapterName: chapter.chapter_name,
           topicName: topic.topic_name,
@@ -176,6 +183,14 @@ export const ParentRoadmapCalendar = ({
     });
     return acc;
   }, {} as Record<string, Record<string, CalendarTopic[]>>);
+
+  console.log('[ParentRoadmap] Total topics:', topics.length);
+  console.log('[ParentRoadmap] Topics by date:', 
+    Object.entries(groupedByDateSubject).slice(0, 5).map(([date, subjects]) => ({
+      date,
+      totalTopics: Object.values(subjects).flat().length
+    }))
+  );
 
   return (
     <div className="space-y-4">
@@ -304,18 +319,22 @@ export const ParentRoadmapCalendar = ({
         <ul className="list-disc list-inside ml-2 space-y-1">
           <li className="flex items-center gap-2">
             <div className="inline-block w-4 h-4 bg-green-600 rounded"></div>
-            <span>Green - &gt;70% games completed</span>
+            <span>Green - <strong>Above 70%</strong> games completed (Excellent)</span>
           </li>
           <li className="flex items-center gap-2">
             <div className="inline-block w-4 h-4 bg-gray-500 rounded"></div>
-            <span>Grey - 50-70% games completed</span>
+            <span>Grey - <strong>50% to 70%</strong> games completed (In Progress)</span>
           </li>
           <li className="flex items-center gap-2">
             <div className="inline-block w-4 h-4 bg-red-600 rounded"></div>
-            <span>Red - &lt;50% games completed</span>
+            <span>Red - <strong>Below 50%</strong> games completed (Needs Attention)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="inline-block w-4 h-4 bg-gray-400 rounded"></div>
+            <span>Not Started - <strong>0%</strong> games completed</span>
           </li>
           <li>🤖 Auto-updates when student completes games</li>
-          <li>✨ Real-time updates via Supabase Realtime</li>
+          <li>✨ Real-time sync between student and parent portals</li>
         </ul>
       </div>
     </div>

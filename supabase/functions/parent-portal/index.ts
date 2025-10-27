@@ -729,7 +729,7 @@ serve(async (req) => {
         // Get all topics for these chapters
         const { data: topics } = await supabase
           .from('roadmap_topics')
-          .select('id, topic_name, chapter_id')
+          .select('id, topic_name, chapter_id, day_number')
           .in('chapter_id', chapterIds)
           .order('day_number', { ascending: true });
 
@@ -757,6 +757,7 @@ serve(async (req) => {
           acc[topic.chapter_id].push({
             id: topic.id,
             topic_name: topic.topic_name,
+            day_number: topic.day_number,
             status: completion?.status || 'grey',
             progress_percentage: completion?.game_completion_rate || 0,
             games_completed: completion?.games_completed || 0,

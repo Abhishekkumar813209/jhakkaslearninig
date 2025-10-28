@@ -39,6 +39,7 @@ export const TestsXPManager = ({ chapterId, subject }: TestsXPManagerProps) => {
       setLoading(true);
       
       // Get test IDs from questions table
+      // @ts-expect-error - Supabase type inference issue
       const questionsResult: any = await supabase.from('questions').select('test_id').eq('chapter_id', chapterId);
       if (questionsResult.error) throw questionsResult.error;
       
@@ -49,9 +50,14 @@ export const TestsXPManager = ({ chapterId, subject }: TestsXPManagerProps) => {
         return;
       }
 
-      const testIds: string[] = [...new Set(questionData.map((q: any) => q.test_id).filter(Boolean))];
+      const testIds = [...new Set(
+        questionData
+          .map((q: any) => q.test_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      )];
 
       // Get test details
+      // @ts-expect-error - Supabase type inference issue
       const testsResult: any = await supabase.from('tests').select('*').in('id', testIds).eq('subject', subject);
       if (testsResult.error) throw testsResult.error;
 

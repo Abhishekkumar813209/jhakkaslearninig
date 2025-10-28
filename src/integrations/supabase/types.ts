@@ -1036,7 +1036,6 @@ export type Database = {
       }
       gamified_exercises: {
         Row: {
-          coin_reward: number | null
           correct_answer: Json | null
           correct_answer_index: number | null
           created_at: string | null
@@ -1053,7 +1052,6 @@ export type Database = {
           xp_reward: number | null
         }
         Insert: {
-          coin_reward?: number | null
           correct_answer?: Json | null
           correct_answer_index?: number | null
           created_at?: string | null
@@ -1070,7 +1068,6 @@ export type Database = {
           xp_reward?: number | null
         }
         Update: {
-          coin_reward?: number | null
           correct_answer?: Json | null
           correct_answer_index?: number | null
           created_at?: string | null

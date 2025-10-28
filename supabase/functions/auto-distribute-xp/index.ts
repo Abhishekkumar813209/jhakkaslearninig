@@ -114,11 +114,11 @@ serve(async (req) => {
         continue;
       }
 
-      // Calculate distribution
+      // Calculate distribution: spread budget evenly with remainder going to first games
       const baseXP = Math.floor(budget / totalGames);
       const remainder = budget % totalGames;
 
-      // Build distribution array
+      // Build distribution array: first 'remainder' games get +1 XP
       const distribution = (games || []).map((game, index) => ({
         id: game.id,
         old_xp: game.xp_reward,

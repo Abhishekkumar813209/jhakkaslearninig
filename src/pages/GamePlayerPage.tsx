@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home } from "lucide-react";
 import confetti from "canvas-confetti";
-import { ATTEMPT_XP } from "@/lib/xpConfig";
+import { XP_MULTIPLIERS } from "@/lib/xpConfig";
 
 const GamePlayerPage = () => {
   const { roadmapId, topicId, gameId } = useParams();
@@ -229,24 +229,49 @@ const GamePlayerPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      // Check existing attempts to determine XP award
+      // Fetch game's XP reward from database
+      const { data: gameInfo } = await supabase
+        .from('gamified_exercises')
+        .select('xp_reward')
+        .eq('id', gameData.id)
+        .single();
+
+      const baseXP = gameInfo?.xp_reward || 10;
+
+      // Check existing attempts
       const { data: existingAttempts } = await supabase
         .from('student_question_attempts')
-        .select('xp_awarded, is_correct')
+        .select('is_correct, attempt_number')
         .eq('student_id', user.id)
-        .eq('question_id', gameData.id);
+        .eq('question_id', gameData.id)
+        .order('attempt_number', { ascending: true });
 
       const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct);
-      const hasWrongAttempts = existingAttempts?.some(a => !a.is_correct);
-      
-      // Determine XP amount: first correct = 10, correct after wrong = 5
-      let xpAmount = 0;
-      if (!hasCorrectAttempt) {
-        xpAmount = hasWrongAttempts ? ATTEMPT_XP.correct_retry : ATTEMPT_XP.correct_first;
-      }
-      
-      // Get attempt number
       const attemptNumber = (existingAttempts?.length || 0) + 1;
+      
+      // Block if already completed
+      if (hasCorrectAttempt) {
+        toast({
+          title: "Already Completed",
+          description: "You've already earned XP for this question.",
+          variant: "default"
+        });
+        return;
+      }
+
+      // Block if exceeded max attempts
+      if (attemptNumber > XP_MULTIPLIERS.max_attempts) {
+        toast({
+          title: "Max Attempts Reached",
+          description: "You've used all available attempts for this question.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Calculate XP: 100% on 1st correct, 30% on 2nd correct
+      const multiplier = attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct;
+      const xpAmount = Math.round(baseXP * multiplier);
       
       // Insert attempt record
       await supabase.from('student_question_attempts').insert({
@@ -260,22 +285,42 @@ const GamePlayerPage = () => {
         attempt_number: attemptNumber
       });
 
-      // Award XP
-      if (xpAmount > 0) {
-        await supabase.rpc('increment_student_xp', {
-          student_id: user.id,
-          xp_amount: xpAmount
-        });
+      // Award XP via jhakkas-points-system edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase.functions.invoke("jhakkas-points-system", {
+        body: { 
+          action: "add",
+          xp_amount: xpAmount,
+          activity_type: "game_completed",
+          metadata: { 
+            game_id: gameData.id, 
+            topic_id: topicId,
+            attempt_number: attemptNumber,
+            multiplier: multiplier
+          }
+        },
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
 
-        // Trigger XP refresh
-        window.dispatchEvent(new Event('xp-updated'));
-      }
+      // Trigger XP refresh
+      window.dispatchEvent(new Event('xp-updated'));
 
       // Mark game as completed in progress table
       await markGameCompleted(user.id, topicId!, gameData.id);
 
+      // Show success message
+      toast({
+        title: `✅ +${xpAmount} XP`,
+        description: attemptNumber === 1 ? "Perfect! First attempt!" : "Correct on 2nd try! (30% XP)",
+      });
+
     } catch (error) {
       console.error("Error saving progress:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save progress",
+        variant: "destructive"
+      });
     }
   };
 
@@ -284,16 +329,47 @@ const GamePlayerPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      // Get attempt number
+      // Check existing attempts
       const { data: existingAttempts } = await supabase
         .from('student_question_attempts')
-        .select('id')
+        .select('is_correct, attempt_number')
         .eq('student_id', user.id)
-        .eq('question_id', gameData.id);
+        .eq('question_id', gameData.id)
+        .order('attempt_number', { ascending: true });
 
       const attemptNumber = (existingAttempts?.length || 0) + 1;
+      const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct);
 
-      // Insert wrong attempt
+      // Block if already completed correctly
+      if (hasCorrectAttempt) {
+        toast({
+          title: "Already Completed",
+          description: "You've already answered this correctly.",
+          variant: "default"
+        });
+        return;
+      }
+
+      // Block if exceeded max attempts
+      if (attemptNumber > XP_MULTIPLIERS.max_attempts) {
+        toast({
+          title: "Max Attempts Reached",
+          description: "No more attempts available. Moving to next question.",
+          variant: "destructive"
+        });
+        
+        // Auto-advance after 2 seconds
+        setTimeout(() => {
+          if (navInfo?.nextGameId) {
+            handleNext();
+          } else {
+            handleExit();
+          }
+        }, 2000);
+        return;
+      }
+
+      // Insert wrong attempt record (no XP awarded)
       await supabase.from('student_question_attempts').insert({
         student_id: user.id,
         question_id: gameData.id,
@@ -301,21 +377,27 @@ const GamePlayerPage = () => {
         is_correct: false,
         status: 'attempted',
         time_spent_seconds: 0,
-        xp_awarded: true,
+        xp_awarded: false,
         attempt_number: attemptNumber
       });
 
-      // Award participation XP for wrong attempt (2 XP)
-      await supabase.rpc('increment_student_xp', {
-        student_id: user.id,
-        xp_amount: ATTEMPT_XP.wrong_attempt
+      // Show feedback
+      const remainingAttempts = XP_MULTIPLIERS.max_attempts - attemptNumber;
+      toast({
+        title: "❌ Wrong Answer",
+        description: remainingAttempts > 0 
+          ? `Try again! ${remainingAttempts} attempt${remainingAttempts > 1 ? 's' : ''} remaining.`
+          : "No attempts left. Moving on...",
+        variant: "destructive"
       });
-
-      // Trigger XP refresh
-      window.dispatchEvent(new Event('xp-updated'));
 
     } catch (error) {
       console.error("Error tracking wrong answer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save attempt",
+        variant: "destructive"
+      });
     }
   };
 

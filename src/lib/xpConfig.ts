@@ -4,10 +4,11 @@ export const XP_REWARDS = {
   game: { easy: 30, medium: 40, hard: 50 }
 } as const;
 
-export const ATTEMPT_XP = {
-  wrong_attempt: 2,     // Small XP for wrong attempt (participation)
-  correct_first: 10,    // Full XP for first correct attempt
-  correct_retry: 5      // Half XP for correct after wrong attempts
+export const XP_MULTIPLIERS = {
+  first_correct: 1.0,      // 100% of game's xp_reward
+  second_correct: 0.3,     // 30% of game's xp_reward  
+  wrong_attempt: 0,        // 0 XP for wrong answers
+  max_attempts: 2          // Only 2 attempts allowed per question
 } as const;
 
 export type Difficulty = 'easy' | 'medium' | 'hard';

@@ -69,6 +69,19 @@ serve(async (req) => {
 
     console.log(`📊 Processing ${chunks.length} chunks of ~${CHUNK_SIZE} pages each`);
 
+    // Get existing questions for this topic to avoid duplicates
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: existingQuestions } = await supabaseClient
+      .from('gamified_exercises')
+      .select('exercise_data')
+      .eq('topic_content_id', source_id);
+    
+    const existingQuestionTexts = new Set(
+      existingQuestions?.map(q => q.exercise_data?.question?.trim().toLowerCase()) || []
+    );
+
+    let skippedDuplicates = 0;
+
     // Enhanced system prompt
     const systemPrompt = `You are an expert question extraction system optimized for comprehensive extraction.
 
@@ -199,21 +212,31 @@ ${chunkContent}
         
         console.log(`✅ Chunk ${i + 1}: Extracted ${chunkQuestions.length} questions`);
         
-        // Fix nested options structure if present
-        const fixedQuestions = chunkQuestions.map((q: any) => {
-          if (q.options && Array.isArray(q.options)) {
-            q.options = q.options.map((opt: any) => {
-              // If option is already a string, keep it
-              if (typeof opt === 'string') return opt;
-              // If option is an object, extract the text value
-              if (typeof opt === 'object' && opt !== null) {
-                return opt.text || opt.value || opt.label || JSON.stringify(opt);
-              }
-              return String(opt);
-            });
-          }
-          return q;
-        });
+        // Fix nested options structure and filter duplicates
+        const fixedQuestions = chunkQuestions
+          .map((q: any) => {
+            if (q.options && Array.isArray(q.options)) {
+              q.options = q.options.map((opt: any) => {
+                // If option is already a string, keep it
+                if (typeof opt === 'string') return opt;
+                // If option is an object, extract the text value
+                if (typeof opt === 'object' && opt !== null) {
+                  return opt.text || opt.value || opt.label || JSON.stringify(opt);
+                }
+                return String(opt);
+              });
+            }
+            return q;
+          })
+          .filter((q: any) => {
+            const questionText = q.question_text?.trim().toLowerCase();
+            if (!questionText || existingQuestionTexts.has(questionText)) {
+              skippedDuplicates++;
+              return false;
+            }
+            existingQuestionTexts.add(questionText); // Track for this batch too
+            return true;
+          });
         
         allQuestions.push(...fixedQuestions);
         totalProcessed += fixedQuestions.length;
@@ -228,9 +251,10 @@ ${chunkContent}
     }
 
     console.log(`📊 Total questions extracted: ${allQuestions.length}`);
+    console.log(`🚫 Skipped ${skippedDuplicates} duplicate questions`);
 
     // Separate high/medium confidence vs low confidence questions
-    const highConfidence = allQuestions.filter(q => 
+    const highConfidence = allQuestions.filter(q =>
       !q.confidence || q.confidence === 'high' || q.confidence === 'medium'
     );
     const lowConfidence = allQuestions.filter(q => 
@@ -262,6 +286,7 @@ ${chunkContent}
       total_questions: allQuestions.length,
       high_confidence_count: highConfidence.length,
       low_confidence_count: lowConfidence.length,
+      skipped_duplicates: skippedDuplicates,
       questions: allQuestions,
       statistics: {
         by_type: allQuestions.reduce((acc: any, q: any) => {

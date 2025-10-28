@@ -7,6 +7,7 @@ import { RoadmapSelector } from './xp-management/RoadmapSelector';
 import { SubjectSelector } from './xp-management/SubjectSelector';
 import { ChapterSelector } from './xp-management/ChapterSelector';
 import { XPTypeSelector } from './xp-management/XPTypeSelector';
+import { DuplicateGameDetector } from './DuplicateGameDetector';
 import { useBoardClassHierarchy } from '@/hooks/useBoardClassHierarchy';
 
 export const EnhancedXPManagement = () => {
@@ -192,18 +193,25 @@ export const EnhancedXPManagement = () => {
         </div>
       )}
 
-      {/* Step 6: XP Type Selection (Games vs Tests) */}
+      {/* Step 6: XP Type Selection (Games vs Tests) + Duplicate Detector */}
       {selectedChapter && (
-        <div>
-          <Button onClick={handleBackToChapter} variant="outline" className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Chapters
-          </Button>
-          <XPTypeSelector
-            roadmapId={selectedRoadmap!.id}
-            subject={selectedSubject!}
-            chapter={selectedChapter}
-          />
+        <div className="space-y-6">
+          <div>
+            <Button onClick={handleBackToChapter} variant="outline" className="mb-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Chapters
+            </Button>
+            <XPTypeSelector
+              roadmapId={selectedRoadmap!.id}
+              subject={selectedSubject!}
+              chapter={selectedChapter}
+            />
+          </div>
+          
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">Duplicate Detector</h2>
+            <DuplicateGameDetector />
+          </div>
         </div>
       )}
     </div>

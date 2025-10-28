@@ -16,7 +16,6 @@ interface GameXPRow {
   difficulty: string;
   marks: number;
   xp_reward: number;
-  coin_reward: number;
   game_order: number;
 }
 
@@ -43,7 +42,6 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
           difficulty,
           marks,
           xp_reward,
-          coin_reward,
           game_order,
           topic_content_mapping!inner(topic_id)
         `)
@@ -79,7 +77,6 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
         .from('gamified_exercises')
         .update({
           xp_reward: game.xp_reward,
-          coin_reward: game.coin_reward,
           marks: game.marks,
           difficulty: game.difficulty,
         })
@@ -113,7 +110,6 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
           .from('gamified_exercises')
           .update({
             xp_reward: game.xp_reward,
-            coin_reward: game.coin_reward,
             marks: game.marks,
             difficulty: game.difficulty,
           })
@@ -144,7 +140,6 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
           .from('gamified_exercises')
           .update({
             xp_reward: defaultXP,
-            coin_reward: difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 5,
           })
           .eq('id', game.id);
       });
@@ -190,7 +185,6 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
               <TableHead>Difficulty</TableHead>
               <TableHead className="w-24">Marks</TableHead>
               <TableHead className="w-24">XP Reward</TableHead>
-              <TableHead className="w-24">Coin Reward</TableHead>
               <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -237,15 +231,6 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
                     min="0"
                     value={game.xp_reward}
                     onChange={(e) => updateGame(game.id, 'xp_reward', parseInt(e.target.value))}
-                    className="w-20"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={game.coin_reward}
-                    onChange={(e) => updateGame(game.id, 'coin_reward', parseInt(e.target.value))}
                     className="w-20"
                   />
                 </TableCell>

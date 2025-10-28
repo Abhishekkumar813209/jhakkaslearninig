@@ -157,6 +157,15 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
         const completedGameIds = gameProgress?.completed_game_ids || [];
 
+        // Fetch attempted games (any games with question attempts)
+        const { data: attemptedGames } = await supabase
+          .from('student_question_attempts')
+          .select('question_id')
+          .eq('student_id', user.user.id)
+          .eq('topic_id', topicId);
+
+        const attemptedGameIds = [...new Set(attemptedGames?.map(a => a.question_id) || [])];
+
         // Build lessons array from all valid games
         lessonsData = validGames.map((game, index) => ({
           id: game.id,
@@ -167,24 +176,38 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           estimated_time_minutes: 3, // Default time estimate
         }));
 
-        // Build progress map from completed games
+        // Build progress map from completed and attempted games
         lessonsData.forEach((lesson, index) => {
           const isCompleted = completedGameIds.includes(lesson.id);
+          const isAttempted = attemptedGameIds.includes(lesson.id);
           
-          // First game is always unlocked
-          // For subsequent games: unlock only if immediately previous game is completed
-          let isPreviousCompleted = false;
+          // Sequential unlocking logic
+          let isPreviousAttemptedOrCompleted = false;
           if (index === 0) {
-            isPreviousCompleted = true; // First game always unlocked
+            isPreviousAttemptedOrCompleted = true; // First game always unlocked
           } else {
-            // Check if the IMMEDIATELY previous game is completed (sequential unlocking)
-            isPreviousCompleted = completedGameIds.includes(lessonsData[index - 1]?.id);
+            // Check if the IMMEDIATELY previous game is completed OR attempted
+            const prevGameId = lessonsData[index - 1]?.id;
+            isPreviousAttemptedOrCompleted = 
+              completedGameIds.includes(prevGameId) || attemptedGameIds.includes(prevGameId);
+          }
+          
+          // Determine status based on completion and attempt state
+          let status: 'completed' | 'in_progress' | 'unlocked' | 'locked';
+          if (isCompleted) {
+            status = 'completed'; // Green - answered correctly
+          } else if (isAttempted) {
+            status = 'in_progress'; // Blue/Yellow - attempted but not correct
+          } else if (isPreviousAttemptedOrCompleted) {
+            status = 'unlocked'; // Blue - unlocked but not attempted
+          } else {
+            status = 'locked'; // Grey - locked
           }
           
           progressMap[lesson.id] = {
             id: `progress_${lesson.id}`,
             lesson_content_id: lesson.id,
-            status: isCompleted ? 'completed' : (isPreviousCompleted ? 'unlocked' : 'locked'),
+            status: status,
             current_step: 0,
             total_steps: 1,
             steps_completed: isCompleted ? 1 : 0,

@@ -39,62 +39,27 @@ export const TestsXPManager = ({ chapterId, subject }: TestsXPManagerProps) => {
       setLoading(true);
       
       // Get test IDs from questions table
-      // @ts-expect-error - Supabase type inference causes deep instantiation error
-      const result = await supabase
-        .from('questions')
-        .select('test_id')
-        .eq('chapter_id', chapterId);
+      const questionsResult: any = await supabase.from('questions').select('test_id').eq('chapter_id', chapterId);
+      if (questionsResult.error) throw questionsResult.error;
       
-      const questionData: { test_id: string | null }[] | null = result.data;
-      const questionsError = result.error;
-      
-      if (questionsError) throw questionsError;
-      
-      if (!questionData || questionData.length === 0) {
+      const questionData = questionsResult.data || [];
+      if (questionData.length === 0) {
         setTests([]);
         setLoading(false);
         return;
       }
 
-      // Extract unique test IDs with proper type guard
-      const testIds = Array.from(
-        new Set(
-          questionData
-            .map((q) => q.test_id)
-            .filter((id): id is string => Boolean(id))
-        )
-      );
-
-      if (testIds.length === 0) {
-        setTests([]);
-        setLoading(false);
-        return;
-      }
+      const testIds: string[] = [...new Set(questionData.map((q: any) => q.test_id).filter(Boolean))];
 
       // Get test details
-      const { data: testsData, error: testsError } = await supabase
-        .from('tests')
-        .select('*')
-        .in('id', testIds)
-        .eq('subject', subject);
-
-      if (testsError) throw testsError;
+      const testsResult: any = await supabase.from('tests').select('*').in('id', testIds).eq('subject', subject);
+      if (testsResult.error) throw testsResult.error;
 
       // Get question counts
       const testsWithCounts: Test[] = [];
-      for (const test of testsData || []) {
-        const { count, error: countError } = await supabase
-          .from('questions')
-          .select('id', { count: 'exact', head: true })
-          .eq('test_id', test.id)
-          .eq('chapter_id', chapterId);
-
-        if (countError) {
-          console.error('Error counting questions:', countError);
-          testsWithCounts.push({ ...test, question_count: 0 });
-        } else {
-          testsWithCounts.push({ ...test, question_count: count || 0 });
-        }
+      for (const test of testsResult.data || []) {
+        const countResult: any = await supabase.from('questions').select('id', { count: 'exact', head: true }).eq('test_id', test.id).eq('chapter_id', chapterId);
+        testsWithCounts.push({ ...test, question_count: countResult.count || 0 });
       }
 
       setTests(testsWithCounts);

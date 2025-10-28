@@ -4,11 +4,12 @@ import { TestsXPManager } from './TestsXPManager';
 import { Gamepad2, FileText } from 'lucide-react';
 
 interface XPTypeSelectorProps {
+  roadmapId: string;
   subject: string;
   chapter: { id: string; name: string };
 }
 
-export const XPTypeSelector = ({ subject, chapter }: XPTypeSelectorProps) => {
+export const XPTypeSelector = ({ roadmapId, subject, chapter }: XPTypeSelectorProps) => {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">Manage XP for: {chapter.name}</h2>

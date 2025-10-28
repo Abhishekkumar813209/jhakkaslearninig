@@ -40,6 +40,12 @@ export const EnhancedXPManagement = () => {
     hierarchy.reset();
   };
 
+  const handleRoadmapSelect = (roadmap: { id: string; title: string }) => {
+    setSelectedRoadmap(roadmap);
+    setSelectedSubject(null);
+    setSelectedChapter(null);
+  };
+
   const handleBackToRoadmap = () => {
     setSelectedRoadmap(null);
     setSelectedSubject(null);
@@ -152,7 +158,7 @@ export const EnhancedXPManagement = () => {
             examType={selectedDomain!}
             board={hierarchy.selectedBoard}
             targetClass={hierarchy.selectedClass}
-            onRoadmapSelect={setSelectedRoadmap}
+            onRoadmapSelect={handleRoadmapSelect}
           />
         </div>
       )}
@@ -194,6 +200,7 @@ export const EnhancedXPManagement = () => {
             Back to Chapters
           </Button>
           <XPTypeSelector
+            roadmapId={selectedRoadmap!.id}
             subject={selectedSubject!}
             chapter={selectedChapter}
           />

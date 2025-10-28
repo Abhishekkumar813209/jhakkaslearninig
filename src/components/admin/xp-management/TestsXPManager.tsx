@@ -38,39 +38,61 @@ export const TestsXPManager = ({ chapterId, subject }: TestsXPManagerProps) => {
     try {
       setLoading(true);
       
-      // Get test IDs from questions table
-      // @ts-expect-error - Supabase type inference issue
-      const questionsResult: any = await supabase.from('questions').select('test_id').eq('chapter_id', chapterId);
-      if (questionsResult.error) throw questionsResult.error;
+      // Get test IDs from questions that belong to this specific chapter
+      // @ts-ignore - Supabase type inference issue
+      const { data: questionData, error: questionsError } = await supabase
+        .from('questions')
+        .select('test_id')
+        .eq('chapter_id', chapterId);
       
-      const questionData = questionsResult.data || [];
-      if (questionData.length === 0) {
+      if (questionsError) throw questionsError;
+      
+      if (!questionData || questionData.length === 0) {
         setTests([]);
         setLoading(false);
         return;
       }
 
+      // Extract unique test IDs
       const testIds = [...new Set(
         questionData
-          .map((q: any) => q.test_id)
+          .map((q) => q.test_id)
           .filter((id): id is string => typeof id === 'string' && id.length > 0)
       )];
 
-      // Get test details
-      // @ts-expect-error - Supabase type inference issue
-      const testsResult: any = await supabase.from('tests').select('*').in('id', testIds).eq('subject', subject);
-      if (testsResult.error) throw testsResult.error;
+      if (testIds.length === 0) {
+        setTests([]);
+        setLoading(false);
+        return;
+      }
 
-      // Get question counts
+      // Fetch test details for these test IDs, filtered by subject
+      const { data: testsData, error: testsError } = await supabase
+        .from('tests')
+        .select('*')
+        .in('id', testIds)
+        .eq('subject', subject);
+      
+      if (testsError) throw testsError;
+
+      // Get question counts for each test (only questions from this chapter)
       const testsWithCounts: Test[] = [];
-      for (const test of testsResult.data || []) {
-        const countResult: any = await supabase.from('questions').select('id', { count: 'exact', head: true }).eq('test_id', test.id).eq('chapter_id', chapterId);
-        testsWithCounts.push({ ...test, question_count: countResult.count || 0 });
+      for (const test of testsData || []) {
+        const { count } = await supabase
+          .from('questions')
+          .select('id', { count: 'exact', head: true })
+          .eq('test_id', test.id)
+          .eq('chapter_id', chapterId);
+        
+        testsWithCounts.push({ 
+          ...test, 
+          question_count: count || 0 
+        });
       }
 
       setTests(testsWithCounts);
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error('Error fetching tests:', error);
       toast.error('Failed to load tests');
     } finally {
       setLoading(false);

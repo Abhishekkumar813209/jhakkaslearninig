@@ -388,7 +388,7 @@ export function MCQGame({
             )}
           >
             <p className="text-white font-bold text-lg">
-              {isCorrect ? "🎉 Correct!" : "❌ Wrong Answer"}
+              {isCorrect ? "🎉 Correct!" : "❌ Wrong Answer - Moving to next..."}
             </p>
           </motion.div>
         )}

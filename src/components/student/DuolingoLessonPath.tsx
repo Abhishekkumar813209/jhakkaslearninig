@@ -96,6 +96,29 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           setRefetchTimeout(timeout);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_question_attempts'
+        },
+        (payload) => {
+          const newRow = (payload as any).new;
+          // Refetch if the attempt is for the current topic
+          if (newRow?.topic_id === topicId) {
+            console.log('New attempt detected for topic:', topicId);
+            
+            if (refetchTimeout) {
+              clearTimeout(refetchTimeout);
+            }
+            const timeout = setTimeout(() => {
+              fetchLessons();
+            }, 200);
+            setRefetchTimeout(timeout);
+          }
+        }
+      )
       .subscribe();
 
     return () => {
@@ -157,6 +180,17 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
         const completedGameIds = gameProgress?.completed_game_ids || [];
 
+        // Fetch attempted games (wrong answers)
+        const { data: attempts } = await supabase
+          .from('student_question_attempts')
+          .select('question_id')
+          .eq('student_id', user.user.id)
+          .eq('topic_id', topicId);
+
+        const attemptedGameIds = Array.from(
+          new Set((attempts || []).map(a => a.question_id).filter((id): id is string => typeof id === 'string' && id.length > 0))
+        );
+
         // Build lessons array from all valid games
         lessonsData = validGames.map((game, index) => ({
           id: game.id,
@@ -167,24 +201,37 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           estimated_time_minutes: 3, // Default time estimate
         }));
 
-        // Build progress map from completed games
+        // Build progress map from completed and attempted games
         lessonsData.forEach((lesson, index) => {
           const isCompleted = completedGameIds.includes(lesson.id);
+          const isAttempted = attemptedGameIds.includes(lesson.id);
           
           // First game is always unlocked
-          // For subsequent games: unlock only if immediately previous game is completed
-          let isPreviousCompleted = false;
+          // For subsequent games: unlock if immediately previous game is completed OR attempted
+          let isPrevDone = false;
           if (index === 0) {
-            isPreviousCompleted = true; // First game always unlocked
+            isPrevDone = true; // First game always unlocked
           } else {
-            // Check if the IMMEDIATELY previous game is completed (sequential unlocking)
-            isPreviousCompleted = completedGameIds.includes(lessonsData[index - 1]?.id);
+            const prevId = lessonsData[index - 1]?.id;
+            isPrevDone = completedGameIds.includes(prevId) || attemptedGameIds.includes(prevId);
+          }
+          
+          // Determine status: completed > attempted (in_progress) > unlocked > locked
+          let status: 'completed' | 'in_progress' | 'unlocked' | 'locked';
+          if (isCompleted) {
+            status = 'completed';
+          } else if (isAttempted) {
+            status = 'in_progress';
+          } else if (isPrevDone) {
+            status = 'unlocked';
+          } else {
+            status = 'locked';
           }
           
           progressMap[lesson.id] = {
             id: `progress_${lesson.id}`,
             lesson_content_id: lesson.id,
-            status: isCompleted ? 'completed' : (isPreviousCompleted ? 'unlocked' : 'locked'),
+            status,
             current_step: 0,
             total_steps: 1,
             steps_completed: isCompleted ? 1 : 0,
@@ -251,8 +298,8 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
   const getNodeColor = (status?: string) => {
     switch (status) {
       case 'completed': return 'bg-green-500 border-green-600';
-      case 'in_progress': return 'bg-yellow-500 border-yellow-600';
-      case 'unlocked': return 'bg-blue-500 border-blue-600';
+      case 'in_progress': return 'bg-blue-500 border-blue-600'; // Attempted games = blue
+      case 'unlocked': return 'bg-blue-400 border-blue-500';
       default: return 'bg-gray-400 border-gray-500';
     }
   };

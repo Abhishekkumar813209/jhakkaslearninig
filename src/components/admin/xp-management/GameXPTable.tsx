@@ -33,24 +33,29 @@ export const GameXPTable = ({ topicId }: { topicId: string }) => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('gamified_exercises')
-        .select(`
-          id,
-          question_text,
-          exercise_type,
-          difficulty,
-          marks,
-          xp_reward,
-          game_order,
-          topic_content_mapping!inner(topic_id)
-        `)
-        .eq('topic_content_mapping.topic_id', topicId)
-        .order('game_order');
+    const { data, error } = await supabase
+      .from('gamified_exercises')
+      .select(`
+        id,
+        exercise_data,
+        exercise_type,
+        difficulty,
+        marks,
+        xp_reward,
+        game_order,
+        topic_content_mapping!inner(topic_id)
+      `)
+      .eq('topic_content_mapping.topic_id', topicId)
+      .order('game_order');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      setGames(data || []);
+    const transformedData = data?.map(game => ({
+      ...game,
+      question_text: (game.exercise_data as any)?.question || '',
+    })) || [];
+
+    setGames(transformedData);
       setModified(new Set());
     } catch (error: any) {
       console.error('Error fetching games:', error);

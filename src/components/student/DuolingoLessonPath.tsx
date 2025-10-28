@@ -147,32 +147,6 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
       // If we have games, build lessons from them
       if (validGames.length > 0) {
-        // Deduplicate games by question_text (safety measure)
-        const uniqueGames = validGames.reduce((acc, game) => {
-          const isDuplicate = acc.some(g => {
-            // Extract actual question text from exercise_data or question_text
-            const existingQuestion = (typeof g.exercise_data === 'object' && g.exercise_data && 'question' in g.exercise_data) 
-              ? (g.exercise_data as any).question 
-              : g.question_text;
-            const newQuestion = (typeof game.exercise_data === 'object' && game.exercise_data && 'question' in game.exercise_data)
-              ? (game.exercise_data as any).question 
-              : game.question_text;
-            
-            return (
-              existingQuestion === newQuestion &&
-              existingQuestion !== null &&           // Don't treat NULLs as duplicates
-              existingQuestion !== '' &&             // Don't treat empty strings as duplicates
-              g.exercise_type === game.exercise_type
-            );
-          });
-          if (!isDuplicate) {
-            acc.push(game);
-          }
-          return acc;
-        }, [] as typeof validGames);
-        
-        console.log(`Deduplicated ${validGames.length} games to ${uniqueGames.length} unique games`);
-        
         // Load student game progress
         const { data: gameProgress } = await supabase
           .from('student_topic_game_progress')
@@ -183,8 +157,8 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
         const completedGameIds = gameProgress?.completed_game_ids || [];
 
-        // Build lessons array from unique games
-        lessonsData = uniqueGames.map((game, index) => ({
+        // Build lessons array from all valid games
+        lessonsData = validGames.map((game, index) => ({
           id: game.id,
           lesson_type: 'game',
           content_order: game.game_order || (index + 1),
@@ -198,15 +172,13 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           const isCompleted = completedGameIds.includes(lesson.id);
           
           // First game is always unlocked
-          // For subsequent games: unlock if ANY previous game is completed
+          // For subsequent games: unlock only if immediately previous game is completed
           let isPreviousCompleted = false;
           if (index === 0) {
             isPreviousCompleted = true; // First game always unlocked
           } else {
-            // Check if at least one previous game is completed
-            isPreviousCompleted = lessonsData
-              .slice(0, index) // Get all previous games
-              .some(prevLesson => completedGameIds.includes(prevLesson.id));
+            // Check if the IMMEDIATELY previous game is completed (sequential unlocking)
+            isPreviousCompleted = completedGameIds.includes(lessonsData[index - 1]?.id);
           }
           
           progressMap[lesson.id] = {

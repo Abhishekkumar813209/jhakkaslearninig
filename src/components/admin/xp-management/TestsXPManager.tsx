@@ -21,70 +21,50 @@ interface Test {
 }
 
 interface TestsXPManagerProps {
-  domain: string;
-  board: string | null;
-  targetClass: string | null;
+  chapterId: string;
   subject: string;
 }
 
-export const TestsXPManager = ({ domain, board, targetClass, subject }: TestsXPManagerProps) => {
+export const TestsXPManager = ({ chapterId, subject }: TestsXPManagerProps) => {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [openTests, setOpenTests] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchTests();
-  }, [domain, board, targetClass, subject]);
+  }, [chapterId, subject]);
 
   const fetchTests = async () => {
     try {
       setLoading(true);
       
-      let query = supabase
-        .from('tests')
-        .select(`
-          id,
-          title,
-          subject,
-          difficulty,
-          base_xp_reward,
-          xp_per_mark,
-          bonus_xp_on_perfect,
-          total_marks
-        `)
-        .eq('subject', subject);
-
-      if (domain === 'school' && board && targetClass) {
-        query = query
-          .eq('exam_domain', domain)
-          .eq('target_board', board as any)
-          .eq('target_class', targetClass as any);
-      } else if (domain) {
-        query = query.eq('exam_domain', domain);
+      // Get test IDs from questions table
+      const questionsResult: any = await supabase.from('questions').select('test_id').eq('chapter_id', chapterId);
+      if (questionsResult.error) throw questionsResult.error;
+      
+      const questionData = questionsResult.data || [];
+      if (questionData.length === 0) {
+        setTests([]);
+        setLoading(false);
+        return;
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const testIds: string[] = [...new Set(questionData.map((q: any) => q.test_id).filter(Boolean))];
 
-      if (error) throw error;
+      // Get test details
+      const testsResult: any = await supabase.from('tests').select('*').in('id', testIds).eq('subject', subject);
+      if (testsResult.error) throw testsResult.error;
 
       // Get question counts
-      const testsWithCounts = await Promise.all(
-        (data || []).map(async (test) => {
-          const { count } = await supabase
-            .from('questions')
-            .select('*', { count: 'exact', head: true })
-            .eq('test_id', test.id);
-
-          return {
-            ...test,
-            question_count: count || 0,
-          };
-        })
-      );
+      const testsWithCounts: Test[] = [];
+      for (const test of testsResult.data || []) {
+        const countResult: any = await supabase.from('questions').select('id', { count: 'exact', head: true }).eq('test_id', test.id).eq('chapter_id', chapterId);
+        testsWithCounts.push({ ...test, question_count: countResult.count || 0 });
+      }
 
       setTests(testsWithCounts);
     } catch (error: any) {
-      console.error('Error fetching tests:', error);
+      console.error('Error:', error);
       toast.error('Failed to load tests');
     } finally {
       setLoading(false);
@@ -94,31 +74,18 @@ export const TestsXPManager = ({ domain, board, targetClass, subject }: TestsXPM
   const toggleTest = (testId: string) => {
     setOpenTests(prev => {
       const next = new Set(prev);
-      if (next.has(testId)) {
-        next.delete(testId);
-      } else {
-        next.add(testId);
-      }
+      if (next.has(testId)) next.delete(testId);
+      else next.add(testId);
       return next;
     });
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   if (tests.length === 0) {
-    return (
-      <Card className="p-8">
-        <div className="text-center text-muted-foreground">
-          <p>No tests found for {subject}</p>
-        </div>
-      </Card>
-    );
+    return <Card className="p-8"><div className="text-center text-muted-foreground"><p>No tests found for {subject}</p></div></Card>;
   }
 
   return (
@@ -129,35 +96,22 @@ export const TestsXPManager = ({ domain, board, targetClass, subject }: TestsXPM
       </div>
 
       {tests.map((test) => (
-        <Collapsible
-          key={test.id}
-          open={openTests.has(test.id)}
-          onOpenChange={() => toggleTest(test.id)}
-        >
+        <Collapsible key={test.id} open={openTests.has(test.id)} onOpenChange={() => toggleTest(test.id)}>
           <Card>
             <CollapsibleTrigger className="w-full">
               <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
                 <CardTitle className="flex items-center justify-between text-base">
                   <div className="flex items-center gap-3">
-                    {openTests.has(test.id) ? (
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    )}
+                    {openTests.has(test.id) ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                     <span>{test.title}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">
-                      {test.question_count} questions
-                    </Badge>
-                    <Badge variant="secondary">
-                      {test.total_marks} marks
-                    </Badge>
+                    <Badge variant="outline">{test.question_count} questions</Badge>
+                    <Badge variant="secondary">{test.total_marks} marks</Badge>
                   </div>
                 </CardTitle>
               </CardHeader>
             </CollapsibleTrigger>
-            
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <TestXPConfig test={test} onUpdate={fetchTests} />

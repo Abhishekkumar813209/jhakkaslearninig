@@ -6,9 +6,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
 interface ChapterSelectorProps {
-  domain: string;
-  board: string | null;
-  targetClass: string | null;
+  roadmapId: string;
   subject: string;
   onChapterSelect: (chapter: { id: string; name: string }) => void;
 }
@@ -20,37 +18,23 @@ interface Chapter {
   game_count: number;
 }
 
-export const ChapterSelector = ({ domain, board, targetClass, subject, onChapterSelect }: ChapterSelectorProps) => {
+export const ChapterSelector = ({ roadmapId, subject, onChapterSelect }: ChapterSelectorProps) => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchChapters();
-  }, [domain, board, targetClass, subject]);
+  }, [roadmapId, subject]);
 
   const fetchChapters = async () => {
     try {
       setLoading(true);
       
-      let query = supabase
+      const { data, error } = await supabase
         .from('roadmap_chapters')
-        .select(`
-          id,
-          chapter_name,
-          batch_roadmaps!inner(exam_type, target_board, target_class)
-        `)
+        .select('id, chapter_name')
+        .eq('roadmap_id', roadmapId)
         .eq('subject', subject);
-
-      if (domain === 'school') {
-        query = query
-          .eq('batch_roadmaps.exam_type', domain)
-          .eq('batch_roadmaps.target_board', board)
-          .eq('batch_roadmaps.target_class', targetClass);
-      } else {
-        query = query.eq('batch_roadmaps.exam_type', domain);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 

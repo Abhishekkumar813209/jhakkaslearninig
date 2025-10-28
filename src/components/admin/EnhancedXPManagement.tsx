@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BoardClassSelector } from './BoardClassSelector';
+import { RoadmapSelector } from './xp-management/RoadmapSelector';
 import { SubjectSelector } from './xp-management/SubjectSelector';
 import { ChapterSelector } from './xp-management/ChapterSelector';
 import { XPTypeSelector } from './xp-management/XPTypeSelector';
@@ -10,6 +11,7 @@ import { useBoardClassHierarchy } from '@/hooks/useBoardClassHierarchy';
 
 export const EnhancedXPManagement = () => {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string } | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
   
@@ -24,6 +26,7 @@ export const EnhancedXPManagement = () => {
 
   const handleReset = () => {
     setSelectedDomain(null);
+    setSelectedRoadmap(null);
     setSelectedSubject(null);
     setSelectedChapter(null);
     hierarchy.reset();
@@ -31,9 +34,16 @@ export const EnhancedXPManagement = () => {
 
   const handleBackToDomain = () => {
     setSelectedDomain(null);
+    setSelectedRoadmap(null);
     setSelectedSubject(null);
     setSelectedChapter(null);
     hierarchy.reset();
+  };
+
+  const handleBackToRoadmap = () => {
+    setSelectedRoadmap(null);
+    setSelectedSubject(null);
+    setSelectedChapter(null);
   };
 
   const handleBackToSubject = () => {
@@ -50,6 +60,7 @@ export const EnhancedXPManagement = () => {
   if (selectedDomain) breadcrumbs.push(domains.find(d => d.code === selectedDomain)?.name || selectedDomain);
   if (hierarchy.selectedBoard) breadcrumbs.push(hierarchy.selectedBoard);
   if (hierarchy.selectedClass) breadcrumbs.push(`Class ${hierarchy.selectedClass}`);
+  if (selectedRoadmap) breadcrumbs.push(selectedRoadmap.title);
   if (selectedSubject) breadcrumbs.push(selectedSubject);
   if (selectedChapter) breadcrumbs.push(selectedChapter.name);
 
@@ -130,23 +141,37 @@ export const EnhancedXPManagement = () => {
         </div>
       )}
 
-      {/* Step 3: Subject Selection */}
-      {((selectedDomain === 'school' && hierarchy.selectedClass) || (selectedDomain !== 'school' && selectedDomain)) && !selectedSubject && (
+      {/* Step 3: Roadmap Selection */}
+      {((selectedDomain === 'school' && hierarchy.selectedClass) || (selectedDomain !== 'school' && selectedDomain)) && !selectedRoadmap && (
         <div>
           <Button onClick={handleBackToDomain} variant="outline" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             {selectedDomain === 'school' ? 'Back to Class' : 'Back to Domain'}
           </Button>
-          <SubjectSelector
-            domain={selectedDomain!}
+          <RoadmapSelector
+            examType={selectedDomain!}
             board={hierarchy.selectedBoard}
             targetClass={hierarchy.selectedClass}
+            onRoadmapSelect={setSelectedRoadmap}
+          />
+        </div>
+      )}
+
+      {/* Step 4: Subject Selection */}
+      {selectedRoadmap && !selectedSubject && (
+        <div>
+          <Button onClick={handleBackToRoadmap} variant="outline" className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Roadmap
+          </Button>
+          <SubjectSelector
+            roadmapId={selectedRoadmap.id}
             onSubjectSelect={setSelectedSubject}
           />
         </div>
       )}
 
-      {/* Step 4: Chapter Selection */}
+      {/* Step 5: Chapter Selection */}
       {selectedSubject && !selectedChapter && (
         <div>
           <Button onClick={handleBackToSubject} variant="outline" className="mb-4">
@@ -154,16 +179,14 @@ export const EnhancedXPManagement = () => {
             Back to Subjects
           </Button>
           <ChapterSelector
-            domain={selectedDomain!}
-            board={hierarchy.selectedBoard}
-            targetClass={hierarchy.selectedClass}
+            roadmapId={selectedRoadmap!.id}
             subject={selectedSubject}
             onChapterSelect={setSelectedChapter}
           />
         </div>
       )}
 
-      {/* Step 5: XP Type Selection (Games vs Tests) */}
+      {/* Step 6: XP Type Selection (Games vs Tests) */}
       {selectedChapter && (
         <div>
           <Button onClick={handleBackToChapter} variant="outline" className="mb-4">
@@ -171,9 +194,6 @@ export const EnhancedXPManagement = () => {
             Back to Chapters
           </Button>
           <XPTypeSelector
-            domain={selectedDomain!}
-            board={hierarchy.selectedBoard}
-            targetClass={hierarchy.selectedClass}
             subject={selectedSubject!}
             chapter={selectedChapter}
           />

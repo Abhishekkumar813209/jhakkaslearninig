@@ -4,14 +4,11 @@ import { TestsXPManager } from './TestsXPManager';
 import { Gamepad2, FileText } from 'lucide-react';
 
 interface XPTypeSelectorProps {
-  domain: string;
-  board: string | null;
-  targetClass: string | null;
   subject: string;
   chapter: { id: string; name: string };
 }
 
-export const XPTypeSelector = ({ domain, board, targetClass, subject, chapter }: XPTypeSelectorProps) => {
+export const XPTypeSelector = ({ subject, chapter }: XPTypeSelectorProps) => {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">Manage XP for: {chapter.name}</h2>
@@ -34,9 +31,7 @@ export const XPTypeSelector = ({ domain, board, targetClass, subject, chapter }:
         
         <TabsContent value="tests" className="mt-6">
           <TestsXPManager
-            domain={domain}
-            board={board}
-            targetClass={targetClass}
+            chapterId={chapter.id}
             subject={subject}
           />
         </TabsContent>

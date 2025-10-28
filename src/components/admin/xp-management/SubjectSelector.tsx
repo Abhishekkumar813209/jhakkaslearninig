@@ -5,41 +5,26 @@ import { Loader2, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SubjectSelectorProps {
-  domain: string;
-  board: string | null;
-  targetClass: string | null;
+  roadmapId: string;
   onSubjectSelect: (subject: string) => void;
 }
 
-export const SubjectSelector = ({ domain, board, targetClass, onSubjectSelect }: SubjectSelectorProps) => {
+export const SubjectSelector = ({ roadmapId, onSubjectSelect }: SubjectSelectorProps) => {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchSubjects();
-  }, [domain, board, targetClass]);
+  }, [roadmapId]);
 
   const fetchSubjects = async () => {
     try {
       setLoading(true);
       
-      let query = supabase
+      const { data, error } = await supabase
         .from('roadmap_chapters')
-        .select(`
-          subject,
-          batch_roadmaps!inner(exam_type, target_board, target_class)
-        `);
-
-      if (domain === 'school') {
-        query = query
-          .eq('batch_roadmaps.exam_type', domain)
-          .eq('batch_roadmaps.target_board', board)
-          .eq('batch_roadmaps.target_class', targetClass);
-      } else {
-        query = query.eq('batch_roadmaps.exam_type', domain);
-      }
-
-      const { data, error } = await query;
+        .select('subject')
+        .eq('roadmap_id', roadmapId);
 
       if (error) throw error;
 

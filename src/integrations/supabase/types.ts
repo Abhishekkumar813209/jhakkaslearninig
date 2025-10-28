@@ -5113,10 +5113,6 @@ export type Database = {
         Returns: boolean
       }
       increment_promo_usage: { Args: { code: string }; Returns: undefined }
-      increment_student_xp: {
-        Args: { student_id: string; xp_amount: number }
-        Returns: undefined
-      }
       is_topic_fully_completed: {
         Args: { p_student_id: string; p_topic_id: string }
         Returns: boolean

@@ -251,21 +251,18 @@ const GamePlayerPage = () => {
       
       // Block if already completed
       if (hasCorrectAttempt) {
-        toast({
-          title: "Already Completed",
-          description: "You've already earned XP for this question.",
-          variant: "default"
-        });
         return;
       }
 
-      // Block if exceeded max attempts
+      // Block if exceeded max attempts - but still redirect
       if (attemptNumber > XP_MULTIPLIERS.max_attempts) {
-        toast({
-          title: "Max Attempts Reached",
-          description: "You've used all available attempts for this question.",
-          variant: "destructive"
-        });
+        setTimeout(() => {
+          if (navInfo?.nextGameId) {
+            handleNext();
+          } else {
+            handleExit();
+          }
+        }, 1500);
         return;
       }
 
@@ -308,12 +305,6 @@ const GamePlayerPage = () => {
       // Mark game as completed in progress table
       await markGameCompleted(user.id, topicId!, gameData.id);
 
-      // Show success message
-      toast({
-        title: `✅ +${xpAmount} XP`,
-        description: attemptNumber === 1 ? "Perfect! First attempt!" : "Correct on 2nd try! (30% XP)",
-      });
-
     } catch (error) {
       console.error("Error saving progress:", error);
       toast({
@@ -342,11 +333,6 @@ const GamePlayerPage = () => {
 
       // Block if already completed correctly
       if (hasCorrectAttempt) {
-        toast({
-          title: "Already Completed",
-          description: "You've already answered this correctly.",
-          variant: "default"
-        });
         return;
       }
 
@@ -360,13 +346,6 @@ const GamePlayerPage = () => {
         time_spent_seconds: 0,
         xp_awarded: false,
         attempt_number: attemptNumber
-      });
-
-      // Show feedback and auto-advance
-      toast({
-        title: "❌ Wrong Answer",
-        description: "Moving to next question. You can retry this later as a blue node!",
-        variant: "destructive"
       });
 
       // Auto-advance to next game after 2 seconds

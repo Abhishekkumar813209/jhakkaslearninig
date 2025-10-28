@@ -350,25 +350,6 @@ const GamePlayerPage = () => {
         return;
       }
 
-      // Block if exceeded max attempts
-      if (attemptNumber > XP_MULTIPLIERS.max_attempts) {
-        toast({
-          title: "Max Attempts Reached",
-          description: "No more attempts available. Moving to next question.",
-          variant: "destructive"
-        });
-        
-        // Auto-advance after 2 seconds
-        setTimeout(() => {
-          if (navInfo?.nextGameId) {
-            handleNext();
-          } else {
-            handleExit();
-          }
-        }, 2000);
-        return;
-      }
-
       // Insert wrong attempt record (no XP awarded)
       await supabase.from('student_question_attempts').insert({
         student_id: user.id,
@@ -381,15 +362,21 @@ const GamePlayerPage = () => {
         attempt_number: attemptNumber
       });
 
-      // Show feedback
-      const remainingAttempts = XP_MULTIPLIERS.max_attempts - attemptNumber;
+      // Show feedback and auto-advance
       toast({
         title: "❌ Wrong Answer",
-        description: remainingAttempts > 0 
-          ? `Try again! ${remainingAttempts} attempt${remainingAttempts > 1 ? 's' : ''} remaining.`
-          : "No attempts left. Moving on...",
+        description: "Moving to next question. You can retry this later as a blue node!",
         variant: "destructive"
       });
+
+      // Auto-advance to next game after 2 seconds
+      setTimeout(() => {
+        if (navInfo?.nextGameId) {
+          handleNext();
+        } else {
+          handleExit();
+        }
+      }, 2000);
 
     } catch (error) {
       console.error("Error tracking wrong answer:", error);

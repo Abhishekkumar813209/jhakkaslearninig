@@ -23,6 +23,7 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
   const [distributing, setDistributing] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [distributionPreview, setDistributionPreview] = useState<any>(null);
+  const [currentTopicId, setCurrentTopicId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTopics();
@@ -76,19 +77,20 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
     });
   };
 
-  const handleAutoDistribute = async () => {
+  const handleAutoDistribute = async (topicId: string) => {
     try {
       setDistributing(true);
+      setCurrentTopicId(topicId);
       
       // First, do a dry run to preview changes
       const { data, error } = await supabase.functions.invoke('auto-distribute-xp', {
-        body: { chapter_id: chapterId, dry_run: true }
+        body: { topic_id: topicId, dry_run: true }
       });
 
       if (error) throw error;
 
       if (data?.results && data.results.length > 0) {
-        setDistributionPreview(data.results);
+        setDistributionPreview(data.results[0]); // Only one topic now
         setShowConfirmDialog(true);
       } else {
         toast.info('No games found to distribute XP');
@@ -102,26 +104,23 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
   };
 
   const applyDistribution = async () => {
+    if (!currentTopicId) return;
+
     try {
       setDistributing(true);
       setShowConfirmDialog(false);
 
       const { data, error } = await supabase.functions.invoke('auto-distribute-xp', {
-        body: { chapter_id: chapterId, dry_run: false }
+        body: { topic_id: currentTopicId, dry_run: false }
       });
 
       if (error) throw error;
 
-      const successCount = data?.results?.filter((r: any) => !r.error).length || 0;
-      const errorCount = data?.results?.filter((r: any) => r.error).length || 0;
-
-      if (successCount > 0) {
-        toast.success(`Successfully redistributed XP for ${successCount} topic(s)`);
+      if (data?.results?.[0] && !data.results[0].error) {
+        toast.success(`Successfully redistributed XP for this topic`);
         await fetchTopics(); // Refresh the data
-      }
-
-      if (errorCount > 0) {
-        toast.error(`Failed to redistribute XP for ${errorCount} topic(s)`);
+      } else {
+        toast.error('Failed to redistribute XP');
       }
     } catch (error: any) {
       console.error('Error applying XP distribution:', error);
@@ -129,6 +128,7 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
     } finally {
       setDistributing(false);
       setDistributionPreview(null);
+      setCurrentTopicId(null);
     }
   };
 
@@ -155,29 +155,9 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Topics with Games</h3>
-          <p className="text-sm text-muted-foreground">Manage XP distribution across all games</p>
+          <p className="text-sm text-muted-foreground">Manage XP distribution for each topic</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary">{topics.length} topics</Badge>
-          <Button
-            onClick={handleAutoDistribute}
-            disabled={distributing || topics.length === 0}
-            variant="default"
-            size="sm"
-          >
-            {distributing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Auto-Distribute XP
-              </>
-            )}
-          </Button>
-        </div>
+        <Badge variant="secondary">{topics.length} topics</Badge>
       </div>
 
       {topics.map((topic) => (
@@ -206,9 +186,31 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
             </CollapsibleTrigger>
             
             <CollapsibleContent>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 space-y-3">
                 {topic.game_count > 0 ? (
-                  <GameXPTable topicId={topic.id} />
+                  <>
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => handleAutoDistribute(topic.id)}
+                        disabled={distributing}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        {distributing && currentTopicId === topic.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3 w-3 mr-1.5" />
+                            Distribute XP
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <GameXPTable topicId={topic.id} />
+                  </>
                 ) : (
                   <p className="text-muted-foreground text-sm py-4">No games in this topic</p>
                 )}
@@ -224,43 +226,43 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm XP Distribution</AlertDialogTitle>
             <AlertDialogDescription>
-              Review the proposed XP distribution changes below. This will update all games based on their topic's XP budget.
+              Review the proposed XP distribution changes below. This will update all games in this topic based on its XP budget.
             </AlertDialogDescription>
           </AlertDialogHeader>
           
-          <div className="space-y-4 py-4">
-            {distributionPreview?.map((result: any, idx: number) => (
-              <Card key={idx}>
+          {distributionPreview && (
+            <div className="py-4">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium">
-                    {result.topic_name}
+                    {distributionPreview.topic_name}
                   </CardTitle>
                   <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>Budget: {result.xp_budget} XP</span>
-                    <span>Games: {result.total_games}</span>
-                    <span>Per Game: {result.xp_per_game} XP</span>
+                    <span>Budget: {distributionPreview.xp_budget} XP</span>
+                    <span>Games: {distributionPreview.total_games}</span>
+                    <span>Per Game: {distributionPreview.xp_per_game} XP</span>
                   </div>
                 </CardHeader>
-                {result.changes && result.changes.length > 0 && (
+                {distributionPreview.changes && distributionPreview.changes.length > 0 && (
                   <CardContent className="pt-0">
                     <div className="text-xs space-y-1">
-                      <p className="font-medium">Sample changes (first 3):</p>
-                      {result.changes.slice(0, 3).map((change: any, i: number) => (
+                      <p className="font-medium">Sample changes (first 5):</p>
+                      {distributionPreview.changes.slice(0, 5).map((change: any, i: number) => (
                         <p key={i} className="text-muted-foreground">
                           Game {i + 1}: {change.old_xp} XP → {change.new_xp} XP
                         </p>
                       ))}
-                      {result.changes.length > 3 && (
+                      {distributionPreview.changes.length > 5 && (
                         <p className="text-muted-foreground italic">
-                          ...and {result.changes.length - 3} more games
+                          ...and {distributionPreview.changes.length - 5} more games
                         </p>
                       )}
                     </div>
                   </CardContent>
                 )}
               </Card>
-            ))}
-          </div>
+            </div>
+          )}
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={distributing}>Cancel</AlertDialogCancel>

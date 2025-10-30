@@ -766,11 +766,27 @@ serve(async (req) => {
           return acc;
         }, {});
 
-        // Calculate chapter progress
+        // Calculate chapter progress with auto-distributed topics
         const chaptersWithTopics = chapters.map((chapter: any) => {
           const chapterTopics = topicsByChapter[chapter.id] || [];
-          const completedTopics = chapterTopics.filter((t: any) => t.status === 'green').length;
-          const totalTopics = chapterTopics.length;
+          const chapterDays = (chapter.day_end - chapter.day_start + 1);
+          
+          // Auto-distribute topics evenly across chapter days
+          const topicsWithDistributedDays = chapterTopics.map((topic: any, index: number) => {
+            const topicsPerDay = Math.max(1, Math.ceil(chapterTopics.length / chapterDays));
+            const assignedDay = chapter.day_start + Math.floor(index / topicsPerDay);
+            
+            return {
+              ...topic,
+              day_number: assignedDay // Override with calculated day
+            };
+          });
+          
+          // Fix completion calculation - use game_completion_rate >= 70 instead of status
+          const completedTopics = topicsWithDistributedDays.filter((t: any) => 
+            t.progress_percentage >= 70
+          ).length;
+          const totalTopics = topicsWithDistributedDays.length;
           
           return {
             id: chapter.id,
@@ -779,7 +795,7 @@ serve(async (req) => {
             day_start: chapter.day_start,
             day_end: chapter.day_end,
             progress: totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0,
-            topics: chapterTopics
+            topics: topicsWithDistributedDays
           };
         });
 

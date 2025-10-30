@@ -40,6 +40,7 @@ interface SubjectData {
       topic_name: string;
       status: string;
       progress_percentage: number;
+      day_number?: number;
     }>;
   }>;
 }
@@ -70,6 +71,7 @@ const TopicCard = ({
   isToday, 
   isPast,
   isLocked,
+  isEmpty,
   onTopicClick
 }: { 
   topic: RoadmapTopic; 
@@ -79,8 +81,25 @@ const TopicCard = ({
   isToday: boolean; 
   isPast: boolean;
   isLocked: boolean;
+  isEmpty?: boolean;
   onTopicClick?: (topicId: string, chapterName: string, subject: string) => void;
 }) => {
+  // Empty chapter placeholder
+  if (isEmpty) {
+    return (
+      <div className="w-full p-2 border rounded-lg bg-muted border-border mb-2">
+        <div className="text-xs font-semibold uppercase text-muted-foreground">
+          {subject}
+        </div>
+        <div className="font-medium text-sm mt-1">{chapterName}</div>
+        <div className="text-xs mt-2 italic text-muted-foreground flex items-center gap-1">
+          <FileText className="h-3 w-3" />
+          Topics coming soon
+        </div>
+      </div>
+    );
+  }
+
   const color = getTopicColor(gameCompletionRate);
 
   return (
@@ -189,25 +208,46 @@ export const StudentRoadmapCalendar = ({
     chapterName: string;
     topicName: string;
     gameCompletionRate: number;
+    isEmpty?: boolean;
   }
 
   const topics: CalendarTopic[] = subjectsData.flatMap(subject =>
-    subject.chapters.flatMap(chapter =>
-      (chapter.topics || []).map(topic => {
-        const topicStatus = topicStatuses[topic.id] || { rate: 0 };
-        
-        return {
-          id: topic.id,
-          date: chapter.day_start 
-            ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
-            : format(startDate, 'yyyy-MM-dd'),
+    subject.chapters.flatMap(chapter => {
+      // If chapter has topics, show them
+      if (chapter.topics && chapter.topics.length > 0) {
+        return chapter.topics.map(topic => {
+          const topicStatus = topicStatuses[topic.id] || { rate: 0 };
+          
+          // Use topic's day_number (now properly distributed by backend)
+          const topicDate = topic.day_number 
+            ? format(addDays(startDate, topic.day_number - 1), 'yyyy-MM-dd')
+            : (chapter.day_start 
+              ? format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd')
+              : format(startDate, 'yyyy-MM-dd'));
+          
+          return {
+            id: topic.id,
+            date: topicDate,
+            subject: subject.name,
+            chapterName: chapter.chapter_name,
+            topicName: topic.topic_name,
+            gameCompletionRate: topicStatus.rate,
+            isEmpty: false
+          } as CalendarTopic;
+        });
+      } else {
+        // Chapter has no topics - show placeholder (like parent portal)
+        return [{
+          id: `empty-${chapter.id}`,
+          date: format(addDays(startDate, chapter.day_start - 1), 'yyyy-MM-dd'),
           subject: subject.name,
           chapterName: chapter.chapter_name,
-          topicName: topic.topic_name,
-          gameCompletionRate: topicStatus.rate
-        };
-      })
-    )
+          topicName: '📚 Topics not yet added',
+          gameCompletionRate: 0,
+          isEmpty: true
+        } as CalendarTopic];
+      }
+    })
   );
 
   const subjects = subjectsData.map(s => s.name);
@@ -323,6 +363,7 @@ export const StudentRoadmapCalendar = ({
                               isToday={isToday}
                               isPast={isPast}
                               isLocked={topicItem.id !== firstTopicId && !isPast && !isToday}
+                              isEmpty={topicItem.isEmpty}
                               onTopicClick={onTopicClick}
                             />
                           ))}
@@ -345,6 +386,7 @@ export const StudentRoadmapCalendar = ({
                                 isToday={isToday}
                                 isPast={isPast}
                                 isLocked={topicItem.id !== firstTopicId && !isPast && !isToday}
+                                isEmpty={topicItem.isEmpty}
                                 onTopicClick={onTopicClick}
                               />
                             ))}

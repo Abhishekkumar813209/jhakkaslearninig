@@ -107,10 +107,18 @@ serve(async (req) => {
         }
 
         const chapterTopics = topics.filter(t => t.chapter_id === chapter.id);
-        const topicsWithProgress = chapterTopics.map(topic => {
+        
+        // Auto-distribute topics across chapter days
+        const chapterDays = (chapter.day_end - chapter.day_start + 1);
+        const topicsPerDay = Math.max(1, Math.ceil(chapterTopics.length / chapterDays));
+
+        const topicsWithProgress = chapterTopics.map((topic, index) => {
           const topicProgress = progress?.find(p => p.topic_id === topic.id);
+          const assignedDay = chapter.day_start + Math.floor(index / topicsPerDay);
+          
           return {
             ...topic,
+            day_number: assignedDay, // Override with calculated day
             status: topicProgress?.status || "locked",
             progress_percentage: topicProgress?.progress_percentage || 0
           };

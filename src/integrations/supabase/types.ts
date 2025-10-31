@@ -5329,6 +5329,7 @@ export type Database = {
         | "10"
         | "11"
         | "12"
+        | "13th"
       test_attempt_status:
         | "in_progress"
         | "submitted"
@@ -5515,6 +5516,7 @@ export const Constants = {
         "10",
         "11",
         "12",
+        "13th",
       ],
       test_attempt_status: [
         "in_progress",

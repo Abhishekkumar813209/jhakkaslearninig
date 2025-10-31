@@ -70,6 +70,7 @@ export type Database = {
           exam_name: string | null
           exam_type: string | null
           id: string
+          is_wellness_mode: boolean | null
           mode: string | null
           pdf_source_id: string | null
           selected_subjects: Json | null
@@ -92,6 +93,7 @@ export type Database = {
           exam_name?: string | null
           exam_type?: string | null
           id?: string
+          is_wellness_mode?: boolean | null
           mode?: string | null
           pdf_source_id?: string | null
           selected_subjects?: Json | null
@@ -114,6 +116,7 @@ export type Database = {
           exam_name?: string | null
           exam_type?: string | null
           id?: string
+          is_wellness_mode?: boolean | null
           mode?: string | null
           pdf_source_id?: string | null
           selected_subjects?: Json | null
@@ -542,6 +545,7 @@ export type Database = {
           created_at: string | null
           date: string
           id: string
+          is_wellness_checkin: boolean | null
           last_share_date: string | null
           marked_at: string | null
           share_count: number | null
@@ -550,6 +554,7 @@ export type Database = {
           social_share_done: boolean | null
           streak_days: number | null
           student_id: string
+          wellness_metadata: Json | null
           xp_awarded: boolean
           xp_earned: number | null
         }
@@ -557,6 +562,7 @@ export type Database = {
           created_at?: string | null
           date: string
           id?: string
+          is_wellness_checkin?: boolean | null
           last_share_date?: string | null
           marked_at?: string | null
           share_count?: number | null
@@ -565,6 +571,7 @@ export type Database = {
           social_share_done?: boolean | null
           streak_days?: number | null
           student_id: string
+          wellness_metadata?: Json | null
           xp_awarded?: boolean
           xp_earned?: number | null
         }
@@ -572,6 +579,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           id?: string
+          is_wellness_checkin?: boolean | null
           last_share_date?: string | null
           marked_at?: string | null
           share_count?: number | null
@@ -580,6 +588,7 @@ export type Database = {
           social_share_done?: boolean | null
           streak_days?: number | null
           student_id?: string
+          wellness_metadata?: Json | null
           xp_awarded?: boolean
           xp_earned?: number | null
         }
@@ -1045,6 +1054,7 @@ export type Database = {
           explanation: string | null
           game_order: number | null
           id: string
+          is_wellness_mode: boolean | null
           marks: number | null
           options: Json | null
           question_text: string | null
@@ -1061,6 +1071,7 @@ export type Database = {
           explanation?: string | null
           game_order?: number | null
           id?: string
+          is_wellness_mode?: boolean | null
           marks?: number | null
           options?: Json | null
           question_text?: string | null
@@ -1077,6 +1088,7 @@ export type Database = {
           explanation?: string | null
           game_order?: number | null
           id?: string
+          is_wellness_mode?: boolean | null
           marks?: number | null
           options?: Json | null
           question_text?: string | null
@@ -2410,6 +2422,7 @@ export type Database = {
           id: string
           is_custom: boolean | null
           is_selected: boolean | null
+          is_wellness_mode: boolean | null
           order_num: number
           roadmap_id: string
           selected_from_library: boolean | null
@@ -2426,6 +2439,7 @@ export type Database = {
           id?: string
           is_custom?: boolean | null
           is_selected?: boolean | null
+          is_wellness_mode?: boolean | null
           order_num: number
           roadmap_id: string
           selected_from_library?: boolean | null
@@ -2442,6 +2456,7 @@ export type Database = {
           id?: string
           is_custom?: boolean | null
           is_selected?: boolean | null
+          is_wellness_mode?: boolean | null
           order_num?: number
           roadmap_id?: string
           selected_from_library?: boolean | null
@@ -2473,6 +2488,7 @@ export type Database = {
           day_number: number
           estimated_hours: number
           id: string
+          is_wellness_mode: boolean | null
           order_num: number
           topic_name: string
           unlock_condition: string | null
@@ -2485,6 +2501,7 @@ export type Database = {
           day_number: number
           estimated_hours: number
           id?: string
+          is_wellness_mode?: boolean | null
           order_num: number
           topic_name: string
           unlock_condition?: string | null
@@ -2497,6 +2514,7 @@ export type Database = {
           day_number?: number
           estimated_hours?: number
           id?: string
+          is_wellness_mode?: boolean | null
           order_num?: number
           topic_name?: string
           unlock_condition?: string | null
@@ -3055,6 +3073,9 @@ export type Database = {
           theory_xp: number | null
           total_xp: number | null
           updated_at: string | null
+          wellness_longest_streak: number | null
+          wellness_streak_days: number | null
+          wellness_xp: number | null
         }
         Insert: {
           created_at?: string | null
@@ -3076,6 +3097,9 @@ export type Database = {
           theory_xp?: number | null
           total_xp?: number | null
           updated_at?: string | null
+          wellness_longest_streak?: number | null
+          wellness_streak_days?: number | null
+          wellness_xp?: number | null
         }
         Update: {
           created_at?: string | null
@@ -3097,6 +3121,9 @@ export type Database = {
           theory_xp?: number | null
           total_xp?: number | null
           updated_at?: string | null
+          wellness_longest_streak?: number | null
+          wellness_streak_days?: number | null
+          wellness_xp?: number | null
         }
         Relationships: []
       }
@@ -4767,6 +4794,101 @@ export type Database = {
           },
         ]
       }
+      wellness_accountability_partners: {
+        Row: {
+          accepted_at: string | null
+          can_see_details: boolean | null
+          created_at: string | null
+          id: string
+          invite_code: string | null
+          partner_id: string
+          roadmap_id: string | null
+          status: string | null
+          student_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          can_see_details?: boolean | null
+          created_at?: string | null
+          id?: string
+          invite_code?: string | null
+          partner_id: string
+          roadmap_id?: string | null
+          status?: string | null
+          student_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          can_see_details?: boolean | null
+          created_at?: string | null
+          id?: string
+          invite_code?: string | null
+          partner_id?: string
+          roadmap_id?: string | null
+          status?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellness_accountability_partners_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "batch_roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wellness_admin_access: {
+        Row: {
+          admin_email: string
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+        }
+        Insert: {
+          admin_email: string
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+        }
+        Update: {
+          admin_email?: string
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      wellness_support_messages: {
+        Row: {
+          created_at: string | null
+          from_student_id: string
+          id: string
+          message: string
+          message_type: string | null
+          read_at: string | null
+          to_student_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          from_student_id: string
+          id?: string
+          message: string
+          message_type?: string | null
+          read_at?: string | null
+          to_student_id: string
+        }
+        Update: {
+          created_at?: string | null
+          from_student_id?: string
+          id?: string
+          message?: string
+          message_type?: string | null
+          read_at?: string | null
+          to_student_id?: string
+        }
+        Relationships: []
+      }
       withdrawal_history: {
         Row: {
           account_holder_name: string | null
@@ -5117,6 +5239,7 @@ export type Database = {
         Args: { p_student_id: string; p_topic_id: string }
         Returns: boolean
       }
+      is_wellness_admin: { Args: { _user_id: string }; Returns: boolean }
       lock_credits_for_withdrawal: {
         Args: { p_amount: number; p_student_id: string }
         Returns: boolean

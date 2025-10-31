@@ -46,6 +46,12 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminCourses = lazy(() => import("./pages/AdminCourses"));
 const AnswerManagement = lazy(() => import("./pages/AnswerManagement"));
 const SolutionManagement = lazy(() => import("./pages/SolutionManagement"));
+const WellnessDashboard = lazy(() => import("./pages/WellnessDashboard"));
+const WellnessJourney = lazy(() => import("./pages/WellnessJourney"));
+const WellnessProgress = lazy(() => import("./pages/WellnessProgress"));
+import { WellnessLayout } from "./components/wellness/WellnessLayout";
+import { WellnessCheckin } from "./components/wellness/WellnessCheckin";
+import { AccountabilityPartners } from "./components/wellness/AccountabilityPartners";
 
 const queryClient = new QueryClient();
 
@@ -229,6 +235,60 @@ const App = () => (
             <Route path="/parent" element={
               <ProtectedRoute requireProfileComplete={false}>
                 <ParentDashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* Wellness routes - student facing */}
+            <Route path="/wellness" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <WellnessLayout>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <WellnessDashboard />
+                  </Suspense>
+                </WellnessLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/wellness/checkin" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <WellnessLayout>
+                  <WellnessCheckin />
+                </WellnessLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/wellness/accountability" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <WellnessLayout>
+                  <AccountabilityPartners />
+                </WellnessLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/wellness/journey" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <WellnessLayout>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <WellnessJourney />
+                  </Suspense>
+                </WellnessLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/wellness/progress" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <WellnessLayout>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <WellnessProgress />
+                  </Suspense>
+                </WellnessLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* Wellness admin routes */}
+            <Route path="/admin/wellness" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <WellnessLayout>
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <WellnessDashboard />
+                  </Suspense>
+                </WellnessLayout>
               </ProtectedRoute>
             } />
             

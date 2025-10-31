@@ -1,7 +1,4 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { useWellnessAccess } from "@/hooks/useWellnessAccess";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Users,
@@ -139,20 +136,6 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const location = useLocation();
-  const navigate = useNavigate();
-  const { hasAccess: hasWellnessAccess } = useWellnessAccess();
-
-  // Keyboard shortcut for wellness (Ctrl+Shift+W)
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'W' && hasWellnessAccess) {
-        e.preventDefault();
-        navigate('/admin/wellness');
-      }
-    };
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [hasWellnessAccess, navigate]);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -248,47 +231,6 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-2">
-        {hasWellnessAccess && !isCollapsed && (
-          <div className="mb-2 px-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => navigate('/admin/wellness')}
-                    className="w-full p-2 rounded-lg hover:bg-accent transition-colors flex items-center gap-2 opacity-50 hover:opacity-100"
-                    aria-label="Wellness Hub (Ctrl+Shift+W)"
-                  >
-                    <span className="text-lg">🧘</span>
-                    <span className="text-xs text-muted-foreground">Wellness</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Wellness Hub (Ctrl+Shift+W)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
-        {hasWellnessAccess && isCollapsed && (
-          <div className="mb-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => navigate('/admin/wellness')}
-                    className="w-full p-2 rounded-lg hover:bg-accent transition-colors opacity-50 hover:opacity-100"
-                    aria-label="Wellness Hub (Ctrl+Shift+W)"
-                  >
-                    <span className="text-lg">🧘</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Wellness Hub (Ctrl+Shift+W)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
         <UserProfileDropdown />
       </SidebarFooter>
     </Sidebar>

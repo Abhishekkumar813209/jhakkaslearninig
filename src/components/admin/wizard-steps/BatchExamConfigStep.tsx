@@ -39,7 +39,7 @@ export function BatchExamConfigStep({
         if (examType.code === 'school') {
           setClasses(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
         } else if (examType.code === 'engineering' || examType.code === 'medical') {
-          setClasses(['11', '12', 'Dropper']);
+          setClasses(['11', '12', '13th']);
         }
       }
     }
@@ -54,7 +54,7 @@ export function BatchExamConfigStep({
       const levelMap: Record<string, string> = {
         '11': 'Class 11',
         '12': 'Class 12',
-        'dropper': 'Dropper'
+        '13th': 'Dropper'
       };
       onChange('level', levelMap[formData.target_class] || '');
     }
@@ -118,7 +118,7 @@ export function BatchExamConfigStep({
               <SelectContent>
                 <SelectItem value="11">Class 11 (Foundation Year)</SelectItem>
                 <SelectItem value="12">Class 12 (Final Year)</SelectItem>
-                <SelectItem value="dropper">Dropper (12th Passed)</SelectItem>
+                <SelectItem value="13th">Dropper (12th Passed)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">

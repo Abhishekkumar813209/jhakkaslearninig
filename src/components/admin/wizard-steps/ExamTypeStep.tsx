@@ -107,10 +107,10 @@ export const ExamTypeStep = ({
       const batchClass = batch.target_class;
       const batchLevel = batch.level?.toLowerCase() || '';
       
-      if (conditionalClass === 'dropper') {
-        // Match if target_class='dropper' OR level contains 'dropper'
+      if (conditionalClass === '13th') {
+        // Match if target_class='13th' OR level contains 'dropper'
         return batch.exam_type === examType && 
-               (batchClass === 'dropper' || batchLevel.includes('dropper'));
+               (batchClass === '13th' || batchLevel.includes('dropper'));
       } else if (conditionalClass) {
         // Match if target_class matches OR level contains the class number
         return batch.exam_type === examType && 
@@ -199,7 +199,7 @@ export const ExamTypeStep = ({
               <SelectContent>
                 <SelectItem value="11">Class 11 (Foundation Year)</SelectItem>
                 <SelectItem value="12">Class 12 (Final Year)</SelectItem>
-                <SelectItem value="dropper">Dropper (Class 12 Passed)</SelectItem>
+                <SelectItem value="13th">Dropper (Class 12 Passed)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -300,7 +300,7 @@ export const ExamTypeStep = ({
                   <p className="font-medium text-destructive mb-1">⚠️ No batches found</p>
                   <p className="text-muted-foreground">
                     {conditionalClass && (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') 
-                      ? `Create a batch for ${conditionalClass === 'dropper' ? 'Dropper' : `Class ${conditionalClass}`} category`
+                      ? `Create a batch for ${conditionalClass === '13th' ? 'Dropper' : `Class ${conditionalClass}`} category`
                       : 'Create a batch for this exam type first'}
                   </p>
                 </div>

@@ -207,6 +207,19 @@ serve(async (req: Request) => {
         const body = await req.json().catch(() => ({}))
         console.log('Creating batch with data:', body)
 
+        // Validate medical/engineering batches require target_class
+        if (['medical-ug', 'medical-pg', 'engineering'].includes(body.exam_type)) {
+          if (!body.target_class) {
+            return new Response(
+              JSON.stringify({ 
+                error: 'Student category (target_class) is required for medical/engineering batches',
+                hint: 'Please select Class 11, Class 12, or Dropper'
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
         // Calculate intake dates (default 15 days from start_date)
         const startDate = body.start_date || new Date().toISOString().split('T')[0];
         const intakeStart = body.intake_start_date || startDate;
@@ -228,6 +241,17 @@ serve(async (req: Request) => {
           year
         );
 
+        // Auto-derive level from target_class for medical/engineering
+        let finalLevel = body.level;
+        if (['medical-ug', 'medical-pg', 'engineering'].includes(body.exam_type) && body.target_class) {
+          const levelMap: Record<string, string> = {
+            '11': 'Class 11',
+            '12': 'Class 12',
+            'dropper': 'Dropper'
+          };
+          finalLevel = levelMap[body.target_class] || body.level;
+        }
+
         // Get current user to set as instructor
         const { data: userData, error: userErr } = await authedClient.auth.getUser(token)
         if (userErr || !userData?.user) {
@@ -242,7 +266,7 @@ serve(async (req: Request) => {
         const batchData = {
           name: batchName,
           description: body.description || '',
-          level: body.level,
+          level: finalLevel,
           start_date: startDate,
           end_date: body.end_date,
           max_capacity: body.max_capacity || 50,

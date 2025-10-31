@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { useExamTypes } from "@/hooks/useExamTypes";
 
@@ -45,7 +46,19 @@ export function BatchExamConfigStep({
   }, [domain, examTypes]);
 
   const isSchoolDomain = domain === "school";
-  const isEngineeringOrMedical = domain === 'engineering' || domain === 'medical';
+  const isEngineeringOrMedical = domain === 'engineering' || domain === 'medical-ug' || domain === 'medical-pg';
+
+  // Auto-set level based on target_class for engineering/medical
+  useEffect(() => {
+    if (isEngineeringOrMedical && formData.target_class) {
+      const levelMap: Record<string, string> = {
+        '11': 'Class 11',
+        '12': 'Class 12',
+        'dropper': 'Dropper'
+      };
+      onChange('level', levelMap[formData.target_class] || '');
+    }
+  }, [formData.target_class, isEngineeringOrMedical, onChange]);
 
   return (
     <div className="space-y-6">
@@ -89,6 +102,28 @@ export function BatchExamConfigStep({
               disabled
               className="bg-muted"
             />
+          </div>
+        )}
+
+        {isEngineeringOrMedical && (
+          <div>
+            <Label htmlFor="student_category">Student Category *</Label>
+            <Select 
+              value={formData.target_class || ""} 
+              onValueChange={(val) => onChange("target_class", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select student category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="11">Class 11 (Foundation Year)</SelectItem>
+                <SelectItem value="12">Class 12 (Final Year)</SelectItem>
+                <SelectItem value="dropper">Dropper (12th Passed)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Required for medical/engineering batches
+            </p>
           </div>
         )}
 

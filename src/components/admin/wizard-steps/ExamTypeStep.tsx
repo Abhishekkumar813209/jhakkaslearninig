@@ -103,13 +103,19 @@ export const ExamTypeStep = ({
              batch.target_class === conditionalClass &&
              boardMatches;
     } else if (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') {
-      // Filter by domain AND student category (class or dropper)
+      // TOLERANT MATCHING: Check both target_class and level fields
+      const batchClass = batch.target_class;
+      const batchLevel = batch.level?.toLowerCase() || '';
+      
       if (conditionalClass === 'dropper') {
-        return batch.exam_type === examType && batch.level === 'Dropper';
-      } else if (conditionalClass) {
+        // Match if target_class='dropper' OR level contains 'dropper'
         return batch.exam_type === examType && 
-               batch.target_class === conditionalClass && 
-               batch.level !== 'Dropper';
+               (batchClass === 'dropper' || batchLevel.includes('dropper'));
+      } else if (conditionalClass) {
+        // Match if target_class matches OR level contains the class number
+        return batch.exam_type === examType && 
+               (batchClass === conditionalClass || batchLevel.includes(conditionalClass)) &&
+               !batchLevel.includes('dropper');
       }
       return batch.exam_type === examType;
     } else if (examType) {
@@ -290,8 +296,13 @@ export const ExamTypeStep = ({
             </SelectTrigger>
             <SelectContent>
               {filteredBatches.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground text-center">
-                  No batches available for this exam type
+                <div className="p-4 text-sm text-center">
+                  <p className="font-medium text-destructive mb-1">⚠️ No batches found</p>
+                  <p className="text-muted-foreground">
+                    {conditionalClass && (examType === 'engineering' || examType === 'medical-ug' || examType === 'medical-pg') 
+                      ? `Create a batch for ${conditionalClass === 'dropper' ? 'Dropper' : `Class ${conditionalClass}`} category`
+                      : 'Create a batch for this exam type first'}
+                  </p>
                 </div>
               ) : (
                 filteredBatches.map((batch: any) => (

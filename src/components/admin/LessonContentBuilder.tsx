@@ -25,7 +25,9 @@ import { QuestionToGameConverter } from "./QuestionToGameConverter";
 import { SmartQuestionExtractorNew } from "./SmartQuestionExtractorNew";
 import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { TheoryCheckpointBuilder } from "./TheoryCheckpointBuilder";
+import { LessonBuilderProvider, useLessonBuilder } from "@/contexts/LessonBuilderContext";
 import * as LucideIcons from "lucide-react";
+import { useEffect as useEffectForContext } from "react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
 type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
@@ -174,10 +176,21 @@ function SortableLesson({
   );
 }
 
-export function LessonContentBuilder() {
+function LessonContentBuilderInner() {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
+  
+  // Get context setters to share state with other tabs
+  const {
+    setSelectedDomain: setContextDomain,
+    setSelectedBatch: setContextBatch,
+    setSelectedSubject: setContextSubject,
+    setSelectedChapter: setContextChapter,
+    setSelectedTopic: setContextTopic,
+    setSelectedBoard: setContextBoard,
+    setSelectedClass: setContextClass,
+  } = useLessonBuilder();
   
   // Persist active tab across sessions with debug logging
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -259,6 +272,29 @@ export function LessonContentBuilder() {
     Award: LucideIcons.Award,
     Pencil: LucideIcons.Pencil,
   };
+
+  // Sync local state to context
+  useEffectForContext(() => {
+    setContextDomain(selectedDomain);
+    setContextBoard(selectedBoard);
+    setContextClass(selectedClass);
+  }, [selectedDomain, selectedBoard, selectedClass]);
+
+  useEffectForContext(() => {
+    setContextBatch(selectedBatch);
+  }, [selectedBatch]);
+
+  useEffectForContext(() => {
+    setContextSubject(selectedSubject);
+  }, [selectedSubject]);
+
+  useEffectForContext(() => {
+    setContextChapter(selectedChapter);
+  }, [selectedChapter]);
+
+  useEffectForContext(() => {
+    setContextTopic(selectedTopic);
+  }, [selectedTopic]);
 
   useEffect(() => {
     if (selectedDomain) {
@@ -2163,5 +2199,13 @@ export function LessonContentBuilder() {
         onOpenChange={setShowPreview}
       />
     </div>
+  );
+}
+
+export function LessonContentBuilder() {
+  return (
+    <LessonBuilderProvider>
+      <LessonContentBuilderInner />
+    </LessonBuilderProvider>
   );
 }

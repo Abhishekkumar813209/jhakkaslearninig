@@ -11,8 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Sparkles, CheckCircle, Wand2, Upload, FileSpreadsheet, Image as ImageIcon, Trash2 } from "lucide-react";
 import { GamifiedExercise } from "@/components/student/GamifiedExercise";
+import { useLessonBuilder } from "@/contexts/LessonBuilderContext";
+import { useEffect } from "react";
 
-type GameType = "mcq" | "fill_blank" | "true_false" | "match_pairs" | "drag_drop";
+type GameType = "mcq" | "fill_blank" | "true_false" | "match_pairs" | "drag_drop" | "line_matching" | "sequence_order" | "typing_race" | "interactive_blanks";
 
 interface GameSuggestion {
   suggested_game: GameType;
@@ -39,6 +41,17 @@ interface BulkQuestion {
 export const QuestionToGameConverter = () => {
   const [mode, setMode] = useState<"single" | "bulk">("single");
   
+  // Get context values from Lesson Library
+  const {
+    selectedDomain,
+    selectedBatch,
+    selectedSubject,
+    selectedChapter,
+    selectedTopic,
+    selectedBoard,
+    selectedClass,
+  } = useLessonBuilder();
+  
   // Single mode states
   const [questionText, setQuestionText] = useState("");
   const [options, setOptions] = useState("");
@@ -51,6 +64,39 @@ export const QuestionToGameConverter = () => {
   const [generatedExercise, setGeneratedExercise] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Auto-populate fields from context
+  useEffect(() => {
+    if (selectedSubject) setSubject(selectedSubject);
+  }, [selectedSubject]);
+
+  useEffect(() => {
+    if (selectedChapter) {
+      // Fetch chapter name from database
+      supabase
+        .from('roadmap_chapters')
+        .select('chapter_name')
+        .eq('id', selectedChapter)
+        .single()
+        .then(({ data }) => {
+          if (data) setChapterName(data.chapter_name);
+        });
+    }
+  }, [selectedChapter]);
+
+  useEffect(() => {
+    if (selectedTopic) {
+      // Fetch topic name from database
+      supabase
+        .from('roadmap_topics')
+        .select('topic_name')
+        .eq('id', selectedTopic)
+        .single()
+        .then(({ data }) => {
+          if (data) setTopicName(data.topic_name);
+        });
+    }
+  }, [selectedTopic]);
 
   // Bulk mode states
   const [bulkQuestions, setBulkQuestions] = useState<BulkQuestion[]>([]);
@@ -419,6 +465,21 @@ export const QuestionToGameConverter = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Context Info from Lesson Library */}
+              {(selectedDomain || selectedBatch || selectedSubject || selectedChapter || selectedTopic) && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-primary">Auto-populated from Lesson Library:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedDomain && <Badge variant="outline">Domain: {selectedDomain}</Badge>}
+                    {selectedBoard && <Badge variant="outline">Board: {selectedBoard}</Badge>}
+                    {selectedClass && <Badge variant="outline">Class: {selectedClass}</Badge>}
+                    {selectedBatch && <Badge variant="outline">Batch ID: {selectedBatch.slice(0, 8)}...</Badge>}
+                    {subject && <Badge variant="secondary">Subject: {subject}</Badge>}
+                    {chapterName && <Badge variant="secondary">Chapter: {chapterName}</Badge>}
+                    {topicName && <Badge variant="secondary">Topic: {topicName}</Badge>}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="question">Question Text *</Label>
                 <Textarea
@@ -568,6 +629,9 @@ export const QuestionToGameConverter = () => {
                       <SelectContent>
                         <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
                         <SelectItem value="true_false">True/False</SelectItem>
+                        <SelectItem value="line_matching">Match Column</SelectItem>
+                        <SelectItem value="sequence_order">Sequence Order</SelectItem>
+                        <SelectItem value="typing_race">Typing Race</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -609,10 +673,13 @@ export const QuestionToGameConverter = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
-                    <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
                     <SelectItem value="true_false">True/False</SelectItem>
-                    <SelectItem value="match_pairs">Match the Pairs ✨ Auto-expands to 4 pairs</SelectItem>
-                    <SelectItem value="drag_drop">Drag & Drop Sequence</SelectItem>
+                    <SelectItem value="fill_blank">Fill in the Blanks (Drag & Drop)</SelectItem>
+                    <SelectItem value="match_pairs">Match Pairs (Card Memory)</SelectItem>
+                    <SelectItem value="line_matching">Match Column (Line Drawing)</SelectItem>
+                    <SelectItem value="sequence_order">Drag & Drop Sequence</SelectItem>
+                    <SelectItem value="typing_race">Typing Race</SelectItem>
+                    <SelectItem value="interactive_blanks">Interactive Fill Blanks</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

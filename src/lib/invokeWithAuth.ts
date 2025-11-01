@@ -23,7 +23,7 @@ export async function invokeWithAuth<TBody = unknown, TResp = unknown>({
   
   if (sessionError || !session) {
     // Auto-redirect to login
-    window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
+    window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     throw {
       code: 401,
       message: "Please log in to continue",
@@ -36,7 +36,7 @@ export async function invokeWithAuth<TBody = unknown, TResp = unknown>({
   if (refreshError || !refreshData.session) {
     console.error('Session refresh failed:', refreshError);
     // Session is invalid, redirect to login
-    window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
+    window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     throw {
       code: 401,
       message: "Session expired. Please log in again.",
@@ -44,21 +44,29 @@ export async function invokeWithAuth<TBody = unknown, TResp = unknown>({
   }
 
   // Invoke the function with authenticated session (using refreshed token)
-  const { data, error } = await supabase.functions.invoke(name, { body });
+  // Explicitly pass Authorization header with the user's access token
+  const accessToken = refreshData.session.access_token;
+  const { data, error } = await supabase.functions.invoke(name, {
+    body,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
 
   if (error) {
     console.error(`Edge function ${name} error:`, error);
-    
-    // Normalize error responses
-    if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('Invalid authentication token')) {
+
+    // Normalize 401 / auth errors
+    const msg = error.message ?? '';
+    if (error.status === 401 || /Unauthorized|Invalid authentication token|401/i.test(msg)) {
       // Token is invalid even after refresh, force re-login
-      window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
+      window.location.href = `/login?redirectTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       throw {
         code: 401,
         message: "Session expired. Please log in again.",
       } as EdgeFunctionError;
     }
-    
+
     throw {
       code: error.status || 500,
       message: error.message || "An error occurred while processing your request",

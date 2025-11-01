@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FeatureShowcase } from "@/components/FeatureShowcase";
 import {
   Users,
   Target,
@@ -13,6 +14,14 @@ import {
   Phone,
   MapPin
 } from "lucide-react";
+import gamifiedLearning from "@/assets/features/gamified-learning.png";
+import aiPowered from "@/assets/features/ai-powered.png";
+import interactiveGames from "@/assets/features/interactive-games.png";
+import analytics from "@/assets/features/analytics.png";
+import roadmap from "@/assets/features/roadmap.png";
+import parentPortal from "@/assets/features/parent-portal.png";
+import rewards from "@/assets/features/rewards.png";
+import multiFormat from "@/assets/features/multi-format.png";
 
 const About = () => {
   const teamMembers = [
@@ -155,56 +164,96 @@ const About = () => {
           </div>
         </div>
 
-        {/* Why Choose Us */}
-        <Card className="shadow-soft mb-16">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Why Choose Jhakkas?</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                {
-                  title: "Expert Faculty",
-                  description: "Learn from industry experts and experienced educators",
-                  icon: <Users className="h-5 w-5" />
-                },
-                {
-                  title: "Personalized Learning",
-                  description: "AI-powered recommendations tailored to your learning style",
-                  icon: <Target className="h-5 w-5" />
-                },
-                {
-                  title: "Interactive Content",
-                  description: "Engaging videos, quizzes, and hands-on practice sessions",
-                  icon: <BookOpen className="h-5 w-5" />
-                },
-                {
-                  title: "24/7 Support",
-                  description: "Round-the-clock assistance from our dedicated support team",
-                  icon: <Heart className="h-5 w-5" />
-                },
-                {
-                  title: "Progress Tracking",
-                  description: "Detailed analytics to monitor your learning progress",
-                  icon: <Award className="h-5 w-5" />
-                },
-                {
-                  title: "Global Community",
-                  description: "Connect with peers and mentors from around the world",
-                  icon: <Globe className="h-5 w-5" />
-                }
-              ].map((feature, index) => (
-                <div key={index} className="text-center space-y-2">
-                  <div className="w-10 h-10 mx-auto bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                    {feature.icon}
-                  </div>
-                  <h3 className="font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
-                </div>
-              ))}
+        {/* Why Choose Jhakkas */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Why <span className="text-primary">Jhakkas</span> is Different
+            </h2>
+            <p className="text-muted-foreground max-w-3xl mx-auto text-lg">
+              Experience the future of education with our gamified, AI-powered learning platform 
+              designed to make studying engaging, effective, and rewarding.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            <FeatureShowcase
+              icon={gamifiedLearning}
+              title="Learn Through Gaming"
+              description="Transform studying into an exciting adventure with XP points, hearts, streaks, and leaderboards that keep you motivated every step of the way."
+              highlights={["XP Points", "Hearts System", "Daily Streaks", "Leaderboards", "Achievements"]}
+            />
+            
+            <FeatureShowcase
+              icon={aiPowered}
+              title="Smart AI Assistant"
+              description="Your personal tutor that understands your learning style, generates personalized questions, and provides instant explanations when you need them."
+              highlights={["AI Question Gen", "Smart Paths", "Instant Help", "Adaptive Learning"]}
+            />
+            
+            <FeatureShowcase
+              icon={interactiveGames}
+              title="8+ Game Types"
+              description="Practice with engaging game-based questions including MCQ challenges, drag-drop, line matching, typing races, and interactive puzzles."
+              highlights={["MCQ Games", "Drag & Drop", "Line Match", "Typing Race", "Puzzles"]}
+            />
+            
+            <FeatureShowcase
+              icon={analytics}
+              title="Track Every Milestone"
+              description="Know exactly where you stand with comprehensive analytics including zone analysis, chapter-wise breakdowns, and performance trends."
+              highlights={["Zone Analysis", "Chapter Stats", "Performance Trends", "Radar Charts"]}
+            />
+            
+            <FeatureShowcase
+              icon={roadmap}
+              title="Guided Learning Path"
+              description="Never wonder what to study next with our organized roadmaps, daily schedules, and topic progression tracking tailored to your batch."
+              highlights={["Daily Schedule", "Batch Roadmaps", "Topic Progress", "Calendar View"]}
+            />
+            
+            <FeatureShowcase
+              icon={parentPortal}
+              title="Parents Stay Connected"
+              description="Keep parents in the loop with detailed insights into student progress, performance analytics, and daily activity tracking."
+              highlights={["Progress Monitor", "Analytics", "Activity Tracking", "Reports"]}
+            />
+            
+            <FeatureShowcase
+              icon={rewards}
+              title="Earn While Learning"
+              description="Get rewarded for bringing your friends to learn with our referral system. Earn Jhakkas points and withdraw your earnings."
+              highlights={["Referral Rewards", "Jhakkas Points", "Withdrawals", "Bonus XP"]}
+            />
+            
+            <FeatureShowcase
+              icon={multiFormat}
+              title="Learn Your Way"
+              description="Access content in the format that suits you best - from YouTube videos and PDFs to interactive simulations and rich text lessons."
+              highlights={["Video Lessons", "PDF Content", "Simulations", "Math Formulas"]}
+            />
+          </div>
+
+          {/* Statistics Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-8 rounded-xl bg-gradient-to-br from-primary/10 via-accent/5 to-success/10 border border-primary/20">
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-primary mb-2">50,000+</div>
+              <div className="text-sm text-muted-foreground">Active Students</div>
             </div>
-          </CardContent>
-        </Card>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-success mb-2">1M+</div>
+              <div className="text-sm text-muted-foreground">Questions Attempted</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-primary mb-2">85%</div>
+              <div className="text-sm text-muted-foreground">Average Improvement</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-success mb-2">4.8/5</div>
+              <div className="text-sm text-muted-foreground">Student Satisfaction</div>
+            </div>
+          </div>
+        </div>
 
         {/* Contact */}
         <Card className="shadow-soft">

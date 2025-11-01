@@ -199,14 +199,41 @@ export const QuestionAnswerInput = ({
     );
   }
 
-  // Fill in the Blanks Answer
+  // Fill in the Blanks Answer - WITH DRAG & DROP SUPPORT
   if (questionType === 'fill_blank') {
-    const answers = localAnswer?.answers || Array(blanksCount).fill('');
+    // Initialize blanks with distractor support
+    const blanks = localAnswer?.blanks || Array.from({ length: blanksCount }, () => ({
+      correctAnswer: '',
+      distractors: ['', '', '']
+    }));
+    
+    const handleBlankChange = (idx: number, field: 'correctAnswer' | 'distractors', value: string | string[]) => {
+      const newBlanks = [...blanks];
+      if (field === 'correctAnswer') {
+        newBlanks[idx] = { ...newBlanks[idx], correctAnswer: value as string };
+      } else {
+        newBlanks[idx] = { ...newBlanks[idx], distractors: value as string[] };
+      }
+      handleChange({ blanks: newBlanks });
+    };
+
+    const handleDistractorChange = (blankIdx: number, distractorIdx: number, value: string) => {
+      const newBlanks = [...blanks];
+      const newDistractors = [...newBlanks[blankIdx].distractors];
+      newDistractors[distractorIdx] = value;
+      newBlanks[blankIdx] = { ...newBlanks[blankIdx], distractors: newDistractors };
+      handleChange({ blanks: newBlanks });
+    };
     
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Correct Answer(s) - Auto-lowercase</Label>
+          <div>
+            <Label className="text-base font-semibold">Fill in the Blanks - Drag & Drop Setup</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Students will drag words into blanks. Add correct answer + 3 distractors per blank.
+            </p>
+          </div>
           {isValid ? (
             <Badge variant="default" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -219,29 +246,58 @@ export const QuestionAnswerInput = ({
             </Badge>
           )}
         </div>
-        <div className="space-y-2">
-          {Array.from({ length: blanksCount }).map((_, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <Label className="w-20 text-sm">Blank {idx + 1}:</Label>
+        
+        {Array.from({ length: blanksCount }).map((_, idx) => (
+          <div key={idx} className="border rounded-lg p-4 space-y-3 bg-muted/20">
+            <div className="flex items-center justify-between">
+              <Label className="font-semibold">Blank {idx + 1}</Label>
+              <Badge variant="outline">Word Bank Item</Badge>
+            </div>
+            
+            {/* Correct Answer */}
+            <div className="space-y-1.5">
+              <Label className="text-sm text-green-700 font-medium">✓ Correct Answer</Label>
               <Input
-                placeholder="Enter answer (will be lowercased)"
-                value={answers[idx] || ''}
-                onChange={(e) => {
-                  const newAnswers = [...answers];
-                  newAnswers[idx] = e.target.value.toLowerCase();
-                  handleChange({ 
-                    text: newAnswers.join(', '),
-                    answers: newAnswers 
-                  });
-                }}
-                className="flex-1"
+                value={blanks[idx]?.correctAnswer || ''}
+                onChange={(e) => handleBlankChange(idx, 'correctAnswer', e.target.value)}
+                placeholder="Enter the correct answer"
+                className="border-green-500/50 bg-green-50/50"
               />
             </div>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          ℹ️ All answers will be automatically converted to lowercase for consistent matching
-        </p>
+
+            {/* Distractors */}
+            <div className="space-y-1.5">
+              <Label className="text-sm text-muted-foreground font-medium">× Distractor Options (wrong answers)</Label>
+              <div className="grid gap-2">
+                {[0, 1, 2].map((distractorIdx) => (
+                  <Input
+                    key={distractorIdx}
+                    value={blanks[idx]?.distractors?.[distractorIdx] || ''}
+                    onChange={(e) => handleDistractorChange(idx, distractorIdx, e.target.value)}
+                    placeholder={`Distractor ${distractorIdx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground mb-2">Student word bank preview:</p>
+              <div className="flex flex-wrap gap-2">
+                {blanks[idx]?.correctAnswer && (
+                  <Badge variant="default" className="bg-green-500">
+                    {blanks[idx].correctAnswer}
+                  </Badge>
+                )}
+                {blanks[idx]?.distractors?.filter(Boolean).map((distractor: string, dIdx: number) => (
+                  <Badge key={dIdx} variant="secondary">
+                    {distractor}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

@@ -810,6 +810,311 @@ const workflows: WorkflowData[] = [
       cleanup: "No automatic cleanup - consider manual XP adjustment if game deleted",
     },
   },
+  {
+    table: "student_territories",
+    description: "Student land ownership that grows with study activity (chapters, XP, streaks) and shrinks with inactivity - visualized on Google Maps",
+    mermaidDiagram: `graph TD
+    A[👨‍🎓 Student Enables Territory] --> B[📍 Sets Home Location]
+    B --> C[💾 Creates Initial Territory]
+    C --> D[🗺️ 100m Radius on Map]
+    
+    D --> E{Study Activity?}
+    E -->|Chapter Completed| F[📚 +20m Radius]
+    E -->|Streak Day| G[🔥 +10m Radius]
+    E -->|Battle Won| H[⚔️ +50m Radius]
+    E -->|Level Up| I[⭐ +30m Radius]
+    
+    F --> J[🔄 update_territory_on_xp_gain Trigger]
+    G --> J
+    H --> J
+    I --> J
+    
+    J --> K[📐 Calculate New Radius]
+    K --> L{Formula Check}
+    L -->|Base + Chapters×20 + Streak×10 + Battles×50| M[✅ Apply Expansion]
+    L -->|Max 5000m| M
+    
+    M --> N[💾 Update student_territories]
+    N --> O[📝 Log to territory_history]
+    O --> P[🗺️ Map Re-renders]
+    
+    E -->|Inactive 3 Days| Q[⚠️ -20m/day]
+    E -->|Inactive 7 Days| R[🚨 -50m/day]
+    E -->|Streak Lost| S[💔 -50m]
+    E -->|Battle Lost| T[⚔️ -50m - stake]
+    
+    Q --> U[📉 Shrinkage Applied]
+    R --> U
+    S --> U
+    T --> U
+    U --> N
+    
+    style B fill:#90EE90
+    style C fill:#87CEEB
+    style F fill:#FFB6C1
+    style M fill:#98FB98
+    style U fill:#FF6B6B`,
+    steps: [
+      { title: "1. Territory Initialization", description: "Student enables territory feature and grants location permission" },
+      { title: "2. Home Location Setup", description: "Student sets home location (rounded to nearest 100m for privacy)" },
+      { title: "3. Initial Territory Creation", description: "Creates record in student_territories with 100m base radius, level 1" },
+      { title: "4. Map Visualization", description: "TerritoryMap.tsx displays circular territory on Google Maps with student color" },
+      { title: "5. Study-Based Expansion", description: "XP gain triggers update_territory_on_xp_gain() function" },
+      { title: "6. Radius Calculation", description: "Formula: Base(100m) + Chapters×20m + Streak×10m + Battles×50m, Max: 5000m" },
+      { title: "7. Territory Update", description: "Updates radius_meters, territory_level, last_expanded_at in student_territories" },
+      { title: "8. History Logging", description: "Logs expansion event to territory_history with radius_change and reason" },
+      { title: "9. Real-time Update", description: "Supabase subscription triggers map re-render for all viewers" },
+      { title: "10. Inactivity Shrinkage", description: "Daily cron checks activity: 3 days = -20m/day, 7 days = -50m/day" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ Deleting removes student from map immediately and resets all territorial progress",
+      orphans: [
+        "territory_battles may reference deleted territory (challenger_id/defender_id)",
+        "territory_history (audit trail becomes orphaned)",
+        "institution_aura calculations will exclude student from school aggregation",
+      ],
+      cleanup: "Run recalculate_institution_aura() after deletion. Consider soft-delete with is_active=false instead.",
+    },
+  },
+  {
+    table: "institution_aura",
+    description: "School/Zone prestige score (0-100) based on student performance - creates glowing markers on map with color tiers (Bronze → Diamond)",
+    mermaidDiagram: `graph TD
+    A[⏰ Daily Cron 2 AM] --> B[🔍 Fetch All Schools/Zones]
+    B --> C[📊 Aggregate Student Data]
+    
+    C --> D[💰 Total Institution XP]
+    C --> E[👥 Active Students Count]
+    C --> F[📈 Average Test Scores]
+    C --> G[📊 Weekly Growth Rate]
+    
+    D --> H[🔢 Normalize XP]
+    E --> I[🔢 Calculate Activity %]
+    F --> J[🔢 Normalize Performance]
+    G --> K[🔢 Calculate Growth]
+    
+    H --> L[📐 Aura Formula]
+    I --> L
+    J --> L
+    K --> L
+    
+    L --> M{Weighted Calculation}
+    M -->|Normalized XP × 40%| N[Score Component 1]
+    M -->|Active % × 30%| O[Score Component 2]
+    M -->|Avg Performance × 20%| P[Score Component 3]
+    M -->|Growth Rate × 10%| Q[Score Component 4]
+    
+    N --> R[➕ Sum Components]
+    O --> R
+    P --> R
+    Q --> R
+    
+    R --> S{Aura Score Range}
+    S -->|0-20| T[🥉 Bronze Tier]
+    S -->|21-40| U[🥈 Silver Tier]
+    S -->|41-60| V[🥇 Gold Tier]
+    S -->|61-80| W[💎 Platinum Tier]
+    S -->|81-100| X[💠 Diamond Tier]
+    
+    T --> Y[Assign Glow Properties]
+    U --> Y
+    V --> Y
+    W --> Y
+    X --> Y
+    
+    Y --> Z[💾 Update institution_aura]
+    Z --> AA[🏆 Calculate Rankings]
+    AA --> AB[🗺️ Map Updates Glow]
+    
+    style A fill:#90EE90
+    style L fill:#87CEEB
+    style R fill:#FFB6C1
+    style Y fill:#FFD700
+    style AB fill:#98FB98`,
+    steps: [
+      { title: "1. Daily Trigger", description: "Supabase cron job runs calculate-institution-aura edge function at 2 AM" },
+      { title: "2. Institution Fetch", description: "Queries all schools and zones with latitude/longitude set" },
+      { title: "3. Student Aggregation", description: "For each institution, aggregate total_xp, active student count, test scores" },
+      { title: "4. XP Normalization", description: "Normalize institution XP: (Institution XP / Max Institution XP) × 100" },
+      { title: "5. Activity Calculation", description: "Active % = (Students active last 7 days / Total students) × 100" },
+      { title: "6. Performance Average", description: "Average all test scores from student_analytics for institution students" },
+      { title: "7. Growth Rate", description: "Compare this week's XP gain vs last week's XP gain as percentage" },
+      { title: "8. Aura Formula", description: "Score = (Norm XP × 40%) + (Active % × 30%) + (Avg Perf × 20%) + (Growth × 10%)" },
+      { title: "9. Tier Assignment", description: "Assign color tier: Bronze(0-20), Silver(21-40), Gold(41-60), Platinum(61-80), Diamond(81-100)" },
+      { title: "10. Glow Properties", description: "Set glow_intensity (1-10) and color_tier for map visualization" },
+      { title: "11. Ranking Update", description: "Calculate zone_rank and national_rank by sorting aura_score DESC" },
+      { title: "12. Map Update", description: "Frontend subscribes to changes, updates institution markers with new glow" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ Deleting resets school/zone prestige to zero and removes from map immediately",
+      orphans: [
+        "No direct orphans - this is a calculated aggregate table",
+        "Map markers will disappear for that institution",
+      ],
+      cleanup: "Re-run calculate-institution-aura edge function to recalculate all institutions. Aura will auto-regenerate on next daily cron.",
+    },
+  },
+  {
+    table: "territory_battles",
+    description: "Competitive quiz duels where students challenge nearby territories and stake land - winner takes loser's territory",
+    mermaidDiagram: `graph TD
+    A[🗺️ Student Opens Map] --> B[🔍 Discovers Nearby Territory]
+    B --> C{Distance Check}
+    C -->|Within 5km| D[⚔️ Challenge Button Shown]
+    C -->|Beyond 5km| E[❌ Cannot Challenge]
+    
+    D --> F[🎯 Select Battle Type]
+    F --> G{Battle Configuration}
+    G -->|Border Skirmish| H[5 Questions, 200m Stake, 5min]
+    G -->|Land Grab| I[10 Questions, 500m Stake, 10min]
+    G -->|Siege| J[20 Questions, 1000m Stake, 20min]
+    
+    H --> K[📤 Send Challenge]
+    I --> K
+    J --> K
+    
+    K --> L[💾 Create Battle Record]
+    L --> M[📱 Notify Defender]
+    M --> N{Defender Response}
+    
+    N -->|Accepts Within 24h| O[✅ Battle Started]
+    N -->|Declines| P[❌ Status = Declined]
+    N -->|Expires| Q[⏰ Status = Expired]
+    
+    P --> R[⏳ Challenger Cooldown 6h]
+    Q --> R
+    
+    O --> S[🎮 Generate Question Set]
+    S --> T[📊 BattleInterface Opens]
+    T --> U[⏱️ Timer Starts]
+    
+    U --> V{Battle Execution}
+    V -->|Both Answer Questions| W[🧮 Calculate Scores]
+    V -->|Timeout| X[⏰ Auto-Submit]
+    
+    W --> Y{Winner Determination}
+    X --> Y
+    
+    Y -->|Challenger Score Higher| Z[🏆 Challenger Wins]
+    Y -->|Defender Score Higher| AA[🛡️ Defender Wins]
+    Y -->|Tie| AB[🛡️ Defender Wins - Home Advantage]
+    
+    Z --> AC[📐 Territory Transfer]
+    AA --> AC
+    AB --> AC
+    
+    AC --> AD[Winner: +Stake Radius]
+    AC --> AE[Loser: -Stake Radius]
+    
+    AD --> AF[💾 Update student_territories]
+    AE --> AF
+    
+    AF --> AG[📝 Log to territory_history]
+    AG --> AH[💰 Award XP to Winner]
+    AH --> AI[🗺️ Map Updates]
+    AI --> AJ[📱 Notify Both Players]
+    
+    style D fill:#90EE90
+    style K fill:#87CEEB
+    style O fill:#FFB6C1
+    style AC fill:#FFD700
+    style AI fill:#98FB98
+    style P fill:#FF6B6B`,
+    steps: [
+      { title: "1. Territory Discovery", description: "Student opens TerritoryMap.tsx and sees nearby territories within 5km radius" },
+      { title: "2. Proximity Check", description: "Frontend calculates distance using haversine formula from lat/lng coordinates" },
+      { title: "3. Battle Type Selection", description: "Challenger picks: Border Skirmish (easy), Land Grab (medium), or Siege (hard)" },
+      { title: "4. Challenge Sent", description: "Calls challenge-student edge function, creates record with status='pending'" },
+      { title: "5. Defender Notification", description: "Push notification sent via notification system with 24h expiry timer" },
+      { title: "6. Acceptance Flow", description: "Defender calls accept-battle endpoint, status changes to 'active'" },
+      { title: "7. Question Generation", description: "System selects questions from shared subject pool based on battle type" },
+      { title: "8. Real-time Battle", description: "Both students answer same questions in BattleInterface.tsx with live timer" },
+      { title: "9. Score Calculation", description: "Correct answers tallied, wrong answers = 0 points, tie = defender wins" },
+      { title: "10. Territory Transfer", description: "Winner radius += stake, Loser radius -= stake, updates student_territories" },
+      { title: "11. History Logging", description: "Logs battle_won/battle_lost events to territory_history with land_transferred" },
+      { title: "12. XP Rewards", description: "Winner gets battle XP bonus, updates student_gamification.total_xp" },
+      { title: "13. Map Update", description: "Territories resize on map, both players notified of result" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ Deleting active battles breaks battle interface and prevents territory transfer completion",
+      orphans: [
+        "student_territories may have incorrect radius if battle deleted mid-transfer",
+        "territory_history may be incomplete if battle deleted before logging",
+        "BattleInterface.tsx will show error if student refreshes during deleted battle",
+      ],
+      cleanup: "Only delete battles with status='completed' or 'expired'. For active battles, set status='cancelled' instead of deleting.",
+    },
+  },
+  {
+    table: "territory_history",
+    description: "Audit trail of all territory changes - logs expansions, shrinkages, battles, and streak events for analytics",
+    mermaidDiagram: `graph TD
+    A[📊 Territory Event Occurs] --> B{Event Type Classification}
+    
+    B -->|Study Activity| C[expansion]
+    B -->|Battle Victory| D[battle_won]
+    B -->|Battle Defeat| E[battle_lost]
+    B -->|Streak Maintained| F[streak_bonus]
+    B -->|Inactivity Detected| G[shrinkage]
+    B -->|Streak Broken| H[inactivity_penalty]
+    
+    C --> I[📝 Calculate radius_change]
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> I
+    
+    I --> J[📐 Capture new_radius]
+    J --> K[📄 Build Metadata JSON]
+    
+    K --> L{Metadata Contents}
+    L -->|expansion| M["chapters_completed, xp_gained"]
+    L -->|battle_won| N["opponent_id, land_gained, questions_correct"]
+    L -->|battle_lost| O["opponent_id, land_lost, questions_wrong"]
+    L -->|streak_bonus| P["streak_days, bonus_meters"]
+    L -->|shrinkage| Q["days_inactive, penalty_rate"]
+    
+    M --> R[💾 Insert into territory_history]
+    N --> R
+    O --> R
+    P --> R
+    Q --> R
+    
+    R --> S[🗂️ Store Complete Record]
+    S --> T[📊 Available for Analytics]
+    
+    T --> U{Usage Scenarios}
+    U -->|Student View| V[BattleHistory.tsx Displays]
+    U -->|Admin Analytics| W[Territory Growth Charts]
+    U -->|Leaderboards| X[Top Expanders/Defenders]
+    U -->|Debugging| Y[Trace Territory Changes]
+    
+    style B fill:#90EE90
+    style I fill:#87CEEB
+    style R fill:#FFB6C1
+    style T fill:#98FB98`,
+    steps: [
+      { title: "1. Event Detection", description: "Territory change triggered by XP gain, battle result, or inactivity check" },
+      { title: "2. Event Classification", description: "Determine event_type: expansion, battle_won, battle_lost, streak_bonus, shrinkage, inactivity_penalty" },
+      { title: "3. Radius Calculation", description: "Calculate radius_change (positive for growth, negative for shrinkage)" },
+      { title: "4. New Radius Capture", description: "Record new_radius after the change is applied" },
+      { title: "5. Metadata Assembly", description: "Build JSONB object with event-specific data (opponent, XP, chapters, etc.)" },
+      { title: "6. History Insert", description: "Insert record with student_id, event_type, radius_change, new_radius, reason, metadata" },
+      { title: "7. Student Dashboard", description: "BattleHistory.tsx queries history for student's timeline view" },
+      { title: "8. Admin Analytics", description: "Aggregate territory_history to show school-wide growth trends" },
+      { title: "9. Leaderboard Integration", description: "Query battle_won count for competitive rankings" },
+      { title: "10. Debug Tracing", description: "Use territory_history to debug unexpected radius changes or battle errors" },
+    ],
+    deleteBehavior: {
+      warning: "⚠️ AUDIT DATA - Deleting removes historical records and breaks analytics/charts",
+      orphans: [
+        "No orphans - this is a log table, safe to delete old records",
+        "Charts in TerritoryDashboard may show incomplete data if history deleted",
+      ],
+      cleanup: "Consider retention policy: Keep last 90 days for active students, archive older records instead of deleting.",
+    },
+  },
 ];
 
 interface CriticalFinding {

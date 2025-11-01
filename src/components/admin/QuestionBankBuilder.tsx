@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, ArrowLeft } from "lucide-react";
@@ -9,6 +10,7 @@ import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
+import { ManualQuestionEntry } from "./ManualQuestionEntry";
 import * as LucideIcons from "lucide-react";
 
 interface Batch {
@@ -490,21 +492,54 @@ export const QuestionBankBuilder = () => {
         </Card>
       )}
 
-      {/* Step 7: Smart Question Extractor */}
+      {/* Step 7: Manual Entry or Upload */}
       {currentStep === 7 && selectedTopic && selectedChapter && (
-        <SmartQuestionExtractor
-          mode="question-bank"
-          topicId={selectedTopic.id}
-          topicName={selectedTopic.topic_name}
-          chapterId={selectedChapter.id}
-          chapterName={selectedChapter.chapter_name}
-          subjectName={selectedSubject}
-          batchId={selectedBatch}
-          examDomain={selectedDomain || ''}
-          examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
-          onQuestionsAdded={handleQuestionsComplete}
-          onBackClick={() => setCurrentStep(6)}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Step 7: Add Questions</CardTitle>
+            <CardDescription>Manually create questions or upload from PDF/Word</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => setCurrentStep(6)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Topic
+            </Button>
+            
+            <Tabs defaultValue="manual" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+                <TabsTrigger value="upload">Upload PDF/Word</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="manual">
+                <ManualQuestionEntry
+                  selectedTopic={selectedTopic}
+                  selectedChapter={selectedChapter}
+                  selectedSubject={selectedSubject}
+                  selectedBatch={selectedBatch}
+                  selectedDomain={selectedDomain}
+                  onComplete={handleQuestionsComplete}
+                />
+              </TabsContent>
+
+              <TabsContent value="upload">
+                <SmartQuestionExtractor
+                  mode="question-bank"
+                  topicId={selectedTopic.id}
+                  topicName={selectedTopic.topic_name}
+                  chapterId={selectedChapter.id}
+                  chapterName={selectedChapter.chapter_name}
+                  subjectName={selectedSubject}
+                  batchId={selectedBatch}
+                  examDomain={selectedDomain || ''}
+                  examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+                  onQuestionsAdded={handleQuestionsComplete}
+                  onBackClick={() => setCurrentStep(6)}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

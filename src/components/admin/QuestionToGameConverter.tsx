@@ -13,8 +13,9 @@ import { Loader2, Sparkles, CheckCircle, Wand2, Upload, FileSpreadsheet, Image a
 import { GamifiedExercise } from "@/components/student/GamifiedExercise";
 import { useLessonBuilder } from "@/contexts/LessonBuilderContext";
 import { useEffect } from "react";
+import { DynamicQuestionInput } from './DynamicQuestionInput';
 
-type GameType = "mcq" | "fill_blank" | "true_false" | "match_pairs" | "drag_drop" | "line_matching" | "sequence_order" | "typing_race" | "interactive_blanks";
+type GameType = "mcq" | "fill_blank" | "true_false" | "match_pairs" | "match_column" | "sequence_order" | "typing_race" | "interactive_blanks";
 
 interface GameSuggestion {
   suggested_game: GameType;
@@ -62,6 +63,8 @@ export const QuestionToGameConverter = () => {
   const [selectedGameType, setSelectedGameType] = useState<GameType | "">("");
   const [suggestion, setSuggestion] = useState<GameSuggestion | null>(null);
   const [generatedExercise, setGeneratedExercise] = useState<any>(null);
+  const [generatedGame, setGeneratedGame] = useState<any>(null);
+  const [explanation, setExplanation] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -491,58 +494,39 @@ export const QuestionToGameConverter = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="subject">Subject</Label>
-                  <Input
-                    id="subject"
-                    placeholder="e.g., Physics, Math"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="questionType">Question Type</Label>
-                  <Input
-                    id="questionType"
-                    placeholder="e.g., MCQ, Match Column"
-                    value={questionType}
-                    onChange={(e) => setQuestionType(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="chapter">Chapter Name</Label>
-                  <Input
-                    id="chapter"
-                    placeholder="Optional"
-                    value={chapterName}
-                    onChange={(e) => setChapterName(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="topic">Topic Name</Label>
-                  <Input
-                    id="topic"
-                    placeholder="Optional"
-                    value={topicName}
-                    onChange={(e) => setTopicName(e.target.value)}
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label htmlFor="options">Options (one per line, optional for MCQ)</Label>
-                <Textarea
-                  id="options"
-                  placeholder="Option 1&#10;Option 2&#10;Option 3&#10;Option 4"
-                  value={options}
-                  onChange={(e) => setOptions(e.target.value)}
-                  rows={4}
-                />
+                <Label htmlFor="gameType">Select Game Type *</Label>
+                <Select value={selectedGameType} onValueChange={(value: GameType) => setSelectedGameType(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose game type to see specific inputs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
+                    <SelectItem value="true_false">True/False</SelectItem>
+                    <SelectItem value="fill_blank">Fill in the Blanks (Drag & Drop)</SelectItem>
+                    <SelectItem value="match_pairs">Match Pairs (Card Memory)</SelectItem>
+                    <SelectItem value="match_column">Match Column (Line Drawing)</SelectItem>
+                    <SelectItem value="sequence_order">Drag & Drop Sequence</SelectItem>
+                    <SelectItem value="typing_race">Typing Race</SelectItem>
+                    <SelectItem value="interactive_blanks">Interactive Fill Blanks</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {selectedGameType && (
+                <Card className="bg-accent/5 border-accent/20">
+                  <CardContent className="pt-4">
+                    <DynamicQuestionInput
+                      gameType={selectedGameType}
+                      onChange={(data) => {
+                        setQuestionText(data.questionText);
+                        setGeneratedGame(data.gameData);
+                        setExplanation(data.explanation);
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="flex gap-3">
                 <Button
@@ -665,24 +649,6 @@ export const QuestionToGameConverter = () => {
                 </Card>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="gameType">Game Type *</Label>
-                <Select value={selectedGameType} onValueChange={(value: GameType) => setSelectedGameType(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select or use AI suggestion" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
-                    <SelectItem value="true_false">True/False</SelectItem>
-                    <SelectItem value="fill_blank">Fill in the Blanks (Drag & Drop)</SelectItem>
-                    <SelectItem value="match_pairs">Match Pairs (Card Memory)</SelectItem>
-                    <SelectItem value="line_matching">Match Column (Line Drawing)</SelectItem>
-                    <SelectItem value="sequence_order">Drag & Drop Sequence</SelectItem>
-                    <SelectItem value="typing_race">Typing Race</SelectItem>
-                    <SelectItem value="interactive_blanks">Interactive Fill Blanks</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="flex gap-3">
                 <Button

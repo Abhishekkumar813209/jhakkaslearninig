@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List, LayoutGrid } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -14,6 +15,8 @@ import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifi
 import { ChapterTopicListView } from "./ChapterTopicListView";
 import { StudentRoadmapCalendar } from "./StudentRoadmapCalendar";
 import { RoadmapCardView } from "../RoadmapCardView";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface RoadmapData {
   id: string;
@@ -45,42 +48,118 @@ interface RoadmapData {
 
 interface SortableChapterProps {
   chapter: any;
+  index: number;
   onChapterClick: (chapterId: string, chapterName: string, topics: any[]) => void;
+  onSerialNumberChange: (chapterId: string, newPosition: number) => void;
 }
 
-const SortableChapter = ({ chapter, onChapterClick }: SortableChapterProps) => {
+const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange }: SortableChapterProps) => {
+  const [serialNumber, setSerialNumber] = useState(index + 1);
+  const [isEditing, setIsEditing] = useState(false);
+  
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ id: chapter.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  useEffect(() => {
+    setSerialNumber(index + 1);
+  }, [index]);
+
+  const handleSerialChange = (newSerial: number) => {
+    if (newSerial >= 1) {
+      onSerialNumberChange(chapter.id, newSerial);
+    }
+    setIsEditing(false);
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="border rounded-lg p-3 space-y-2">
-      <div 
-        className="flex items-center justify-between cursor-pointer hover:bg-muted/50 -m-3 p-3 rounded-lg transition-colors"
-        onClick={() => onChapterClick(chapter.id, chapter.chapter_name, chapter.topics)}
-      >
-        <div className="flex items-center gap-2">
-          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing" onClick={(e) => e.stopPropagation()}>
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      className={cn(
+        "border rounded-lg p-4 md:p-3 space-y-2 cursor-grab active:cursor-grabbing hover:bg-muted/30 transition-all",
+        isDragging && "ring-2 ring-primary shadow-lg"
+      )}
+    >
+      <div className="flex items-center justify-between">
+        {/* LEFT SIDE: Serial Number + Chapter Info */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Editable Serial Number */}
+          {isEditing ? (
+            <Input
+              type="number"
+              min="1"
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(parseInt(e.target.value) || 1)}
+              onBlur={() => handleSerialChange(serialNumber)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSerialChange(serialNumber);
+                }
+                if (e.key === 'Escape') {
+                  setIsEditing(false);
+                  setSerialNumber(index + 1);
+                }
+              }}
+              className="w-12 h-8 text-center text-sm p-0"
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <Badge 
+              variant="outline" 
+              className="w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-primary hover:text-primary-foreground flex-shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {index + 1}
+            </Badge>
+          )}
+          
+          {/* Visual Drag Indicator */}
+          <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          
+          <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
+          
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
+            <span 
+              className="font-medium text-sm truncate cursor-pointer hover:underline text-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChapterClick(chapter.id, chapter.chapter_name, chapter.topics);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {chapter.chapter_name}
+            </span>
+            <Badge variant="secondary" className="text-xs w-fit">
+              {chapter.topics.length} topics
+            </Badge>
           </div>
-          <BookOpen className="h-4 w-4 text-primary" />
-          <span className="font-medium text-sm">{chapter.chapter_name}</span>
-          <Badge variant="secondary" className="text-xs">
-            {chapter.topics.length} topics
-          </Badge>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+
+        {/* RIGHT SIDE: Day Range */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 ml-2">
           <CalendarIcon className="h-3 w-3" />
-          <span>Day {chapter.day_start}-{chapter.day_end}</span>
+          <span className="whitespace-nowrap">Day {chapter.day_start}-{chapter.day_end}</span>
         </div>
       </div>
       
@@ -150,6 +229,37 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
     onChapterReorder(subject.name, reordered.map(ch => ch.id));
   };
 
+  const handleSerialNumberChange = (chapterId: string, newPosition: number) => {
+    const currentIndex = localChapters.findIndex(ch => ch.id === chapterId);
+    if (currentIndex === -1) return;
+    
+    // Clamp position to valid range (1 to total chapters)
+    const targetIndex = Math.max(0, Math.min(newPosition - 1, localChapters.length - 1));
+    
+    if (currentIndex === targetIndex) return;
+    
+    // Reorder chapters
+    const reordered = arrayMove(localChapters, currentIndex, targetIndex);
+    
+    // Recalculate day_start and day_end
+    let currentDay = 1;
+    const updated = reordered.map(ch => {
+      const days = Math.max(1, (ch.day_end - ch.day_start + 1));
+      const newChapter = {
+        ...ch,
+        day_start: currentDay,
+        day_end: currentDay + days - 1
+      };
+      currentDay += days;
+      return newChapter;
+    });
+    
+    setLocalChapters(updated);
+    onChapterReorder(subject.name, reordered.map(ch => ch.id));
+    
+    toast.success(`Chapter moved to position ${newPosition}`);
+  };
+
   const totalChapters = localChapters.length;
   const avgProgress = totalChapters > 0 
     ? localChapters.reduce((sum, ch) => sum + ch.progress, 0) / totalChapters 
@@ -178,7 +288,7 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
           <Progress value={avgProgress} className="h-2" />
           
           <div className="bg-muted/50 border rounded-lg p-2 text-xs text-muted-foreground">
-            💡 Click on a chapter to see all topics • Drag to reorder
+            💡 Drag chapter to reorder • Click serial number to jump to position • Click chapter name to view topics
           </div>
 
           <DndContext 
@@ -189,11 +299,13 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
           >
             <SortableContext items={localChapters.map(ch => ch.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
-                {localChapters.map((chapter) => (
+                {localChapters.map((chapter, index) => (
                   <SortableChapter 
                     key={chapter.id} 
                     chapter={chapter}
+                    index={index}
                     onChapterClick={onChapterClick}
+                    onSerialNumberChange={handleSerialNumberChange}
                   />
                 ))}
               </div>

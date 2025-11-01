@@ -55,7 +55,7 @@ const About = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              About <span className="text-primary">EduPlatform</span>
+              About <span className="text-primary">Jhakkas</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8">
               Empowering students to achieve their dreams through innovative learning solutions 
@@ -158,7 +158,7 @@ const About = () => {
         {/* Why Choose Us */}
         <Card className="shadow-soft mb-16">
           <CardHeader>
-            <CardTitle className="text-2xl text-center">Why Choose EduPlatform?</CardTitle>
+            <CardTitle className="text-2xl text-center">Why Choose Jhakkas?</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -221,7 +221,7 @@ const About = () => {
                   <Mail className="h-5 w-5" />
                 </div>
                 <h3 className="font-semibold">Email Us</h3>
-                <p className="text-sm text-muted-foreground">support@eduplatform.com</p>
+                <p className="text-sm text-muted-foreground">support@jhakkas.com</p>
               </div>
               <div className="space-y-2">
                 <div className="w-10 h-10 mx-auto bg-primary/10 rounded-full flex items-center justify-center text-primary">

@@ -101,7 +101,7 @@ const Index = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Why Choose EduPlatform?</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Choose Jhakkas?</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Experience the future of learning with our cutting-edge platform designed for student success
             </p>
@@ -218,7 +218,7 @@ const Index = () => {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <BookOpen className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg">EduPlatform</span>
+                <span className="font-bold text-lg">Jhakkas</span>
               </div>
               <p className="text-muted-foreground">
                 Empowering students with quality education and expert guidance.
@@ -252,7 +252,7 @@ const Index = () => {
             </div>
           </div>
           <div className="border-t mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2024 EduPlatform. All rights reserved.</p>
+            <p>&copy; 2025 Jhakkas. All rights reserved.</p>
           </div>
         </div>
       </footer>

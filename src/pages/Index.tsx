@@ -5,18 +5,7 @@ import CourseCard from "@/components/CourseCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BookOpen, 
-  Users, 
-  Award, 
-  Target, 
-  PlayCircle, 
-  Clock,
-  Star,
-  TrendingUp,
-  CheckCircle,
-  Zap.
-} from "lucide-react";
+import { BookOpen, Users, Award, Target, PlayCircle, Clock, Star, TrendingUp, CheckCircle, Zap } from "lucide-react";
 
 const Index = () => {
   const featuredCourses = [
@@ -31,10 +20,10 @@ const Index = () => {
       studentsEnrolled: 15420,
       duration: "120 hours",
       level: "Advanced" as const,
-      category: "Physics"
+      category: "Physics",
     },
     {
-      id: "2", 
+      id: "2",
       title: "Mathematics Foundation for Class 10th",
       instructor: "Prof. Priya Sharma",
       thumbnail: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=300&fit=crop",
@@ -44,11 +33,11 @@ const Index = () => {
       studentsEnrolled: 23150,
       duration: "80 hours",
       level: "Intermediate" as const,
-      category: "Mathematics"
+      category: "Mathematics",
     },
     {
       id: "3",
-      title: "Chemistry Organic Reactions Masterclass", 
+      title: "Chemistry Organic Reactions Masterclass",
       instructor: "Dr. Amit Verma",
       thumbnail: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=300&fit=crop",
       price: 3999,
@@ -57,46 +46,45 @@ const Index = () => {
       studentsEnrolled: 8760,
       duration: "95 hours",
       level: "Advanced" as const,
-      category: "Chemistry"
-    }
+      category: "Chemistry",
+    },
   ];
 
   const features = [
     {
       icon: <PlayCircle className="h-8 w-8" />,
       title: "Live Interactive Classes",
-      description: "Attend live sessions with expert teachers and get your doubts cleared instantly"
+      description: "Attend live sessions with expert teachers and get your doubts cleared instantly",
     },
     {
       icon: <Target className="h-8 w-8" />,
       title: "Personalized Learning",
-      description: "AI-powered recommendations based on your performance and learning goals"
+      description: "AI-powered recommendations based on your performance and learning goals",
     },
     {
       icon: <Award className="h-8 w-8" />,
       title: "Practice & Assessment",
-      description: "Comprehensive quizzes and mock tests to track your progress"
+      description: "Comprehensive quizzes and mock tests to track your progress",
     },
     {
       icon: <Users className="h-8 w-8" />,
       title: "Expert Teachers",
-      description: "Learn from India's top educators with proven track records"
-    }
+      description: "Learn from India's top educators with proven track records",
+    },
   ];
 
   const stats = [
     { icon: <Users className="h-6 w-6" />, value: "50,000+", label: "Active Students" },
     { icon: <BookOpen className="h-6 w-6" />, value: "500+", label: "Expert Teachers" },
     { icon: <PlayCircle className="h-6 w-6" />, value: "10,000+", label: "Video Lectures" },
-    { icon: <Award className="h-6 w-6" />, value: "95%", label: "Success Rate" }
+    { icon: <Award className="h-6 w-6" />, value: "95%", label: "Success Rate" },
   ];
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <Hero />
-      
-      
+
       {/* Features Section */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,7 +94,7 @@ const Index = () => {
               Experience the future of learning with our cutting-edge platform designed for student success
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
               <Card key={index} className="text-center card-hover-blue shadow-soft">
@@ -133,13 +121,11 @@ const Index = () => {
           <div className="flex justify-between items-center mb-12">
             <div>
               <h2 className="text-3xl font-bold mb-4">Featured Courses</h2>
-              <p className="text-muted-foreground">
-                Hand-picked courses from our best instructors
-              </p>
+              <p className="text-muted-foreground">Hand-picked courses from our best instructors</p>
             </div>
             <Button variant="outline">View All Courses</Button>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {featuredCourses.map((course) => (
               <CourseCard key={course.id} {...course} />
@@ -153,18 +139,14 @@ const Index = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">Trusted by Thousands</h2>
-            <p className="text-white/80 max-w-2xl mx-auto">
-              Join the growing community of successful learners
-            </p>
+            <p className="text-white/80 max-w-2xl mx-auto">Join the growing community of successful learners</p>
           </div>
-          
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="flex justify-center mb-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    {stat.icon}
-                  </div>
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">{stat.icon}</div>
                 </div>
                 <div className="text-3xl font-bold mb-2">{stat.value}</div>
                 <div className="text-white/80">{stat.label}</div>
@@ -220,9 +202,7 @@ const Index = () => {
                 <BookOpen className="h-6 w-6 text-primary" />
                 <span className="font-bold text-lg">Jhakkas</span>
               </div>
-              <p className="text-muted-foreground">
-                Empowering students with quality education and expert guidance.
-              </p>
+              <p className="text-muted-foreground">Empowering students with quality education and expert guidance.</p>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Courses</h3>

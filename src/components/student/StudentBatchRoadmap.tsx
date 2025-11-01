@@ -205,6 +205,14 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
   );
 };
 
+// Helper to format dates as dd/mm/yyyy
+const formatDate = (date: Date): string => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export const StudentBatchRoadmap = () => {
   const navigate = useNavigate();
   const { roadmapId } = useParams();
@@ -482,55 +490,54 @@ export const StudentBatchRoadmap = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="space-y-4">
+        {/* Title Section - Full Width on All Screens */}
+        <div className="space-y-1">
           <h2 className="text-2xl font-bold">{roadmap.title}</h2>
-          <p className="text-muted-foreground">{roadmap.description}</p>
+          <p className="text-sm text-muted-foreground">{roadmap.description}</p>
         </div>
-        <div className="flex items-center gap-2">
-          {roadmap.subject_order && (
-            <Button variant="outline" size="sm" onClick={handleResetOrder}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset Order
-            </Button>
-          )}
-          <div className="flex gap-2">
-            <Button 
-              variant={viewMode === 'list' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4 mr-2" />
-              List View
-            </Button>
-            <Button 
-              variant={viewMode === 'calendar' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setViewMode('calendar')}
-            >
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Calendar View
-            </Button>
-            <Button 
-              variant={viewMode === 'cards' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setViewMode('cards')}
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Card View
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      <div className="grid gap-2 text-sm">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          <span>{new Date(roadmap.start_date).toLocaleDateString()} - {new Date(roadmap.end_date).toLocaleDateString()}</span>
+        {/* View Mode Buttons - Responsive Layout */}
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button 
+            variant={viewMode === 'list' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="flex-1 sm:flex-none"
+          >
+            <List className="h-4 w-4" />
+            <span className="ml-2 hidden sm:inline">List</span>
+          </Button>
+          <Button 
+            variant={viewMode === 'calendar' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setViewMode('calendar')}
+            className="flex-1 sm:flex-none"
+          >
+            <CalendarIcon className="h-4 w-4" />
+            <span className="ml-2 hidden sm:inline">Calendar</span>
+          </Button>
+          <Button 
+            variant={viewMode === 'cards' ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setViewMode('cards')}
+            className="flex-1 sm:flex-none"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            <span className="ml-2 hidden sm:inline">Card</span>
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-muted-foreground" />
-          <span>{roadmap.total_days} days total</span>
+
+        {/* Date Info Section - Formatted as dd/mm/yyyy */}
+        <div className="grid gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            <span>{formatDate(new Date(roadmap.start_date))} - {formatDate(new Date(roadmap.end_date))}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-muted-foreground" />
+            <span>{roadmap.total_days} days total</span>
+          </div>
         </div>
       </div>
 

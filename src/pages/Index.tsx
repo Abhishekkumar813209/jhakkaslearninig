@@ -1,11 +1,22 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import CourseCard from "@/components/CourseCard";
+import { FeatureShowcase } from "@/components/FeatureShowcase";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { BookOpen, Users, Award, Target, PlayCircle, Clock, Star, TrendingUp, CheckCircle, Zap } from "lucide-react";
+
+import gamifiedLearning from "@/assets/features/gamified-learning.png";
+import aiPowered from "@/assets/features/ai-powered.png";
+import interactiveGames from "@/assets/features/interactive-games.png";
+import analytics from "@/assets/features/analytics.png";
+import roadmap from "@/assets/features/roadmap.png";
+import parentPortal from "@/assets/features/parent-portal.png";
+import rewards from "@/assets/features/rewards.png";
+import multiFormat from "@/assets/features/multi-format.png";
 
 const Index = () => {
   const featuredCourses = [
@@ -52,24 +63,52 @@ const Index = () => {
 
   const features = [
     {
-      icon: <PlayCircle className="h-8 w-8" />,
-      title: "Live Interactive Classes",
-      description: "Attend live sessions with expert teachers and get your doubts cleared instantly",
+      icon: gamifiedLearning,
+      title: "Learn Through Gaming",
+      description: "Transform studying into an exciting adventure with XP points, hearts, streaks, and leaderboards that keep you motivated every step of the way.",
+      highlights: ["XP Points", "Hearts System", "Daily Streaks", "Leaderboards"],
     },
     {
-      icon: <Target className="h-8 w-8" />,
-      title: "Personalized Learning",
-      description: "AI-powered recommendations based on your performance and learning goals",
+      icon: aiPowered,
+      title: "Smart AI Assistant",
+      description: "Your personal tutor that understands your learning style, generates personalized questions, and provides instant explanations.",
+      highlights: ["AI Question Gen", "Smart Paths", "Instant Help", "Adaptive Learning"],
     },
     {
-      icon: <Award className="h-8 w-8" />,
-      title: "Practice & Assessment",
-      description: "Comprehensive quizzes and mock tests to track your progress",
+      icon: interactiveGames,
+      title: "8+ Game Types",
+      description: "Practice with engaging game-based questions including MCQ challenges, drag-drop, line matching, and typing races.",
+      highlights: ["MCQ Games", "Drag & Drop", "Line Match", "Typing Race"],
     },
     {
-      icon: <Users className="h-8 w-8" />,
-      title: "Expert Teachers",
-      description: "Learn from India's top educators with proven track records",
+      icon: analytics,
+      title: "Track Every Milestone",
+      description: "Know exactly where you stand with zone analysis, chapter-wise breakdowns, and performance trends.",
+      highlights: ["Zone Analysis", "Chapter Stats", "Performance Trends", "Reports"],
+    },
+    {
+      icon: roadmap,
+      title: "Guided Learning Path",
+      description: "Never wonder what to study next with our organized roadmaps, daily schedules, and topic progression tracking.",
+      highlights: ["Daily Schedule", "Batch Roadmaps", "Topic Progress", "Calendar View"],
+    },
+    {
+      icon: parentPortal,
+      title: "Parents Stay Connected",
+      description: "Keep parents in the loop with detailed insights into student progress, performance analytics, and daily activity tracking.",
+      highlights: ["Progress Monitor", "Analytics", "Activity Tracking", "Reports"],
+    },
+    {
+      icon: rewards,
+      title: "Earn While Learning",
+      description: "Get rewarded for bringing your friends to learn. Earn Jhakkas points and withdraw your earnings.",
+      highlights: ["Referral Rewards", "Jhakkas Points", "Withdrawals", "Bonus XP"],
+    },
+    {
+      icon: multiFormat,
+      title: "Learn Your Way",
+      description: "Access content in your preferred format - from YouTube videos and PDFs to interactive simulations.",
+      highlights: ["Video Lessons", "PDF Content", "Simulations", "Math Support"],
     },
   ];
 
@@ -89,28 +128,56 @@ const Index = () => {
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Why Choose Jhakkas?</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Experience the future of learning with our cutting-edge platform designed for student success
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Why <span className="text-primary">Jhakkas</span> is Different
+            </h2>
+            <p className="text-muted-foreground max-w-3xl mx-auto text-lg">
+              Experience the future of education with our gamified, AI-powered learning platform 
+              designed to make studying engaging, effective, and rewarding.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <Card key={index} className="text-center card-hover-blue shadow-soft">
-                <CardHeader>
-                  <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                      {feature.icon}
-                    </div>
-                  </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+          <Carousel
+            opts={{
+              align: "start",
+              loop: true,
+            }}
+            className="w-full max-w-6xl mx-auto"
+          >
+            <CarouselContent className="-ml-4">
+              {features.map((feature, index) => (
+                <CarouselItem key={index} className="pl-4 md:basis-1/2 lg:basis-1/3">
+                  <FeatureShowcase
+                    icon={feature.icon}
+                    title={feature.title}
+                    description={feature.description}
+                    highlights={feature.highlights}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="left-0 -translate-x-12" />
+            <CarouselNext className="right-0 translate-x-12" />
+          </Carousel>
+
+          {/* Statistics Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-8 rounded-xl bg-gradient-to-br from-primary/10 via-accent/5 to-success/10 border border-primary/20 mt-12">
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-primary mb-2">50,000+</div>
+              <div className="text-sm text-muted-foreground">Active Students</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-success mb-2">1M+</div>
+              <div className="text-sm text-muted-foreground">Questions Attempted</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-primary mb-2">85%</div>
+              <div className="text-sm text-muted-foreground">Average Improvement</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-success mb-2">4.8/5</div>
+              <div className="text-sm text-muted-foreground">Student Satisfaction</div>
+            </div>
           </div>
         </div>
       </section>

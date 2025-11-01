@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FeatureShowcase } from "@/components/FeatureShowcase";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import {
   Users,
   Target,
@@ -176,63 +177,89 @@ const About = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            <FeatureShowcase
-              icon={gamifiedLearning}
-              title="Learn Through Gaming"
-              description="Transform studying into an exciting adventure with XP points, hearts, streaks, and leaderboards that keep you motivated every step of the way."
-              highlights={["XP Points", "Hearts System", "Daily Streaks", "Leaderboards", "Achievements"]}
-            />
-            
-            <FeatureShowcase
-              icon={aiPowered}
-              title="Smart AI Assistant"
-              description="Your personal tutor that understands your learning style, generates personalized questions, and provides instant explanations when you need them."
-              highlights={["AI Question Gen", "Smart Paths", "Instant Help", "Adaptive Learning"]}
-            />
-            
-            <FeatureShowcase
-              icon={interactiveGames}
-              title="8+ Game Types"
-              description="Practice with engaging game-based questions including MCQ challenges, drag-drop, line matching, typing races, and interactive puzzles."
-              highlights={["MCQ Games", "Drag & Drop", "Line Match", "Typing Race", "Puzzles"]}
-            />
-            
-            <FeatureShowcase
-              icon={analytics}
-              title="Track Every Milestone"
-              description="Know exactly where you stand with comprehensive analytics including zone analysis, chapter-wise breakdowns, and performance trends."
-              highlights={["Zone Analysis", "Chapter Stats", "Performance Trends", "Radar Charts"]}
-            />
-            
-            <FeatureShowcase
-              icon={roadmap}
-              title="Guided Learning Path"
-              description="Never wonder what to study next with our organized roadmaps, daily schedules, and topic progression tracking tailored to your batch."
-              highlights={["Daily Schedule", "Batch Roadmaps", "Topic Progress", "Calendar View"]}
-            />
-            
-            <FeatureShowcase
-              icon={parentPortal}
-              title="Parents Stay Connected"
-              description="Keep parents in the loop with detailed insights into student progress, performance analytics, and daily activity tracking."
-              highlights={["Progress Monitor", "Analytics", "Activity Tracking", "Reports"]}
-            />
-            
-            <FeatureShowcase
-              icon={rewards}
-              title="Earn While Learning"
-              description="Get rewarded for bringing your friends to learn with our referral system. Earn Jhakkas points and withdraw your earnings."
-              highlights={["Referral Rewards", "Jhakkas Points", "Withdrawals", "Bonus XP"]}
-            />
-            
-            <FeatureShowcase
-              icon={multiFormat}
-              title="Learn Your Way"
-              description="Access content in the format that suits you best - from YouTube videos and PDFs to interactive simulations and rich text lessons."
-              highlights={["Video Lessons", "PDF Content", "Simulations", "Math Formulas"]}
-            />
-          </div>
+          <Carousel
+            opts={{
+              align: "start",
+              loop: true,
+            }}
+            className="w-full max-w-6xl mx-auto mb-12"
+          >
+            <CarouselContent className="-ml-4">
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={gamifiedLearning}
+                  title="Learn Through Gaming"
+                  description="Transform studying into an exciting adventure with XP points, hearts, streaks, and leaderboards that keep you motivated every step of the way."
+                  highlights={["XP Points", "Hearts System", "Daily Streaks", "Leaderboards"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={aiPowered}
+                  title="Smart AI Assistant"
+                  description="Your personal tutor that understands your learning style, generates personalized questions, and provides instant explanations."
+                  highlights={["AI Question Gen", "Smart Paths", "Instant Help", "Adaptive Learning"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={interactiveGames}
+                  title="8+ Game Types"
+                  description="Practice with engaging game-based questions including MCQ challenges, drag-drop, line matching, and typing races."
+                  highlights={["MCQ Games", "Drag & Drop", "Line Match", "Typing Race"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={analytics}
+                  title="Track Every Milestone"
+                  description="Know exactly where you stand with zone analysis, chapter-wise breakdowns, and performance trends."
+                  highlights={["Zone Analysis", "Chapter Stats", "Performance Trends", "Reports"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={roadmap}
+                  title="Guided Learning Path"
+                  description="Never wonder what to study next with our organized roadmaps, daily schedules, and topic progression tracking."
+                  highlights={["Daily Schedule", "Batch Roadmaps", "Topic Progress", "Calendar View"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={parentPortal}
+                  title="Parents Stay Connected"
+                  description="Keep parents in the loop with detailed insights into student progress, performance analytics, and daily activity tracking."
+                  highlights={["Progress Monitor", "Analytics", "Activity Tracking", "Reports"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={rewards}
+                  title="Earn While Learning"
+                  description="Get rewarded for bringing your friends to learn. Earn Jhakkas points and withdraw your earnings."
+                  highlights={["Referral Rewards", "Jhakkas Points", "Withdrawals", "Bonus XP"]}
+                />
+              </CarouselItem>
+              
+              <CarouselItem className="pl-4 md:basis-1/2 lg:basis-1/3">
+                <FeatureShowcase
+                  icon={multiFormat}
+                  title="Learn Your Way"
+                  description="Access content in your preferred format - from YouTube videos and PDFs to interactive simulations."
+                  highlights={["Video Lessons", "PDF Content", "Simulations", "Math Support"]}
+                />
+              </CarouselItem>
+            </CarouselContent>
+            <CarouselPrevious className="left-0 -translate-x-12" />
+            <CarouselNext className="right-0 translate-x-12" />
+          </Carousel>
 
           {/* Statistics Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-8 rounded-xl bg-gradient-to-br from-primary/10 via-accent/5 to-success/10 border border-primary/20">

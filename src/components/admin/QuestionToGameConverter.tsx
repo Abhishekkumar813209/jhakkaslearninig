@@ -126,7 +126,7 @@ export const QuestionToGameConverter = () => {
         body: {
           question_text: questionText,
           options: options ? options.split('\n').filter(o => o.trim()) : null,
-          question_type: questionType,
+          question_type: selectedGameType || questionType || 'mcq',
           subject,
           chapter_name: chapterName,
           topic_name: topicName,
@@ -165,11 +165,14 @@ export const QuestionToGameConverter = () => {
         body: {
           question_text: questionText,
           options: options ? options.split('\n').filter(o => o.trim()) : null,
-          question_type: questionType,
+          question_type: selectedGameType || questionType || 'mcq',
           subject,
           chapter_name: chapterName,
           topic_name: topicName,
           game_type: selectedGameType,
+          ...(selectedGameType === 'true_false' && typeof generatedGame?.correctAnswer === 'boolean'
+            ? { selected_answer: generatedGame.correctAnswer }
+            : {})
         }
       });
 
@@ -464,7 +467,10 @@ export const QuestionToGameConverter = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="gameType">Select Game Type *</Label>
-                <Select value={selectedGameType} onValueChange={(value: GameType) => setSelectedGameType(value)}>
+                <Select value={selectedGameType} onValueChange={(value: GameType) => {
+                  setSelectedGameType(value);
+                  setQuestionType(value);
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choose game type to see specific inputs" />
                   </SelectTrigger>
@@ -490,6 +496,17 @@ export const QuestionToGameConverter = () => {
                         setQuestionText(data.questionText);
                         setGeneratedGame(data.gameData);
                         setExplanation(data.explanation);
+                        
+                        // Set question type based on game type
+                        if (selectedGameType === 'mcq' && data.gameData?.options) {
+                          const opts = Array.isArray(data.gameData.options) ? data.gameData.options : [];
+                          setOptions(opts.join('\n'));
+                          setQuestionType('mcq');
+                        } else if (selectedGameType === 'true_false') {
+                          setQuestionType('true_false');
+                        } else {
+                          setQuestionType(selectedGameType);
+                        }
                       }}
                     />
                   </CardContent>

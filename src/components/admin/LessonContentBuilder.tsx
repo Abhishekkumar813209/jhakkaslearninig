@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -603,9 +604,8 @@ function LessonContentBuilderInner() {
   const handleProcessContent = async () => {
     setAiProcessing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+      const data = await invokeWithAuth<any, any>({
+        name: 'ai-question-to-game',
         body: {
           mode: 'bulk_mixed',
           files: uploadedFiles,
@@ -617,15 +617,8 @@ function LessonContentBuilderInner() {
             chapter: chapters.find(c => c.id === selectedChapter)?.chapter_name,
             topic: topics.find(t => t.id === selectedTopic)?.topic_name
           }
-        },
-        headers: session?.access_token ? {
-          Authorization: `Bearer ${session.access_token}`
-        } : {}
+        }
       });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to process content');
-      }
 
       if (newLesson.lesson_type === 'theory') {
         setNewLesson({ ...newLesson, theory_text: data.content || additionalText });

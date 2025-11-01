@@ -15,7 +15,7 @@ import {
   Star,
   TrendingUp,
   CheckCircle,
-  Zap
+  Zap.
 } from "lucide-react";
 
 const Index = () => {

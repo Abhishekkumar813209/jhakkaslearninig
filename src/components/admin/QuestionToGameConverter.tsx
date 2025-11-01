@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { toast } from "sonner";
 import { Loader2, Sparkles, CheckCircle, Wand2, Upload, FileSpreadsheet, Image as ImageIcon, Trash2 } from "lucide-react";
 import { GamifiedExercise } from "@/components/student/GamifiedExercise";
@@ -120,9 +121,8 @@ export const QuestionToGameConverter = () => {
     setSuggestion(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+      const data = await invokeWithAuth<any, any>({
+        name: 'ai-question-to-game',
         body: {
           question_text: questionText,
           options: options ? options.split('\n').filter(o => o.trim()) : null,
@@ -130,15 +130,8 @@ export const QuestionToGameConverter = () => {
           subject,
           chapter_name: chapterName,
           topic_name: topicName,
-        },
-        headers: session?.access_token ? {
-          Authorization: `Bearer ${session.access_token}`
-        } : {}
+        }
       });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to get AI suggestion');
-      }
 
       if (data.suggestion) {
         setSuggestion(data.suggestion);
@@ -167,9 +160,8 @@ export const QuestionToGameConverter = () => {
     setGeneratedExercise(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+      const data = await invokeWithAuth<any, any>({
+        name: 'ai-question-to-game',
         body: {
           question_text: questionText,
           options: options ? options.split('\n').filter(o => o.trim()) : null,
@@ -178,15 +170,8 @@ export const QuestionToGameConverter = () => {
           chapter_name: chapterName,
           topic_name: topicName,
           game_type: selectedGameType,
-        },
-        headers: session?.access_token ? {
-          Authorization: `Bearer ${session.access_token}`
-        } : {}
+        }
       });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to generate game');
-      }
 
       if (data.exercise_data) {
         setGeneratedExercise({
@@ -215,9 +200,8 @@ export const QuestionToGameConverter = () => {
     setLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data, error } = await supabase.functions.invoke('ai-question-to-game', {
+      const data = await invokeWithAuth<any, any>({
+        name: 'ai-question-to-game',
         body: {
           question_text: questionText,
           options: options ? options.split('\n').filter(o => o.trim()) : null,
@@ -226,15 +210,8 @@ export const QuestionToGameConverter = () => {
           chapter_name: chapterName,
           topic_name: topicName,
           convert_to: conversionTarget,
-        },
-        headers: session?.access_token ? {
-          Authorization: `Bearer ${session.access_token}`
-        } : {}
+        }
       });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to convert question');
-      }
 
       if (data.exercise_data) {
         setGeneratedExercise({
@@ -350,12 +327,8 @@ export const QuestionToGameConverter = () => {
       ));
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const authHeaders = session?.access_token ? {
-          Authorization: `Bearer ${session.access_token}`
-        } : {};
-        
-        const { data: suggestionData, error: suggestionError } = await supabase.functions.invoke('ai-question-to-game', {
+        const suggestionData = await invokeWithAuth<any, any>({
+          name: 'ai-question-to-game',
           body: {
             question_text: question.question_text,
             options: question.options,
@@ -363,15 +336,13 @@ export const QuestionToGameConverter = () => {
             subject: question.subject,
             chapter_name: question.chapter_name,
             topic_name: question.topic_name,
-          },
-          headers: authHeaders
+          }
         });
-
-        if (suggestionError) throw new Error(suggestionError.message || 'Failed to get suggestion');
 
         const gameType = suggestionData.suggestion.suggested_game;
 
-        const { data: gameData, error: gameError } = await supabase.functions.invoke('ai-question-to-game', {
+        const gameData = await invokeWithAuth<any, any>({
+          name: 'ai-question-to-game',
           body: {
             question_text: question.question_text,
             options: question.options,
@@ -380,11 +351,8 @@ export const QuestionToGameConverter = () => {
             chapter_name: question.chapter_name,
             topic_name: question.topic_name,
             game_type: gameType,
-          },
-          headers: authHeaders
+          }
         });
-
-        if (gameError) throw new Error(gameError.message || 'Failed to generate game');
 
         setBulkQuestions(prev => prev.map(q => 
           q.id === question.id ? {

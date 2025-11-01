@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List, LayoutGrid } from "lucide-react";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
@@ -176,6 +176,7 @@ interface SortableSubjectCardProps {
 
 const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: SortableSubjectCardProps) => {
   const [localChapters, setLocalChapters] = useState(subject.chapters);
+  const [isDraggingChapter, setIsDraggingChapter] = useState(false);
 
   useEffect(() => {
     setLocalChapters(subject.chapters);
@@ -197,7 +198,17 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
   };
 
   const chapterSensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -288,17 +299,22 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
           <Progress value={avgProgress} className="h-2" />
           
           <div className="bg-muted/50 border rounded-lg p-2 text-xs text-muted-foreground">
-            💡 Drag chapter to reorder • Click serial number to jump to position • Click chapter name to view topics
+            💡 Long-press a chapter to drag on mobile • Tap the number to jump to position • Tap the name to view topics
           </div>
 
           <DndContext 
             sensors={chapterSensors} 
             collisionDetection={closestCenter} 
-            onDragEnd={handleChapterDragEnd}
+            onDragStart={() => setIsDraggingChapter(true)}
+            onDragEnd={(e) => {
+              handleChapterDragEnd(e);
+              setIsDraggingChapter(false);
+            }}
+            onDragCancel={() => setIsDraggingChapter(false)}
             modifiers={[restrictToVerticalAxis, restrictToParentElement]}
           >
             <SortableContext items={localChapters.map(ch => ch.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2">
+              <div className={cn("space-y-2 select-none", isDraggingChapter && "touch-none")}>
                 {localChapters.map((chapter, index) => (
                   <SortableChapter 
                     key={chapter.id} 
@@ -335,7 +351,17 @@ export const StudentBatchRoadmap = () => {
   const { toast } = useToast();
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 

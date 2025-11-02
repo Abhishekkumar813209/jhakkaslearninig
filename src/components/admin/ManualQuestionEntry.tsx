@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Save, Plus, Sparkles } from 'lucide-react';
 import { DynamicQuestionInput } from './DynamicQuestionInput';
 
-type GameType = "mcq" | "fill_blank" | "true_false" | "match_column" | "match_pairs" | "sequence_order" | "typing_race" | "interactive_blanks";
+type GameType = "mcq" | "fill_blank" | "true_false" | "match_column" | "match_pairs" | "sequence_order" | "typing_race" | "interactive_blanks" | "card_memory";
 
 interface ManualQuestionEntryProps {
   selectedTopic: { id: string; topic_name: string };
@@ -37,15 +37,21 @@ export const ManualQuestionEntry = ({
     { value: "true_false", label: "True/False", icon: "✓✗" },
     { value: "fill_blank", label: "Fill in the Blanks (Drag & Drop)", icon: "🔤" },
     { value: "match_column", label: "Match the Column (Line Drawing)", icon: "↔️" },
-    { value: "match_pairs", label: "Match Pairs (Card Memory)", icon: "🃏" },
+    { value: "match_pairs", label: "Match Pairs", icon: "🃏" },
+    { value: "card_memory", label: "Card Memory Game", icon: "🎴" },
     { value: "sequence_order", label: "Drag & Drop Sequence", icon: "🔢" },
     { value: "typing_race", label: "Typing Race", icon: "⌨️" },
-    { value: "interactive_blanks", label: "Interactive Fill Blanks", icon: "📝" },
+    { value: "interactive_blanks", label: "Interactive Fill Blanks", icon: "✍️" },
   ];
 
   const handleSave = async () => {
     if (!questionData || !questionData.questionText?.trim()) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!questionData.question_type) {
+      toast.error("Game type is required");
       return;
     }
 
@@ -57,7 +63,7 @@ export const ManualQuestionEntry = ({
         .from('question_bank')
         .insert({
           topic_id: selectedTopic.id,
-          question_type: selectedGameType,
+          question_type: questionData.question_type || selectedGameType,
           question_text: questionData.questionText,
           question_data: questionData.gameData,
           correct_answer: questionData.gameData,

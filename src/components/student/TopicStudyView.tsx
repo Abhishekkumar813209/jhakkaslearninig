@@ -13,6 +13,14 @@ import confetti from 'canvas-confetti';
 import { calculateXP, getDifficultyColor, getDifficultyBadgeVariant, type Difficulty } from "@/lib/xpConfig";
 import { useQuestionQueue } from "@/hooks/useQuestionQueue";
 import { MCQGame } from "./games/MCQGame";
+import { TrueFalseGame } from "./games/TrueFalseGame";
+import { DragDropBlanks } from "./games/DragDropBlanks";
+import { LineMatchingGame } from "./games/LineMatchingGame";
+import { MatchPairsGame } from "./games/MatchPairsGame";
+import { CardMemoryGame } from "./games/CardMemoryGame";
+import { DragDropSequence } from "./games/DragDropSequence";
+import { InteractiveBlanks } from "./games/InteractiveBlanks";
+import { TypingRaceGame } from "./games/TypingRaceGame";
 
 interface TopicContent {
   id: string;
@@ -590,8 +598,80 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           </>
         )}
         
-        {/* Fallback for other types */}
-        {currentQ.exercise_type !== 'mcq' && (
+        {currentQ.exercise_type === 'true_false' && (
+          <TrueFalseGame
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'fill_blank' && (
+          <DragDropBlanks
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'match_column' && (
+          <LineMatchingGame
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'match_pairs' && (
+          <MatchPairsGame
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'card_memory' && (
+          <CardMemoryGame
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'sequence_order' && (
+          <DragDropSequence
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'interactive_blanks' && (
+          <InteractiveBlanks
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+
+        {currentQ.exercise_type === 'typing_race' && (
+          <TypingRaceGame
+            gameData={currentQ.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={markTopicComplete}
+          />
+        )}
+        
+        {/* Fallback for other/unknown types */}
+        {!['mcq', 'true_false', 'fill_blank', 'match_column', 'match_pairs', 'card_memory', 'sequence_order', 'interactive_blanks', 'typing_race'].includes(currentQ.exercise_type) && (
           <GamifiedExercise
             exercise={currentQ}
             onComplete={() => {

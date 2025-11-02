@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Plus, Trash2 } from 'lucide-react';
 
-type GameType = "mcq" | "fill_blank" | "true_false" | "match_column" | "match_pairs" | "sequence_order" | "typing_race" | "interactive_blanks";
+type GameType = "mcq" | "fill_blank" | "true_false" | "match_column" | "match_pairs" | "sequence_order" | "typing_race" | "interactive_blanks" | "card_memory";
 
 interface DynamicQuestionInputProps {
   gameType: GameType;
@@ -19,6 +19,7 @@ interface DynamicQuestionInputProps {
     explanation: string;
     marks: number;
     difficulty: string;
+    question_type: GameType;
   }) => void;
 }
 
@@ -48,6 +49,9 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   // Typing Race states
   const [targetText, setTargetText] = useState("");
   const [timeLimit, setTimeLimit] = useState(30);
+
+  // Card Memory states
+  const [memoryPairs, setMemoryPairs] = useState(['', '']);
 
   const handleDataChange = () => {
     let gameData: any = {};
@@ -123,14 +127,26 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       case 'interactive_blanks':
         gameData = {
           question: questionText,
-          blanks: blanks.map(b => b.correctAnswer),
+          blanks: blanks.map(b => ({
+            correctAnswer: b.correctAnswer,
+            options: [b.correctAnswer, ...b.distractors]
+          })),
+          marks,
+          difficulty
+        };
+        break;
+
+      case 'card_memory':
+        gameData = {
+          question: questionText,
+          pairs: memoryPairs.filter(p => p.trim()),
           marks,
           difficulty
         };
         break;
     }
 
-    onChange({ questionText, gameData, explanation, marks, difficulty });
+    onChange({ questionText, gameData, explanation, marks, difficulty, question_type: gameType });
   };
 
   // MCQ Input
@@ -382,6 +398,220 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         <div>
           <Label>Explanation</Label>
           <Textarea value={explanation} onChange={(e) => { setExplanation(e.target.value); handleDataChange(); }} rows={2} />
+        </div>
+      </div>
+    );
+  }
+
+  // Match Pairs Input
+  if (gameType === 'match_pairs') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <Label>Question *</Label>
+          <Textarea value={questionText} onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }} rows={2} />
+        </div>
+
+        <div>
+          <Label>Pairs (Left & Right items to match)</Label>
+          {pairItems.map((pair, idx) => (
+            <div key={idx} className="flex gap-2 mb-2">
+              <Input
+                placeholder="Left item"
+                value={pair.left}
+                onChange={(e) => {
+                  const newPairs = [...pairItems];
+                  newPairs[idx].left = e.target.value;
+                  setPairItems(newPairs);
+                  handleDataChange();
+                }}
+              />
+              <span className="flex items-center">↔</span>
+              <Input
+                placeholder="Right item"
+                value={pair.right}
+                onChange={(e) => {
+                  const newPairs = [...pairItems];
+                  newPairs[idx].right = e.target.value;
+                  setPairItems(newPairs);
+                  handleDataChange();
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setPairItems(pairItems.filter((_, i) => i !== idx));
+                  handleDataChange();
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPairItems([...pairItems, { left: '', right: '' }]);
+              handleDataChange();
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Pair
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Sequence Order Input
+  if (gameType === 'sequence_order') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <Label>Question *</Label>
+          <Textarea
+            value={questionText}
+            onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }}
+            placeholder="Arrange these events in chronological order..."
+            rows={2}
+          />
+        </div>
+
+        <div>
+          <Label>Items (in correct order)</Label>
+          {sequenceItems.map((item, idx) => (
+            <div key={idx} className="flex gap-2 mb-2">
+              <Badge variant="outline">{idx + 1}</Badge>
+              <Input
+                value={item}
+                onChange={(e) => {
+                  const newItems = [...sequenceItems];
+                  newItems[idx] = e.target.value;
+                  setSequenceItems(newItems);
+                  handleDataChange();
+                }}
+                placeholder={`Item ${idx + 1}`}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSequenceItems(sequenceItems.filter((_, i) => i !== idx));
+                  handleDataChange();
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSequenceItems([...sequenceItems, '']);
+              handleDataChange();
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Card Memory Input
+  if (gameType === 'card_memory') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <Label>Question *</Label>
+          <Textarea
+            value={questionText}
+            onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }}
+            placeholder="Find matching pairs of..."
+            rows={2}
+          />
+        </div>
+
+        <div>
+          <Label>Memory Pairs (Each pair will appear twice)</Label>
+          {memoryPairs.map((pair, idx) => (
+            <div key={idx} className="flex gap-2 mb-2">
+              <Badge variant="outline">{idx + 1}</Badge>
+              <Input
+                value={pair}
+                onChange={(e) => {
+                  const newPairs = [...memoryPairs];
+                  newPairs[idx] = e.target.value;
+                  setMemoryPairs(newPairs);
+                  handleDataChange();
+                }}
+                placeholder={`Pair ${idx + 1}`}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMemoryPairs(memoryPairs.filter((_, i) => i !== idx));
+                  handleDataChange();
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setMemoryPairs([...memoryPairs, '']);
+              handleDataChange();
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Pair
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Typing Race Input
+  if (gameType === 'typing_race') {
+    return (
+      <div className="space-y-4">
+        <div>
+          <Label>Question/Instruction *</Label>
+          <Textarea
+            value={questionText}
+            onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }}
+            placeholder="Type this text as fast as you can..."
+            rows={2}
+          />
+        </div>
+
+        <div>
+          <Label>Target Text to Type *</Label>
+          <Textarea
+            value={targetText}
+            onChange={(e) => { setTargetText(e.target.value); handleDataChange(); }}
+            placeholder="Enter the text students need to type..."
+            rows={4}
+          />
+        </div>
+
+        <div>
+          <Label>Time Limit (seconds)</Label>
+          <Input
+            type="number"
+            value={timeLimit}
+            onChange={(e) => { setTimeLimit(parseInt(e.target.value)); handleDataChange(); }}
+            min={10}
+            max={300}
+          />
         </div>
       </div>
     );

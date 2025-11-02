@@ -46,6 +46,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminCourses = lazy(() => import("./pages/AdminCourses"));
 const AnswerManagement = lazy(() => import("./pages/AnswerManagement"));
 const SolutionManagement = lazy(() => import("./pages/SolutionManagement"));
+const QuestionBank = lazy(() => import("./pages/QuestionBank"));
 
 const queryClient = new QueryClient();
 
@@ -216,6 +217,13 @@ const App = () => (
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
                   <AnswerManagement />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/question-bank" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <QuestionBank />
                 </Suspense>
               </ProtectedRoute>
             } />

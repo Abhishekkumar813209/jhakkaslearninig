@@ -2076,6 +2076,7 @@ export type Database = {
           correct_answer: string | null
           created_at: string | null
           created_by: string | null
+          created_manually: boolean | null
           difficulty: string | null
           exam_domain: string | null
           exam_name: string | null
@@ -2100,6 +2101,7 @@ export type Database = {
           correct_answer?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_manually?: boolean | null
           difficulty?: string | null
           exam_domain?: string | null
           exam_name?: string | null
@@ -2124,6 +2126,7 @@ export type Database = {
           correct_answer?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_manually?: boolean | null
           difficulty?: string | null
           exam_domain?: string | null
           exam_name?: string | null

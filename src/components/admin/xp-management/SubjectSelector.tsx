@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2, BookOpen } from 'lucide-react';
-import { toast } from 'sonner';
+import { useRoadmapSubjects } from '@/hooks/useRoadmapData';
 
 interface SubjectSelectorProps {
   roadmapId: string;
@@ -10,33 +8,7 @@ interface SubjectSelectorProps {
 }
 
 export const SubjectSelector = ({ roadmapId, onSubjectSelect }: SubjectSelectorProps) => {
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchSubjects();
-  }, [roadmapId]);
-
-  const fetchSubjects = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('roadmap_chapters')
-        .select('subject')
-        .eq('roadmap_id', roadmapId);
-
-      if (error) throw error;
-
-      const uniqueSubjects = [...new Set(data?.map(d => d.subject).filter(Boolean))];
-      setSubjects(uniqueSubjects as string[]);
-    } catch (error: any) {
-      console.error('Error fetching subjects:', error);
-      toast.error('Failed to load subjects');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: subjects = [], isLoading: loading } = useRoadmapSubjects(roadmapId);
 
   const subjectIcons: Record<string, string> = {
     'Science': '🔬',

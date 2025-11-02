@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar, Target } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { useRoadmaps } from '@/hooks/useRoadmapData';
 
 interface RoadmapSelectorProps {
   examType: string;
@@ -23,39 +22,7 @@ interface Roadmap {
 }
 
 export const RoadmapSelector = ({ examType, board, targetClass, onRoadmapSelect }: RoadmapSelectorProps) => {
-  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchRoadmaps();
-  }, [examType, board, targetClass]);
-
-  const fetchRoadmaps = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('batch_roadmaps')
-        .select('id, title, description, total_days, start_date, end_date, status')
-        .eq('exam_type', examType)
-        .order('created_at', { ascending: false });
-
-      if (board) {
-        query = query.eq('target_board', board);
-      }
-      if (targetClass) {
-        query = query.eq('target_class', targetClass);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setRoadmaps(data || []);
-    } catch (error) {
-      console.error('Error fetching roadmaps:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: roadmaps = [], isLoading: loading } = useRoadmaps(examType, board, targetClass);
 
   if (loading) {
     return (

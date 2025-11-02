@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader2, BookOpen, ChevronRight } from 'lucide-react';
-import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { useRoadmapChapters } from '@/hooks/useRoadmapData';
 
 interface ChapterSelectorProps {
   roadmapId: string;
@@ -19,55 +17,7 @@ interface Chapter {
 }
 
 export const ChapterSelector = ({ roadmapId, subject, onChapterSelect }: ChapterSelectorProps) => {
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchChapters();
-  }, [roadmapId, subject]);
-
-  const fetchChapters = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('roadmap_chapters')
-        .select('id, chapter_name')
-        .eq('roadmap_id', roadmapId)
-        .eq('subject', subject);
-
-      if (error) throw error;
-
-      // Get topic and game counts for each chapter
-      const chaptersWithCounts = await Promise.all(
-        (data || []).map(async (chapter) => {
-          const { count: topicCount } = await supabase
-            .from('roadmap_topics')
-            .select('*', { count: 'exact', head: true })
-            .eq('chapter_id', chapter.id);
-
-          const { count: gameCount } = await supabase
-            .from('gamified_exercises')
-            .select('*, topic_content_mapping!inner(topic_id, roadmap_topics!inner(chapter_id))', { count: 'exact', head: true })
-            .eq('topic_content_mapping.roadmap_topics.chapter_id', chapter.id);
-
-          return {
-            id: chapter.id,
-            chapter_name: chapter.chapter_name,
-            topic_count: topicCount || 0,
-            game_count: gameCount || 0,
-          };
-        })
-      );
-
-      setChapters(chaptersWithCounts);
-    } catch (error: any) {
-      console.error('Error fetching chapters:', error);
-      toast.error('Failed to load chapters');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: chapters = [], isLoading: loading } = useRoadmapChapters(roadmapId, subject);
 
   if (loading) {
     return (

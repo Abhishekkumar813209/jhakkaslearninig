@@ -42,7 +42,7 @@ interface Topic {
 export const QuestionBankBuilder = () => {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
-  const { selectedBoard, selectedClass, setBoard, setClass, reset: resetBoardClass } = useBoardClassHierarchy();
+  const { selectedBoard, selectedClass, setBoard, setClass, reset: resetBoardClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
   const [searchParams, setSearchParams] = useSearchParams();
   const [refetchKey, setRefetchKey] = useState(0);
   
@@ -51,6 +51,63 @@ export const QuestionBankBuilder = () => {
   
   // Domain selection (Step 1)
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+
+  // URL-aware board/class handlers
+  const handleBoardSelect = (board: string | null) => {
+    setBoard(board);
+    const params = new URLSearchParams(searchParams);
+    if (board) {
+      params.set('board', board);
+    } else {
+      params.delete('board');
+    }
+    // Clear downstream params
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
+
+  const handleClassSelect = (cls: string | null) => {
+    setClass(cls);
+    const params = new URLSearchParams(searchParams);
+    if (cls) {
+      params.set('class', cls);
+    } else {
+      params.delete('class');
+    }
+    // Clear downstream params
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
+
+  const resetFromBoardURL = () => {
+    resetFromBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
+
+  const resetToBoardURL = () => {
+    resetToBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
   
   // Batch selection (Step 3)
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -371,9 +428,10 @@ export const QuestionBankBuilder = () => {
               examType={selectedDomain || ''}
               selectedBoard={selectedBoard}
               selectedClass={selectedClass}
-              onBoardSelect={setBoard}
-              onClassSelect={setClass}
-              onReset={resetBoardClass}
+              onBoardSelect={handleBoardSelect}
+              onClassSelect={handleClassSelect}
+              onReset={resetFromBoardURL}
+              onResetToBoard={resetToBoardURL}
             />
             
             {selectedBoard && selectedClass && (

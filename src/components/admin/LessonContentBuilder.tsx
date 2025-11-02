@@ -194,6 +194,63 @@ function LessonContentBuilderInner() {
     setSelectedBoard: setContextBoard,
     setSelectedClass: setContextClass,
   } = useLessonBuilder();
+
+  // URL-aware board/class handlers
+  const handleBoardSelect = (board: string | null) => {
+    setBoard(board);
+    const params = new URLSearchParams(searchParams);
+    if (board) {
+      params.set('board', board);
+    } else {
+      params.delete('board');
+    }
+    // Clear downstream params
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
+
+  const handleClassSelect = (cls: string | null) => {
+    setClass(cls);
+    const params = new URLSearchParams(searchParams);
+    if (cls) {
+      params.set('class', cls);
+    } else {
+      params.delete('class');
+    }
+    // Clear downstream params
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
+
+  const resetFromBoardURL = () => {
+    resetFromBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
+
+  const resetToBoardURL = () => {
+    resetToBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
+  };
   
   // Read active tab from URL
   const activeTab = searchParams.get('lessonTab') || 'lesson-library';
@@ -342,6 +399,18 @@ function LessonContentBuilderInner() {
     Award: LucideIcons.Award,
     Pencil: LucideIcons.Pencil,
   };
+
+  // Hydrate board/class from URL on mount
+  useEffect(() => {
+    const boardParam = searchParams.get('board');
+    const classParam = searchParams.get('class');
+    if (boardParam && boardParam !== selectedBoard) {
+      setBoard(boardParam);
+    }
+    if (classParam && classParam !== selectedClass) {
+      setClass(classParam);
+    }
+  }, []); // Run only on mount
 
   // Sync local state to context
   useEffectForContext(() => {
@@ -1565,10 +1634,10 @@ function LessonContentBuilderInner() {
           examType={selectedDomain}
           selectedBoard={selectedBoard}
           selectedClass={selectedClass}
-          onBoardSelect={setBoard}
-          onClassSelect={setClass}
-          onReset={resetFromBoard}
-          onResetToBoard={resetToBoard}
+          onBoardSelect={handleBoardSelect}
+          onClassSelect={handleClassSelect}
+          onReset={resetFromBoardURL}
+          onResetToBoard={resetToBoardURL}
           studentCounts={roadmapCounts}
           countLabel="roadmaps"
         />

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { useExamTypes } from "@/hooks/useExamTypes";
 import * as LucideIcons from 'lucide-react';
 
 const SchoolManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
@@ -31,6 +33,27 @@ const SchoolManagement = () => {
   const { zones } = useZones();
   const { examTypes } = useExamTypes();
   const { toast } = useToast();
+
+  // Hydrate from URL on mount
+  useEffect(() => {
+    const domain = searchParams.get('domain');
+    if (domain) setSelectedDomain(domain);
+  }, []);
+
+  // URL-aware handler
+  const handleDomainSelect = (domain: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('domain', domain);
+    setSearchParams(params);
+    setSelectedDomain(domain);
+  };
+
+  const handleChangeDomain = () => {
+    setSelectedDomain(null);
+    const params = new URLSearchParams(searchParams);
+    params.delete('domain');
+    setSearchParams(params);
+  };
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -122,7 +145,7 @@ const SchoolManagement = () => {
         <div className="flex gap-2">
           {selectedDomain && (
             <>
-              <Button onClick={() => setSelectedDomain(null)} variant="outline">
+              <Button onClick={handleChangeDomain} variant="outline">
                 Change Domain
               </Button>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -207,7 +230,7 @@ const SchoolManagement = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => setSelectedDomain(examType.code)}
+                  onClick={() => handleDomainSelect(examType.code)}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>

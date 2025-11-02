@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ interface Zone {
 }
 
 export const ZoneManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -32,6 +34,27 @@ export const ZoneManagement = () => {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   
   const { examTypes } = useExamTypes();
+
+  // Hydrate from URL on mount
+  useEffect(() => {
+    const domain = searchParams.get('domain');
+    if (domain) setSelectedDomain(domain);
+  }, []);
+
+  // URL-aware handler
+  const handleDomainSelect = (domain: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('domain', domain);
+    setSearchParams(params);
+    setSelectedDomain(domain);
+  };
+
+  const handleChangeDomain = () => {
+    setSelectedDomain(null);
+    const params = new URLSearchParams(searchParams);
+    params.delete('domain');
+    setSearchParams(params);
+  };
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -153,7 +176,7 @@ export const ZoneManagement = () => {
         <div className="flex gap-2">
           {selectedDomain && (
             <>
-              <Button onClick={() => setSelectedDomain(null)} variant="outline">
+              <Button onClick={handleChangeDomain} variant="outline">
                 Change Domain
               </Button>
               <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -214,7 +237,7 @@ export const ZoneManagement = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => setSelectedDomain(examType.code)}
+                  onClick={() => handleDomainSelect(examType.code)}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>

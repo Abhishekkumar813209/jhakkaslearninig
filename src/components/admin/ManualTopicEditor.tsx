@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +55,7 @@ const normalizeDifficulty = (val?: string): Difficulty => {
 };
 
 export const ManualTopicEditor = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -80,6 +82,109 @@ export const ManualTopicEditor = () => {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
+
+  // Hydrate from URL on mount
+  useEffect(() => {
+    const domain = searchParams.get('domain');
+    const board = searchParams.get('board');
+    const cls = searchParams.get('class');
+    const batch = searchParams.get('batch');
+    const subject = searchParams.get('subject');
+    const chapter = searchParams.get('chapter');
+    
+    if (domain) setSelectedDomain(domain);
+    if (board && domain === 'school') setBoard(board);
+    if (cls && domain === 'school') setClass(cls);
+    if (batch) setSelectedBatch(batch);
+    if (subject) setSelectedSubject(subject);
+    if (chapter) setSelectedChapter(chapter);
+  }, []);
+
+  // URL-aware handlers
+  const handleDomainSelect = (domain: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('domain', domain);
+    params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+    
+    setSelectedDomain(domain);
+    resetFromBoard();
+  };
+
+  const handleBoardSelect = (board: string | null) => {
+    setBoard(board);
+    const params = new URLSearchParams(searchParams);
+    if (board) params.set('board', board);
+    else params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const handleClassSelect = (cls: string | null) => {
+    setClass(cls);
+    const params = new URLSearchParams(searchParams);
+    if (cls) params.set('class', cls);
+    else params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const handleBatchChange = (batchId: string) => {
+    setSelectedBatch(batchId);
+    const params = new URLSearchParams(searchParams);
+    if (batchId) params.set('batch', batchId);
+    else params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const handleSubjectChange = (subject: string) => {
+    setSelectedSubject(subject);
+    const params = new URLSearchParams(searchParams);
+    if (subject) params.set('subject', subject);
+    else params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const handleChapterChange = (chapterId: string) => {
+    setSelectedChapter(chapterId);
+    const params = new URLSearchParams(searchParams);
+    if (chapterId) params.set('chapter', chapterId);
+    else params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const resetFromBoardURL = () => {
+    resetFromBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const resetToBoardURL = () => {
+    resetToBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -621,6 +726,15 @@ export const ManualTopicEditor = () => {
         {selectedDomain && (
           <div className="flex items-center gap-3 flex-wrap">
             <Button onClick={() => { 
+              const params = new URLSearchParams(searchParams);
+              params.delete('domain');
+              params.delete('board');
+              params.delete('class');
+              params.delete('batch');
+              params.delete('subject');
+              params.delete('chapter');
+              setSearchParams(params);
+              
               setSelectedDomain(null); 
               resetFromBoard();
               setSelectedBatch("");
@@ -631,13 +745,13 @@ export const ManualTopicEditor = () => {
             </Button>
             
             {selectedDomain === 'school' && selectedBoard && (
-              <Button variant="outline" onClick={resetFromBoard}>
+              <Button variant="outline" onClick={resetFromBoardURL}>
                 Change Board
               </Button>
             )}
             
             {selectedDomain === 'school' && selectedBoard && selectedClass && (
-              <Button variant="outline" onClick={resetToBoard}>
+              <Button variant="outline" onClick={resetToBoardURL}>
                 Change Class
               </Button>
             )}
@@ -657,10 +771,7 @@ export const ManualTopicEditor = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => {
-                    setSelectedDomain(examType.code);
-                    resetFromBoard();
-                  }}
+                  onClick={() => handleDomainSelect(examType.code)}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
@@ -721,7 +832,7 @@ export const ManualTopicEditor = () => {
               <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Batch</Label>
-              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+              <Select value={selectedBatch} onValueChange={handleBatchChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select batch" />
                 </SelectTrigger>
@@ -744,7 +855,7 @@ export const ManualTopicEditor = () => {
               <Label>Subject</Label>
               <Select 
                 value={selectedSubject} 
-                onValueChange={setSelectedSubject}
+                onValueChange={handleSubjectChange}
                 disabled={!selectedBatch}
               >
                 <SelectTrigger>
@@ -764,7 +875,7 @@ export const ManualTopicEditor = () => {
               <Label>Chapter</Label>
               <Select 
                 value={selectedChapter} 
-                onValueChange={setSelectedChapter}
+                onValueChange={handleChapterChange}
                 disabled={!selectedSubject}
               >
                 <SelectTrigger>

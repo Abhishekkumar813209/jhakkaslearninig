@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ interface Student {
 }
 
 const StudentManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,6 +51,61 @@ const StudentManagement = () => {
   const { examTypes } = useExamTypes();
   const { toast } = useToast();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
+
+  // Hydrate state from URL on mount
+  useEffect(() => {
+    const domain = searchParams.get('domain');
+    const board = searchParams.get('board');
+    const cls = searchParams.get('class');
+    
+    if (domain) setSelectedExamType(domain);
+    if (board && domain === 'school') setBoard(board);
+    if (cls && domain === 'school') setClass(cls);
+  }, []);
+
+  // URL-aware handlers
+  const handleDomainSelect = (domain: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('domain', domain);
+    params.delete('board');
+    params.delete('class');
+    setSearchParams(params);
+    
+    setSelectedExamType(domain);
+    resetFromBoard();
+  };
+
+  const handleBoardSelect = (board: string | null) => {
+    setBoard(board);
+    const params = new URLSearchParams(searchParams);
+    if (board) params.set('board', board);
+    else params.delete('board');
+    params.delete('class');
+    setSearchParams(params);
+  };
+
+  const handleClassSelect = (cls: string | null) => {
+    setClass(cls);
+    const params = new URLSearchParams(searchParams);
+    if (cls) params.set('class', cls);
+    else params.delete('class');
+    setSearchParams(params);
+  };
+
+  const resetFromBoardURL = () => {
+    resetFromBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('board');
+    params.delete('class');
+    setSearchParams(params);
+  };
+
+  const resetToBoardURL = () => {
+    resetToBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('class');
+    setSearchParams(params);
+  };
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -470,7 +527,7 @@ const StudentManagement = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => setSelectedExamType(examType.code)}
+                  onClick={() => handleDomainSelect(examType.code)}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
@@ -491,17 +548,17 @@ const StudentManagement = () => {
         <>
           {/* Board/Class Selector for School Domain */}
           {selectedExamType === 'school' && (
-            <BoardClassSelector
-              examType={selectedExamType}
-              selectedBoard={selectedBoard}
-              selectedClass={selectedClass}
-              onBoardSelect={setBoard}
-              onClassSelect={setClass}
-              onReset={resetFromBoard}
-              onResetToBoard={resetToBoard}
-              studentCounts={studentCounts}
-              countLabel="students"
-            />
+          <BoardClassSelector
+            examType={selectedExamType}
+            selectedBoard={selectedBoard}
+            selectedClass={selectedClass}
+            onBoardSelect={handleBoardSelect}
+            onClassSelect={handleClassSelect}
+            onReset={resetFromBoardURL}
+            onResetToBoard={resetToBoardURL}
+            studentCounts={studentCounts}
+            countLabel="students"
+          />
           )}
 
           {/* Selected Exam Type Badge */}

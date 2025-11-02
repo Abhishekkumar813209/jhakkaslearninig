@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import { format, parseISO, differenceInDays } from "date-fns";
 import * as LucideIcons from "lucide-react";
 
 const BatchManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { batches, loading, deleteBatch, fetchBatches, totalStudents, avgPerformance, updateBatch } = useBatches();
   const [showWizard, setShowWizard] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
@@ -30,6 +32,61 @@ const BatchManagement = () => {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
+
+  // Hydrate from URL on mount
+  useEffect(() => {
+    const domain = searchParams.get('domain');
+    const board = searchParams.get('board');
+    const cls = searchParams.get('class');
+    
+    if (domain) setSelectedDomain(domain);
+    if (board && domain === 'school') setBoard(board);
+    if (cls && domain === 'school') setClass(cls);
+  }, []);
+
+  // URL-aware handlers
+  const handleDomainSelect = (domain: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('domain', domain);
+    params.delete('board');
+    params.delete('class');
+    setSearchParams(params);
+    
+    setSelectedDomain(domain);
+    resetFromBoard();
+  };
+
+  const handleBoardSelect = (board: string | null) => {
+    setBoard(board);
+    const params = new URLSearchParams(searchParams);
+    if (board) params.set('board', board);
+    else params.delete('board');
+    params.delete('class');
+    setSearchParams(params);
+  };
+
+  const handleClassSelect = (cls: string | null) => {
+    setClass(cls);
+    const params = new URLSearchParams(searchParams);
+    if (cls) params.set('class', cls);
+    else params.delete('class');
+    setSearchParams(params);
+  };
+
+  const resetFromBoardURL = () => {
+    resetFromBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('board');
+    params.delete('class');
+    setSearchParams(params);
+  };
+
+  const resetToBoardURL = () => {
+    resetToBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('class');
+    setSearchParams(params);
+  };
 
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
@@ -443,10 +500,7 @@ const BatchManagement = () => {
                   key={examType.id}
                   className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
                   style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => {
-                    setSelectedDomain(examType.code);
-                    resetFromBoard();
-                  }}
+                  onClick={() => handleDomainSelect(examType.code)}
                 >
                   <CardContent className="p-6">
                     <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
@@ -471,10 +525,10 @@ const BatchManagement = () => {
               examType={selectedDomain}
               selectedBoard={selectedBoard}
               selectedClass={selectedClass}
-              onBoardSelect={setBoard}
-              onClassSelect={setClass}
-              onReset={resetFromBoard}
-              onResetToBoard={resetToBoard}
+              onBoardSelect={handleBoardSelect}
+              onClassSelect={handleClassSelect}
+              onReset={resetFromBoardURL}
+              onResetToBoard={resetToBoardURL}
               studentCounts={getStudentCounts()}
               getBoardBatchCount={(board) => getBoardBatchCount('school', board)}
               getClassBatchCount={(cls) => getClassBatchCount('school', selectedBoard || '', cls)}

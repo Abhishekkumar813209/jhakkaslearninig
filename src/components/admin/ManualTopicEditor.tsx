@@ -794,10 +794,10 @@ export const ManualTopicEditor = () => {
           examType={selectedDomain}
           selectedBoard={selectedBoard}
           selectedClass={selectedClass}
-          onBoardSelect={setBoard}
-          onClassSelect={setClass}
-          onReset={resetFromBoard}
-          onResetToBoard={resetToBoard}
+          onBoardSelect={handleBoardSelect}
+          onClassSelect={handleClassSelect}
+          onReset={resetFromBoardURL}
+          onResetToBoard={resetToBoardURL}
           studentCounts={roadmapCounts}
           countLabel="roadmaps"
         />

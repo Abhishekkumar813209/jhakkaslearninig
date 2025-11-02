@@ -12,6 +12,7 @@ import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
 import { ManualQuestionEntry } from "./ManualQuestionEntry";
 import * as LucideIcons from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 interface Batch {
   id: string;
@@ -42,6 +43,8 @@ export const QuestionBankBuilder = () => {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, reset: resetBoardClass } = useBoardClassHierarchy();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [refetchKey, setRefetchKey] = useState(0);
   
   // Step tracking
   const [currentStep, setCurrentStep] = useState(1);
@@ -76,6 +79,63 @@ export const QuestionBankBuilder = () => {
     Award: LucideIcons.Award,
     Pencil: LucideIcons.Pencil,
   };
+
+  // Restore state from URL on mount
+  useEffect(() => {
+    const domain = searchParams.get('domain');
+    const board = searchParams.get('board');
+    const classParam = searchParams.get('class');
+    const batch = searchParams.get('batch');
+    const subject = searchParams.get('subject');
+    const chapter = searchParams.get('chapter');
+    const topic = searchParams.get('topic');
+    
+    if (topic && chapter && subject && batch && domain) {
+      setSelectedDomain(domain);
+      if (board) setBoard(board);
+      if (classParam) setClass(classParam);
+      setSelectedBatch(batch);
+      setSelectedSubject(subject);
+      setCurrentStep(7);
+      
+      // Restore chapter and topic
+      supabase.from('roadmap_chapters').select('*').eq('id', chapter).single().then(({ data }) => {
+        if (data) setSelectedChapter(data);
+      });
+      supabase.from('roadmap_topics').select('*').eq('id', topic).single().then(({ data }) => {
+        if (data) setSelectedTopic(data);
+      });
+    } else if (chapter && subject && batch && domain) {
+      setSelectedDomain(domain);
+      if (board) setBoard(board);
+      if (classParam) setClass(classParam);
+      setSelectedBatch(batch);
+      setSelectedSubject(subject);
+      setCurrentStep(6);
+      supabase.from('roadmap_chapters').select('*').eq('id', chapter).single().then(({ data }) => {
+        if (data) setSelectedChapter(data);
+      });
+    } else if (subject && batch && domain) {
+      setSelectedDomain(domain);
+      if (board) setBoard(board);
+      if (classParam) setClass(classParam);
+      setSelectedBatch(batch);
+      setSelectedSubject(subject);
+      setCurrentStep(5);
+    } else if (batch && domain) {
+      setSelectedDomain(domain);
+      if (board) setBoard(board);
+      if (classParam) setClass(classParam);
+      setSelectedBatch(batch);
+      setCurrentStep(4);
+    } else if (domain) {
+      setSelectedDomain(domain);
+      if (board) setBoard(board);
+      if (classParam) setClass(classParam);
+      const examType = examTypes.find(t => t.code === domain);
+      setCurrentStep(examType?.requires_board ? 2 : 3);
+    }
+  }, []);
 
   // Fetch batches when domain/board/class changes
   useEffect(() => {
@@ -196,11 +256,14 @@ export const QuestionBankBuilder = () => {
     setSelectedChapter(null);
     setSelectedTopic(null);
     
+    // Update URL
+    setSearchParams({ domain });
+    
     const examType = examTypes.find(t => t.code === domain);
     if (examType?.requires_board) {
-      setCurrentStep(2); // Go to board/class selection
+      setCurrentStep(2);
     } else {
-      setCurrentStep(3); // Skip directly to batch selection
+      setCurrentStep(3);
     }
   };
 
@@ -209,15 +272,8 @@ export const QuestionBankBuilder = () => {
   };
 
   const handleQuestionsComplete = () => {
-    // Reset and go back to start after successful save
     toast({ title: "Success", description: "Questions saved to Question Bank" });
-    setCurrentStep(1);
-    setSelectedDomain(null);
-    resetBoardClass();
-    setSelectedBatch("");
-    setSelectedSubject("");
-    setSelectedChapter(null);
-    setSelectedTopic(null);
+    setRefetchKey(prev => prev + 1);
   };
 
   const renderBreadcrumbs = () => {
@@ -346,10 +402,16 @@ export const QuestionBankBuilder = () => {
                     className={`cursor-pointer hover:border-primary transition-all ${
                       selectedBatch === batch.id ? 'border-primary bg-primary/5' : ''
                     }`}
-                    onClick={() => {
-                      setSelectedBatch(batch.id);
-                      setCurrentStep(4);
-                    }}
+                     onClick={() => {
+                       setSelectedBatch(batch.id);
+                       setSearchParams({ 
+                         domain: selectedDomain || '', 
+                         ...(selectedBoard && { board: selectedBoard }),
+                         ...(selectedClass && { class: selectedClass }),
+                         batch: batch.id 
+                       });
+                       setCurrentStep(4);
+                     }}
                   >
                     <CardContent className="p-4">
                       <div className="font-semibold">{batch.name}</div>
@@ -392,10 +454,18 @@ export const QuestionBankBuilder = () => {
                     className={`cursor-pointer hover:border-primary transition-all ${
                       selectedSubject === subject ? 'border-primary bg-primary/5' : ''
                     }`}
-                    onClick={() => {
-                      setSelectedSubject(subject);
-                      setCurrentStep(5);
-                    }}
+                     onClick={() => {
+                       setSelectedSubject(subject);
+                       const params: Record<string, string> = { 
+                         domain: selectedDomain || '', 
+                         batch: selectedBatch,
+                         subject 
+                       };
+                       if (selectedBoard) params.board = selectedBoard;
+                       if (selectedClass) params.class = selectedClass;
+                       setSearchParams(params);
+                       setCurrentStep(5);
+                     }}
                   >
                     <CardContent className="p-6 text-center">
                       <div className="font-semibold">{subject}</div>
@@ -433,10 +503,19 @@ export const QuestionBankBuilder = () => {
                     className={`cursor-pointer hover:border-primary transition-all ${
                       selectedChapter?.id === chapter.id ? 'border-primary bg-primary/5' : ''
                     }`}
-                    onClick={() => {
-                      setSelectedChapter(chapter);
-                      setCurrentStep(6);
-                    }}
+                     onClick={() => {
+                       setSelectedChapter(chapter);
+                       const params: Record<string, string> = { 
+                         domain: selectedDomain || '', 
+                         batch: selectedBatch,
+                         subject: selectedSubject,
+                         chapter: chapter.id 
+                       };
+                       if (selectedBoard) params.board = selectedBoard;
+                       if (selectedClass) params.class = selectedClass;
+                       setSearchParams(params);
+                       setCurrentStep(6);
+                     }}
                   >
                     <CardContent className="p-4">
                       <div className="font-semibold">{chapter.chapter_name}</div>
@@ -475,10 +554,20 @@ export const QuestionBankBuilder = () => {
                     className={`cursor-pointer hover:border-primary transition-all ${
                       selectedTopic?.id === topic.id ? 'border-primary bg-primary/5' : ''
                     }`}
-                    onClick={() => {
-                      setSelectedTopic(topic);
-                      setCurrentStep(7);
-                    }}
+                     onClick={() => {
+                       setSelectedTopic(topic);
+                       const params: Record<string, string> = { 
+                         domain: selectedDomain || '', 
+                         batch: selectedBatch,
+                         subject: selectedSubject,
+                         chapter: selectedChapter!.id,
+                         topic: topic.id 
+                       };
+                       if (selectedBoard) params.board = selectedBoard;
+                       if (selectedClass) params.class = selectedClass;
+                       setSearchParams(params);
+                       setCurrentStep(7);
+                     }}
                   >
                     <CardContent className="p-4">
                       <div className="font-semibold">{topic.topic_name}</div>
@@ -505,11 +594,29 @@ export const QuestionBankBuilder = () => {
               Back to Topic
             </Button>
             
-            <Tabs defaultValue="manual" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue="view" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="view">View All Questions</TabsTrigger>
                 <TabsTrigger value="manual">Manual Entry</TabsTrigger>
                 <TabsTrigger value="upload">Upload PDF/Word</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="view">
+                <SmartQuestionExtractor
+                  key={refetchKey}
+                  mode="question-bank"
+                  topicId={selectedTopic.id}
+                  topicName={selectedTopic.topic_name}
+                  chapterId={selectedChapter.id}
+                  chapterName={selectedChapter.chapter_name}
+                  subjectName={selectedSubject}
+                  batchId={selectedBatch}
+                  examDomain={selectedDomain || ''}
+                  examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+                  onQuestionsAdded={handleQuestionsComplete}
+                  onBackClick={() => setCurrentStep(6)}
+                />
+              </TabsContent>
 
               <TabsContent value="manual">
                 <ManualQuestionEntry
@@ -524,6 +631,7 @@ export const QuestionBankBuilder = () => {
 
               <TabsContent value="upload">
                 <SmartQuestionExtractor
+                  key={refetchKey}
                   mode="question-bank"
                   topicId={selectedTopic.id}
                   topicName={selectedTopic.topic_name}

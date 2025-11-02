@@ -63,6 +63,10 @@ export const ManualQuestionEntry = ({
         .from('question_bank')
         .insert({
           topic_id: selectedTopic.id,
+          chapter_id: selectedChapter.id,
+          subject: selectedSubject,
+          batch_id: selectedBatch,
+          exam_domain: selectedDomain,
           question_type: questionData.question_type || selectedGameType,
           question_text: questionData.questionText,
           question_data: questionData.gameData,
@@ -70,7 +74,8 @@ export const ManualQuestionEntry = ({
           explanation: questionData.explanation,
           marks: questionData.marks || 1,
           difficulty: questionData.difficulty || 'medium',
-          is_approved: true, // Manual entries are pre-approved
+          is_published: true,
+          admin_reviewed: true,
           created_manually: true,
         })
         .select()

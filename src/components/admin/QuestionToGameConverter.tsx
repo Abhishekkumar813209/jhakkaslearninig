@@ -259,7 +259,8 @@ export const QuestionToGameConverter = () => {
           subject,
           chapter_name: chapterName,
           topic_name: topicName,
-          is_approved: false,
+          is_published: false,
+          admin_reviewed: false,
         });
 
       if (questionError) throw questionError;
@@ -406,7 +407,8 @@ export const QuestionToGameConverter = () => {
             subject: question.subject,
             chapter_name: question.chapter_name,
             topic_name: question.topic_name,
-            is_approved: false,
+            is_published: false,
+            admin_reviewed: false,
           });
       }
 

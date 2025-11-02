@@ -311,8 +311,8 @@ export const SmartQuestionExtractor = ({
               difficulty: difficulty,
               correct_answer: correctAnswer,
               explanation: explanation,
-              auto_corrected: q.is_approved || false,
-              confidence: q.is_approved ? 'high' : 'medium'
+              auto_corrected: q.admin_reviewed || false,
+              confidence: q.admin_reviewed ? 'high' : 'medium'
             };
           });
           

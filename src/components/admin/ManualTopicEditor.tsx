@@ -98,7 +98,7 @@ export const ManualTopicEditor = () => {
     if (batch) setSelectedBatch(batch);
     if (subject) setSelectedSubject(subject);
     if (chapter) setSelectedChapter(chapter);
-  }, []);
+  }, [searchParams, setBoard, setClass]);
 
   // URL-aware handlers
   const handleDomainSelect = (domain: string) => {

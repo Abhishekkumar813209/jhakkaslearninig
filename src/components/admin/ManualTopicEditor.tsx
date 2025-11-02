@@ -93,8 +93,13 @@ export const ManualTopicEditor = () => {
     const chapter = searchParams.get('chapter');
     
     if (domain) setSelectedDomain(domain);
-    if (board && domain === 'school') setBoard(board);
-    if (cls && domain === 'school') setClass(cls);
+    
+    // Force board/class sync with URL - set null if missing
+    if (domain === 'school') {
+      setBoard(board); // Will set null if board is missing from URL
+      setClass(cls);   // Will set null if cls is missing from URL
+    }
+    
     if (batch) setSelectedBatch(batch);
     if (subject) setSelectedSubject(subject);
     if (chapter) setSelectedChapter(chapter);

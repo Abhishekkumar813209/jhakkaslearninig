@@ -25,6 +25,15 @@ export const EnhancedXPManagement = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string } | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
   
+  // Hydrate board/class from URL on mount
+  useEffect(() => {
+    const board = searchParams.get('board');
+    const cls = searchParams.get('class');
+    
+    if (board && selectedDomain === 'school') hierarchy.setBoard(board);
+    if (cls && selectedDomain === 'school') hierarchy.setClass(cls);
+  }, []);
+  
   // Restore objects from URL on mount
   useEffect(() => {
     if (selectedRoadmapId && !selectedRoadmap) {
@@ -61,10 +70,55 @@ export const EnhancedXPManagement = () => {
   };
 
   const handleBackToDomain = () => {
-    updateURL({ domain: null, roadmap: null, subject: null, chapter: null });
+    updateURL({ domain: null, board: null, class: null, roadmap: null, subject: null, chapter: null });
     setSelectedRoadmap(null);
     setSelectedChapter(null);
     hierarchy.reset();
+  };
+
+  // URL-aware board/class handlers
+  const handleBoardSelect = (board: string | null) => {
+    hierarchy.setBoard(board);
+    const params = new URLSearchParams(searchParams);
+    if (board) params.set('board', board);
+    else params.delete('board');
+    params.delete('class');
+    params.delete('roadmap');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const handleClassSelect = (cls: string | null) => {
+    hierarchy.setClass(cls);
+    const params = new URLSearchParams(searchParams);
+    if (cls) params.set('class', cls);
+    else params.delete('class');
+    params.delete('roadmap');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const resetFromBoard = () => {
+    hierarchy.resetFromBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('board');
+    params.delete('class');
+    params.delete('roadmap');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
+  };
+
+  const resetToBoard = () => {
+    hierarchy.resetToBoard();
+    const params = new URLSearchParams(searchParams);
+    params.delete('class');
+    params.delete('roadmap');
+    params.delete('subject');
+    params.delete('chapter');
+    setSearchParams(params);
   };
 
   const handleRoadmapSelect = (roadmap: { id: string; title: string }) => {
@@ -90,7 +144,7 @@ export const EnhancedXPManagement = () => {
   };
 
   const handleDomainSelect = (code: string) => {
-    updateURL({ domain: code });
+    updateURL({ domain: code, board: null, class: null });
     hierarchy.setDomain(code);
   };
 
@@ -179,9 +233,10 @@ export const EnhancedXPManagement = () => {
             examType={selectedDomain}
             selectedBoard={hierarchy.selectedBoard}
             selectedClass={hierarchy.selectedClass}
-            onBoardSelect={hierarchy.setBoard}
-            onClassSelect={hierarchy.setClass}
-            onReset={handleReset}
+            onBoardSelect={handleBoardSelect}
+            onClassSelect={handleClassSelect}
+            onReset={resetFromBoard}
+            onResetToBoard={resetToBoard}
           />
         </div>
       )}

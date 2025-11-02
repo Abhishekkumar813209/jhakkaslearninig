@@ -256,8 +256,16 @@ export const QuestionBankBuilder = () => {
     setSelectedChapter(null);
     setSelectedTopic(null);
     
-    // Update URL
-    setSearchParams({ domain });
+    // Update URL - preserve existing params like 'tab'
+    const params = new URLSearchParams(searchParams);
+    params.set('domain', domain);
+    params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    params.delete('topic');
+    setSearchParams(params);
     
     const examType = examTypes.find(t => t.code === domain);
     if (examType?.requires_board) {
@@ -404,12 +412,15 @@ export const QuestionBankBuilder = () => {
                     }`}
                      onClick={() => {
                        setSelectedBatch(batch.id);
-                       setSearchParams({ 
-                         domain: selectedDomain || '', 
-                         ...(selectedBoard && { board: selectedBoard }),
-                         ...(selectedClass && { class: selectedClass }),
-                         batch: batch.id 
-                       });
+                       const params = new URLSearchParams(searchParams);
+                       params.set('domain', selectedDomain || '');
+                       if (selectedBoard) params.set('board', selectedBoard);
+                       if (selectedClass) params.set('class', selectedClass);
+                       params.set('batch', batch.id);
+                       params.delete('subject');
+                       params.delete('chapter');
+                       params.delete('topic');
+                       setSearchParams(params);
                        setCurrentStep(4);
                      }}
                   >
@@ -456,13 +467,14 @@ export const QuestionBankBuilder = () => {
                     }`}
                      onClick={() => {
                        setSelectedSubject(subject);
-                       const params: Record<string, string> = { 
-                         domain: selectedDomain || '', 
-                         batch: selectedBatch,
-                         subject 
-                       };
-                       if (selectedBoard) params.board = selectedBoard;
-                       if (selectedClass) params.class = selectedClass;
+                       const params = new URLSearchParams(searchParams);
+                       params.set('domain', selectedDomain || '');
+                       if (selectedBoard) params.set('board', selectedBoard);
+                       if (selectedClass) params.set('class', selectedClass);
+                       params.set('batch', selectedBatch);
+                       params.set('subject', subject);
+                       params.delete('chapter');
+                       params.delete('topic');
                        setSearchParams(params);
                        setCurrentStep(5);
                      }}
@@ -505,14 +517,14 @@ export const QuestionBankBuilder = () => {
                     }`}
                      onClick={() => {
                        setSelectedChapter(chapter);
-                       const params: Record<string, string> = { 
-                         domain: selectedDomain || '', 
-                         batch: selectedBatch,
-                         subject: selectedSubject,
-                         chapter: chapter.id 
-                       };
-                       if (selectedBoard) params.board = selectedBoard;
-                       if (selectedClass) params.class = selectedClass;
+                       const params = new URLSearchParams(searchParams);
+                       params.set('domain', selectedDomain || '');
+                       if (selectedBoard) params.set('board', selectedBoard);
+                       if (selectedClass) params.set('class', selectedClass);
+                       params.set('batch', selectedBatch);
+                       params.set('subject', selectedSubject);
+                       params.set('chapter', chapter.id);
+                       params.delete('topic');
                        setSearchParams(params);
                        setCurrentStep(6);
                      }}
@@ -556,15 +568,14 @@ export const QuestionBankBuilder = () => {
                     }`}
                      onClick={() => {
                        setSelectedTopic(topic);
-                       const params: Record<string, string> = { 
-                         domain: selectedDomain || '', 
-                         batch: selectedBatch,
-                         subject: selectedSubject,
-                         chapter: selectedChapter!.id,
-                         topic: topic.id 
-                       };
-                       if (selectedBoard) params.board = selectedBoard;
-                       if (selectedClass) params.class = selectedClass;
+                       const params = new URLSearchParams(searchParams);
+                       params.set('domain', selectedDomain || '');
+                       if (selectedBoard) params.set('board', selectedBoard);
+                       if (selectedClass) params.set('class', selectedClass);
+                       params.set('batch', selectedBatch);
+                       params.set('subject', selectedSubject);
+                       params.set('chapter', selectedChapter!.id);
+                       params.set('topic', topic.id);
                        setSearchParams(params);
                        setCurrentStep(7);
                      }}

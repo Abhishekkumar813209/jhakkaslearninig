@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -183,6 +183,9 @@ function LessonContentBuilderInner() {
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Hydration guard - prevents clearing selections during initial URL → state sync
+  const isHydrating = useRef(true);
   
   // Get context setters to share state with other tabs
   const {
@@ -400,7 +403,12 @@ function LessonContentBuilderInner() {
     Pencil: LucideIcons.Pencil,
   };
 
-  // Hydrate board/class from URL on mount
+  // Turn off hydration guard after initial render
+  useEffect(() => {
+    isHydrating.current = false;
+  }, []);
+
+  // Hydrate board/class from URL continuously
   useEffect(() => {
     const boardParam = searchParams.get('board');
     const classParam = searchParams.get('class');
@@ -410,7 +418,7 @@ function LessonContentBuilderInner() {
     if (classParam && classParam !== selectedClass) {
       setClass(classParam);
     }
-  }, []); // Run only on mount
+  }, [searchParams, selectedBoard, selectedClass, setBoard, setClass]);
 
   // Sync local state to context
   useEffectForContext(() => {
@@ -439,33 +447,47 @@ function LessonContentBuilderInner() {
     if (selectedDomain) {
       fetchBatches();
       fetchRoadmapCounts();
-      setSelectedBatch("");
-      setSelectedSubject("");
-      setSelectedChapter("");
-      setSelectedTopic("");
+      // Only clear child selections if not hydrating from URL
+      if (!isHydrating.current) {
+        setSelectedBatch("");
+        setSelectedSubject("");
+        setSelectedChapter("");
+        setSelectedTopic("");
+      }
     }
   }, [selectedDomain, selectedBoard, selectedClass]);
 
   useEffect(() => {
-    if (selectedBatch) {
-      fetchSubjects();
+    // Wait for batches to load before fetching subjects
+    if (!selectedBatch || !batches.length) return;
+    
+    fetchSubjects();
+    // Only clear child selections if not hydrating from URL
+    if (!isHydrating.current) {
       setSelectedSubject("");
       setSelectedChapter("");
       setSelectedTopic("");
     }
-  }, [selectedBatch]);
+  }, [selectedBatch, batches]);
 
   useEffect(() => {
-    if (selectedSubject) {
-      fetchChapters();
+    // Wait for batches to load before fetching chapters
+    if (!selectedSubject || !batches.length) return;
+    
+    fetchChapters();
+    // Only clear child selections if not hydrating from URL
+    if (!isHydrating.current) {
       setSelectedChapter("");
       setSelectedTopic("");
     }
-  }, [selectedSubject]);
+  }, [selectedSubject, batches]);
 
   useEffect(() => {
-    if (selectedChapter) {
-      fetchTopics(selectedChapter);
+    if (!selectedChapter) return;
+    
+    fetchTopics(selectedChapter);
+    // Only clear topic if not hydrating from URL
+    if (!isHydrating.current) {
       setSelectedTopic("");
     }
   }, [selectedChapter]);

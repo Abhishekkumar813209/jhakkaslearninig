@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminQuickNav } from "@/components/admin/AdminQuickNav";
 
 // Import dashboard components
 import OverviewSection from "@/components/admin/OverviewSection";
@@ -98,13 +99,21 @@ const AdminDashboard = () => {
         <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         
         <main className="flex-1 flex flex-col">
-          {/* Top Header Bar */}
-          <header className="h-16 border-b border-border bg-card flex items-center px-6 sticky top-0 z-40 backdrop-blur-sm bg-card/80">
-            <SidebarTrigger className="mr-4" />
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-foreground">
-                {activeTabItem?.label || "Admin Dashboard"}
-              </h1>
+          {/* Top Header Bar with Quick Navigation */}
+          <header className="border-b border-border bg-card sticky top-0 z-40 backdrop-blur-sm bg-card/80">
+            {/* Title Row */}
+            <div className="h-16 flex items-center px-6">
+              <SidebarTrigger className="mr-4" />
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-foreground">
+                  {activeTabItem?.label || "Admin Dashboard"}
+                </h1>
+              </div>
+            </div>
+            
+            {/* Quick Navigation Row */}
+            <div className="border-t border-border px-6 py-2 bg-muted/30">
+              <AdminQuickNav activeTab={activeTab} />
             </div>
           </header>
           

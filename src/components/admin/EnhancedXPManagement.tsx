@@ -25,14 +25,14 @@ export const EnhancedXPManagement = () => {
   const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string } | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
   
-  // Hydrate board/class from URL on mount
+  // Hydrate board/class from URL continuously
   useEffect(() => {
     const board = searchParams.get('board');
     const cls = searchParams.get('class');
     
     if (board && selectedDomain === 'school') hierarchy.setBoard(board);
     if (cls && selectedDomain === 'school') hierarchy.setClass(cls);
-  }, []);
+  }, [searchParams, selectedDomain, hierarchy.setBoard, hierarchy.setClass]);
   
   // Restore objects from URL on mount
   useEffect(() => {

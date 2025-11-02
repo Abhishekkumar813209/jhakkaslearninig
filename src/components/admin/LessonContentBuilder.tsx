@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { invokeWithAuth } from "@/lib/invokeWithAuth";
@@ -181,6 +182,7 @@ function LessonContentBuilderInner() {
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Get context setters to share state with other tabs
   const {
@@ -193,31 +195,98 @@ function LessonContentBuilderInner() {
     setSelectedClass: setContextClass,
   } = useLessonBuilder();
   
-  // Persist active tab across sessions with debug logging
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    const savedTab = localStorage.getItem('lesson-builder-active-tab') || 'lesson-library';
-    console.log('🔷 LessonContentBuilder loading tab:', savedTab);
-    return savedTab;
-  });
+  // Read active tab from URL
+  const activeTab = searchParams.get('lessonTab') || 'lesson-library';
 
-  // Save active tab whenever it changes with debug logging
-  useEffect(() => {
-    console.log('🔷 LessonContentBuilder saving tab:', activeTab);
-    localStorage.setItem('lesson-builder-active-tab', activeTab);
-  }, [activeTab]);
+  // Update URL when tab changes
+  const setActiveTab = (tab: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('lessonTab', tab);
+    setSearchParams(params);
+  };
   
-  // Domain selection
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  // Domain selection - read from URL
+  const selectedDomain = searchParams.get('domain') || null;
   
-  // Hierarchical filtering state
+  const setSelectedDomain = (domain: string | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (domain) {
+      params.set('domain', domain);
+    } else {
+      params.delete('domain');
+      params.delete('batch');
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+    }
+    setSearchParams(params);
+  };
+  
+  // Hierarchical filtering state - read from URL
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [selectedBatch, setSelectedBatch] = useState<string>("");
+  const selectedBatch = searchParams.get('batch') || "";
+  
+  const setSelectedBatch = (batch: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (batch) {
+      params.set('batch', batch);
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+    } else {
+      params.delete('batch');
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+    }
+    setSearchParams(params);
+  };
+  
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const selectedSubject = searchParams.get('subject') || "";
+  
+  const setSelectedSubject = (subject: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (subject) {
+      params.set('subject', subject);
+      params.delete('chapter');
+      params.delete('topic');
+    } else {
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+    }
+    setSearchParams(params);
+  };
+  
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [selectedChapter, setSelectedChapter] = useState<string>("");
+  const selectedChapter = searchParams.get('chapter') || "";
+  
+  const setSelectedChapter = (chapter: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (chapter) {
+      params.set('chapter', chapter);
+      params.delete('topic');
+    } else {
+      params.delete('chapter');
+      params.delete('topic');
+    }
+    setSearchParams(params);
+  };
+  
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const selectedTopic = searchParams.get('topic') || "";
+  
+  const setSelectedTopic = (topic: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (topic) {
+      params.set('topic', topic);
+    } else {
+      params.delete('topic');
+    }
+    setSearchParams(params);
+  };
+  
   const [topicQuestionCounts, setTopicQuestionCounts] = useState<Record<string, number>>({});
   
   const [lessons, setLessons] = useState<Lesson[]>([]);

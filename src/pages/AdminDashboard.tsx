@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -37,7 +37,12 @@ import { QuestionBankReview } from "@/components/admin/QuestionBankReview";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview"); // Start with overview tab
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'overview';
+
+  const handleTabChange = (tab: string) => {
+    setSearchParams({ tab });
+  };
 
   if (loading) {
     return (
@@ -90,7 +95,7 @@ const AdminDashboard = () => {
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full bg-background">
-        <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         
         <main className="flex-1 flex flex-col">
           {/* Top Header Bar */}

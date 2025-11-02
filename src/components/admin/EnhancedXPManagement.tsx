@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,12 +12,30 @@ import { DuplicateGameDetector } from './DuplicateGameDetector';
 import { useBoardClassHierarchy } from '@/hooks/useBoardClassHierarchy';
 
 export const EnhancedXPManagement = () => {
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hierarchy = useBoardClassHierarchy();
+
+  // Read state from URL
+  const selectedDomain = searchParams.get('domain') || null;
+  const selectedRoadmapId = searchParams.get('roadmap') || null;
+  const selectedSubject = searchParams.get('subject') || null;
+  const selectedChapterId = searchParams.get('chapter') || null;
+  
+  // Local state for full objects
   const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string } | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
   
-  const hierarchy = useBoardClassHierarchy();
+  // Restore objects from URL on mount
+  useEffect(() => {
+    if (selectedRoadmapId && !selectedRoadmap) {
+      // Fetch and set roadmap object if needed
+      setSelectedRoadmap({ id: selectedRoadmapId, title: 'Loading...' });
+    }
+    if (selectedChapterId && !selectedChapter) {
+      // Fetch and set chapter object if needed
+      setSelectedChapter({ id: selectedChapterId, name: 'Loading...' });
+    }
+  }, [selectedRoadmapId, selectedChapterId]);
 
   const domains = [
     { code: 'school', name: 'School Education', icon: '🏫', color: 'bg-blue-500' },
@@ -25,41 +44,63 @@ export const EnhancedXPManagement = () => {
     { code: 'competitive', name: 'Competitive Exams', icon: '📚', color: 'bg-orange-500' },
   ];
 
+  const updateURL = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    });
+    setSearchParams(params);
+  };
+
   const handleReset = () => {
-    setSelectedDomain(null);
+    setSearchParams({});
     setSelectedRoadmap(null);
-    setSelectedSubject(null);
     setSelectedChapter(null);
     hierarchy.reset();
   };
 
   const handleBackToDomain = () => {
-    setSelectedDomain(null);
+    updateURL({ domain: null, roadmap: null, subject: null, chapter: null });
     setSelectedRoadmap(null);
-    setSelectedSubject(null);
     setSelectedChapter(null);
     hierarchy.reset();
   };
 
   const handleRoadmapSelect = (roadmap: { id: string; title: string }) => {
+    updateURL({ roadmap: roadmap.id, subject: null, chapter: null });
     setSelectedRoadmap(roadmap);
-    setSelectedSubject(null);
     setSelectedChapter(null);
   };
 
   const handleBackToRoadmap = () => {
+    updateURL({ roadmap: null, subject: null, chapter: null });
     setSelectedRoadmap(null);
-    setSelectedSubject(null);
     setSelectedChapter(null);
   };
 
   const handleBackToSubject = () => {
-    setSelectedSubject(null);
+    updateURL({ subject: null, chapter: null });
     setSelectedChapter(null);
   };
 
   const handleBackToChapter = () => {
+    updateURL({ chapter: null });
     setSelectedChapter(null);
+  };
+
+  const handleDomainSelect = (code: string) => {
+    updateURL({ domain: code });
+    hierarchy.setDomain(code);
+  };
+
+  const handleSubjectSelect = (subject: string) => {
+    updateURL({ subject });
+  };
+
+  const handleChapterSelect = (chapter: { id: string; name: string }) => {
+    updateURL({ chapter: chapter.id });
+    setSelectedChapter(chapter);
   };
 
   // Breadcrumbs
@@ -113,10 +154,7 @@ export const EnhancedXPManagement = () => {
               <Card
                 key={domain.code}
                 className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => {
-                  setSelectedDomain(domain.code);
-                  hierarchy.setDomain(domain.code);
-                }}
+                onClick={() => handleDomainSelect(domain.code)}
               >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -173,7 +211,7 @@ export const EnhancedXPManagement = () => {
           </Button>
           <SubjectSelector
             roadmapId={selectedRoadmap.id}
-            onSubjectSelect={setSelectedSubject}
+            onSubjectSelect={handleSubjectSelect}
           />
         </div>
       )}
@@ -188,7 +226,7 @@ export const EnhancedXPManagement = () => {
           <ChapterSelector
             roadmapId={selectedRoadmap!.id}
             subject={selectedSubject}
-            onChapterSelect={setSelectedChapter}
+            onChapterSelect={handleChapterSelect}
           />
         </div>
       )}

@@ -69,7 +69,6 @@ export const ManualQuestionEntry = ({
           exam_domain: selectedDomain,
           question_type: questionData.question_type || selectedGameType,
           question_text: questionData.questionText,
-          question_data: questionData.gameData,
           correct_answer: questionData.gameData,
           explanation: questionData.explanation,
           marks: questionData.marks || 1,

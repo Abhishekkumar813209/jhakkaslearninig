@@ -105,6 +105,33 @@ export const ManualTopicEditor = () => {
     if (chapter) setSelectedChapter(chapter);
   }, [searchParams, setBoard, setClass]);
 
+  // State-to-URL sync: Ensure domain/board/class are in URL when they exist in state
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    let changed = false;
+
+    // Ensure domain in URL if state has it
+    if (selectedDomain && params.get('domain') !== selectedDomain) {
+      params.set('domain', selectedDomain);
+      changed = true;
+    }
+
+    // Only for school domain, ensure board/class in URL if state has them
+    if (selectedDomain === 'school') {
+      if (selectedBoard && params.get('board') !== selectedBoard) {
+        params.set('board', selectedBoard);
+        changed = true;
+      }
+      if (selectedClass && params.get('class') !== selectedClass) {
+        params.set('class', selectedClass);
+        changed = true;
+      }
+    }
+
+    if (changed) setSearchParams(params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDomain, selectedBoard, selectedClass]);
+
   // URL-aware handlers
   const handleDomainSelect = (domain: string) => {
     const params = new URLSearchParams(searchParams);
@@ -123,6 +150,10 @@ export const ManualTopicEditor = () => {
   const handleBoardSelect = (board: string | null) => {
     setBoard(board);
     const params = new URLSearchParams(searchParams);
+    // ensure domain is set when on school flow
+    if (selectedDomain === 'school' && params.get('domain') !== 'school') {
+      params.set('domain', 'school');
+    }
     if (board) params.set('board', board);
     else params.delete('board');
     params.delete('class');
@@ -135,6 +166,10 @@ export const ManualTopicEditor = () => {
   const handleClassSelect = (cls: string | null) => {
     setClass(cls);
     const params = new URLSearchParams(searchParams);
+    // ensure domain is set when on school flow
+    if (selectedDomain === 'school' && params.get('domain') !== 'school') {
+      params.set('domain', 'school');
+    }
     if (cls) params.set('class', cls);
     else params.delete('class');
     params.delete('batch');

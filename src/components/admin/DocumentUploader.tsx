@@ -53,7 +53,7 @@ export const DocumentUploader = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState("");
 
-  const extractTextFromPDF = async (file: File): Promise<string> => {
+  const extractTextFromPDF = async (file: File): Promise<{ text: string; numPages: number }> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await getDocument({ data: arrayBuffer }).promise;
     let fullText = "";
@@ -62,10 +62,15 @@ export const DocumentUploader = ({
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(" ");
-      fullText += pageText + "\n\n";
+      fullText += pageText;
+      
+      // Add page break marker for chunked processing
+      if (i < pdf.numPages) {
+        fullText += "\n\n[PAGE_BREAK]\n\n";
+      }
     }
 
-    return fullText;
+    return { text: fullText, numPages: pdf.numPages };
   };
 
   const extractTextFromWord = async (file: File): Promise<string> => {
@@ -95,12 +100,22 @@ export const DocumentUploader = ({
 
     try {
       let documentText = "";
+      let totalPages = 0;
+      let useChunked = false;
 
       // Extract text based on file type
       if (file.type === 'application/pdf') {
         setProgressMessage("Extracting text from PDF...");
-        documentText = await extractTextFromPDF(file);
+        const { text, numPages } = await extractTextFromPDF(file);
+        documentText = text;
+        totalPages = numPages;
         setUploadProgress(30);
+        
+        // Auto-switch to chunked for large PDFs
+        if (documentText.length > 12000 || totalPages > 20) {
+          useChunked = true;
+          console.log(`📊 Large PDF detected (${totalPages} pages, ${documentText.length} chars) - using chunked processing`);
+        }
         
         // Store PDF file for crop feature
         if (onPdfUploaded) {
@@ -132,24 +147,70 @@ export const DocumentUploader = ({
       }
 
       // Call AI to extract questions
-      setProgressMessage("Extracting questions with AI...");
+      setProgressMessage(useChunked ? "Processing document in chunks..." : "Extracting questions with AI...");
       setUploadProgress(60);
 
-      const data = await invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
-        name: 'ai-extract-all-questions',
-        body: {
-          file_content: documentText,
-          file_name: file.name,
-          topic: topicContext?.topicName,
-          chapter: topicContext?.chapterId,
-          subject: topicContext?.subjectId,
+      const functionName = useChunked ? 'ai-extract-all-questions-chunked' : 'ai-extract-all-questions';
+      
+      let data: any;
+      try {
+        data = await invokeWithAuth<any, any>({
+          name: functionName,
+          body: {
+            file_content: documentText,
+            total_pages: totalPages || undefined,
+            file_name: file.name,
+            topic: topicContext?.topicName,
+            chapter: topicContext?.chapterId,
+            subject: topicContext?.subjectId,
+          }
+        });
+      } catch (firstError: any) {
+        // Automatic fallback to chunked if first call fails
+        if (!useChunked && firstError.message && (
+          firstError.message.includes('Rate limit') || 
+          firstError.message.includes('invalid JSON') ||
+          firstError.message.includes('Failed to extract')
+        )) {
+          console.log('🔄 First extraction failed, retrying with chunked processing...');
+          setProgressMessage("Retrying with enhanced processing...");
+          
+          try {
+            data = await invokeWithAuth<any, any>({
+              name: 'ai-extract-all-questions-chunked',
+              body: {
+                file_content: documentText,
+                total_pages: totalPages || undefined,
+                file_name: file.name,
+                topic: topicContext?.topicName,
+                chapter: topicContext?.chapterId,
+                subject: topicContext?.subjectId,
+              }
+            });
+          } catch (secondError: any) {
+            throw secondError; // Re-throw if even chunked fails
+          }
+        } else {
+          throw firstError;
         }
-      });
+      }
 
       setUploadProgress(100);
 
+      // Handle response
       if (data.success && data.questions && data.questions.length > 0) {
-        toast.success(`Extracted ${data.questions.length} questions successfully!`);
+        const templateCount = data.questions.filter((q: any) => q.template_generated === true).length;
+        const extractedCount = data.questions.length - templateCount;
+        
+        if (templateCount > 0) {
+          toast.success(
+            `Extracted ${extractedCount} questions and generated ${templateCount} templates for manual editing`,
+            { duration: 5000 }
+          );
+        } else {
+          toast.success(`Extracted ${data.questions.length} questions successfully!`);
+        }
+        
         onQuestionsExtracted(data.questions);
         if (onClose) onClose();
       } else {
@@ -158,7 +219,17 @@ export const DocumentUploader = ({
 
     } catch (error: any) {
       console.error('Document upload error:', error);
-      toast.error(`Failed to process document: ${error.message || 'Unknown error'}`);
+      
+      // Better error messages for specific cases
+      if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+        toast.error('Rate limit exceeded. Please wait a moment and try again.', { duration: 5000 });
+      } else if (error.message?.includes('402') || error.message?.includes('credits')) {
+        toast.error('AI credits exhausted. Please add credits to your workspace.', { duration: 5000 });
+      } else if (error.message?.includes('invalid JSON')) {
+        toast.error('AI returned incomplete data. Generated editable templates for you to review.', { duration: 5000 });
+      } else {
+        toast.error(`Failed to process document: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setIsUploading(false);
       setUploadProgress(0);

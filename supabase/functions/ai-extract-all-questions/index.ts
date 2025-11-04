@@ -8,6 +8,137 @@ const corsHeaders = {
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
+// Templateizer: Generate structured templates for detected questions
+const generateTemplates = (documentText: string): any[] => {
+  const templates: any[] = [];
+  const lines = documentText.split('\n');
+  
+  // Detect question segments with flexible patterns
+  const questionPatterns = [
+    /\[QUESTION_(\d+)\]/gi,
+    /^Q(?:uestion)?\s*(\d+)[.:\)\-]/gmi,
+    /^(\d+)\s*[.:\)]/gm
+  ];
+  
+  let currentQuestion = null;
+  let currentText = '';
+  let questionNumber = 0;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    // Check if this is a new question marker
+    let isQuestionStart = false;
+    for (const pattern of questionPatterns) {
+      const match = trimmed.match(pattern);
+      if (match) {
+        // Save previous question if exists
+        if (currentQuestion) {
+          templates.push(currentQuestion);
+        }
+        
+        questionNumber++;
+        isQuestionStart = true;
+        currentQuestion = {
+          question_number: questionNumber.toString(),
+          question_text: trimmed,
+          marks: 1,
+          difficulty: 'medium',
+          requires_manual_review: true,
+          template_generated: true,
+          confidence: 'low',
+          extraction_issues: ['Auto-generated template - requires manual editing']
+        };
+        currentText = trimmed;
+        break;
+      }
+    }
+    
+    if (!isQuestionStart && currentQuestion) {
+      currentText += ' ' + trimmed;
+      currentQuestion.question_text = currentText.trim();
+    }
+  }
+  
+  // Save last question
+  if (currentQuestion) {
+    templates.push(currentQuestion);
+  }
+  
+  // Guess question types and add appropriate templates
+  return templates.map(q => {
+    const text = q.question_text.toLowerCase();
+    
+    // match_column
+    if (text.includes('match') && (text.includes('column') || text.includes('following'))) {
+      return {
+        ...q,
+        question_type: 'match_column',
+        left_column: ['[Item A - edit]', '[Item B - edit]', '[Item C - edit]', '[Item D - edit]'],
+        right_column: ['[Match 1 - edit]', '[Match 2 - edit]', '[Match 3 - edit]', '[Match 4 - edit]'],
+        correct_answer: { pairs: [] }
+      };
+    }
+    
+    // fill_blank
+    const blankCount = (q.question_text.match(/___+/g) || []).length;
+    if (blankCount > 0 || text.includes('fill') || text.includes('blank')) {
+      return {
+        ...q,
+        question_type: 'fill_blank',
+        blanks_count: Math.max(blankCount, 1),
+        correct_answer: { blanks: [] }
+      };
+    }
+    
+    // true_false
+    if (text.includes('true') && text.includes('false') || text.includes('t/f')) {
+      return {
+        ...q,
+        question_type: 'true_false',
+        correct_answer: { value: null }
+      };
+    }
+    
+    // assertion_reason
+    if (text.includes('assertion') && text.includes('reason')) {
+      return {
+        ...q,
+        question_type: 'assertion_reason',
+        assertion: '[Assertion (A): Edit this]',
+        reason: '[Reason (R): Edit this]',
+        options: [
+          'Both Assertion and Reason are true, Reason is correct explanation',
+          'Both true, Reason is NOT correct explanation',
+          'Assertion true, Reason false',
+          'Assertion false, Reason true'
+        ],
+        correct_answer: null
+      };
+    }
+    
+    // Check for MCQ options pattern
+    const hasOptions = text.match(/[a-d]\)/gi);
+    if (hasOptions && hasOptions.length >= 2) {
+      return {
+        ...q,
+        question_type: 'mcq',
+        options: ['[Option A - edit]', '[Option B - edit]', '[Option C - edit]', '[Option D - edit]'],
+        correct_answer: { index: -1 }
+      };
+    }
+    
+    // Default to short_answer for questions without clear patterns
+    return {
+      ...q,
+      question_type: 'short_answer',
+      marks: 2,
+      correct_answer: null
+    };
+  });
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -38,13 +169,6 @@ serve(async (req) => {
 - Add to question metadata: "flagged_images": ["img_X"]
 - Set confidence to "low" for questions with un-OCR'd figures
 - DO NOT hallucinate math content - preserve the [FIGURE] token for manual input
-- Example:
-  {
-    "question_text": "Solve for x: [FIGURE id=img_3]",
-    "confidence": "low",
-    "requires_manual_review": true,
-    "flagged_images": ["img_3"]
-  }
 
 🔥 CRITICAL MCQ EXTRACTION RULES:
 1. For MCQ questions, extract ONLY the question stem (text BEFORE the options start)
@@ -53,158 +177,25 @@ serve(async (req) => {
 4. Remove "a)", "b)", etc. from both question_text AND options array
 5. Question text should end before options begin
 
-EXAMPLE:
-Input: "There is no atmosphere on moon as
-a) it gets light from sun.
-b) it is closer to the earth.
-c) it revolves round the earth.
-d) the gases have less requirement..."
-
-CORRECT Output:
-{
-  "question_text": "There is no atmosphere on moon as",
-  "options": [
-    "it gets light from sun.",
-    "it is closer to the earth.",
-    "it revolves round the earth.",
-    "the gases have less requirement of velocity or energy to escape from its surface."
-  ]
-}
-
-WRONG Output (DO NOT DO THIS):
-{
-  "question_text": "There is no atmosphere on moon as\na) it gets light from sun.\nb) it is closer to the earth.",
-  "options": ["a) it gets light from sun.", "b) it is closer to the earth."]
-}
-
 📷 IMAGE & OCR HANDLING:
 - Input may contain [FIGURE id=...] tokens indicating embedded images
 - Input may contain [IMAGE_OCR id=...]: text extracted from images via OCR
-- For Match-the-Column questions: If OCR text shows column data, use it to populate left_column[] and right_column[]
-- If [IMAGE_OCR] appears for a match-the-column question, NEVER leave left_column/right_column empty. Use OCR to reconstruct best-effort lists; if still unclear, keep [FIGURE] and OCR text in question_text but provide any items you can parse.
-- For Fill-in-the-Blanks: Preserve [FIGURE] tokens in question_text if diagram is referenced
-- For MCQ options: Options may contain superscripts ^{...} or subscripts _{...} - DO NOT drop these
+- For Match-the-Column questions: If OCR text shows column data, use it
+- Preserve [FIGURE] tokens in question_text if diagram is referenced
 - Preserve mathematical notation like m^{3}, r^{2}, ∝, ×, etc.
 
-🔥 OPTIONS EXTRACTION RULES (CRITICAL - TEXT AFTER = SIGN):
-1. For MCQ/Assertion-Reason options with equations, extract FULL text after option label
-2. **NEVER stop at = sign** - Continue until end of option
-3. Examples:
-   Input: "a). a=2, b=3, c=5"
-   Output: "a=2, b=3, c=5" (NOT just "a")
-   
-   Input: "a) x = 10 m/s"
-   Output: "x = 10 m/s" (NOT just "x")
+🧪 PRESERVE ALL NOTATION:
+- Chemical formulas: H_{2}O, Ca^{2+}, SO_{4}^{2-}
+- Math: x^{2}, v_{0}, ∝, √, ≈, ≤, ≥, ±
+- Units: m/s^{2}, kg/m^{3}
 
-   Input: "a) H₂ + O₂ = H₂O"
-   Output: "H₂ + O₂ = H₂O" (preserve full equation)
-
-4. For chemistry equations in options: preserve full reaction with all compounds
-
-🧪 CHEMISTRY NOTATION PRESERVATION:
-1. Chemical formulas MUST preserve subscripts: H_{2}O, NOT H2O
-2. Preserve superscripts for ions: Ca^{2+}, SO_{4}^{2-}
-3. Chemical equations: keep → or = arrows
-4. States of matter: (s), (l), (g), (aq)
-5. Greek letters: α-particle, β-decay, γ-radiation
-6. IUPAC names: preserve hyphens and brackets
-
-Examples:
-- "2H_{2} + O_{2} → 2H_{2}O"
-- "CH_{3}COOH + NaOH → CH_{3}COONa + H_{2}O"
-- "Fe^{2+} + 2OH^{-} → Fe(OH)_{2}"
-
-🔢 MATHEMATICS & PHYSICS NOTATION:
-1. Preserve superscripts for exponents: x^{2}, v^{2}, m^{3}
-2. Preserve subscripts: v_{0}, a_{1}, T_{2}
-3. Units with exponents: m/s^{2}, kg/m^{3}, N/m^{2}
-4. Mathematical symbols: ∝, ∞, √, ≈, ≠, ≤, ≥, ±, ×, ÷
-5. Greek letters: α, β, γ, δ, θ, π, ω, Δ, Σ
-6. Equations: preserve full equation with spaces around operators
-
-Examples:
-- "v^{2} = u^{2} + 2as"
-- "F = ma"
-- "E = mc^{2}"
-- "Density = 600 kg/m^{3}"
-
-📋 STRICT PRIORITY ORDER FOR TYPE DETECTION (Check in this order):
-
-Priority 1: ASSERTION-REASON (Check FIRST before MCQ)
-✓ Pattern: Contains both "Assertion (A):" AND "Reason (R):"
-✓ Usually has 4 options after assertion and reason
-Example:
-"""
-15. Assertion (A): The value of acceleration due to gravity is independent of mass of the object.
-Reason (R): The acceleration due to gravity depends on the mass of the Earth.
-a) Both Assertion and Reason are true, Reason is correct explanation
-b) Both true, Reason is NOT correct explanation
-c) Assertion true, Reason false
-d) Assertion false, Reason true
-"""
-→ question_type: "assertion_reason"
-→ Extract: assertion, reason, AND options array
-
-Priority 2: MATCH THE COLUMN
-✓ Pattern: Contains "Match column" OR "Match the following"
-✓ Has two lists/tables to match
-Example:
-"""
-3. Match column I with column II:
-Column I          Column II
-A. Mass          i. kg m/s²
-B. Force         ii. kg
-"""
-→ question_type: "match_column"
-→ Extract: left_column[], right_column[]
-
-Priority 3: FILL IN THE BLANKS
-✓ Pattern: Contains "___" OR "fill in the blank"
-Example:
-"""
-22. The gravitational constant G has a value of _____ in SI units.
-"""
-→ question_type: "fill_blank"
-→ Count blanks: blanks_count
-
-Priority 4: TRUE/FALSE
-✓ Pattern: Options are only "True/False" or "T/F" or "Correct/Incorrect"
-Example:
-"""
-64. State whether true or false:
-a) g is same everywhere on Earth (T/F)
-b) G is a universal constant (T/F)
-"""
-→ question_type: "true_false"
-
-Priority 5: SHORT ANSWER / NUMERICAL
-✓ Pattern: NO options provided, asks to "Explain", "Derive", "Calculate", "Prove"
-✓ Usually worth 2+ marks
-Example:
-"""
-26. Explain Newton's law of universal gravitation.
-"""
-→ question_type: "short_answer"
-
-Priority 6: MCQ (ONLY if none of the above match)
-✓ Pattern: Has options a), b), c), d) AND is NOT Assertion-Reason
-✓ Must have clear options
-Example:
-"""
-1. There is no atmosphere on moon as:
-a) it gets light from sun
-b) it is closer to the earth
-c) it revolves round the earth
-d) gases escape easily
-"""
-→ question_type: "mcq"
-
-⚠️ CRITICAL VALIDATION STEP:
-For each question, ask yourself:
-- Does this question number exist in the document? YES/NO
-- If NO → DELETE from output (it's hallucinated)
-- Is the text EXACTLY from document? YES/NO
-- If NO → Copy exact text again
+📋 QUESTION TYPES (in priority order):
+1. assertion_reason - Has both "Assertion (A):" AND "Reason (R):"
+2. match_column - Has "Match column" or two lists to match
+3. fill_blank - Contains "___" or "fill in the blank"
+4. true_false - Options are only True/False
+5. short_answer - NO options, asks to Explain/Derive/Calculate
+6. mcq - Has options a), b), c), d)
 
 📝 OUTPUT FORMAT (Strict JSON):
 {
@@ -213,47 +204,14 @@ For each question, ask yourself:
       "question_number": "1",
       "question_type": "mcq",
       "question_text": "EXACT text from document",
-      "options": ["a) ...", "b) ...", "c) ...", "d) ..."],
+      "options": ["option text only", "option text only", "option text only", "option text only"],
       "marks": 1,
-      "difficulty": "easy"
-    },
-    {
-      "question_number": "15",
-      "question_type": "assertion_reason",
-      "question_text": "Full question text",
-      "assertion": "Assertion (A): Exact text",
-      "reason": "Reason (R): Exact text",
-      "options": ["a) Both true, R explains A", "b) Both true, R doesn't explain A", "c) A true, R false", "d) A false, R true"],
-      "marks": 1,
-      "difficulty": "medium"
-    },
-    {
-      "question_number": "22",
-      "question_type": "fill_blank",
-      "question_text": "Text with _____ blanks",
-      "blanks_count": 1,
-      "marks": 1,
-      "difficulty": "easy"
-    },
-    {
-      "question_number": "54",
-      "question_type": "short_answer",
-      "question_text": "Question with [FIGURE id=img_5] diagram. Density is 600 Kg/m^{3}",
-      "marks": 3,
-      "difficulty": "hard"
+      "difficulty": "easy",
+      "confidence": "high"
     }
   ],
   "total_found": 64
 }
-
-IMPORTANT: Preserve numbering within question text (like 1., 2., a), b), i), ii)), preserve sup/sub notation, and keep [FIGURE] tokens intact.
-
-🎯 MARKS ASSIGNMENT:
-- MCQ/True-False: 1 mark
-- Assertion-Reason: 1 mark
-- Fill Blanks: 1 mark per blank
-- Match Column: 2-3 marks
-- Short Answer: 2-5 marks (based on "Explain"=2, "Derive"=3, "Prove"=5)
 
 CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanations.`;
 
@@ -268,13 +226,13 @@ ${file_content}
 - Check type priority: Assertion-Reason FIRST, then Match, then Fill Blank, then MCQ
 - Return valid JSON only (no markdown)`;
 
-    // Smart model selection based on document size
+    // Smart model selection - LOWERED thresholds
     const documentSize = file_content.length;
     const estimatedQuestions = (file_content.match(/\[QUESTION_\d+\]/g) || []).length;
-    const useProModel = documentSize > 20000 || estimatedQuestions > 40;
+    const useProModel = documentSize > 15000 || estimatedQuestions > 25;
 
     const model = useProModel ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-    const maxTokens = useProModel ? 32000 : 8000;
+    const maxTokens = useProModel ? 32000 : 16000; // Increased Flash tokens
 
     console.log(`📊 Document stats: ${documentSize} chars, ~${estimatedQuestions} questions`);
     console.log(`🤖 Using model: ${model} (max tokens: ${maxTokens})`);
@@ -302,7 +260,8 @@ ${file_content}
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ 
           success: false,
-          error: 'Rate limit exceeded. Please try again in a moment.' 
+          error: 'Rate limit exceeded. Please try again in a moment.',
+          should_retry_chunked: true
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -324,243 +283,165 @@ ${file_content}
 
     const aiData = await aiResponse.json();
     
-    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-      console.error('Unexpected AI response structure:', aiData);
-      throw new Error('Failed to extract questions from document');
-    }
-
-    let extractedContent = aiData.candidates[0].content.parts[0].text.trim();
+    // Log AI response details for debugging
+    const candidate = aiData.candidates?.[0];
+    const finishReason = candidate?.finishReason || 'UNKNOWN';
+    const safetyRatings = candidate?.safetyRatings || [];
     
-    // Remove markdown code blocks if present
-    if (extractedContent.startsWith('```json')) {
-      extractedContent = extractedContent.replace(/^```json\n/, '').replace(/\n```$/, '');
-    } else if (extractedContent.startsWith('```')) {
-      extractedContent = extractedContent.replace(/^```\n/, '').replace(/\n```$/, '');
-    }
+    console.log('🔍 AI Response Details:', {
+      finishReason,
+      hasSafetyRatings: safetyRatings.length > 0,
+      candidatePresent: !!candidate
+    });
 
-    let extractedData: any;
-    try {
-      extractedData = JSON.parse(extractedContent);
-    } catch (parseError) {
-      console.error('❌ JSON parse failed. Content head:', extractedContent.slice(0, 500));
-      throw new Error('AI returned invalid JSON. Please retry or check document format.');
-    }
+    let questionsArr: any[] = [];
+    let extractedFromAI = false;
 
-    const questionsArr = Array.isArray(extractedData?.questions) ? extractedData.questions : [];
+    // Try to extract questions from AI response
+    if (candidate?.content?.parts?.[0]?.text) {
+      let extractedContent = candidate.content.parts[0].text.trim();
+      
+      // Remove markdown code blocks if present
+      if (extractedContent.startsWith('```json')) {
+        extractedContent = extractedContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+      } else if (extractedContent.startsWith('```')) {
+        extractedContent = extractedContent.replace(/^```\n/, '').replace(/\n```$/, '');
+      }
 
-    // Validate and flag MCQs with empty options
-    let emptyOptionsCount = 0;
-    questionsArr.forEach((q: any, idx: number) => {
-      if (q.question_type === 'mcq') {
-        const emptyOpts = q.options?.filter((opt: string) => !opt || opt.trim() === '').length || 0;
-        if (emptyOpts > 0) {
-          emptyOptionsCount++;
-          q.requires_manual_review = true;
-          q.confidence = 'low';
-          q.extraction_issues = [`${emptyOpts} empty options detected`];
-          console.warn(`⚠️ Q${q.question_number || idx+1}: ${emptyOpts} empty options - flagged for review`);
+      // Try parsing JSON
+      try {
+        const extractedData = JSON.parse(extractedContent);
+        questionsArr = Array.isArray(extractedData?.questions) ? extractedData.questions : [];
+        extractedFromAI = questionsArr.length > 0;
+        
+        console.log(`✅ AI extracted ${questionsArr.length} questions`);
+      } catch (parseError) {
+        console.warn('⚠️ JSON parse failed, attempting partial recovery...');
+        
+        // Partial JSON recovery: try to close arrays/objects
+        try {
+          let repairedJson = extractedContent;
+          if (!repairedJson.endsWith('}')) {
+            // Try adding closing brackets
+            const openBraces = (repairedJson.match(/{/g) || []).length;
+            const closeBraces = (repairedJson.match(/}/g) || []).length;
+            const openBrackets = (repairedJson.match(/\[/g) || []).length;
+            const closeBrackets = (repairedJson.match(/\]/g) || []).length;
+            
+            for (let i = 0; i < openBrackets - closeBrackets; i++) repairedJson += ']';
+            for (let i = 0; i < openBraces - closeBraces; i++) repairedJson += '}';
+          }
+          
+          const repairedData = JSON.parse(repairedJson);
+          questionsArr = Array.isArray(repairedData?.questions) ? repairedData.questions : [];
+          extractedFromAI = questionsArr.length > 0;
+          console.log(`✅ Recovered ${questionsArr.length} questions from partial JSON`);
+        } catch {
+          console.warn('❌ Could not recover partial JSON');
         }
+      }
+    }
+
+    // TEMPLATEIZER FALLBACK: Always run, merge with AI results
+    console.log('🔧 Running templateizer for safety net...');
+    const templates = generateTemplates(file_content);
+    console.log(`📋 Templateizer generated ${templates.length} templates`);
+
+    // Merge: use AI extracted questions + fill gaps with templates
+    const mergedQuestions = [...questionsArr];
+    const aiQuestionNumbers = new Set(questionsArr.map(q => q.question_number?.toString()));
+    
+    for (const template of templates) {
+      if (!aiQuestionNumbers.has(template.question_number)) {
+        mergedQuestions.push(template);
+      }
+    }
+
+    // Fix nested options structure
+    mergedQuestions.forEach((q: any, idx: number) => {
+      if (q.options && Array.isArray(q.options)) {
+        q.options = q.options.map((opt: any) => {
+          if (typeof opt === 'string') return opt;
+          if (typeof opt === 'object' && opt !== null) {
+            return opt.text || opt.value || opt.label || JSON.stringify(opt);
+          }
+          return String(opt);
+        });
+      }
+      
+      // Ensure question_text exists
+      if (!q.question_text || q.question_text.trim() === '') {
+        console.warn(`⚠️ Skipping question ${idx+1} without question_text`);
+        return null;
       }
     });
 
-    if (emptyOptionsCount > 0) {
-      console.warn(`🚨 Total questions with empty options: ${emptyOptionsCount}/${questionsArr.length}`);
-    }
-
-    console.log('🤖 AI Raw Response:', {
-      total_questions: extractedData.total_found || extractedData.questions?.length || 0,
-      types_distribution: extractedData.questions?.reduce((acc: any, q: any) => {
-        acc[q.question_type] = (acc[q.question_type] || 0) + 1;
-        return acc;
-      }, {})
-    });
-
-    // Phase 3: Post-processing validation and auto-correction
-    const validateAndFixQuestions = (data: any, originalText: string) => {
-      const validated = [];
-      let hallucinated = 0;
-      let autocorrected = 0;
-      
-      for (const qRaw of (Array.isArray(data?.questions) ? data.questions : [])) {
-        const q = { ...qRaw };
-        
-        // Basic validation - skip questions without text
-        const qTextStr = typeof q.question_text === 'string' ? q.question_text.trim() : '';
-        if (!qTextStr) {
-          console.warn('⚠️ Skipping question without question_text');
-          continue;
-        }
-        
-        const qText = qTextStr.toLowerCase();
-        const qNum = (q.question_number ?? '').toString().trim();
-        
-        // Fix nested options structure
-        let options = Array.isArray(q.options) ? q.options : [];
-        if (options.length > 0) {
-          options = options.map((opt: any) => {
-            if (typeof opt === 'string') return opt;
-            if (typeof opt === 'object' && opt !== null) {
-              return opt.text || opt.value || opt.label || JSON.stringify(opt);
-            }
-            return String(opt);
-          });
-          q.options = options;
-        }
-        
-        // Check 1: Anti-hallucination - Multi-strategy validation
-        let foundInDocument = false;
-        
-        // Strategy 1: Check for [QUESTION_num] marker (primary method)
-        if (qNum) {
-          const markerPattern = new RegExp(`\\[QUESTION_${qNum}\\]`, 'g');
-          if (markerPattern.test(originalText)) {
-            foundInDocument = true;
-          }
-          
-          // Strategy 2: Flexible number detection if marker not found
-          if (!foundInDocument) {
-            const flexPattern1 = new RegExp(
-              `(?:^|\\n)\\s*(?:Q(?:uestion)?\\s*)?${qNum}\\s*[.\\)\\-:|]?\\s+(?=\\S)`, 
-              'mi'
-            );
-            if (flexPattern1.test(originalText)) {
-              foundInDocument = true;
-            }
-          }
-          
-          // Strategy 3: Number alone on a line (DOCX common pattern)
-          if (!foundInDocument) {
-            const flexPattern2 = new RegExp(
-              `(?:^|\\n)\\s*${qNum}\\s*(?:\\n|\\r|$)`, 
-              'mi'
-            );
-            if (flexPattern2.test(originalText)) {
-              foundInDocument = true;
-            }
-          }
-        }
-        
-        // Fallback: Fuzzy match using text head if no number or patterns failed
-        if (!foundInDocument) {
-          const head = qTextStr.slice(0, 80).toLowerCase();
-          if (head.length >= 10 && originalText.toLowerCase().includes(head)) {
-            foundInDocument = true;
-          }
-        }
-        
-        if (!foundInDocument) {
-          console.warn(`❌ Question not found in document - SKIPPING`);
-          hallucinated++;
-          continue;
-        }
-        let corrected = false;
-        
-        // Check 2: Auto-fix MCQ wrongly marked as assertion-reason
-        if (q.question_type === 'mcq') {
-          const isAssertion = qText.includes('assertion');
-          const isReason = qText.includes('reason');
-          
-          if (isAssertion && isReason) {
-            console.log(`🔧 MCQ → assertion_reason`);
-            q.question_type = 'assertion_reason';
-            
-            // Try to extract assertion and reason
-            const assertionMatch = qTextStr.match(/Assertion.*?\(A\).*?:(.*?)(?=Reason)/is);
-            const reasonMatch = qTextStr.match(/Reason.*?\(R\).*?:(.*?)(?=a\)|$)/is);
-            
-            if (assertionMatch) q.assertion = assertionMatch[1].trim();
-            if (reasonMatch) q.reason = reasonMatch[1].trim();
-            corrected = true;
-            autocorrected++;
-          } else if (qText.includes('match') && (qText.includes('column') || qText.includes('following'))) {
-            console.log(`🔧 MCQ → match_column`);
-            q.question_type = 'match_column';
-            corrected = true;
-            autocorrected++;
-          } else if (qTextStr.match(/_{2,}/g) || qTextStr.match(/—{2,}/g) || qTextStr.match(/-{5,}/g) || qText.includes('fill in the blank')) {
-            console.log(`🔧 MCQ → fill_blank`);
-            q.question_type = 'fill_blank';
-            q.blanks_count = (qTextStr.match(/_{2,}/g) || []).length + (qTextStr.match(/—{2,}/g) || []).length + (qTextStr.match(/-{5,}/g) || []).length;
-            delete q.options;
-            corrected = true;
-            autocorrected++;
-          } else if ((!options || options.length === 0) && (qText.includes('explain') || qText.includes('derive') || qText.includes('calculate') || qText.includes('prove'))) {
-            console.log(`🔧 MCQ → short_answer (no options)`);
-            q.question_type = 'short_answer';
-            corrected = true;
-            autocorrected++;
-          }
-        }
-        
-        if (corrected) {
-          q.auto_corrected = true;
-        }
-        
-        validated.push(q);
-      }
-      
-      // Log marker statistics from originalText
-      const markerStats = {
-        question_markers: (originalText.match(/\[QUESTION_/g) || []).length,
-        assertion_markers: (originalText.match(/\[ASSERTION_REASON\]/g) || []).length,
-        match_markers: (originalText.match(/\[MATCH_COLUMN\]/g) || []).length,
-        fill_blank_markers: (originalText.match(/\[FILL_BLANK\]/g) || []).length
-      };
-
-      console.log(`✅ Validation Complete:`, {
-        original_count: questionsArr.length,
-        validated_count: validated.length,
-        hallucinated_removed: hallucinated,
-        auto_corrected: autocorrected,
-        marker_stats: markerStats
-      });
-
-      // Warning if over-filtered
-      if (markerStats.question_markers >= 30 && validated.length < 10) {
-        console.warn(`⚠️ WARNING: High markers (${markerStats.question_markers}) but low validated (${validated.length}). Possible over-filtering.`);
-      }
-      
-      return validated;
-    };
-
-    // Apply validation (or skip if legacy mode requested)
-    const outputQuestions = skip_validation ? questionsArr : validateAndFixQuestions(extractedData, file_content);
+    const validQuestions = mergedQuestions.filter(q => q && q.question_text);
 
     console.log('📊 Final Output:', {
-      total_questions: outputQuestions.length,
-      by_type: outputQuestions.reduce((acc: any, q: any) => {
+      total_questions: validQuestions.length,
+      ai_extracted: questionsArr.length,
+      template_generated: templates.length,
+      by_type: validQuestions.reduce((acc: any, q: any) => {
         acc[q.question_type] = (acc[q.question_type] || 0) + 1;
         return acc;
       }, {})
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        total_questions: outputQuestions.length,
-        questions: outputQuestions,
-        metadata: {
-          file_name: 'document',
-          extraction_time: new Date().toISOString(),
-          subject,
-          chapter,
-          topic
-        }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // ALWAYS return success with questions array
+    return new Response(JSON.stringify({
+      success: true,
+      total_questions: validQuestions.length,
+      ai_extracted_count: questionsArr.length,
+      template_generated_count: templates.length - questionsArr.length,
+      questions: validQuestions,
+      metadata: {
+        extraction_method: extractedFromAI ? 'ai' : 'template',
+        model_used: model,
+        finish_reason: finishReason,
+        had_safety_issues: safetyRatings.length > 0,
+        file_name: 'document',
+        extraction_time: new Date().toISOString(),
+        subject,
+        chapter,
+        topic
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
     console.error('Error in ai-extract-all-questions:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    
+    // Even on error, try to generate templates as last resort
+    try {
+      const { file_content } = await req.json();
+      if (file_content) {
+        const emergencyTemplates = generateTemplates(file_content);
+        if (emergencyTemplates.length > 0) {
+          console.log(`🚨 Emergency: Returning ${emergencyTemplates.length} templates after error`);
+          return new Response(JSON.stringify({
+            success: true,
+            total_questions: emergencyTemplates.length,
+            questions: emergencyTemplates,
+            metadata: {
+              extraction_method: 'emergency_template',
+              error_message: error.message
+            }
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
       }
-    );
+    } catch {}
+
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error.message,
+      should_retry_chunked: true
+    }), { 
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });

@@ -253,12 +253,44 @@ ${chunkContent}
     console.log(`📊 Total questions extracted: ${allQuestions.length}`);
     console.log(`🚫 Skipped ${skippedDuplicates} duplicate questions`);
 
+    // Templateizer pass: add templates for any sparse chunks
+    console.log('🔧 Running templateizer pass for quality assurance...');
+    const questionNumbers = new Set(allQuestions.map(q => q.question_number?.toString()));
+    const allDetectedNumbers = new Set<string>();
+    
+    // Quick scan for question markers in original text
+    const markerPattern = /\[QUESTION_(\d+)\]|^Q(?:uestion)?\s*(\d+)[.:\)\-]|^(\d+)\s*[.:\)]/gmi;
+    let match;
+    while ((match = markerPattern.exec(file_content)) !== null) {
+      const num = match[1] || match[2] || match[3];
+      if (num) allDetectedNumbers.add(num);
+    }
+    
+    // Generate minimal templates for missing question numbers
+    const missingNumbers = Array.from(allDetectedNumbers).filter(n => !questionNumbers.has(n));
+    if (missingNumbers.length > 0) {
+      console.log(`📋 Adding ${missingNumbers.length} templates for detected but un-extracted questions`);
+      for (const num of missingNumbers) {
+        allQuestions.push({
+          question_number: num,
+          question_type: 'short_answer',
+          question_text: `[Question ${num} - requires manual editing]`,
+          marks: 1,
+          difficulty: 'medium',
+          confidence: 'low',
+          requires_manual_review: true,
+          template_generated: true,
+          extraction_issues: ['Detected question number but could not extract full content']
+        });
+      }
+    }
+
     // Separate high/medium confidence vs low confidence questions
     const highConfidence = allQuestions.filter(q =>
       !q.confidence || q.confidence === 'high' || q.confidence === 'medium'
     );
     const lowConfidence = allQuestions.filter(q => 
-      q.confidence === 'low'
+      q.confidence === 'low' || q.template_generated === true
     );
 
     console.log(`✅ High/Medium confidence: ${highConfidence.length}`);

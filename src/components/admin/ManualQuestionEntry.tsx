@@ -176,11 +176,14 @@ export const ManualQuestionEntry = ({
       const finalLeftColumn = leftColumnData && leftColumnData.length > 0 ? leftColumnData : null;
       const finalRightColumn = rightColumnData && rightColumnData.length > 0 ? rightColumnData : null;
 
-      console.log('💾 Saving question with columns:', {
+      console.log('💾 Saving question with columns (ManualQuestionEntry):', {
         gameType,
         leftColumn: finalLeftColumn,
         rightColumn: finalRightColumn,
-        correctAnswer: correctAnswerFormat
+        correctAnswer: correctAnswerFormat,
+        correctPairs: gameData.correctPairs,
+        pairsInCorrectAnswer: correctAnswerFormat?.pairs,
+        pairsLength: correctAnswerFormat?.pairs?.length
       });
 
       // Step 1: Save to question_bank

@@ -92,6 +92,15 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         const filteredLeft = leftColumn.filter(item => item.trim());
         const filteredRight = rightColumn.filter(item => item.trim());
         
+        console.log('🔍 Match Column Data (DynamicQuestionInput):', {
+          leftColumn: filteredLeft,
+          rightColumn: filteredRight,
+          pairs: pairs,
+          pairsLength: pairs.length,
+          leftColumnLength: filteredLeft.length,
+          rightColumnLength: filteredRight.length
+        });
+        
         gameData = {
           question: questionText,
           leftColumn: filteredLeft,

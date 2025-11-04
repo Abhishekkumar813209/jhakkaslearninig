@@ -151,6 +151,7 @@ export const SmartQuestionExtractor = ({
 }: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isInserting, setIsInserting] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState<ExtractedQuestion | null>(null);
   const [previewLesson, setPreviewLesson] = useState<any>(null);
   const [filterType, setFilterType] = useState<string>('all');
@@ -388,6 +389,48 @@ export const SmartQuestionExtractor = ({
       seen.add(key);
       return true;
     });
+  };
+
+  // Insert 8 sample questions for testing
+  const insertSampleQuestions = async () => {
+    if (!topicId) {
+      toast.error('Please select a topic first');
+      return;
+    }
+
+    try {
+      setIsInserting(true);
+      
+      const response = await invokeWithAuth<any, { success: boolean; count: number }>({
+        name: 'topic-questions-api',
+        body: {
+          action: 'insert_sample_questions',
+          topic_id: topicId,
+          subject: subjectName,
+          chapter_id: chapterId,
+          batch_id: batchId,
+        }
+      });
+
+      if (response.success) {
+        toast.success(`✅ Added ${response.count} sample questions!`, {
+          description: 'Reload the page to see them',
+          duration: 3000
+        });
+        
+        // Reload the page to fetch new questions
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        toast.error('Failed to insert sample questions');
+      }
+    } catch (error: any) {
+      console.error('Error inserting sample questions:', error);
+      toast.error('Error: ' + (error.message || 'Failed to insert sample questions'));
+    } finally {
+      setIsInserting(false);
+    }
   };
 
   // Load existing questions from question_bank
@@ -2268,14 +2311,35 @@ export const SmartQuestionExtractor = ({
 
       {/* Back Navigation for Question Bank Mode */}
       {mode === 'question-bank' && onBackClick && (
-        <Button 
-          variant="outline" 
-          onClick={onBackClick}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Topic Selection
-        </Button>
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <Button 
+            variant="outline" 
+            onClick={onBackClick}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Topic Selection
+          </Button>
+          
+          {topicId && (
+            <Button 
+              onClick={insertSampleQuestions}
+              disabled={isInserting}
+              variant="default"
+            >
+              {isInserting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add 8 Sample Questions
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Upload Section - always visible unless auth error */}

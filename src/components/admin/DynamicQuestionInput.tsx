@@ -36,8 +36,8 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   const [blanks, setBlanks] = useState([{ correctAnswer: '', distractors: ['', '', ''] }]);
 
   // Match Column states
-  const [leftColumn, setLeftColumn] = useState(['', '', '', '']);
-  const [rightColumn, setRightColumn] = useState(['', '', '', '']);
+  const [leftColumn, setLeftColumn] = useState(['', '']);
+  const [rightColumn, setRightColumn] = useState(['', '']);
   const [pairs, setPairs] = useState<{ left: number; right: number }[]>([]);
 
   // Match Pairs states
@@ -351,38 +351,88 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Left Column Items</Label>
-            {leftColumn.map((item, idx) => (
-              <Input
-                key={idx}
-                value={item}
-                onChange={(e) => {
-                  const newLeft = [...leftColumn];
-                  newLeft[idx] = e.target.value;
-                  setLeftColumn(newLeft);
+            <div className="flex justify-between items-center mb-2">
+              <Label>Left Column Items ({leftColumn.length})</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLeftColumn([...leftColumn, '']);
                   handleDataChange();
                 }}
-                placeholder={`Item ${String.fromCharCode(65 + idx)}`}
-                className="mb-2"
-              />
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+            </div>
+            {leftColumn.map((item, idx) => (
+              <div key={idx} className="flex gap-2 mb-2">
+                <Input
+                  value={item}
+                  onChange={(e) => {
+                    const newLeft = [...leftColumn];
+                    newLeft[idx] = e.target.value;
+                    setLeftColumn(newLeft);
+                    handleDataChange();
+                  }}
+                  placeholder={`Item ${String.fromCharCode(65 + idx)}`}
+                />
+                {leftColumn.length > 2 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setLeftColumn(leftColumn.filter((_, i) => i !== idx));
+                      handleDataChange();
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             ))}
           </div>
 
           <div>
-            <Label>Right Column Items</Label>
-            {rightColumn.map((item, idx) => (
-              <Input
-                key={idx}
-                value={item}
-                onChange={(e) => {
-                  const newRight = [...rightColumn];
-                  newRight[idx] = e.target.value;
-                  setRightColumn(newRight);
+            <div className="flex justify-between items-center mb-2">
+              <Label>Right Column Items ({rightColumn.length})</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRightColumn([...rightColumn, '']);
                   handleDataChange();
                 }}
-                placeholder={`Item ${String.fromCharCode(105 + idx)}`}
-                className="mb-2"
-              />
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+            </div>
+            {rightColumn.map((item, idx) => (
+              <div key={idx} className="flex gap-2 mb-2">
+                <Input
+                  value={item}
+                  onChange={(e) => {
+                    const newRight = [...rightColumn];
+                    newRight[idx] = e.target.value;
+                    setRightColumn(newRight);
+                    handleDataChange();
+                  }}
+                  placeholder={`Item ${String.fromCharCode(105 + idx)}`}
+                />
+                {rightColumn.length > 2 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setRightColumn(rightColumn.filter((_, i) => i !== idx));
+                      handleDataChange();
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             ))}
           </div>
         </div>

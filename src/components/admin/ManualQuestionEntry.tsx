@@ -88,13 +88,17 @@ export const ManualQuestionEntry = ({
       const rightColumn = questionData.gameData?.rightColumn || [];
       const pairs = questionData.gameData?.correctPairs || [];
 
-      if (leftColumn.length === 0 || rightColumn.length === 0) {
-        toast.error("Both left and right columns are required for Match Column game");
+      // Filter to non-empty items
+      const filteredLeft = leftColumn.filter((item: string) => item.trim());
+      const filteredRight = rightColumn.filter((item: string) => item.trim());
+
+      if (filteredLeft.length === 0 || filteredRight.length === 0) {
+        toast.error("Both left and right columns must have at least one filled item");
         return;
       }
 
-      if (leftColumn.length !== rightColumn.length) {
-        toast.error("Left and right columns must have the same number of items");
+      if (filteredLeft.length !== filteredRight.length) {
+        toast.error("Left and right columns must have the same number of filled items");
         return;
       }
 
@@ -103,13 +107,13 @@ export const ManualQuestionEntry = ({
         return;
       }
 
-      // Validate pair indices are in bounds
+      // Validate pair indices are in bounds of filtered arrays
       const invalidPair = pairs.find((p: any) => 
-        p.left < 0 || p.left >= leftColumn.length || 
-        p.right < 0 || p.right >= rightColumn.length
+        p.left < 0 || p.left >= filteredLeft.length || 
+        p.right < 0 || p.right >= filteredRight.length
       );
       if (invalidPair) {
-        toast.error("Invalid pair indices detected");
+        toast.error("Invalid pair indices detected. Please redefine pairs after editing columns.");
         return;
       }
     }
@@ -171,8 +175,12 @@ export const ManualQuestionEntry = ({
           question_type: gameType,
           question_text: questionData.questionText,
           options: gameData.options || null,
-          left_column: gameType === 'match_column' ? (gameData.leftColumn || []).filter(Boolean) : null,
-          right_column: gameType === 'match_column' ? (gameData.rightColumn || []).filter(Boolean) : null,
+          left_column: gameType === 'match_column' && gameData.leftColumn?.some((v: string) => v.trim()) 
+            ? gameData.leftColumn.filter((v: string) => v.trim())
+            : null,
+          right_column: gameType === 'match_column' && gameData.rightColumn?.some((v: string) => v.trim())
+            ? gameData.rightColumn.filter((v: string) => v.trim()) 
+            : null,
           correct_answer: correctAnswerFormat,
           explanation: questionData.explanation,
           marks: questionData.marks || 1,

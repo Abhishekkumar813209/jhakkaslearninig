@@ -129,10 +129,23 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
     const timer = setTimeout(() => {
       onUpdate(editableQuestions);
       setAutoSaving(false);
-    }, 1000);
+    }, 1500);
     
     return () => clearTimeout(timer);
   }, [editableQuestions]);
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (autoSaving || JSON.stringify(editableQuestions) !== JSON.stringify(questions)) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [autoSaving, editableQuestions, questions]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -454,13 +467,20 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                   updates.options = ['', '', '', ''];
                 }
                 
-                // Auto-initialize columns for Match Column
+                // Auto-initialize columns for Match Column with 2 items minimum
                 if (value === 'match_column' && (!question.left_column || !question.right_column)) {
-                  updates.left_column = ['', '', '', ''];
-                  updates.right_column = ['', '', '', ''];
+                  updates.left_column = ['', ''];
+                  updates.right_column = ['', ''];
                 }
                 
-                onUpdate({ ...question, ...updates });
+                const updatedQuestion = { ...question, ...updates };
+                onUpdate(updatedQuestion);
+                
+                // Immediate save on type change
+                setTimeout(() => {
+                  const event = new Event('forceSave');
+                  window.dispatchEvent(event);
+                }, 100);
               }}
             >
               <SelectTrigger className="w-auto h-6 text-xs border-dashed" onClick={(e) => e.stopPropagation()}>

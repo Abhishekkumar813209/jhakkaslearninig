@@ -8,106 +8,149 @@ const corsHeaders = {
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-// Templateizer: Generate structured templates for detected questions
-const generateTemplates = (documentText: string): any[] => {
-  const templates: any[] = [];
-  const lines = documentText.split('\n');
+// PHASE 1: Aggressive Question Number Detection
+const detectAllQuestionNumbers = (text: string): Set<string> => {
+  const numbers = new Set<string>();
   
-  // Detect question segments with flexible patterns
-  const questionPatterns = [
-    /\[QUESTION_(\d+)\]/gi,
-    /^Q(?:uestion)?\s*(\d+)[.:\)\-]/gmi,
-    /^(\d+)\s*[.:\)]/gm
-  ];
+  // Pattern 1: [QUESTION_N] markers
+  const markerMatches = text.matchAll(/\[QUESTION_(\d+)\]/gi);
+  for (const match of markerMatches) numbers.add(match[1]);
   
-  let currentQuestion = null;
-  let currentText = '';
-  let questionNumber = 0;
+  // Pattern 2: "Q" + number anywhere in line
+  const qMatches = text.matchAll(/\bQ(?:uestion)?\s*(\d+)\b/gi);
+  for (const match of qMatches) numbers.add(match[1]);
   
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    
-    // Check if this is a new question marker
-    let isQuestionStart = false;
-    for (const pattern of questionPatterns) {
-      const match = trimmed.match(pattern);
-      if (match) {
-        // Save previous question if exists
-        if (currentQuestion) {
-          templates.push(currentQuestion);
-        }
-        
-        questionNumber++;
-        isQuestionStart = true;
-        currentQuestion = {
-          question_number: questionNumber.toString(),
-          question_text: trimmed,
-          marks: 1,
-          difficulty: 'medium',
-          requires_manual_review: true,
-          template_generated: true,
-          confidence: 'low',
-          extraction_issues: ['Auto-generated template - requires manual editing']
-        };
-        currentText = trimmed;
-        break;
-      }
-    }
-    
-    if (!isQuestionStart && currentQuestion) {
-      currentText += ' ' + trimmed;
-      currentQuestion.question_text = currentText.trim();
-    }
+  // Pattern 3: Standalone numbers with punctuation (but not page numbers)
+  const numMatches = text.matchAll(/(?<!page\s|chapter\s|section\s)(\d+)\s*[.:\)\-]\s*(?=[A-Z])/gi);
+  for (const match of numMatches) {
+    const num = parseInt(match[1]);
+    if (num >= 1 && num <= 200) numbers.add(match[1]);
   }
   
-  // Save last question
-  if (currentQuestion) {
-    templates.push(currentQuestion);
+  // Pattern 4: Indented numbered lists
+  const indentMatches = text.matchAll(/^\s+(\d+)[.:\)]/gm);
+  for (const match of indentMatches) {
+    const num = parseInt(match[1]);
+    if (num >= 1 && num <= 200) numbers.add(match[1]);
   }
   
-  // Guess question types and add appropriate templates
-  return templates.map(q => {
-    const text = q.question_text.toLowerCase();
-    
-    // match_column
-    if (text.includes('match') && (text.includes('column') || text.includes('following'))) {
+  return numbers;
+};
+
+// PHASE 2: Smart Type Inference
+const inferQuestionType = (text: string): string => {
+  const lower = text.toLowerCase();
+  
+  // Priority order matters!
+  if ((lower.includes('assertion') && lower.includes('reason')) || 
+      (lower.includes('assertion (a)') || lower.includes('reason (r)'))) {
+    return 'assertion_reason';
+  }
+  
+  if (lower.includes('match') && (lower.includes('column') || lower.includes('following'))) {
+    return 'match_column';
+  }
+  
+  const blankCount = (text.match(/___+|_{3,}/g) || []).length;
+  if (blankCount > 0 || lower.includes('fill') || lower.includes('blank')) {
+    return 'fill_blank';
+  }
+  
+  if ((lower.includes('true') && lower.includes('false')) || lower.match(/\(t\s*\/\s*f\)/i)) {
+    return 'true_false';
+  }
+  
+  const hasOptionsPattern = text.match(/\([a-d]\)|[a-d]\)/gi);
+  if (hasOptionsPattern && hasOptionsPattern.length >= 3) {
+    return 'mcq';
+  }
+  
+  if (lower.includes('arrange') || lower.includes('sequence') || 
+      lower.includes('order') || lower.includes('chronological')) {
+    return 'sequence_order';
+  }
+  
+  return 'short_answer';
+};
+
+// PHASE 2: Create Structured Templates
+const createQuestionTemplate = (qNum: string, text: string, type: string): any => {
+  const base = {
+    question_number: qNum,
+    question_text: text,
+    question_type: type,
+    marks: 1,
+    difficulty: 'medium',
+    requires_manual_review: true,
+    template_generated: true,
+    confidence: 'low',
+    extraction_issues: ['Auto-generated template - requires verification and completion']
+  };
+  
+  switch (type) {
+    case 'mcq':
       return {
-        ...q,
-        question_type: 'match_column',
-        left_column: ['[Item A - edit]', '[Item B - edit]', '[Item C - edit]', '[Item D - edit]'],
-        right_column: ['[Match 1 - edit]', '[Match 2 - edit]', '[Match 3 - edit]', '[Match 4 - edit]'],
-        correct_answer: { pairs: [] }
+        ...base,
+        options: ['[Option A - edit manually]', '[Option B - edit manually]', '[Option C - edit manually]', '[Option D - edit manually]'],
+        correct_answer: { index: -1 }
       };
-    }
-    
-    // fill_blank
-    const blankCount = (q.question_text.match(/___+/g) || []).length;
-    if (blankCount > 0 || text.includes('fill') || text.includes('blank')) {
+      
+    case 'true_false':
       return {
-        ...q,
-        question_type: 'fill_blank',
-        blanks_count: Math.max(blankCount, 1),
-        correct_answer: { blanks: [] }
-      };
-    }
-    
-    // true_false
-    if (text.includes('true') && text.includes('false') || text.includes('t/f')) {
-      return {
-        ...q,
-        question_type: 'true_false',
+        ...base,
+        options: ['True', 'False'],
         correct_answer: { value: null }
       };
-    }
-    
-    // assertion_reason
-    if (text.includes('assertion') && text.includes('reason')) {
+      
+    case 'fill_blank':
+      const blankCount = Math.max((text.match(/___+/g) || []).length, 1);
       return {
-        ...q,
-        question_type: 'assertion_reason',
-        assertion: '[Assertion (A): Edit this]',
-        reason: '[Reason (R): Edit this]',
+        ...base,
+        blanks_count: blankCount,
+        correct_answer: { blanks: Array(blankCount).fill(null).map(() => ({ correctAnswer: '', distractors: [] })) }
+      };
+      
+    case 'match_column':
+      return {
+        ...base,
+        left_column: ['[A - edit]', '[B - edit]', '[C - edit]', '[D - edit]'],
+        right_column: ['[i - edit]', '[ii - edit]', '[iii - edit]', '[iv - edit]'],
+        correct_answer: { pairs: [] }
+      };
+      
+    case 'match_pairs':
+      return {
+        ...base,
+        correct_answer: { pairs: [
+          { left: '[Term 1]', right: '[Match 1]' },
+          { left: '[Term 2]', right: '[Match 2]' },
+          { left: '[Term 3]', right: '[Match 3]' }
+        ]}
+      };
+      
+    case 'sequence_order':
+      return {
+        ...base,
+        correct_answer: { correctSequence: ['[Step 1]', '[Step 2]', '[Step 3]', '[Step 4]'] }
+      };
+      
+    case 'card_memory':
+      return {
+        ...base,
+        correct_answer: { pairs: ['[Term 1]', '[Def 1]', '[Term 2]', '[Def 2]', '[Term 3]', '[Def 3]'] }
+      };
+      
+    case 'typing_race':
+      return {
+        ...base,
+        correct_answer: { targetText: text.substring(0, 200), timeLimit: 30, minAccuracy: 90 }
+      };
+      
+    case 'assertion_reason':
+      return {
+        ...base,
+        assertion: '[Assertion (A): edit manually]',
+        reason: '[Reason (R): edit manually]',
         options: [
           'Both Assertion and Reason are true, Reason is correct explanation',
           'Both true, Reason is NOT correct explanation',
@@ -116,27 +159,53 @@ const generateTemplates = (documentText: string): any[] => {
         ],
         correct_answer: null
       };
-    }
-    
-    // Check for MCQ options pattern
-    const hasOptions = text.match(/[a-d]\)/gi);
-    if (hasOptions && hasOptions.length >= 2) {
+      
+    default: // short_answer
       return {
-        ...q,
-        question_type: 'mcq',
-        options: ['[Option A - edit]', '[Option B - edit]', '[Option C - edit]', '[Option D - edit]'],
-        correct_answer: { index: -1 }
+        ...base,
+        marks: 2,
+        correct_answer: null
       };
+  }
+};
+
+// PHASE 2: Enhanced Templateizer with Type Inference
+const generateTemplates = (documentText: string, detectedNumbers: Set<string>): any[] => {
+  const templates: any[] = [];
+  const sortedNumbers = Array.from(detectedNumbers).sort((a, b) => parseInt(a) - parseInt(b));
+  
+  for (const qNum of sortedNumbers) {
+    // Try multiple patterns to find question content
+    const patterns = [
+      new RegExp(`\\[QUESTION_${qNum}\\]([\\s\\S]*?)(?=\\[QUESTION_|$)`, 'i'),
+      new RegExp(`Q(?:uestion)?\\s*${qNum}[.:\\)\\-]([\\s\\S]*?)(?=Q(?:uestion)?\\s*\\d+[.:\\)\\-]|$)`, 'i'),
+      new RegExp(`(?:^|\\n)\\s*${qNum}[.:\\)]([\\s\\S]*?)(?=\\n\\s*\\d+[.:\\)]|$)`, 'm')
+    ];
+    
+    let questionText = '';
+    for (const pattern of patterns) {
+      const match = documentText.match(pattern);
+      if (match && match[1]) {
+        questionText = match[1].trim();
+        break;
+      }
     }
     
-    // Default to short_answer for questions without clear patterns
-    return {
-      ...q,
-      question_type: 'short_answer',
-      marks: 2,
-      correct_answer: null
-    };
-  });
+    if (!questionText) {
+      questionText = `[Question ${qNum} - Content not extracted, requires manual entry]`;
+    }
+    
+    // Limit to first 500 chars for template
+    questionText = questionText.substring(0, 500);
+    
+    // Smart type detection
+    const type = inferQuestionType(questionText);
+    const template = createQuestionTemplate(qNum, questionText, type);
+    
+    templates.push(template);
+  }
+  
+  return templates;
 };
 
 serve(async (req) => {
@@ -215,6 +284,10 @@ serve(async (req) => {
 
 CRITICAL: Return ONLY valid JSON. No markdown, no code blocks, no explanations.`;
 
+    // STEP 1: Detect ALL question numbers in document (aggressive scan)
+    const allQuestionNumbers = detectAllQuestionNumbers(file_content);
+    console.log(`🔍 Detected ${allQuestionNumbers.size} question numbers in document:`, Array.from(allQuestionNumbers).sort((a, b) => parseInt(a) - parseInt(b)).slice(0, 20));
+
     const userPrompt = `Extract ALL questions from this ${subject || 'educational'} document${chapter ? ` (Chapter: ${chapter})` : ''}${topic ? ` (Topic: ${topic})` : ''}:
 
 ${file_content}
@@ -228,7 +301,7 @@ ${file_content}
 
     // Smart model selection - LOWERED thresholds
     const documentSize = file_content.length;
-    const estimatedQuestions = (file_content.match(/\[QUESTION_\d+\]/g) || []).length;
+    const estimatedQuestions = allQuestionNumbers.size || (file_content.match(/\[QUESTION_\d+\]/g) || []).length;
     const useProModel = documentSize > 15000 || estimatedQuestions > 25;
 
     const model = useProModel ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
@@ -342,20 +415,24 @@ ${file_content}
       }
     }
 
-    // TEMPLATEIZER FALLBACK: Always run, merge with AI results
-    console.log('🔧 Running templateizer for safety net...');
-    const templates = generateTemplates(file_content);
-    console.log(`📋 Templateizer generated ${templates.length} templates`);
+    // PHASE 3: GUARANTEED TEMPLATE GENERATION - Always run with ALL detected numbers
+    console.log('🔧 Running enhanced templateizer for all detected question numbers...');
+    const templates = generateTemplates(file_content, allQuestionNumbers);
+    console.log(`📋 Templateizer generated ${templates.length} templates for all ${allQuestionNumbers.size} detected questions`);
 
-    // Merge: use AI extracted questions + fill gaps with templates
+    // Merge: AI-extracted questions take priority, templates fill gaps
     const mergedQuestions = [...questionsArr];
     const aiQuestionNumbers = new Set(questionsArr.map(q => q.question_number?.toString()));
     
+    let templatesAdded = 0;
     for (const template of templates) {
       if (!aiQuestionNumbers.has(template.question_number)) {
         mergedQuestions.push(template);
+        templatesAdded++;
       }
     }
+
+    console.log(`✅ Final question set: ${questionsArr.length} AI-extracted + ${templatesAdded} templates = ${mergedQuestions.length} total`);
 
     // Fix nested options structure
     mergedQuestions.forEach((q: any, idx: number) => {
@@ -381,20 +458,36 @@ ${file_content}
     console.log('📊 Final Output:', {
       total_questions: validQuestions.length,
       ai_extracted: questionsArr.length,
-      template_generated: templates.length,
+      template_generated: templatesAdded,
       by_type: validQuestions.reduce((acc: any, q: any) => {
         acc[q.question_type] = (acc[q.question_type] || 0) + 1;
         return acc;
       }, {})
     });
 
-    // ALWAYS return success with questions array
+    // PHASE 4: ALWAYS return success with questions array and detailed metadata
     return new Response(JSON.stringify({
       success: true,
       total_questions: validQuestions.length,
-      ai_extracted_count: questionsArr.length,
-      template_generated_count: templates.length - questionsArr.length,
+      extraction_summary: {
+        detected_question_numbers: allQuestionNumbers.size,
+        ai_extracted: questionsArr.length,
+        template_generated: templatesAdded,
+        fully_extracted_count: questionsArr.filter(q => !q.template_generated).length,
+        requires_manual_review_count: validQuestions.filter(q => q.requires_manual_review).length
+      },
       questions: validQuestions,
+      statistics: {
+        by_type: validQuestions.reduce((acc: any, q: any) => {
+          acc[q.question_type] = (acc[q.question_type] || 0) + 1;
+          return acc;
+        }, {}),
+        by_confidence: {
+          high: validQuestions.filter(q => q.confidence === 'high').length,
+          medium: validQuestions.filter(q => q.confidence === 'medium').length,
+          low: validQuestions.filter(q => q.confidence === 'low' || q.template_generated).length
+        }
+      },
       metadata: {
         extraction_method: extractedFromAI ? 'ai' : 'template',
         model_used: model,

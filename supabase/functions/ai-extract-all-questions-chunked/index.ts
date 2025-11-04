@@ -13,6 +13,95 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const CHUNK_SIZE = 20; // Process 20 pages at a time
 
+// PHASE 1: Aggressive Question Number Detection (same as main function)
+const detectAllQuestionNumbers = (text: string): Set<string> => {
+  const numbers = new Set<string>();
+  
+  const markerMatches = text.matchAll(/\[QUESTION_(\d+)\]/gi);
+  for (const match of markerMatches) numbers.add(match[1]);
+  
+  const qMatches = text.matchAll(/\bQ(?:uestion)?\s*(\d+)\b/gi);
+  for (const match of qMatches) numbers.add(match[1]);
+  
+  const numMatches = text.matchAll(/(?<!page\s|chapter\s|section\s)(\d+)\s*[.:\)\-]\s*(?=[A-Z])/gi);
+  for (const match of numMatches) {
+    const num = parseInt(match[1]);
+    if (num >= 1 && num <= 200) numbers.add(match[1]);
+  }
+  
+  const indentMatches = text.matchAll(/^\s+(\d+)[.:\)]/gm);
+  for (const match of indentMatches) {
+    const num = parseInt(match[1]);
+    if (num >= 1 && num <= 200) numbers.add(match[1]);
+  }
+  
+  return numbers;
+};
+
+const inferQuestionType = (text: string): string => {
+  const lower = text.toLowerCase();
+  
+  if ((lower.includes('assertion') && lower.includes('reason')) || 
+      (lower.includes('assertion (a)') || lower.includes('reason (r)'))) {
+    return 'assertion_reason';
+  }
+  
+  if (lower.includes('match') && (lower.includes('column') || lower.includes('following'))) {
+    return 'match_column';
+  }
+  
+  const blankCount = (text.match(/___+|_{3,}/g) || []).length;
+  if (blankCount > 0 || lower.includes('fill') || lower.includes('blank')) {
+    return 'fill_blank';
+  }
+  
+  if ((lower.includes('true') && lower.includes('false')) || lower.match(/\(t\s*\/\s*f\)/i)) {
+    return 'true_false';
+  }
+  
+  const hasOptionsPattern = text.match(/\([a-d]\)|[a-d]\)/gi);
+  if (hasOptionsPattern && hasOptionsPattern.length >= 3) {
+    return 'mcq';
+  }
+  
+  if (lower.includes('arrange') || lower.includes('sequence') || 
+      lower.includes('order') || lower.includes('chronological')) {
+    return 'sequence_order';
+  }
+  
+  return 'short_answer';
+};
+
+const createQuestionTemplate = (qNum: string, text: string, type: string): any => {
+  const base = {
+    question_number: qNum,
+    question_text: text,
+    question_type: type,
+    marks: 1,
+    difficulty: 'medium',
+    requires_manual_review: true,
+    template_generated: true,
+    confidence: 'low',
+    extraction_issues: ['Auto-generated template - requires verification']
+  };
+  
+  switch (type) {
+    case 'mcq':
+      return { ...base, options: ['[A]', '[B]', '[C]', '[D]'], correct_answer: { index: -1 } };
+    case 'true_false':
+      return { ...base, options: ['True', 'False'], correct_answer: { value: null } };
+    case 'fill_blank':
+      const blankCount = Math.max((text.match(/___+/g) || []).length, 1);
+      return { ...base, blanks_count: blankCount, correct_answer: { blanks: [] } };
+    case 'match_column':
+      return { ...base, left_column: ['[A]', '[B]', '[C]'], right_column: ['[i]', '[ii]', '[iii]'], correct_answer: { pairs: [] } };
+    case 'sequence_order':
+      return { ...base, correct_answer: { correctSequence: ['[Step 1]', '[Step 2]', '[Step 3]'] } };
+    default:
+      return { ...base, marks: 2, correct_answer: null };
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -250,40 +339,50 @@ ${chunkContent}
       }
     }
 
-    console.log(`📊 Total questions extracted: ${allQuestions.length}`);
+    console.log(`📊 Total questions extracted from chunks: ${allQuestions.length}`);
     console.log(`🚫 Skipped ${skippedDuplicates} duplicate questions`);
 
-    // Templateizer pass: add templates for any sparse chunks
-    console.log('🔧 Running templateizer pass for quality assurance...');
+    // PHASE 3: Enhanced Templateizer - detect ALL question numbers and fill gaps
+    console.log('🔧 Running enhanced templateizer with aggressive detection...');
+    const allDetectedNumbers = detectAllQuestionNumbers(file_content);
+    console.log(`🔍 Detected ${allDetectedNumbers.size} total question numbers in document`);
+    
     const questionNumbers = new Set(allQuestions.map(q => q.question_number?.toString()));
-    const allDetectedNumbers = new Set<string>();
-    
-    // Quick scan for question markers in original text
-    const markerPattern = /\[QUESTION_(\d+)\]|^Q(?:uestion)?\s*(\d+)[.:\)\-]|^(\d+)\s*[.:\)]/gmi;
-    let match;
-    while ((match = markerPattern.exec(file_content)) !== null) {
-      const num = match[1] || match[2] || match[3];
-      if (num) allDetectedNumbers.add(num);
-    }
-    
-    // Generate minimal templates for missing question numbers
     const missingNumbers = Array.from(allDetectedNumbers).filter(n => !questionNumbers.has(n));
+    
+    let templatesAdded = 0;
     if (missingNumbers.length > 0) {
-      console.log(`📋 Adding ${missingNumbers.length} templates for detected but un-extracted questions`);
+      console.log(`📋 Generating templates for ${missingNumbers.length} detected but un-extracted questions`);
+      
       for (const num of missingNumbers) {
-        allQuestions.push({
-          question_number: num,
-          question_type: 'short_answer',
-          question_text: `[Question ${num} - requires manual editing]`,
-          marks: 1,
-          difficulty: 'medium',
-          confidence: 'low',
-          requires_manual_review: true,
-          template_generated: true,
-          extraction_issues: ['Detected question number but could not extract full content']
-        });
+        // Try to find content for this question number
+        const patterns = [
+          new RegExp(`\\[QUESTION_${num}\\]([\\s\\S]*?)(?=\\[QUESTION_|$)`, 'i'),
+          new RegExp(`Q(?:uestion)?\\s*${num}[.:\\)\\-]([\\s\\S]*?)(?=Q(?:uestion)?\\s*\\d+[.:\\)\\-]|$)`, 'i'),
+          new RegExp(`(?:^|\\n)\\s*${num}[.:\\)]([\\s\\S]*?)(?=\\n\\s*\\d+[.:\\)]|$)`, 'm')
+        ];
+        
+        let questionText = '';
+        for (const pattern of patterns) {
+          const match = file_content.match(pattern);
+          if (match && match[1]) {
+            questionText = match[1].trim().substring(0, 500);
+            break;
+          }
+        }
+        
+        if (!questionText) {
+          questionText = `[Question ${num} - requires manual entry]`;
+        }
+        
+        const type = inferQuestionType(questionText);
+        const template = createQuestionTemplate(num, questionText, type);
+        allQuestions.push(template);
+        templatesAdded++;
       }
     }
+    
+    console.log(`✅ Final: ${allQuestions.length - templatesAdded} extracted + ${templatesAdded} templates = ${allQuestions.length} total`);
 
     // Separate high/medium confidence vs low confidence questions
     const highConfidence = allQuestions.filter(q =>
@@ -316,6 +415,13 @@ ${chunkContent}
     return new Response(JSON.stringify({
       success: true,
       total_questions: allQuestions.length,
+      extraction_summary: {
+        detected_question_numbers: allDetectedNumbers.size,
+        ai_extracted: allQuestions.length - templatesAdded,
+        template_generated: templatesAdded,
+        fully_extracted_count: highConfidence.length,
+        requires_manual_review_count: lowConfidence.length
+      },
       high_confidence_count: highConfidence.length,
       low_confidence_count: lowConfidence.length,
       skipped_duplicates: skippedDuplicates,

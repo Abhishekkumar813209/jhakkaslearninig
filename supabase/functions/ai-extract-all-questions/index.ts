@@ -231,6 +231,7 @@ serve(async (req) => {
 3. Copy EXACT text from document - word for word
 4. If you can't find a question number in the text, SKIP IT
 5. Each question MUST have a visible number marker (1., Q1, Question 1, etc.)
+6. PRESERVE all line breaks using \\n characters in question_text, assertion, reason, and options
 
 **SPECIAL HANDLING FOR FIGURES:**
 - If you encounter [FIGURE id=img_X] with NO [IMAGE_OCR] data below it, the OCR failed

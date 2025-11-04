@@ -281,20 +281,24 @@ export const normalizeTrigInverse = (text: string): string => {
 export const renderMath = (input: string): string => {
   if (!input) return '';
   
+  // Convert newlines to <br> tags early in the pipeline
+  let text = input.replace(/\n/g, '<br />');
+  
   // Step 1: Protect MCQ option labels like (A), (B), (C), (D) from transformations
+  // Using unique symbols (§§) that won't appear in normal text or get escaped
   const protectedTokens: Record<string, string> = {};
   let tokenIndex = 0;
   
   // Protect (A)-(D) MCQ tokens (case-insensitive)
-  let protectedInput = input.replace(/\([A-Da-d]\)/g, (match) => {
-    const placeholder = `__PROTECTED_TOKEN_${tokenIndex++}__`;
+  let protectedInput = text.replace(/\([A-Da-d]\)/g, (match) => {
+    const placeholder = `§§PROTECT§${tokenIndex}§§`;
     protectedTokens[placeholder] = match;
     return placeholder;
   });
   
   // Protect ALL single-digit/letter parentheses like (8), (1), (x), (B), etc.
   protectedInput = protectedInput.replace(/\(([A-Za-z0-9])\)/g, (match) => {
-    const placeholder = `__PROTECTED_TOKEN_${tokenIndex++}__`;
+    const placeholder = `§§PROTECT§${tokenIndex}§§`;
     protectedTokens[placeholder] = match;
     return placeholder;
   });
@@ -349,10 +353,17 @@ export const renderMath = (input: string): string => {
   // Step 11: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  // Step 12: Restore ALL protected tokens
+  // Step 12: Restore ALL protected tokens with robust replacement
   Object.keys(protectedTokens).forEach(placeholder => {
-    safe = safe.replace(placeholder, protectedTokens[placeholder]);
+    // Use global regex replacement to handle all occurrences
+    const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    safe = safe.replace(new RegExp(escapedPlaceholder, 'g'), protectedTokens[placeholder]);
   });
+  
+  // Fallback: Check if any protection tokens remain (for debugging)
+  if (safe.includes('§§PROTECT§')) {
+    console.warn('Warning: Some protected tokens were not restored properly');
+  }
   
   return safe;
 };
@@ -384,6 +395,9 @@ export const renderWithImages = (html: string): string => {
   
   // First expand any image tokens
   let text = expandImageTokens(html);
+  
+  // Convert newlines to <br> tags before tokenization
+  text = text.replace(/\n/g, '<br />');
   
   const tokens: Record<string, string> = {};
   let tokenIndex = 0;

@@ -180,7 +180,8 @@ serve(async (req) => {
 3. For partially visible questions, extract what you can and mark confidence as 'low'
 4. Extract questions from tables, boxes, diagrams, and special layouts
 5. Preserve all mathematical notation (superscripts, subscripts, symbols)
-6. Mark questions with low confidence if:
+6. PRESERVE all line breaks using \\n characters in question_text, assertion, reason, and options
+7. Mark questions with low confidence if:
    - Text is partially cut off
    - Image content is unclear
    - Question appears incomplete

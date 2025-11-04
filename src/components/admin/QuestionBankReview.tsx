@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { renderWithImages } from "@/lib/mathRendering";
 
 interface UnansweredQuestion {
   id: string;
@@ -136,7 +137,10 @@ export const QuestionBankReview = () => {
                       <Badge variant="outline">{q.subject}</Badge>
                       <Badge variant="secondary">{q.chapter_name}</Badge>
                     </div>
-                    <p className="font-semibold text-lg">{q.question_text}</p>
+                    <div 
+                      className="font-semibold text-lg"
+                      dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -150,7 +154,7 @@ export const QuestionBankReview = () => {
                         className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-green-50 hover:border-green-500"
                       >
                         <span className="font-semibold mr-2">{idx + 1}.</span>
-                        <span>{opt}</span>
+                        <span dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} />
                         {processing === q.id && (
                           <Loader2 className="ml-auto h-4 w-4 animate-spin" />
                         )}

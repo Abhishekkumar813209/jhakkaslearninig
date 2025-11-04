@@ -5335,6 +5335,14 @@ export type Database = {
         | "subjective"
         | "drag_drop_sort"
         | "interactive_label"
+        | "match_pairs"
+        | "fill_blanks"
+        | "drag_drop_sequence"
+        | "typing_race"
+        | "memory_card"
+        | "crossword"
+        | "physics_simulation"
+        | "assertion_reason"
       question_type: "mcq" | "subjective"
       roadmap_status: "draft" | "active" | "completed" | "archived" | "orphaned"
       student_class:
@@ -5521,6 +5529,14 @@ export const Constants = {
         "subjective",
         "drag_drop_sort",
         "interactive_label",
+        "match_pairs",
+        "fill_blanks",
+        "drag_drop_sequence",
+        "typing_race",
+        "memory_card",
+        "crossword",
+        "physics_simulation",
+        "assertion_reason",
       ],
       question_type: ["mcq", "subjective"],
       roadmap_status: ["draft", "active", "completed", "archived", "orphaned"],

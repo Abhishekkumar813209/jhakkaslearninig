@@ -153,8 +153,15 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
   // Initialize data whenever gameType changes
   useEffect(() => {
-    handleDataChange();
-  }, [gameType]);
+    onChange({
+      questionText: '',
+      gameData: {},
+      explanation: '',
+      marks: 1,
+      difficulty: 'medium',
+      question_type: gameType
+    });
+  }, [gameType, onChange]);
 
   // MCQ Input
   if (gameType === 'mcq') {

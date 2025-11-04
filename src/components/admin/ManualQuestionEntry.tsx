@@ -34,7 +34,14 @@ export const ManualQuestionEntry = ({
 
   // Reset questionData when game type changes
   useEffect(() => {
-    setQuestionData(null);
+    setQuestionData({
+      questionText: '',
+      gameData: {},
+      explanation: '',
+      marks: 1,
+      difficulty: 'medium',
+      question_type: selectedGameType
+    });
   }, [selectedGameType]);
 
   const gameTypeOptions = [

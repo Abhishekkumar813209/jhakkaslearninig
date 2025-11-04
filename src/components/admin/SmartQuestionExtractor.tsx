@@ -38,7 +38,10 @@ const stripHtmlTags = (html: string): string => {
 };
 
 // Helper to render math while preserving images and breaks
-const renderWithImages = (html: string): string => {
+const renderWithImages = (html: string | null | undefined): string => {
+  // Handle null/undefined case
+  if (!html || typeof html !== 'string') return '';
+  
   const tokens: Record<string, string> = {};
   let i = 0;
   

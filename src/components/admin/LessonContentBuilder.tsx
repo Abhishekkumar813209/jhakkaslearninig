@@ -1325,51 +1325,51 @@ function LessonContentBuilderInner() {
 
   // Validation helper for game data
   const validateGameData = (gameData: any, questionType: string, questionNumber: string): boolean => {
-    // 🆕 Match column ke liye alag validation (question field nahi hota)
+    // Match column (as match_pairs game) validation
     if (questionType === 'match_column') {
-      if (!gameData.pairs || gameData.pairs.length < 2) {
-        toast({ 
-          title: "Validation Error", 
-          description: `Question ${questionNumber}: Match column needs at least 2 pairs!`,
-          variant: "destructive" 
+      const pairs = gameData.pairs as Array<{ id: string; left: string; right: string }> | undefined;
+
+      if (!Array.isArray(pairs) || pairs.length < 2) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Match column ko kam se kam 2 pairs chahiye!`,
+          variant: "destructive",
         });
         return false;
       }
-      
-      // Check if each pair has valid left and right values
-      const invalidPairs = gameData.pairs.filter((p: any) => 
-        p.left === undefined || p.left === null || p.left === '' ||
-        p.right === undefined || p.right === null || p.right === ''
+
+      const invalidPairs = pairs.filter(
+        (p) => !p || !p.left || !p.right || String(p.left).trim() === '' || String(p.right).trim() === ''
       );
       if (invalidPairs.length > 0) {
-        toast({ 
-          title: "Validation Error", 
-          description: `Question ${questionNumber}: All pairs must have both left and right columns filled!`,
-          variant: "destructive" 
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Har pair me left aur right dono filled hone chahiye!`,
+          variant: "destructive",
         });
         return false;
       }
-      
-      return true; // ✅ Valid match_column
+
+      return true;
     }
-    
-    // 🔄 Existing validation for other question types (MCQ, True/False, etc.)
+
+    // Baaki question types ke liye generic checks
     if (!gameData.question || gameData.question.trim() === '') {
-      toast({ 
-        title: "Validation Error", 
+      toast({
+        title: "Validation Error",
         description: `Question ${questionNumber}: Question text is empty!`,
-        variant: "destructive" 
+        variant: "destructive",
       });
       return false;
     }
 
-    // Check options for MCQ-type questions
+    // MCQ-type options check
     if (['mcq', 'true_false', 'assertion_reason'].includes(questionType)) {
       if (!gameData.options || gameData.options.length < 2) {
-        toast({ 
-          title: "Validation Error", 
+        toast({
+          title: "Validation Error",
           description: `Question ${questionNumber}: Need at least 2 options! Found: ${gameData.options?.length || 0}`,
-          variant: "destructive" 
+          variant: "destructive",
         });
         return false;
       }
@@ -1462,19 +1462,42 @@ function LessonContentBuilderInner() {
             
             case 'match_column':
               gameType = 'match_pairs';
-              gameData = {
-                original_type: 'match_column',
-                pairs: (q.left_column || []).map((left, idx) => ({
-                  id: `pair_${idx}`,
-                  left,
-                  right: q.right_column?.[idx] || ''
-                })),
-                max_attempts: 10,
-                time_limit: 120,
-                difficulty: q.difficulty || 'medium',
-                marks: q.marks || 1,
-                question_number: q.question_number
-              };
+              {
+                const leftRaw: string[] = Array.isArray(q.left_column) ? q.left_column : [];
+                const rightRaw: string[] = Array.isArray(q.right_column) ? q.right_column : [];
+
+                const pairs: { id: string; left: string; right: string }[] = [];
+                const ans = (q as any).correct_answer as any;
+                if (ans && Array.isArray(ans.pairs)) {
+                  ans.pairs.forEach((p: any, idx: number) => {
+                    const leftText = (leftRaw[p.left] ?? '').toString().trim();
+                    const rightText = (rightRaw[p.right] ?? '').toString().trim();
+                    if (leftText && rightText) {
+                      pairs.push({ id: `pair_${idx + 1}`, left: leftText, right: rightText });
+                    }
+                  });
+                }
+
+                if (pairs.length === 0) {
+                  const minLen = Math.min(leftRaw.length, rightRaw.length);
+                  for (let i = 0; i < minLen; i++) {
+                    const leftText = (leftRaw[i] ?? '').toString().trim();
+                    const rightText = (rightRaw[i] ?? '').toString().trim();
+                    if (leftText && rightText) {
+                      pairs.push({ id: `pair_${i + 1}`, left: leftText, right: rightText });
+                    }
+                  }
+                }
+
+                gameData = {
+                  pairs,
+                  time_limit: 120,
+                  max_attempts: 10,
+                  difficulty: q.difficulty || 'medium',
+                  marks: q.marks || 1,
+                  question_number: q.question_number,
+                };
+              }
               break;
             
             case 'true_false':

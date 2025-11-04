@@ -3037,7 +3037,7 @@ export const SmartQuestionExtractor = ({
               />
             </div>
 
-            {previewQuestion?.options && previewQuestion.options.length > 0 && previewQuestion?.question_type !== 'match_column' && (
+            {previewQuestion?.options && previewQuestion.options.length > 0 && previewQuestion?.question_type !== 'match_column' && previewQuestion?.question_type !== 'assertion_reason' && (
               <div>
                 <h4 className="font-medium mb-2">Options:</h4>
                 <ul className="space-y-1">
@@ -3050,25 +3050,76 @@ export const SmartQuestionExtractor = ({
               </div>
             )}
 
-            {previewQuestion?.left_column && previewQuestion?.right_column && (
-              <div>
-                <h4 className="font-medium mb-2">Matching Items:</h4>
-                <div className="grid grid-cols-2 gap-4">
+            {previewQuestion?.question_type === 'assertion_reason' && (previewQuestion?.assertion || previewQuestion?.reason) && (
+              <div className="space-y-3 border-l-2 border-purple-500/20 pl-4">
+                {previewQuestion.assertion && (
                   <div>
-                    <p className="text-xs font-medium mb-1">Column I:</p>
+                    <Badge variant="outline" className="mb-1">Assertion (A)</Badge>
+                    <div 
+                      className="text-sm whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: renderMath(previewQuestion.assertion) }}
+                    />
+                  </div>
+                )}
+                {previewQuestion.reason && (
+                  <div>
+                    <Badge variant="outline" className="mb-1">Reason (R)</Badge>
+                    <div 
+                      className="text-sm whitespace-pre-wrap"
+                      dangerouslySetInnerHTML={{ __html: renderMath(previewQuestion.reason) }}
+                    />
+                  </div>
+                )}
+                {previewQuestion?.options && previewQuestion.options.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2">Options:</h4>
                     <ul className="space-y-1">
-                      {previewQuestion.left_column.map((item, idx) => (
-                        <li key={idx} className="text-sm">• {item}</li>
+                      {previewQuestion.options.map((opt, idx) => (
+                        <li key={idx} className="text-sm pl-4">
+                          <span dangerouslySetInnerHTML={{ __html: renderMath(opt) }} />
+                        </li>
                       ))}
                     </ul>
                   </div>
+                )}
+              </div>
+            )}
+
+            {previewQuestion?.left_column && previewQuestion?.right_column && (
+              <div>
+                <h4 className="font-medium mb-2">Matching Items:</h4>
+                <div className="grid grid-cols-2 gap-6 border-l-2 border-primary/20 pl-4">
                   <div>
-                    <p className="text-xs font-medium mb-1">Column II:</p>
-                    <ul className="space-y-1">
-                      {previewQuestion.right_column.map((item, idx) => (
-                        <li key={idx} className="text-sm">• {item}</li>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Column I</p>
+                    <div className="space-y-1">
+                      {previewQuestion.left_column.map((item, idx) => (
+                        <div key={idx} className="text-sm flex items-start gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {String.fromCharCode(65 + idx)}
+                          </Badge>
+                          <span 
+                            className="flex-1"
+                            dangerouslySetInnerHTML={{ __html: renderMath(item) }}
+                          />
+                        </div>
                       ))}
-                    </ul>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Column II</p>
+                    <div className="space-y-1">
+                      {previewQuestion.right_column.map((item, idx) => (
+                        <div key={idx} className="text-sm flex items-start gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {String.fromCharCode(105 + idx)}
+                          </Badge>
+                          <span 
+                            className="flex-1"
+                            dangerouslySetInnerHTML={{ __html: renderMath(item) }}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                </div>
                {previewQuestion?.question_type === 'match_column' && previewQuestion?.options && previewQuestion.options.length > 0 && (

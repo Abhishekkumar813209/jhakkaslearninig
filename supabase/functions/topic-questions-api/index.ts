@@ -178,11 +178,150 @@ serve(async (req) => {
     console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // Enforce admin only for specific actions
-    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question', 'update_full_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed'];
+    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question', 'update_full_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed', 'insert_sample_questions'];
     if (adminActions.includes(action) && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== insert_sample_questions: Add 8 sample questions for testing ==========
+    if (action === 'insert_sample_questions') {
+      const { topic_id, subject, chapter_id, batch_id } = body;
+      if (!topic_id) {
+        throw new Error('Missing topic_id');
+      }
+
+      console.log(`🎯 Inserting 8 sample questions for topic: ${topic_id}`);
+
+      const sampleQuestions = [
+        // 1. MCQ
+        {
+          question_text: 'What is the powerhouse of the cell?',
+          question_type: 'mcq',
+          options: ['Nucleus', 'Ribosome', 'Mitochondria', 'Chloroplast'],
+          correct_answer: '2',
+          difficulty: 'easy',
+          marks: 1,
+          explanation: 'Mitochondria is known as the powerhouse of the cell because it produces ATP.',
+          question_number: '1'
+        },
+        // 2. True/False
+        {
+          question_text: 'Water boils at 100°C at sea level.',
+          question_type: 'true_false',
+          options: ['True', 'False'],
+          correct_answer: '0',
+          difficulty: 'easy',
+          marks: 1,
+          explanation: 'Water boils at 100°C (212°F) at sea level atmospheric pressure.',
+          question_number: '2'
+        },
+        // 3. Fill in the Blank
+        {
+          question_text: 'The process by which plants make their own food is called ___.',
+          question_type: 'fill_blank',
+          correct_answer: 'photosynthesis',
+          difficulty: 'easy',
+          marks: 1,
+          explanation: 'Photosynthesis is the process where plants use sunlight to synthesize food.',
+          question_number: '3'
+        },
+        // 4. Match Column
+        {
+          question_text: 'Match the following scientists with their discoveries:',
+          question_type: 'match_column',
+          left_column: ['Isaac Newton', 'Albert Einstein', 'Marie Curie', 'Charles Darwin'],
+          right_column: ['Theory of Evolution', 'Laws of Motion', 'Theory of Relativity', 'Radioactivity'],
+          correct_answer: JSON.stringify({ '0': 1, '1': 2, '2': 3, '3': 0 }),
+          difficulty: 'medium',
+          marks: 2,
+          explanation: 'Newton - Laws of Motion, Einstein - Relativity, Curie - Radioactivity, Darwin - Evolution',
+          question_number: '4'
+        },
+        // 5. Assertion-Reason
+        {
+          question_text: 'Read the assertion and reason carefully:',
+          question_type: 'assertion_reason',
+          assertion: 'Plants release oxygen during photosynthesis.',
+          reason: 'Oxygen is a by-product when plants convert carbon dioxide and water into glucose.',
+          options: [
+            'Both A and R are true and R is the correct explanation of A',
+            'Both A and R are true but R is not the correct explanation of A',
+            'A is true but R is false',
+            'A is false but R is true'
+          ],
+          correct_answer: '0',
+          difficulty: 'medium',
+          marks: 2,
+          explanation: 'Both statements are true and the reason correctly explains the assertion.',
+          question_number: '5'
+        },
+        // 6. Short Answer
+        {
+          question_text: 'Explain the water cycle in 2-3 sentences.',
+          question_type: 'short_answer',
+          correct_answer: 'The water cycle describes how water evaporates from Earth surface, rises into the atmosphere, cools and condenses into clouds, and falls back as precipitation.',
+          difficulty: 'medium',
+          marks: 3,
+          explanation: 'The water cycle involves evaporation, condensation, and precipitation.',
+          question_number: '6'
+        },
+        // 7. MCQ (Science-specific)
+        {
+          question_text: 'Which gas is most abundant in Earth\'s atmosphere?',
+          question_type: 'mcq',
+          options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'],
+          correct_answer: '1',
+          difficulty: 'easy',
+          marks: 1,
+          explanation: 'Nitrogen makes up about 78% of Earth\'s atmosphere.',
+          question_number: '7'
+        },
+        // 8. True/False (Science-specific)
+        {
+          question_text: 'The speed of light is faster than the speed of sound.',
+          question_type: 'true_false',
+          options: ['True', 'False'],
+          correct_answer: '0',
+          difficulty: 'easy',
+          marks: 1,
+          explanation: 'Light travels at approximately 300,000 km/s while sound travels at about 343 m/s in air.',
+          question_number: '8'
+        }
+      ];
+
+      const insertPromises = sampleQuestions.map((q) => 
+        serviceClient.from('question_bank').insert({
+          ...q,
+          topic_id,
+          subject: subject || 'Science',
+          chapter_id: chapter_id || null,
+          batch_id: batch_id || null,
+          created_by: user.id,
+          is_approved: false,
+          admin_reviewed: false
+        })
+      );
+
+      const results = await Promise.all(insertPromises);
+      const errors = results.filter(r => r.error);
+
+      if (errors.length > 0) {
+        console.error('❌ Some insertions failed:', errors);
+        throw new Error(`Failed to insert ${errors.length} questions`);
+      }
+
+      console.log(`✅ Successfully inserted ${sampleQuestions.length} sample questions`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Inserted ${sampleQuestions.length} sample questions`,
+          count: sampleQuestions.length 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

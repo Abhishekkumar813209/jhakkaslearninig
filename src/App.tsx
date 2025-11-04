@@ -44,7 +44,6 @@ import TestQuestionReview from "./pages/TestQuestionReview";
 // Lazy load heavy admin pages to prevent them from affecting public routes
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminCourses = lazy(() => import("./pages/AdminCourses"));
-const AnswerManagement = lazy(() => import("./pages/AnswerManagement"));
 const SolutionManagement = lazy(() => import("./pages/SolutionManagement"));
 const QuestionBank = lazy(() => import("./pages/QuestionBank"));
 
@@ -186,7 +185,15 @@ const App = () => (
                 </Suspense>
               </ProtectedRoute>
             } />
+            {/* Solution Management and Answer Management - both routes point to same page */}
             <Route path="/admin/solution-management" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <SolutionManagement />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/answer-management" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
                   <SolutionManagement />
@@ -211,13 +218,6 @@ const App = () => (
             <Route path="/edge-function-explorer" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <EdgeFunctionExplorer />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/answer-management" element={
-              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
-                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
-                  <AnswerManagement />
-                </Suspense>
               </ProtectedRoute>
             } />
             <Route path="/admin/question-bank" element={

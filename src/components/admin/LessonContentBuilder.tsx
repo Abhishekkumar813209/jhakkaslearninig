@@ -1325,7 +1325,35 @@ function LessonContentBuilderInner() {
 
   // Validation helper for game data
   const validateGameData = (gameData: any, questionType: string, questionNumber: string): boolean => {
-    // Check question text
+    // 🆕 Match column ke liye alag validation (question field nahi hota)
+    if (questionType === 'match_column') {
+      if (!gameData.pairs || gameData.pairs.length < 2) {
+        toast({ 
+          title: "Validation Error", 
+          description: `Question ${questionNumber}: Match column needs at least 2 pairs!`,
+          variant: "destructive" 
+        });
+        return false;
+      }
+      
+      // Check if each pair has valid left and right values
+      const invalidPairs = gameData.pairs.filter((p: any) => 
+        p.left === undefined || p.left === null || p.left === '' ||
+        p.right === undefined || p.right === null || p.right === ''
+      );
+      if (invalidPairs.length > 0) {
+        toast({ 
+          title: "Validation Error", 
+          description: `Question ${questionNumber}: All pairs must have both left and right columns filled!`,
+          variant: "destructive" 
+        });
+        return false;
+      }
+      
+      return true; // ✅ Valid match_column
+    }
+    
+    // 🔄 Existing validation for other question types (MCQ, True/False, etc.)
     if (!gameData.question || gameData.question.trim() === '') {
       toast({ 
         title: "Validation Error", 
@@ -1341,18 +1369,6 @@ function LessonContentBuilderInner() {
         toast({ 
           title: "Validation Error", 
           description: `Question ${questionNumber}: Need at least 2 options! Found: ${gameData.options?.length || 0}`,
-          variant: "destructive" 
-        });
-        return false;
-      }
-    }
-
-    // Check pairs for match_column
-    if (questionType === 'match_column') {
-      if (!gameData.pairs || gameData.pairs.length < 2) {
-        toast({ 
-          title: "Validation Error", 
-          description: `Question ${questionNumber}: Match column needs at least 2 pairs!`,
           variant: "destructive" 
         });
         return false;

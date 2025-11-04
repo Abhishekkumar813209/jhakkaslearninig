@@ -32,8 +32,13 @@ export const ManualQuestionEntry = ({
   const [questionData, setQuestionData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
-  // Reset questionData when game type changes
+  // Reset questionData when game type changes - but only if user confirms
   useEffect(() => {
+    if (questionData && questionData.questionText?.trim()) {
+      // User has entered data - don't auto-reset to prevent data loss
+      return;
+    }
+    
     setQuestionData({
       questionText: '',
       gameData: {},
@@ -163,6 +168,21 @@ export const ManualQuestionEntry = ({
           correctAnswerFormat = gameData;
       }
 
+      // Prepare data for match_column
+      const leftColumnData = gameType === 'match_column' ? (gameData.leftColumn || []).filter((v: string) => v?.trim()) : null;
+      const rightColumnData = gameType === 'match_column' ? (gameData.rightColumn || []).filter((v: string) => v?.trim()) : null;
+      
+      // Ensure we have valid arrays (not empty) before saving
+      const finalLeftColumn = leftColumnData && leftColumnData.length > 0 ? leftColumnData : null;
+      const finalRightColumn = rightColumnData && rightColumnData.length > 0 ? rightColumnData : null;
+
+      console.log('💾 Saving question with columns:', {
+        gameType,
+        leftColumn: finalLeftColumn,
+        rightColumn: finalRightColumn,
+        correctAnswer: correctAnswerFormat
+      });
+
       // Step 1: Save to question_bank
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
@@ -175,12 +195,8 @@ export const ManualQuestionEntry = ({
           question_type: gameType,
           question_text: questionData.questionText,
           options: gameData.options || null,
-          left_column: gameType === 'match_column' && gameData.leftColumn?.some((v: string) => v.trim()) 
-            ? gameData.leftColumn.filter((v: string) => v.trim())
-            : null,
-          right_column: gameType === 'match_column' && gameData.rightColumn?.some((v: string) => v.trim())
-            ? gameData.rightColumn.filter((v: string) => v.trim()) 
-            : null,
+          left_column: finalLeftColumn,
+          right_column: finalRightColumn,
           correct_answer: correctAnswerFormat,
           explanation: questionData.explanation,
           marks: questionData.marks || 1,

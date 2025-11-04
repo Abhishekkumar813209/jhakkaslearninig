@@ -62,7 +62,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       case 'mcq':
         gameData = {
           question: questionText,
-          options,
+          options: options.filter(opt => opt.trim()),
           correctAnswerIndex: correctAnswer,
           marks,
           difficulty
@@ -81,17 +81,21 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       case 'fill_blank':
         gameData = {
           question: questionText,
-          blanks,
+          blanks: blanks.filter(b => b.correctAnswer.trim()),
           marks,
           difficulty
         };
         break;
 
       case 'match_column':
+        // Filter out empty items but preserve indices
+        const filteredLeft = leftColumn.filter(item => item.trim());
+        const filteredRight = rightColumn.filter(item => item.trim());
+        
         gameData = {
           question: questionText,
-          leftColumn,
-          rightColumn,
+          leftColumn: filteredLeft,
+          rightColumn: filteredRight,
           correctPairs: pairs,
           marks,
           difficulty
@@ -158,17 +162,36 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
     onChange({ questionText, gameData, explanation, marks, difficulty, question_type: gameType });
   };
 
-  // Initialize data whenever gameType changes
+  // Initialize data whenever gameType changes - but preserve existing data
   useEffect(() => {
-    onChange({
-      questionText: '',
-      gameData: {},
-      explanation: '',
-      marks: 1,
-      difficulty: 'medium',
-      question_type: gameType
-    });
-  }, [gameType, onChange]);
+    // Reset state based on game type
+    setQuestionText('');
+    setExplanation('');
+    setMarks(1);
+    setDifficulty('medium');
+    
+    // Reset game-specific states
+    if (gameType === 'mcq') {
+      setOptions(['', '', '', '']);
+      setCorrectAnswer(0);
+    } else if (gameType === 'fill_blank') {
+      setBlanksCount(1);
+      setBlanks([{ correctAnswer: '', distractors: ['', '', ''] }]);
+    } else if (gameType === 'match_column') {
+      setLeftColumn(['', '']);
+      setRightColumn(['', '']);
+      setPairs([]);
+    } else if (gameType === 'match_pairs') {
+      setPairItems([{ left: '', right: '' }, { left: '', right: '' }]);
+    } else if (gameType === 'sequence_order') {
+      setSequenceItems(['', '', '']);
+    } else if (gameType === 'card_memory') {
+      setMemoryPairs(['', '']);
+    }
+    
+    // Trigger data change only once after reset
+    setTimeout(() => handleDataChange(), 0);
+  }, [gameType]);
 
   // MCQ Input
   if (gameType === 'mcq') {
@@ -178,17 +201,26 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
           <Label>Question Text *</Label>
           <Textarea
             value={questionText}
-            onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }}
+            onChange={(e) => { 
+              setQuestionText(e.target.value); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
             placeholder="Enter your question..."
             rows={3}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Options *</Label>
+          <Label>Options * (4 required)</Label>
           {options.map((opt, idx) => (
             <div key={idx} className="flex gap-2 items-center">
-              <RadioGroup value={correctAnswer.toString()} onValueChange={(v) => { setCorrectAnswer(parseInt(v)); handleDataChange(); }}>
+              <RadioGroup 
+                value={correctAnswer.toString()} 
+                onValueChange={(v) => { 
+                  setCorrectAnswer(parseInt(v)); 
+                  setTimeout(() => handleDataChange(), 0);
+                }}
+              >
                 <RadioGroupItem value={idx.toString()} />
               </RadioGroup>
               <Input
@@ -197,9 +229,10 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                   const newOpts = [...options];
                   newOpts[idx] = e.target.value;
                   setOptions(newOpts);
-                  handleDataChange();
+                  setTimeout(() => handleDataChange(), 0);
                 }}
-                placeholder={`Option ${idx + 1}`}
+                placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                className={opt.trim() ? '' : 'border-orange-300'}
               />
             </div>
           ))}
@@ -209,7 +242,10 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
           <Label>Explanation</Label>
           <Textarea
             value={explanation}
-            onChange={(e) => { setExplanation(e.target.value); handleDataChange(); }}
+            onChange={(e) => { 
+              setExplanation(e.target.value); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
             placeholder="Explain the correct answer..."
             rows={2}
           />
@@ -218,11 +254,25 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Marks</Label>
-            <Input type="number" value={marks} onChange={(e) => { setMarks(parseInt(e.target.value)); handleDataChange(); }} />
+            <Input 
+              type="number" 
+              value={marks} 
+              onChange={(e) => { 
+                setMarks(parseInt(e.target.value)); 
+                setTimeout(() => handleDataChange(), 0);
+              }} 
+            />
           </div>
           <div>
             <Label>Difficulty</Label>
-            <select className="w-full border rounded px-3 py-2" value={difficulty} onChange={(e) => { setDifficulty(e.target.value); handleDataChange(); }}>
+            <select 
+              className="w-full border rounded px-3 py-2" 
+              value={difficulty} 
+              onChange={(e) => { 
+                setDifficulty(e.target.value); 
+                setTimeout(() => handleDataChange(), 0);
+              }}
+            >
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
@@ -241,7 +291,10 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
           <Label>Statement *</Label>
           <Textarea
             value={questionText}
-            onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }}
+            onChange={(e) => { 
+              setQuestionText(e.target.value); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
             placeholder="Enter a true/false statement..."
             rows={2}
           />
@@ -249,14 +302,20 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
         <div className="flex gap-4">
           <div
-            onClick={() => { setCorrectAnswer(0); handleDataChange(); }}
+            onClick={() => { 
+              setCorrectAnswer(0); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
             className={`flex-1 border-2 rounded-lg p-4 cursor-pointer ${correctAnswer === 0 ? 'border-primary bg-primary/10' : 'border-border'}`}
           >
             <Switch checked={correctAnswer === 0} />
             <span className="ml-2 font-medium">True</span>
           </div>
           <div
-            onClick={() => { setCorrectAnswer(1); handleDataChange(); }}
+            onClick={() => { 
+              setCorrectAnswer(1); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
             className={`flex-1 border-2 rounded-lg p-4 cursor-pointer ${correctAnswer === 1 ? 'border-primary bg-primary/10' : 'border-border'}`}
           >
             <Switch checked={correctAnswer === 1} />
@@ -266,7 +325,15 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
         <div>
           <Label>Explanation</Label>
-          <Textarea value={explanation} onChange={(e) => { setExplanation(e.target.value); handleDataChange(); }} placeholder="Explain why..." rows={2} />
+          <Textarea 
+            value={explanation} 
+            onChange={(e) => { 
+              setExplanation(e.target.value); 
+              setTimeout(() => handleDataChange(), 0);
+            }} 
+            placeholder="Explain why..." 
+            rows={2} 
+          />
         </div>
       </div>
     );
@@ -280,7 +347,10 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
           <Label>Question with blanks (use __ for blanks) *</Label>
           <Textarea
             value={questionText}
-            onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }}
+            onChange={(e) => { 
+              setQuestionText(e.target.value); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
             placeholder="Water is made of __ and __"
             rows={2}
           />
@@ -296,8 +366,11 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
             onChange={(e) => {
               const count = parseInt(e.target.value);
               setBlanksCount(count);
-              setBlanks(Array.from({ length: count }, () => ({ correctAnswer: '', distractors: ['', '', ''] })));
-              handleDataChange();
+              const newBlanks = Array.from({ length: count }, (_, i) => 
+                blanks[i] || { correctAnswer: '', distractors: ['', '', ''] }
+              );
+              setBlanks(newBlanks);
+              setTimeout(() => handleDataChange(), 0);
             }}
           />
         </div>
@@ -310,9 +383,9 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
               value={blank.correctAnswer}
               onChange={(e) => {
                 const newBlanks = [...blanks];
-                newBlanks[idx].correctAnswer = e.target.value;
+                newBlanks[idx] = { ...newBlanks[idx], correctAnswer: e.target.value };
                 setBlanks(newBlanks);
-                handleDataChange();
+                setTimeout(() => handleDataChange(), 0);
               }}
             />
             <Label className="text-sm text-muted-foreground">Distractors (wrong options)</Label>
@@ -325,7 +398,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                   const newBlanks = [...blanks];
                   newBlanks[idx].distractors[dIdx] = e.target.value;
                   setBlanks(newBlanks);
-                  handleDataChange();
+                  setTimeout(() => handleDataChange(), 0);
                 }}
               />
             ))}
@@ -346,19 +419,26 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       <div className="space-y-4">
         <div>
           <Label>Question *</Label>
-          <Textarea value={questionText} onChange={(e) => { setQuestionText(e.target.value); handleDataChange(); }} rows={2} />
+          <Textarea 
+            value={questionText} 
+            onChange={(e) => { 
+              setQuestionText(e.target.value); 
+              setTimeout(() => handleDataChange(), 0);
+            }} 
+            rows={2} 
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="flex justify-between items-center mb-2">
-              <Label>Left Column Items ({leftColumn.length})</Label>
+              <Label>Left Column Items ({leftColumn.filter(i => i.trim()).length})</Label>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   setLeftColumn([...leftColumn, '']);
-                  handleDataChange();
+                  setTimeout(() => handleDataChange(), 0);
                 }}
               >
                 <Plus className="h-4 w-4 mr-1" />
@@ -373,7 +453,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                     const newLeft = [...leftColumn];
                     newLeft[idx] = e.target.value;
                     setLeftColumn(newLeft);
-                    handleDataChange();
+                    setTimeout(() => handleDataChange(), 0);
                   }}
                   placeholder={`Item ${String.fromCharCode(65 + idx)}`}
                 />
@@ -382,8 +462,14 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setLeftColumn(leftColumn.filter((_, i) => i !== idx));
-                      handleDataChange();
+                      const newLeft = leftColumn.filter((_, i) => i !== idx);
+                      setLeftColumn(newLeft);
+                      // Reset pairs that reference removed index
+                      setPairs(pairs.filter(p => p.left !== idx).map(p => ({
+                        left: p.left > idx ? p.left - 1 : p.left,
+                        right: p.right
+                      })));
+                      setTimeout(() => handleDataChange(), 0);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -395,13 +481,13 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
           <div>
             <div className="flex justify-between items-center mb-2">
-              <Label>Right Column Items ({rightColumn.length})</Label>
+              <Label>Right Column Items ({rightColumn.filter(i => i.trim()).length})</Label>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   setRightColumn([...rightColumn, '']);
-                  handleDataChange();
+                  setTimeout(() => handleDataChange(), 0);
                 }}
               >
                 <Plus className="h-4 w-4 mr-1" />
@@ -416,7 +502,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                     const newRight = [...rightColumn];
                     newRight[idx] = e.target.value;
                     setRightColumn(newRight);
-                    handleDataChange();
+                    setTimeout(() => handleDataChange(), 0);
                   }}
                   placeholder={`Item ${String.fromCharCode(105 + idx)}`}
                 />
@@ -425,8 +511,14 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setRightColumn(rightColumn.filter((_, i) => i !== idx));
-                      handleDataChange();
+                      const newRight = rightColumn.filter((_, i) => i !== idx);
+                      setRightColumn(newRight);
+                      // Reset pairs that reference removed index
+                      setPairs(pairs.filter(p => p.right !== idx).map(p => ({
+                        left: p.left,
+                        right: p.right > idx ? p.right - 1 : p.right
+                      })));
+                      setTimeout(() => handleDataChange(), 0);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -438,11 +530,11 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         </div>
 
         <div>
-          <Label>Correct Pairs (match left to right)</Label>
-          {leftColumn.map((item, idx) => (
+          <Label>Correct Pairs (match left to right) - {pairs.length} defined</Label>
+          {leftColumn.filter(i => i.trim()).map((item, idx) => (
             <div key={idx} className="flex items-center gap-2 mb-2">
               <Badge>{String.fromCharCode(65 + idx)}</Badge>
-              <span className="text-sm flex-1">{item || '...'}</span>
+              <span className="text-sm flex-1 truncate">{item || '...'}</span>
               <span>→</span>
               <select
                 className="border rounded px-2 py-1"
@@ -454,12 +546,14 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                     newPairs.push({ left: idx, right: rightIdx });
                   }
                   setPairs(newPairs);
-                  handleDataChange();
+                  setTimeout(() => handleDataChange(), 0);
                 }}
               >
                 <option value="">Select...</option>
-                {rightColumn.map((_, rIdx) => (
-                  <option key={rIdx} value={rIdx}>{String.fromCharCode(105 + rIdx)}</option>
+                {rightColumn.filter(i => i.trim()).map((rItem, rIdx) => (
+                  <option key={rIdx} value={rIdx}>
+                    {String.fromCharCode(105 + rIdx)} - {rItem.substring(0, 20)}
+                  </option>
                 ))}
               </select>
             </div>

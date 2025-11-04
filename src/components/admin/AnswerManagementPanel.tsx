@@ -47,6 +47,8 @@ interface Question {
   options?: string[];
   left_column?: string[];
   right_column?: string[];
+  assertion?: string;
+  reason?: string;
   correct_answer?: any;
   explanation?: string;
   marks?: number;
@@ -635,6 +637,70 @@ export const AnswerManagementPanel = () => {
                               <span className="font-medium">{String.fromCharCode(65 + idx)}.</span> {option}
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Match Column Preview */}
+                      {question.question_type === 'match_column' && 
+                       (question.left_column?.length > 0 || question.right_column?.length > 0) && (
+                        <div className="mt-3 grid grid-cols-2 gap-6 border-l-2 border-primary/20 pl-4">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">Column I</p>
+                            <div className="space-y-1">
+                              {(question.left_column || []).map((item, idx) => (
+                                <div key={idx} className="text-sm flex items-start gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {String.fromCharCode(65 + idx)}
+                                  </Badge>
+                                  <span 
+                                    className="flex-1 prose prose-sm max-w-none question-content"
+                                    dangerouslySetInnerHTML={{ __html: renderWithImages(item) }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">Column II</p>
+                            <div className="space-y-1">
+                              {(question.right_column || []).map((item, idx) => (
+                                <div key={idx} className="text-sm flex items-start gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {String.fromCharCode(105 + idx)}
+                                  </Badge>
+                                  <span 
+                                    className="flex-1 prose prose-sm max-w-none question-content"
+                                    dangerouslySetInnerHTML={{ __html: renderWithImages(item) }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Assertion-Reason Preview */}
+                      {question.question_type === 'assertion_reason' && 
+                       (question.assertion || question.reason) && (
+                        <div className="mt-3 space-y-2 border-l-2 border-purple-500/20 pl-4">
+                          {question.assertion && (
+                            <div>
+                              <Badge variant="outline" className="text-xs mb-1">Assertion (A)</Badge>
+                              <div 
+                                className="text-sm prose prose-sm max-w-none question-content"
+                                dangerouslySetInnerHTML={{ __html: renderWithImages(question.assertion) }}
+                              />
+                            </div>
+                          )}
+                          {question.reason && (
+                            <div>
+                              <Badge variant="outline" className="text-xs mb-1">Reason (R)</Badge>
+                              <div 
+                                className="text-sm prose prose-sm max-w-none question-content"
+                                dangerouslySetInnerHTML={{ __html: renderWithImages(question.reason) }}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

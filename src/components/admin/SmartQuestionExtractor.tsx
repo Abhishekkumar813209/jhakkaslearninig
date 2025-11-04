@@ -297,11 +297,73 @@ export const SmartQuestionExtractor = ({
             const difficulty = q.difficulty || 'medium';
             const explanation = q.explanation || '';
             
+            // Preserve match_column specific fields
+            const leftColumn = q.left_column || [];
+            const rightColumn = q.right_column || [];
+            const assertion = q.assertion || '';
+            const reason = q.reason || '';
+            const blanksCount = q.blanks_count || 0;
+            
             // Use correct_answer_index directly for MCQs
             let correctAnswer = q.correct_answer_index ?? q.correct_answer;
             
-            // Parse correct_answer if it's still JSONB object (defensive fallback)
-            if (questionType === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
+            // Normalize match_column answers to handle legacy formats
+            if (questionType === 'match_column') {
+              if (correctAnswer?.pairs && Array.isArray(correctAnswer.pairs)) {
+                // Already in modern format
+                correctAnswer = correctAnswer;
+              } else if (Array.isArray(correctAnswer)) {
+                // Legacy array format
+                correctAnswer = { pairs: correctAnswer };
+              } else if (typeof correctAnswer === 'object' && correctAnswer !== null) {
+                // Legacy object map like {"A":"2", "B":"1"}
+                const pairs = [];
+                const keys = Object.keys(correctAnswer);
+                
+                for (const key of keys) {
+                  let leftIndex: number;
+                  let rightIndex: number;
+                  
+                  if (/^[A-Z]$/i.test(key)) {
+                    leftIndex = key.toUpperCase().charCodeAt(0) - 65;
+                  } else if (/^\d+$/.test(key)) {
+                    leftIndex = parseInt(key, 10);
+                  } else {
+                    continue;
+                  }
+                  
+                  const val = correctAnswer[key];
+                  if (typeof val === 'number') {
+                    rightIndex = val;
+                  } else if (typeof val === 'string' && /^\d+$/.test(val as string)) {
+                    rightIndex = parseInt(val as string, 10);
+                  } else {
+                    continue;
+                  }
+                  
+                  // Detect 1-based indexing
+                  const allValues = Object.values(correctAnswer)
+                    .filter((v): v is number | string => typeof v === 'number' || typeof v === 'string')
+                    .filter(v => typeof v === 'number' || /^\d+$/.test(v as string))
+                    .map(v => typeof v === 'number' ? v : parseInt(v as string, 10));
+                  
+                  const hasZero = allValues.some(v => v === 0);
+                  const minValue = Math.min(...allValues);
+                  
+                  if (!hasZero && minValue === 1) {
+                    rightIndex = rightIndex - 1;
+                  }
+                  
+                  pairs.push({ left: leftIndex, right: rightIndex });
+                }
+                
+                if (pairs.length > 0) {
+                  correctAnswer = { pairs };
+                }
+              }
+            }
+            // Parse correct_answer if it's still JSONB object (defensive fallback for MCQ)
+            else if (questionType === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
               correctAnswer = correctAnswer.value ?? correctAnswer.index ?? 0;
             }
             
@@ -311,6 +373,11 @@ export const SmartQuestionExtractor = ({
               question_type: questionType,
               question_text: questionText,
               options: options,
+              left_column: leftColumn,
+              right_column: rightColumn,
+              assertion: assertion,
+              reason: reason,
+              blanks_count: blanksCount,
               marks: marks,
               difficulty: difficulty,
               correct_answer: correctAnswer,

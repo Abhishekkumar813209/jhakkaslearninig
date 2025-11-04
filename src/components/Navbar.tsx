@@ -158,6 +158,11 @@ const Navbar = () => {
                     Answer Management
                   </Button>
                 </Link>
+                <Link to="/admin/question-bank">
+                  <Button variant="nav" size="sm">
+                    Question Bank
+                  </Button>
+                </Link>
                 <Link to="/analytics">
                   <Button variant="nav" size="sm">
                     Analytics

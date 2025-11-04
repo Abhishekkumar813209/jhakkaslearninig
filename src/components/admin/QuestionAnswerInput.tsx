@@ -56,23 +56,80 @@ export const QuestionAnswerInput = ({
       return;
     }
 
-    // For Match Column: IMPROVED HANDLING
+    // For Match Column: IMPROVED HANDLING - supports legacy formats
     if (questionType === 'match_column') {
+      console.log('🔍 Match Column - Received:', currentAnswer);
+      
       // Already in correct format: { pairs: [...] }
       if (typeof currentAnswer === 'object' && currentAnswer.pairs && Array.isArray(currentAnswer.pairs)) {
-        console.log('✅ Match Column - Already correct format:', currentAnswer);
+        console.log('✅ Match Column - Already correct format');
         setLocalAnswer(currentAnswer);
         return;
       }
       
       // Legacy array format: [{left: 0, right: 1}, ...]
       if (Array.isArray(currentAnswer)) {
-        console.log('✅ Match Column - Converting array to object:', currentAnswer);
+        console.log('✅ Match Column - Converting array to pairs object');
         setLocalAnswer({ pairs: currentAnswer });
         return;
       }
       
-      console.log('⚠️ Match Column - Unknown format, resetting to empty:', currentAnswer);
+      // Legacy object map: {"A":"2", "B":"1"} or {"0":1, "1":2}
+      if (typeof currentAnswer === 'object' && currentAnswer !== null) {
+        const keys = Object.keys(currentAnswer);
+        if (keys.length > 0) {
+          const pairs = [];
+          
+          for (const key of keys) {
+            let leftIndex: number;
+            let rightIndex: number;
+            
+            // Handle letter keys (A, B, C)
+            if (/^[A-Z]$/i.test(key)) {
+              leftIndex = key.toUpperCase().charCodeAt(0) - 65;
+            } 
+            // Handle numeric string keys
+            else if (/^\d+$/.test(key)) {
+              leftIndex = parseInt(key, 10);
+            } else {
+              continue;
+            }
+            
+            // Parse right value
+            const val = currentAnswer[key];
+            if (typeof val === 'number') {
+              rightIndex = val;
+            } else if (typeof val === 'string' && /^\d+$/.test(val as string)) {
+              rightIndex = parseInt(val as string, 10);
+            } else {
+              continue;
+            }
+            
+            // Detect 1-based vs 0-based
+            const allValues = Object.values(currentAnswer)
+              .filter(v => typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v as string)))
+              .map(v => typeof v === 'number' ? v : parseInt(v as string, 10));
+            
+            const hasZero = allValues.some(v => v === 0);
+            const minValue = Math.min(...allValues);
+            
+            // Convert 1-based to 0-based
+            if (!hasZero && minValue === 1) {
+              rightIndex = rightIndex - 1;
+            }
+            
+            pairs.push({ left: leftIndex, right: rightIndex });
+          }
+          
+          if (pairs.length > 0) {
+            console.log('✅ Match Column - Normalized legacy object to pairs:', pairs);
+            setLocalAnswer({ pairs });
+            return;
+          }
+        }
+      }
+      
+      console.log('⚠️ Match Column - Unknown format, resetting to empty');
       setLocalAnswer({ pairs: [] });
       return;
     }

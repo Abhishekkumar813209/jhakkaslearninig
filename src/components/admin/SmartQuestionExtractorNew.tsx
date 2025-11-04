@@ -78,9 +78,76 @@ const normalizeCorrectAnswer = (q: ExtractedQuestion): any => {
       return ans;
     
     case 'match_column':
-      // Handle legacy array or already-normalized object
-      if (Array.isArray(ans)) return { pairs: ans };
-      if (ans?.pairs !== undefined) return ans; // Already normalized
+      console.log('🔍 Normalizing match_column answer:', ans);
+      
+      // Already in modern format
+      if (ans?.pairs && Array.isArray(ans.pairs)) {
+        console.log('✅ Already normalized');
+        return ans;
+      }
+      
+      // Legacy array format
+      if (Array.isArray(ans)) {
+        console.log('🔄 Converting array to pairs');
+        return { pairs: ans };
+      }
+      
+      // Legacy object map: {"A":"2", "B":"1"} or {"0":1, "1":2}
+      if (typeof ans === 'object' && ans !== null) {
+        const keys = Object.keys(ans);
+        if (keys.length > 0) {
+          const pairs = [];
+          
+          for (const key of keys) {
+            let leftIndex: number;
+            let rightIndex: number;
+            
+            // Handle letter keys (A, B, C)
+            if (/^[A-Z]$/i.test(key)) {
+              leftIndex = key.toUpperCase().charCodeAt(0) - 65;
+            } 
+            // Handle numeric string keys
+            else if (/^\d+$/.test(key)) {
+              leftIndex = parseInt(key, 10);
+            } else {
+              continue;
+            }
+            
+            // Parse right value
+            const val = ans[key];
+            if (typeof val === 'number') {
+              rightIndex = val;
+            } else if (typeof val === 'string' && /^\d+$/.test(val as string)) {
+              rightIndex = parseInt(val as string, 10);
+            } else {
+              continue;
+            }
+            
+            // Detect 1-based vs 0-based
+            const allValues = Object.values(ans)
+              .filter((v): v is number | string => typeof v === 'number' || typeof v === 'string')
+              .filter(v => typeof v === 'number' || /^\d+$/.test(v as string))
+              .map(v => typeof v === 'number' ? v : parseInt(v as string, 10));
+            
+            const hasZero = allValues.some(v => v === 0);
+            const minValue = Math.min(...allValues);
+            
+            // Convert 1-based to 0-based
+            if (!hasZero && minValue === 1) {
+              rightIndex = rightIndex - 1;
+            }
+            
+            pairs.push({ left: leftIndex, right: rightIndex });
+          }
+          
+          if (pairs.length > 0) {
+            console.log('✅ Normalized legacy object to pairs:', pairs);
+            return { pairs };
+          }
+        }
+      }
+      
+      console.log('⚠️ Could not normalize, returning as-is');
       return ans;
     
     default:
@@ -178,13 +245,47 @@ export const SmartQuestionExtractorNew = ({
       if (data.success) {
         const rawQuestions = data.questions || [];
         
-        // Normalize all answers to support legacy formats
-        const normalizedQuestions = rawQuestions.map(q => ({
-          ...q,
-          correct_answer: normalizeCorrectAnswer(q)
-        }));
+        // Normalize all answers to support legacy formats AND ensure columns exist
+        const normalizedQuestions = rawQuestions.map(q => {
+          let leftColumn = q.left_column || [];
+          let rightColumn = q.right_column || [];
+          
+          // Fallback: Parse columns from question_text if missing
+          if (q.question_type === 'match_column' && (!leftColumn.length || !rightColumn.length)) {
+            const parsed = parseColumnsFromText(q.question_text);
+            if (parsed) {
+              leftColumn = parsed.leftColumn;
+              rightColumn = parsed.rightColumn;
+              console.log('📝 Parsed columns from text for question:', q.id);
+            }
+          }
+          
+          return {
+            ...q,
+            left_column: leftColumn,
+            right_column: rightColumn,
+            correct_answer: normalizeCorrectAnswer(q)
+          };
+        });
         
         setQuestions(normalizedQuestions);
+        
+        // Helper function to parse columns from text
+        function parseColumnsFromText(text: string): { leftColumn: string[], rightColumn: string[] } | null {
+          if (!text) return null;
+          const col1Match = text.match(/Column\s*[I1A][:：]?\s*(.*?)(?=Column\s*[I2B]|$)/is);
+          const col2Match = text.match(/Column\s*[I2B][:：]?\s*(.*?)$/is);
+          if (!col1Match || !col2Match) return null;
+          
+          const parseItems = (t: string): string[] => {
+            const items = t.match(/(?:\([A-Z0-9]\)|\([a-z0-9]\)|[A-Z0-9]\)|\d+\.|[A-Z]\.)\s*(.+?)(?=(?:\([A-Z0-9]\)|\([a-z0-9]\)|[A-Z0-9]\)|\d+\.|[A-Z]\.)|\s*$)/gi);
+            return items ? items.map(item => item.trim()).filter(Boolean) : [];
+          };
+          
+          const left = parseItems(col1Match[1]);
+          const right = parseItems(col2Match[1]);
+          return (left.length > 0 && right.length > 0) ? { leftColumn: left, rightColumn: right } : null;
+        }
         
         // Load published questions for this topic
         const { data: mappings } = await supabase

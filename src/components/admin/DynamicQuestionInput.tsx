@@ -49,6 +49,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   // Typing Race states
   const [targetText, setTargetText] = useState("");
   const [timeLimit, setTimeLimit] = useState(30);
+  const [minAccuracy, setMinAccuracy] = useState(90);
 
   // Card Memory states
   const [memoryPairs, setMemoryPairs] = useState(['', '']);
@@ -119,6 +120,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
           question: questionText,
           targetText,
           timeLimit,
+          minAccuracy,
           marks,
           difficulty
         };
@@ -611,6 +613,17 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
             onChange={(e) => { setTimeLimit(parseInt(e.target.value)); handleDataChange(); }}
             min={10}
             max={300}
+          />
+        </div>
+
+        <div>
+          <Label>Minimum Accuracy (%)</Label>
+          <Input
+            type="number"
+            value={minAccuracy}
+            onChange={(e) => { setMinAccuracy(parseInt(e.target.value)); handleDataChange(); }}
+            min={0}
+            max={100}
           />
         </div>
       </div>

@@ -58,6 +58,48 @@ export const ManualQuestionEntry = ({
     setSaving(true);
 
     try {
+      // Format correct_answer based on game type for proper validation
+      let correctAnswerFormat: any = {};
+      
+      const gameType = questionData.question_type || selectedGameType;
+      const gameData = questionData.gameData;
+      
+      switch (gameType) {
+        case 'mcq':
+          correctAnswerFormat = { index: gameData.correctAnswerIndex };
+          break;
+        case 'true_false':
+          correctAnswerFormat = { value: gameData.correctAnswer };
+          break;
+        case 'fill_blank':
+          correctAnswerFormat = { blanks: gameData.blanks };
+          break;
+        case 'match_column':
+          correctAnswerFormat = { pairs: gameData.correctPairs };
+          break;
+        case 'match_pairs':
+          correctAnswerFormat = { pairs: gameData.pairs };
+          break;
+        case 'sequence_order':
+          correctAnswerFormat = { correctSequence: gameData.correctSequence };
+          break;
+        case 'card_memory':
+          correctAnswerFormat = { pairs: gameData.pairs };
+          break;
+        case 'typing_race':
+          correctAnswerFormat = { 
+            targetText: gameData.targetText,
+            timeLimit: gameData.timeLimit,
+            minAccuracy: gameData.minAccuracy || 90
+          };
+          break;
+        case 'interactive_blanks':
+          correctAnswerFormat = { blanks: gameData.blanks };
+          break;
+        default:
+          correctAnswerFormat = gameData;
+      }
+
       // Step 1: Save to question_bank
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
@@ -67,9 +109,9 @@ export const ManualQuestionEntry = ({
           subject: selectedSubject,
           batch_id: selectedBatch,
           exam_domain: selectedDomain,
-          question_type: questionData.question_type || selectedGameType,
+          question_type: gameType,
           question_text: questionData.questionText,
-          correct_answer: questionData.gameData,
+          correct_answer: correctAnswerFormat,
           explanation: questionData.explanation,
           marks: questionData.marks || 1,
           difficulty: questionData.difficulty || 'medium',
@@ -81,10 +123,6 @@ export const ManualQuestionEntry = ({
         .single();
 
       if (questionBankError) throw questionBankError;
-
-      // Step 2: Sync to gamified_exercises for immediate student visibility
-      // Note: gamified_exercises table has different structure, only save to question_bank for now
-      // Students will see questions through question_bank table
 
       toast.success("✅ Question saved to Question Bank and ready for students!");
       

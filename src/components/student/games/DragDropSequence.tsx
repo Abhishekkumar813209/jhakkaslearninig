@@ -7,16 +7,12 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Check, X, Lightbulb } from 'lucide-react';
 
-interface SequenceItem {
-  id: string;
-  text: string;
-  correct_order: number;
-}
-
 interface DragDropSequenceData {
   question: string;
-  items: SequenceItem[];
+  correctSequence: string[];
   hint?: string;
+  marks?: number;
+  difficulty?: string;
 }
 
 interface DragDropSequenceProps {
@@ -53,15 +49,17 @@ const SortableItem = ({ id, text, isCorrect }: { id: string; text: string; isCor
 };
 
 export const DragDropSequence = ({ gameData, onCorrect, onWrong, onComplete }: DragDropSequenceProps) => {
-  const [items, setItems] = useState<SequenceItem[]>([]);
+  const [items, setItems] = useState<string[]>([]);
   const [checked, setChecked] = useState(false);
   const [showHint, setShowHint] = useState(false);
-  const [correctness, setCorrectness] = useState<Record<string, boolean>>({});
+  const [correctness, setCorrectness] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     // Shuffle items initially
-    const shuffled = [...gameData.items].sort(() => Math.random() - 0.5);
-    setItems(shuffled);
+    if (gameData.correctSequence && gameData.correctSequence.length > 0) {
+      const shuffled = [...gameData.correctSequence].sort(() => Math.random() - 0.5);
+      setItems(shuffled);
+    }
   }, [gameData]);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -69,8 +67,8 @@ export const DragDropSequence = ({ gameData, onCorrect, onWrong, onComplete }: D
 
     if (over && active.id !== over.id) {
       setItems((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
+        const oldIndex = items.findIndex((item, idx) => `item-${idx}` === active.id);
+        const newIndex = items.findIndex((item, idx) => `item-${idx}` === over.id);
         return arrayMove(items, oldIndex, newIndex);
       });
       setChecked(false);
@@ -79,12 +77,12 @@ export const DragDropSequence = ({ gameData, onCorrect, onWrong, onComplete }: D
   };
 
   const handleCheck = () => {
-    const newCorrectness: Record<string, boolean> = {};
+    const newCorrectness: Record<number, boolean> = {};
     let correctCount = 0;
 
     items.forEach((item, index) => {
-      const isCorrect = item.correct_order === index + 1;
-      newCorrectness[item.id] = isCorrect;
+      const isCorrect = gameData.correctSequence[index] === item;
+      newCorrectness[index] = isCorrect;
       if (isCorrect) correctCount++;
     });
 
@@ -128,14 +126,14 @@ export const DragDropSequence = ({ gameData, onCorrect, onWrong, onComplete }: D
 
       {/* Drag & Drop Area */}
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={items.map((_, idx) => `item-${idx}`)} strategy={verticalListSortingStrategy}>
           <div className="mb-6">
-            {items.map((item) => (
+            {items.map((item, idx) => (
               <SortableItem
-                key={item.id}
-                id={item.id}
-                text={item.text}
-                isCorrect={checked ? correctness[item.id] : undefined}
+                key={`item-${idx}`}
+                id={`item-${idx}`}
+                text={item}
+                isCorrect={checked ? correctness[idx] : undefined}
               />
             ))}
           </div>

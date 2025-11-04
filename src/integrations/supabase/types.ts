@@ -2088,8 +2088,10 @@ export type Database = {
           left_column: string[] | null
           marks: number
           options: Json | null
+          question_number: string | null
           question_text: string
           question_type: string
+          reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           right_column: string[] | null
@@ -2117,8 +2119,10 @@ export type Database = {
           left_column?: string[] | null
           marks?: number
           options?: Json | null
+          question_number?: string | null
           question_text: string
           question_type: string
+          reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           right_column?: string[] | null
@@ -2146,8 +2150,10 @@ export type Database = {
           left_column?: string[] | null
           marks?: number
           options?: Json | null
+          question_number?: string | null
           question_text?: string
           question_type?: string
+          reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           right_column?: string[] | null

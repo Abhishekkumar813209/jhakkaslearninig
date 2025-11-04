@@ -67,6 +67,21 @@ export const ManualQuestionEntry = ({
       return;
     }
 
+    // Validate match_pairs has complete pairs
+    if (questionData.question_type === 'match_pairs') {
+      const pairs = questionData.gameData?.pairs;
+      if (!pairs || pairs.length < 2) {
+        toast.error("Add at least 2 pairs for Match Pairs game");
+        return;
+      }
+      
+      const hasEmptyPairs = pairs.some((p: any) => !p.left?.trim() || !p.right?.trim());
+      if (hasEmptyPairs) {
+        toast.error("All pairs must have both left and right items filled");
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {

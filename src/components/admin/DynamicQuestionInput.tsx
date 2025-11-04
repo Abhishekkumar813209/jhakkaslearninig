@@ -42,6 +42,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
   // Match Pairs states
   const [pairItems, setPairItems] = useState([{ left: '', right: '' }, { left: '', right: '' }]);
+  const [maxAttempts, setMaxAttempts] = useState<number | undefined>(undefined);
 
   // Sequence states
   const [sequenceItems, setSequenceItems] = useState(['', '', '']);
@@ -100,7 +101,13 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       case 'match_pairs':
         gameData = {
           question: questionText,
-          pairs: pairItems,
+          pairs: pairItems.map((pair, idx) => ({
+            id: `pair_${idx + 1}`,
+            left: pair.left,
+            right: pair.right
+          })),
+          time_limit: timeLimit || 60,
+          max_attempts: maxAttempts || undefined,
           marks,
           difficulty
         };
@@ -474,6 +481,78 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
             <Plus className="h-4 w-4 mr-2" />
             Add Pair
           </Button>
+        </div>
+
+        <div>
+          <Label>Time Limit (seconds)</Label>
+          <Input
+            type="number"
+            value={timeLimit}
+            onChange={(e) => {
+              setTimeLimit(parseInt(e.target.value) || 60);
+              handleDataChange();
+            }}
+            min={10}
+            max={300}
+          />
+        </div>
+
+        <div>
+          <Label>Max Attempts (optional)</Label>
+          <Input
+            type="number"
+            placeholder="Leave empty for unlimited"
+            value={maxAttempts || ''}
+            onChange={(e) => {
+              const val = e.target.value ? parseInt(e.target.value) : undefined;
+              setMaxAttempts(val);
+              handleDataChange();
+            }}
+            min={1}
+          />
+        </div>
+
+        <div>
+          <Label>Explanation</Label>
+          <Textarea
+            value={explanation}
+            onChange={(e) => {
+              setExplanation(e.target.value);
+              handleDataChange();
+            }}
+            rows={2}
+            placeholder="Explain the correct pairs..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Marks</Label>
+            <Input
+              type="number"
+              value={marks}
+              onChange={(e) => {
+                setMarks(parseInt(e.target.value) || 1);
+                handleDataChange();
+              }}
+              min={1}
+            />
+          </div>
+          <div>
+            <Label>Difficulty</Label>
+            <select
+              value={difficulty}
+              onChange={(e) => {
+                setDifficulty(e.target.value);
+                handleDataChange();
+              }}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
         </div>
       </div>
     );

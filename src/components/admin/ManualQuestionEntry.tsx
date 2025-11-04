@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,11 @@ export const ManualQuestionEntry = ({
   const [selectedGameType, setSelectedGameType] = useState<GameType>("mcq");
   const [questionData, setQuestionData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+
+  // Reset questionData when game type changes
+  useEffect(() => {
+    setQuestionData(null);
+  }, [selectedGameType]);
 
   const gameTypeOptions = [
     { value: "mcq", label: "Multiple Choice (MCQ)", icon: "📝" },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -150,6 +150,11 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
     onChange({ questionText, gameData, explanation, marks, difficulty, question_type: gameType });
   };
+
+  // Initialize data whenever gameType changes
+  useEffect(() => {
+    handleDataChange();
+  }, [gameType]);
 
   // MCQ Input
   if (gameType === 'mcq') {

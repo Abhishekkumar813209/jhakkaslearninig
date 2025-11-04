@@ -27,6 +27,18 @@ export const normalizeMatchColumnAnswer = (answer: any): MatchColumnAnswer | nul
     return null;
   }
 
+  // 🔧 STRING PARSE: If answer is JSON string, parse it first
+  if (typeof answer === 'string' && (answer.startsWith('{') || answer.startsWith('['))) {
+    try {
+      console.log('🔄 Match Column - Parsing JSON string:', answer.substring(0, 100));
+      answer = JSON.parse(answer);
+      console.log('✅ Match Column - Parsed to object:', answer);
+    } catch (err) {
+      console.error('❌ Match Column - JSON parse failed:', err);
+      return null;
+    }
+  }
+
   // Already in modern format
   if (answer.pairs && Array.isArray(answer.pairs)) {
     console.log('✅ Match Column - Already normalized:', answer);

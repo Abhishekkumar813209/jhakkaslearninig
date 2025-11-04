@@ -19,6 +19,7 @@ import { DocumentUploader } from "./DocumentUploader";
 import { UniversalCropModal } from "./UniversalCropModal";
 import { cn } from "@/lib/utils";
 import { renderWithImages } from "@/lib/mathRendering";
+import { normalizeMatchColumnAnswer } from "@/lib/answers";
 
 interface ExtractedQuestion {
   id?: string;
@@ -49,7 +50,18 @@ interface SmartQuestionExtractorNewProps {
 
 // Helper: Normalize legacy answer formats into new object shapes
 const normalizeCorrectAnswer = (q: ExtractedQuestion): any => {
-  const ans = q.correct_answer;
+  let ans = q.correct_answer;
+  
+  // 🔧 STRING PARSE: Handle JSON strings from backend
+  if (typeof ans === 'string' && (ans.startsWith('{') || ans.startsWith('['))) {
+    try {
+      console.log('🔄 Parsing JSON string answer:', ans.substring(0, 100));
+      ans = JSON.parse(ans);
+      console.log('✅ Parsed to object:', ans);
+    } catch (err) {
+      console.warn('⚠️ JSON parse failed:', err);
+    }
+  }
   
   switch (q.question_type) {
     case 'mcq':
@@ -78,77 +90,8 @@ const normalizeCorrectAnswer = (q: ExtractedQuestion): any => {
       return ans;
     
     case 'match_column':
-      console.log('🔍 Normalizing match_column answer:', ans);
-      
-      // Already in modern format
-      if (ans?.pairs && Array.isArray(ans.pairs)) {
-        console.log('✅ Already normalized');
-        return ans;
-      }
-      
-      // Legacy array format
-      if (Array.isArray(ans)) {
-        console.log('🔄 Converting array to pairs');
-        return { pairs: ans };
-      }
-      
-      // Legacy object map: {"A":"2", "B":"1"} or {"0":1, "1":2}
-      if (typeof ans === 'object' && ans !== null) {
-        const keys = Object.keys(ans);
-        if (keys.length > 0) {
-          const pairs = [];
-          
-          for (const key of keys) {
-            let leftIndex: number;
-            let rightIndex: number;
-            
-            // Handle letter keys (A, B, C)
-            if (/^[A-Z]$/i.test(key)) {
-              leftIndex = key.toUpperCase().charCodeAt(0) - 65;
-            } 
-            // Handle numeric string keys
-            else if (/^\d+$/.test(key)) {
-              leftIndex = parseInt(key, 10);
-            } else {
-              continue;
-            }
-            
-            // Parse right value
-            const val = ans[key];
-            if (typeof val === 'number') {
-              rightIndex = val;
-            } else if (typeof val === 'string' && /^\d+$/.test(val as string)) {
-              rightIndex = parseInt(val as string, 10);
-            } else {
-              continue;
-            }
-            
-            // Detect 1-based vs 0-based
-            const allValues = Object.values(ans)
-              .filter((v): v is number | string => typeof v === 'number' || typeof v === 'string')
-              .filter(v => typeof v === 'number' || /^\d+$/.test(v as string))
-              .map(v => typeof v === 'number' ? v : parseInt(v as string, 10));
-            
-            const hasZero = allValues.some(v => v === 0);
-            const minValue = Math.min(...allValues);
-            
-            // Convert 1-based to 0-based
-            if (!hasZero && minValue === 1) {
-              rightIndex = rightIndex - 1;
-            }
-            
-            pairs.push({ left: leftIndex, right: rightIndex });
-          }
-          
-          if (pairs.length > 0) {
-            console.log('✅ Normalized legacy object to pairs:', pairs);
-            return { pairs };
-          }
-        }
-      }
-      
-      console.log('⚠️ Could not normalize, returning as-is');
-      return ans;
+      // Use centralized normalizer from lib/answers.ts (handles all legacy formats + string parsing)
+      return normalizeMatchColumnAnswer(ans);
     
     default:
       return ans;
@@ -276,6 +219,7 @@ export const SmartQuestionExtractorNew = ({
               const nq = normalizedQuestions.find((q: any) => q.id === rq.id) || normalizedQuestions[idx];
               const before = {
                 id: rq.id,
+                type: typeof rq.correct_answer,
                 leftLen: rq.left_column?.length || 0,
                 rightLen: rq.right_column?.length || 0,
                 leftSample: (rq.left_column || []).slice(0, 3),
@@ -284,6 +228,7 @@ export const SmartQuestionExtractorNew = ({
               };
               const after = {
                 id: nq?.id,
+                type: typeof nq?.correct_answer,
                 leftLen: nq?.left_column?.length || 0,
                 rightLen: nq?.right_column?.length || 0,
                 leftSample: (nq?.left_column || []).slice(0, 3),

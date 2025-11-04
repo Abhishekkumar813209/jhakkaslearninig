@@ -4,9 +4,10 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { renderWithImages } from '@/lib/mathRendering';
-import { formatMatchColumnDisplay } from '@/lib/answers';
+import { normalizeMatchColumnAnswer, formatMatchColumnDisplay } from '@/lib/answers';
 
 interface QuestionAnswerInputProps {
   questionType: string;
@@ -37,106 +38,49 @@ export const QuestionAnswerInput = ({
       return;
     }
 
-    console.log('🔍 Answer Input - Received:', { questionType, currentAnswer });
+    let normalized = currentAnswer;
+
+    // 🔧 STRING PARSE: Handle JSON strings from backend
+    if (typeof currentAnswer === 'string' && (currentAnswer.startsWith('{') || currentAnswer.startsWith('['))) {
+      try {
+        console.log('🔄 QAInput - Parsing JSON string:', currentAnswer.substring(0, 100));
+        normalized = JSON.parse(currentAnswer);
+        console.log('✅ QAInput - Parsed to:', normalized);
+      } catch (err) {
+        console.warn('⚠️ QAInput - JSON parse failed:', err);
+      }
+    }
+
+    console.log('🔍 Answer Input - Received:', { questionType, normalized });
 
     // For MCQ: convert legacy number to { index: number }
-    if ((questionType === 'mcq' || questionType === 'assertion_reason') && typeof currentAnswer === 'number') {
-      setLocalAnswer({ index: currentAnswer });
+    if ((questionType === 'mcq' || questionType === 'assertion_reason') && typeof normalized === 'number') {
+      setLocalAnswer({ index: normalized });
       return;
     }
 
     // For True/False: convert legacy boolean to { value: boolean }
-    if (questionType === 'true_false' && typeof currentAnswer === 'boolean') {
-      setLocalAnswer({ value: currentAnswer });
+    if (questionType === 'true_false' && typeof normalized === 'boolean') {
+      setLocalAnswer({ value: normalized });
       return;
     }
 
     // For Fill Blank: convert legacy string to { text: string }
-    if (questionType === 'fill_blank' && typeof currentAnswer === 'string') {
-      setLocalAnswer({ text: currentAnswer });
+    if (questionType === 'fill_blank' && typeof normalized === 'string') {
+      setLocalAnswer({ text: normalized });
       return;
     }
 
-    // For Match Column: IMPROVED HANDLING - supports legacy formats
+    // For Match Column: use centralized normalizer (handles all legacy formats + string parsing)
     if (questionType === 'match_column') {
-      console.log('🔍 Match Column - Received:', currentAnswer);
-      
-      // Already in correct format: { pairs: [...] }
-      if (typeof currentAnswer === 'object' && currentAnswer.pairs && Array.isArray(currentAnswer.pairs)) {
-        console.log('✅ Match Column - Already correct format');
-        setLocalAnswer(currentAnswer);
-        return;
-      }
-      
-      // Legacy array format: [{left: 0, right: 1}, ...]
-      if (Array.isArray(currentAnswer)) {
-        console.log('✅ Match Column - Converting array to pairs object');
-        setLocalAnswer({ pairs: currentAnswer });
-        return;
-      }
-      
-      // Legacy object map: {"A":"2", "B":"1"} or {"0":1, "1":2}
-      if (typeof currentAnswer === 'object' && currentAnswer !== null) {
-        const keys = Object.keys(currentAnswer);
-        if (keys.length > 0) {
-          const pairs = [];
-          
-          for (const key of keys) {
-            let leftIndex: number;
-            let rightIndex: number;
-            
-            // Handle letter keys (A, B, C)
-            if (/^[A-Z]$/i.test(key)) {
-              leftIndex = key.toUpperCase().charCodeAt(0) - 65;
-            } 
-            // Handle numeric string keys
-            else if (/^\d+$/.test(key)) {
-              leftIndex = parseInt(key, 10);
-            } else {
-              continue;
-            }
-            
-            // Parse right value
-            const val = currentAnswer[key];
-            if (typeof val === 'number') {
-              rightIndex = val;
-            } else if (typeof val === 'string' && /^\d+$/.test(val as string)) {
-              rightIndex = parseInt(val as string, 10);
-            } else {
-              continue;
-            }
-            
-            // Detect 1-based vs 0-based
-            const allValues = Object.values(currentAnswer)
-              .filter(v => typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v as string)))
-              .map(v => typeof v === 'number' ? v : parseInt(v as string, 10));
-            
-            const hasZero = allValues.some(v => v === 0);
-            const minValue = Math.min(...allValues);
-            
-            // Convert 1-based to 0-based
-            if (!hasZero && minValue === 1) {
-              rightIndex = rightIndex - 1;
-            }
-            
-            pairs.push({ left: leftIndex, right: rightIndex });
-          }
-          
-          if (pairs.length > 0) {
-            console.log('✅ Match Column - Normalized legacy object to pairs:', pairs);
-            setLocalAnswer({ pairs });
-            return;
-          }
-        }
-      }
-      
-      console.log('⚠️ Match Column - Unknown format, resetting to empty');
-      setLocalAnswer({ pairs: [] });
+      const matchAnswer = normalizeMatchColumnAnswer(normalized);
+      console.log('✅ Match Column - Normalized via lib/answers:', matchAnswer);
+      setLocalAnswer(matchAnswer);
       return;
     }
 
     // Otherwise, use as-is (already in correct format)
-    setLocalAnswer(currentAnswer);
+    setLocalAnswer(normalized);
   }, [currentAnswer, questionType]);
 
   // Debug: log props for match_column to show actual vs expected
@@ -147,6 +91,7 @@ export const QuestionAnswerInput = ({
         rightLen: rightColumn?.length || 0,
         leftSample: (leftColumn || []).slice(0, 3),
         rightSample: (rightColumn || []).slice(0, 3),
+        currentAnswerType: typeof currentAnswer,
         currentAnswer
       });
     }

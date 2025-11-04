@@ -234,7 +234,7 @@ serve(async (req) => {
           question_type: 'match_column',
           left_column: ['Isaac Newton', 'Albert Einstein', 'Marie Curie', 'Charles Darwin'],
           right_column: ['Theory of Evolution', 'Laws of Motion', 'Theory of Relativity', 'Radioactivity'],
-          correct_answer: JSON.stringify({ '0': 1, '1': 2, '2': 3, '3': 0 }),
+          correct_answer: { '0': 1, '1': 2, '2': 3, '3': 0 },  // Direct object, not stringified
           difficulty: 'medium',
           marks: 2,
           explanation: 'Newton - Laws of Motion, Einstein - Relativity, Curie - Radioactivity, Darwin - Evolution',
@@ -352,6 +352,17 @@ serve(async (req) => {
       const normalized = (questions || []).map(q => {
         let ans = q.correct_answer;
         
+        // 🔧 STRING PARSE: Parse JSON strings back to objects
+        if (typeof ans === 'string' && (ans.startsWith('{') || ans.startsWith('['))) {
+          try {
+            console.log(`🔄 Parsing JSON string for Q${q.id}:`, ans.substring(0, 100));
+            ans = JSON.parse(ans);
+            console.log(`✅ Parsed to object for Q${q.id}:`, ans);
+          } catch (err) {
+            console.warn(`⚠️ JSON parse failed for Q${q.id}:`, err);
+          }
+        }
+        
         // For MCQ, ensure 0-based index format
         if (q.question_type === 'mcq' && ans !== null && ans !== undefined) {
           if (typeof ans === 'string' && /^\d+$/.test(ans)) {
@@ -404,6 +415,17 @@ serve(async (req) => {
 
       let sanitizedCorrectAnswer = correct_answer;
       
+      // 🔧 STRING PARSE: Parse JSON strings for match_column and other complex types
+      if (typeof sanitizedCorrectAnswer === 'string' && (sanitizedCorrectAnswer.startsWith('{') || sanitizedCorrectAnswer.startsWith('['))) {
+        try {
+          console.log('🔄 Parsing JSON string answer:', sanitizedCorrectAnswer.substring(0, 100));
+          sanitizedCorrectAnswer = JSON.parse(sanitizedCorrectAnswer);
+          console.log('✅ Parsed to object:', sanitizedCorrectAnswer);
+        } catch (err) {
+          console.warn('⚠️ JSON parse failed:', err);
+        }
+      }
+      
       // For MCQ questions in question_bank, ensure 0-based index
       if (table === 'question_bank' && question.question_type === 'mcq' && sanitizedCorrectAnswer !== null && sanitizedCorrectAnswer !== undefined) {
         if (typeof sanitizedCorrectAnswer === 'string' && /^\d+$/.test(sanitizedCorrectAnswer)) {
@@ -426,7 +448,7 @@ serve(async (req) => {
         }
       } else {
         // For generated_questions table, use existing normalization
-        sanitizedCorrectAnswer = normalizeCorrectAnswer(question.question_type, correct_answer, question.options);
+        sanitizedCorrectAnswer = normalizeCorrectAnswer(question.question_type, sanitizedCorrectAnswer, question.options);
       }
       
       console.log(`💾 Updating ${table} for question: ${question_id}, answer: ${sanitizedCorrectAnswer}`);

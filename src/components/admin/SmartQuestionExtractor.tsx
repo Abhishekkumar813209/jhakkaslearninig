@@ -77,7 +77,7 @@ interface ExtractedQuestion {
   id: string;
   question_number: string;
   question_type: 'mcq' | 'match_column' | 'assertion_reason' | 'fill_blank' | 'true_false' | 'short_answer';
-  question_text: string;
+  question_text: string | null;
   options?: string[];
   left_column?: string[];
   right_column?: string[];
@@ -410,8 +410,12 @@ export const SmartQuestionExtractor = ({
 
       const data = await response.json();
       if (data.success && data.questions) {
-        setExistingQuestions(data.questions);
-        console.log('✅ Loaded existing questions:', data.questions.length);
+        // Filter out invalid questions with null/empty question_text
+        const validQuestions = data.questions.filter((q: any) => 
+          q.question_text && typeof q.question_text === 'string' && q.question_text.trim().length > 0
+        );
+        setExistingQuestions(validQuestions);
+        console.log('✅ Loaded existing questions:', validQuestions.length);
       }
     } catch (error) {
       console.error('Failed to load existing questions:', error);
@@ -2661,7 +2665,7 @@ export const SmartQuestionExtractor = ({
                             ⚠️ Missing options
                           </Badge>
                         )}
-                        {question.question_text.length < 20 && (
+                        {question.question_text && question.question_text.length < 20 && (
                           <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-xs">
                             ⚠️ Incomplete text
                           </Badge>

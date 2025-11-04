@@ -2071,6 +2071,7 @@ export type Database = {
       question_bank: {
         Row: {
           admin_reviewed: boolean | null
+          assertion: string | null
           batch_id: string | null
           chapter_id: string | null
           correct_answer: string | null
@@ -2082,6 +2083,7 @@ export type Database = {
           exam_name: string | null
           explanation: string | null
           id: string
+          is_approved: boolean | null
           is_published: boolean | null
           left_column: string[] | null
           marks: number
@@ -2098,6 +2100,7 @@ export type Database = {
         }
         Insert: {
           admin_reviewed?: boolean | null
+          assertion?: string | null
           batch_id?: string | null
           chapter_id?: string | null
           correct_answer?: string | null
@@ -2109,6 +2112,7 @@ export type Database = {
           exam_name?: string | null
           explanation?: string | null
           id?: string
+          is_approved?: boolean | null
           is_published?: boolean | null
           left_column?: string[] | null
           marks?: number
@@ -2125,6 +2129,7 @@ export type Database = {
         }
         Update: {
           admin_reviewed?: boolean | null
+          assertion?: string | null
           batch_id?: string | null
           chapter_id?: string | null
           correct_answer?: string | null
@@ -2136,6 +2141,7 @@ export type Database = {
           exam_name?: string | null
           explanation?: string | null
           id?: string
+          is_approved?: boolean | null
           is_published?: boolean | null
           left_column?: string[] | null
           marks?: number

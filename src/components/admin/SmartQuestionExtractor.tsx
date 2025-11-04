@@ -1654,6 +1654,8 @@ export const SmartQuestionExtractor = ({
           question_text: q.question_text,
           question_type: q.question_type,
           options: q.options || null,
+          left_column: q.left_column || null,
+          right_column: q.right_column || null,
           correct_answer: q.correct_answer || null,
           explanation: q.explanation || null,
           marks: q.marks || 1,

@@ -82,6 +82,38 @@ export const ManualQuestionEntry = ({
       }
     }
 
+    // Validate match_column has complete columns
+    if (questionData.question_type === 'match_column') {
+      const leftColumn = questionData.gameData?.leftColumn || [];
+      const rightColumn = questionData.gameData?.rightColumn || [];
+      const pairs = questionData.gameData?.correctPairs || [];
+
+      if (leftColumn.length === 0 || rightColumn.length === 0) {
+        toast.error("Both left and right columns are required for Match Column game");
+        return;
+      }
+
+      if (leftColumn.length !== rightColumn.length) {
+        toast.error("Left and right columns must have the same number of items");
+        return;
+      }
+
+      if (pairs.length === 0) {
+        toast.error("Please define at least one correct pair");
+        return;
+      }
+
+      // Validate pair indices are in bounds
+      const invalidPair = pairs.find((p: any) => 
+        p.left < 0 || p.left >= leftColumn.length || 
+        p.right < 0 || p.right >= rightColumn.length
+      );
+      if (invalidPair) {
+        toast.error("Invalid pair indices detected");
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
@@ -138,6 +170,9 @@ export const ManualQuestionEntry = ({
           exam_domain: selectedDomain,
           question_type: gameType,
           question_text: questionData.questionText,
+          options: gameData.options || null,
+          left_column: gameType === 'match_column' ? (gameData.leftColumn || []).filter(Boolean) : null,
+          right_column: gameType === 'match_column' ? (gameData.rightColumn || []).filter(Boolean) : null,
           correct_answer: correctAnswerFormat,
           explanation: questionData.explanation,
           marks: questionData.marks || 1,

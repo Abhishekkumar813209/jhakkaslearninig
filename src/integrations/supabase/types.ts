@@ -2083,12 +2083,14 @@ export type Database = {
           explanation: string | null
           id: string
           is_published: boolean | null
+          left_column: string[] | null
           marks: number
           options: Json | null
           question_text: string
           question_type: string
           reviewed_at: string | null
           reviewed_by: string | null
+          right_column: string[] | null
           source_file_name: string | null
           subject: string | null
           topic_id: string | null
@@ -2108,12 +2110,14 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_published?: boolean | null
+          left_column?: string[] | null
           marks?: number
           options?: Json | null
           question_text: string
           question_type: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          right_column?: string[] | null
           source_file_name?: string | null
           subject?: string | null
           topic_id?: string | null
@@ -2133,12 +2137,14 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_published?: boolean | null
+          left_column?: string[] | null
           marks?: number
           options?: Json | null
           question_text?: string
           question_type?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          right_column?: string[] | null
           source_file_name?: string | null
           subject?: string | null
           topic_id?: string | null

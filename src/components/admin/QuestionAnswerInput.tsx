@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { renderWithImages } from '@/lib/mathRendering';
+import { formatMatchColumnDisplay } from '@/lib/answers';
 
 interface QuestionAnswerInputProps {
   questionType: string;
@@ -137,6 +138,19 @@ export const QuestionAnswerInput = ({
     // Otherwise, use as-is (already in correct format)
     setLocalAnswer(currentAnswer);
   }, [currentAnswer, questionType]);
+
+  // Debug: log props for match_column to show actual vs expected
+  useEffect(() => {
+    if (questionType === 'match_column') {
+      console.log('🎯 QAInput props', {
+        leftLen: leftColumn?.length || 0,
+        rightLen: rightColumn?.length || 0,
+        leftSample: (leftColumn || []).slice(0, 3),
+        rightSample: (rightColumn || []).slice(0, 3),
+        currentAnswer
+      });
+    }
+  }, [questionType, leftColumn, rightColumn, currentAnswer]);
 
   useEffect(() => {
     // Validate answer
@@ -379,11 +393,27 @@ export const QuestionAnswerInput = ({
   // Match Column Answer
   if (questionType === 'match_column') {
     const pairs = localAnswer?.pairs || [];
+
+    // Safe fallback: if rightColumn missing, create placeholder options based on detected pairs/left length
+    const rightOptions = (rightColumn && rightColumn.length > 0)
+      ? rightColumn
+      : (() => {
+          const maxRight = Math.max(-1, ...pairs.map((p: any) => (typeof p?.right === 'number' ? p.right : -1)));
+          const len = Math.max(maxRight + 1, (leftColumn || []).length, 4);
+          return Array.from({ length: len }, (_, i) => `Option ${i + 1}`);
+        })();
+
+    const previewStr = formatMatchColumnDisplay(localAnswer, leftColumn, rightColumn);
     
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Correct Pairs</Label>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Correct Pairs</Label>
+            {(!rightColumn || rightColumn.length === 0) && (
+              <Badge variant="outline">Right column missing (DB)</Badge>
+            )}
+          </div>
           {isValid ? (
             <Badge variant="default" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -396,6 +426,11 @@ export const QuestionAnswerInput = ({
             </Badge>
           )}
         </div>
+
+        {previewStr && (
+          <div className="text-xs text-muted-foreground">{previewStr}</div>
+        )}
+
         <div className="space-y-2">
           {(leftColumn || []).map((leftItem, leftIdx) => (
             <div key={leftIdx} className="flex items-center gap-2 border rounded-lg p-3">
@@ -408,7 +443,7 @@ export const QuestionAnswerInput = ({
               </div>
               <span className="text-muted-foreground">→</span>
               <select
-                className="flex-1 border rounded px-2 py-1 text-sm"
+                className="flex-1 border rounded px-2 py-1 text-sm bg-popover text-foreground relative z-50"
                 value={pairs.find((p: any) => p.left === leftIdx)?.right ?? ''}
                 onChange={(e) => {
                   const rightIdx = parseInt(e.target.value);
@@ -421,7 +456,7 @@ export const QuestionAnswerInput = ({
                 }}
               >
                 <option value="">Select match...</option>
-                {(rightColumn || []).map((rightItem, rightIdx) => (
+                {rightOptions.map((rightItem: string, rightIdx: number) => (
                   <option key={rightIdx} value={rightIdx}>
                     {String.fromCharCode(105 + rightIdx)}. {rightItem}
                   </option>

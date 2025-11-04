@@ -251,7 +251,7 @@ export const SmartQuestionExtractorNew = ({
           let rightColumn = q.right_column || [];
           
           // Fallback: Parse columns from question_text if missing
-          if (q.question_type === 'match_column' && (!leftColumn.length || !rightColumn.length)) {
+          if (q.question_type === 'match_column' && (leftColumn.length === 0 && rightColumn.length === 0)) {
             const parsed = parseColumnsFromText(q.question_text);
             if (parsed) {
               leftColumn = parsed.leftColumn;
@@ -267,6 +267,36 @@ export const SmartQuestionExtractorNew = ({
             correct_answer: normalizeCorrectAnswer(q)
           };
         });
+        // Debug audit: Before vs After for match_column
+        console.group('🧾 Match Column Data (Before/After)');
+        try {
+          rawQuestions
+            .filter((rq: any) => rq.question_type === 'match_column')
+            .forEach((rq: any, idx: number) => {
+              const nq = normalizedQuestions.find((q: any) => q.id === rq.id) || normalizedQuestions[idx];
+              const before = {
+                id: rq.id,
+                leftLen: rq.left_column?.length || 0,
+                rightLen: rq.right_column?.length || 0,
+                leftSample: (rq.left_column || []).slice(0, 3),
+                rightSample: (rq.right_column || []).slice(0, 3),
+                answer: rq.correct_answer
+              };
+              const after = {
+                id: nq?.id,
+                leftLen: nq?.left_column?.length || 0,
+                rightLen: nq?.right_column?.length || 0,
+                leftSample: (nq?.left_column || []).slice(0, 3),
+                rightSample: (nq?.right_column || []).slice(0, 3),
+                pairsLen: nq?.correct_answer?.pairs?.length || 0,
+                pairsSample: (nq?.correct_answer?.pairs || []).slice(0, 3)
+              };
+              console.log('Q:', before.id, { before, after });
+            });
+        } catch (e) {
+          console.warn('Audit logging failed:', e);
+        }
+        console.groupEnd();
         
         setQuestions(normalizedQuestions);
         

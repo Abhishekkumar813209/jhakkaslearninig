@@ -173,7 +173,12 @@ export const AnswerManagementPanel = () => {
       });
 
       if ((data as any).success) {
-        setQuestions((data as any).questions || []);
+        const loadedQuestions = (data as any).questions || [];
+        console.log('📥 Loaded questions with answers:', loadedQuestions
+          .filter((q: Question) => q.question_type === 'match_column')
+          .map((q: Question) => ({ id: q.id, text: q.question_text?.substring(0, 50), answer: q.correct_answer }))
+        );
+        setQuestions(loadedQuestions);
         setTotalCount((data as any).total_count || 0);
       } else {
         toast.error('Failed to load questions');

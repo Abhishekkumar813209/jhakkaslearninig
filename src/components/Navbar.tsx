@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass, Flag, Grid3x3 } from "lucide-react";
+import { Menu, X, BookOpen, User, ShoppingCart, LogOut, BarChart3, Trophy, FileText, Settings, Map, Home, LayoutDashboard, Compass, Flag, Grid3x3, FileCheck } from "lucide-react";
 import { XPDisplay } from "@/components/student/XPDisplay";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -151,6 +151,11 @@ const Navbar = () => {
                 <Link to="/admin/courses">
                   <Button variant="nav" size="sm">
                     Courses
+                  </Button>
+                </Link>
+                <Link to="/admin/solution-management">
+                  <Button variant="nav" size="sm">
+                    Answer Management
                   </Button>
                 </Link>
                 <Link to="/analytics">
@@ -314,6 +319,12 @@ const Navbar = () => {
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <BookOpen className="h-4 w-4 mr-2" />
                       Courses
+                    </Button>
+                  </Link>
+                  <Link to="/admin/solution-management" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="nav" size="sm" className="w-full justify-start">
+                      <FileCheck className="h-4 w-4 mr-2" />
+                      Answer Management
                     </Button>
                   </Link>
                   <Link to="/analytics" onClick={() => setIsMenuOpen(false)}>

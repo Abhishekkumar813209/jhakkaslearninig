@@ -36,6 +36,8 @@ export const QuestionAnswerInput = ({
       return;
     }
 
+    console.log('🔍 Answer Input - Received:', { questionType, currentAnswer });
+
     // For MCQ: convert legacy number to { index: number }
     if ((questionType === 'mcq' || questionType === 'assertion_reason') && typeof currentAnswer === 'number') {
       setLocalAnswer({ index: currentAnswer });
@@ -54,9 +56,24 @@ export const QuestionAnswerInput = ({
       return;
     }
 
-    // For Match Column: convert legacy array to { pairs: array }
-    if (questionType === 'match_column' && Array.isArray(currentAnswer)) {
-      setLocalAnswer({ pairs: currentAnswer });
+    // For Match Column: IMPROVED HANDLING
+    if (questionType === 'match_column') {
+      // Already in correct format: { pairs: [...] }
+      if (typeof currentAnswer === 'object' && currentAnswer.pairs && Array.isArray(currentAnswer.pairs)) {
+        console.log('✅ Match Column - Already correct format:', currentAnswer);
+        setLocalAnswer(currentAnswer);
+        return;
+      }
+      
+      // Legacy array format: [{left: 0, right: 1}, ...]
+      if (Array.isArray(currentAnswer)) {
+        console.log('✅ Match Column - Converting array to object:', currentAnswer);
+        setLocalAnswer({ pairs: currentAnswer });
+        return;
+      }
+      
+      console.log('⚠️ Match Column - Unknown format, resetting to empty:', currentAnswer);
+      setLocalAnswer({ pairs: [] });
       return;
     }
 
@@ -342,6 +359,7 @@ export const QuestionAnswerInput = ({
                   if (!isNaN(rightIdx)) {
                     newPairs.push({ left: leftIdx, right: rightIdx });
                   }
+                  console.log('🔄 Match Column - Updated pairs:', newPairs);
                   handleChange({ pairs: newPairs });
                 }}
               >

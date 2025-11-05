@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { renderMath } from '@/lib/mathRendering';
 import { RichQuestionEditor } from './RichQuestionEditor';
 import { PDFQuestionExtractor } from './PDFQuestionExtractor';
+import { parseTrueFalseStatements, parseFillBlankSubQuestions } from '@/lib/questionParsing';
 
 // Helper to render math while preserving images and breaks
 const renderWithImages = (html: string): string => {
@@ -525,7 +526,60 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
           <div className="p-4 space-y-4 border-t">
             {/* Question Text */}
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Question Text</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium">Question Text</label>
+                
+                {/* Auto-split buttons for True/False and Fill Blank */}
+                {(question.question_type === 'true_false' || question.question_type === 'fill_blank') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (question.question_type === 'true_false') {
+                        const parsed = parseTrueFalseStatements(question.question_text);
+                        if (parsed.length >= 2) {
+                          const updatedQ = {
+                            ...question,
+                            question_text: 'Determine whether the following statements are True or False:',
+                            correct_answer: { statements: parsed },
+                            edited: true
+                          };
+                          onUpdate(updatedQ);
+                          toast.success(`Auto-split into ${parsed.length} statements`);
+                        } else {
+                          toast.error('Could not detect multiple statements. Try adding line breaks or numbering.');
+                        }
+                      } else if (question.question_type === 'fill_blank') {
+                        const parsed = parseFillBlankSubQuestions(question.question_text);
+                        if (parsed.length >= 2) {
+                          const updatedQ = {
+                            ...question,
+                            question_text: 'Fill in the blanks:',
+                            correct_answer: {
+                              sub_questions: parsed,
+                              blanks: parsed.map(sq => ({
+                                correctAnswer: sq.correctAnswer,
+                                distractors: sq.distractors
+                              }))
+                            },
+                            blanks_count: parsed.length,
+                            edited: true
+                          };
+                          onUpdate(updatedQ);
+                          toast.success(`Auto-split into ${parsed.length} sub-questions`);
+                        } else {
+                          toast.error('Could not detect multiple fill-in-the-blank items. Each line should have ____ blanks.');
+                        }
+                      }
+                    }}
+                    className="h-7"
+                  >
+                    <ChevronDown className="w-3 h-3 mr-1" />
+                    Auto-split sub-questions
+                  </Button>
+                )}
+              </div>
+              
               <RichQuestionEditor
                 content={question.question_text}
                 onChange={(content) => handleChange('question_text', content)}

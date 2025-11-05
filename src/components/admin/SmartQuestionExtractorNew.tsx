@@ -20,6 +20,7 @@ import { UniversalCropModal } from "./UniversalCropModal";
 import { cn } from "@/lib/utils";
 import { renderWithImages } from "@/lib/mathRendering";
 import { normalizeMatchColumnAnswer } from "@/lib/answers";
+import { autoStructureTrueFalse, autoStructureFillBlanks } from "@/lib/questionParsing";
 
 interface ExtractedQuestion {
   id?: string;
@@ -200,6 +201,39 @@ export const SmartQuestionExtractorNew = ({
               leftColumn = parsed.leftColumn;
               rightColumn = parsed.rightColumn;
               console.log('📝 Parsed columns from text for question:', q.id);
+            }
+          }
+
+          // Auto-structure True/False multi-part questions
+          if (q.question_type === 'true_false') {
+            const structured = autoStructureTrueFalse(q.question_text);
+            if (structured.statements && structured.statements.length >= 2) {
+              console.log('✨ Auto-split True/False into', structured.statements.length, 'statements');
+              return {
+                ...q,
+                question_text: structured.question,
+                correct_answer: { statements: structured.statements },
+                left_column: leftColumn,
+                right_column: rightColumn
+              };
+            }
+          }
+
+          // Auto-structure Fill-in-the-Blanks multi-part questions
+          if (q.question_type === 'fill_blank') {
+            const structured = autoStructureFillBlanks(q.question_text);
+            if (structured.sub_questions && structured.sub_questions.length >= 2) {
+              console.log('✨ Auto-split Fill Blanks into', structured.sub_questions.length, 'sub-questions');
+              return {
+                ...q,
+                question_text: structured.question,
+                correct_answer: {
+                  sub_questions: structured.sub_questions,
+                  blanks: structured.blanks
+                },
+                left_column: leftColumn,
+                right_column: rightColumn
+              };
             }
           }
           

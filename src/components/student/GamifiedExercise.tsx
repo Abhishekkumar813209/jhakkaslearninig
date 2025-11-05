@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Trophy, Coins, Star } from "lucide-react";
+import { CheckCircle2, XCircle, Trophy, Coins, Star, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -119,18 +119,47 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
 
       case "true_false":
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <p className="text-lg font-medium">{exercise.exercise_data.statement}</p>
-            <RadioGroup value={answer} onValueChange={setAnswer} disabled={submitted}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="true" id="true" />
-                <Label htmlFor="true" className="cursor-pointer">True</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="false" id="false" />
-                <Label htmlFor="false" className="cursor-pointer">False</Label>
-              </div>
-            </RadioGroup>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* TRUE Button */}
+              <motion.button
+                type="button"
+                whileHover={!submitted ? { scale: 1.02 } : {}}
+                whileTap={!submitted ? { scale: 0.98 } : {}}
+                onClick={() => !submitted && setAnswer("true")}
+                disabled={submitted}
+                className={`p-8 rounded-2xl border-4 transition-all duration-200 ${
+                  answer === "true"
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/30 shadow-lg"
+                    : "border-border hover:border-green-300 dark:hover:border-green-700"
+                } ${submitted ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
+                  <span className="text-2xl font-bold text-green-600 dark:text-green-400">TRUE</span>
+                </div>
+              </motion.button>
+
+              {/* FALSE Button */}
+              <motion.button
+                type="button"
+                whileHover={!submitted ? { scale: 1.02 } : {}}
+                whileTap={!submitted ? { scale: 0.98 } : {}}
+                onClick={() => !submitted && setAnswer("false")}
+                disabled={submitted}
+                className={`p-8 rounded-2xl border-4 transition-all duration-200 ${
+                  answer === "false"
+                    ? "border-red-500 bg-red-50 dark:bg-red-950/30 shadow-lg"
+                    : "border-border hover:border-red-300 dark:hover:border-red-700"
+                } ${submitted ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <XCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
+                  <span className="text-2xl font-bold text-red-600 dark:text-red-400">FALSE</span>
+                </div>
+              </motion.button>
+            </div>
           </div>
         );
 

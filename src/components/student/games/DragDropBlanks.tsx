@@ -14,9 +14,16 @@ interface BlankAnswer {
   distractors: string[];
 }
 
+interface SubQuestion {
+  text: string;
+  correctAnswer: string;
+  distractors: string[];
+}
+
 interface DragDropBlanksGameData {
   question: string;
   blanks: BlankAnswer[];
+  sub_questions?: SubQuestion[]; // Multi-part with numbering
   explanation?: string;
   marks?: number;
   difficulty?: string;
@@ -142,12 +149,19 @@ export function DragDropBlanks({
     setResults({});
     setShowExplanation(false);
 
-    // Create shuffled word bank
+    // Create shuffled word bank from sub_questions or blanks
     const allWords: string[] = [];
-    gameData.blanks.forEach((blank) => {
-      allWords.push(blank.correctAnswer);
-      allWords.push(...blank.distractors);
-    });
+    if (gameData.sub_questions && gameData.sub_questions.length > 0) {
+      gameData.sub_questions.forEach((subQ) => {
+        allWords.push(subQ.correctAnswer);
+        allWords.push(...subQ.distractors);
+      });
+    } else {
+      gameData.blanks.forEach((blank) => {
+        allWords.push(blank.correctAnswer);
+        allWords.push(...blank.distractors);
+      });
+    }
     setWordBank(allWords.sort(() => Math.random() - 0.5));
   }, [gameData]);
 
@@ -180,7 +194,8 @@ export function DragDropBlanks({
   };
 
   const handleSubmit = () => {
-    if (Object.keys(blankAnswers).length !== gameData.blanks.length) {
+    const expectedBlanks = gameData.sub_questions?.length || gameData.blanks.length;
+    if (Object.keys(blankAnswers).length !== expectedBlanks) {
       return; // Not all blanks filled
     }
 
@@ -189,11 +204,19 @@ export function DragDropBlanks({
     const newResults: { [key: number]: boolean } = {};
     let allCorrect = true;
 
-    gameData.blanks.forEach((blank, index) => {
-      const isCorrect = blankAnswers[index]?.toLowerCase() === blank.correctAnswer.toLowerCase();
-      newResults[index] = isCorrect;
-      if (!isCorrect) allCorrect = false;
-    });
+    if (gameData.sub_questions && gameData.sub_questions.length > 0) {
+      gameData.sub_questions.forEach((subQ, index) => {
+        const isCorrect = blankAnswers[index]?.toLowerCase() === subQ.correctAnswer.toLowerCase();
+        newResults[index] = isCorrect;
+        if (!isCorrect) allCorrect = false;
+      });
+    } else {
+      gameData.blanks.forEach((blank, index) => {
+        const isCorrect = blankAnswers[index]?.toLowerCase() === blank.correctAnswer.toLowerCase();
+        newResults[index] = isCorrect;
+        if (!isCorrect) allCorrect = false;
+      });
+    }
 
     setResults(newResults);
 
@@ -226,7 +249,10 @@ export function DragDropBlanks({
     return Object.values(blankAnswers).includes(word);
   };
 
-  // Parse question text and insert blanks
+  // Check if this is a multi-part question
+  const isMultiPart = gameData.sub_questions && gameData.sub_questions.length > 0;
+
+  // Parse question text and insert blanks (legacy single question)
   const renderQuestionWithBlanks = () => {
     const parts = gameData.question.split(/____+/);
     const result: JSX.Element[] = [];
@@ -266,7 +292,52 @@ export function DragDropBlanks({
     return result;
   };
 
-  const allBlanksFilled = Object.keys(blankAnswers).length === gameData.blanks.length;
+  // Render multi-part questions with sub-numbering
+  const renderMultiPartQuestion = () => {
+    if (!gameData.sub_questions) return null;
+
+    return (
+      <ol className="list-decimal pl-6 space-y-3">
+        {gameData.sub_questions.map((subQ, index) => {
+          const parts = subQ.text.split(/____+/);
+          const placedWord = blankAnswers[index];
+
+          return (
+            <li key={index} className="text-lg leading-relaxed">
+              <div className="inline">
+                {parts[0]}
+                <DroppableBlank
+                  id={`blank-${index}`}
+                  isCorrect={hasSubmitted ? results[index] : null}
+                  hasSubmitted={hasSubmitted}
+                >
+                  {placedWord && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{placedWord}</span>
+                      {!hasSubmitted && (
+                        <button
+                          onClick={() => handleRemoveWord(index)}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                      {hasSubmitted && results[index] && <Check className="w-4 h-4 text-green-600" />}
+                      {hasSubmitted && !results[index] && <X className="w-4 h-4 text-destructive" />}
+                    </div>
+                  )}
+                </DroppableBlank>
+                {parts[1] || ""}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  };
+
+  const expectedBlanks = gameData.sub_questions?.length || gameData.blanks.length;
+  const allBlanksFilled = Object.keys(blankAnswers).length === expectedBlanks;
   const isAllCorrect = Object.values(results).every((r) => r === true);
 
   return (
@@ -277,13 +348,23 @@ export function DragDropBlanks({
           <div className="flex items-center justify-between">
             <Badge variant="outline">Fill in the Blanks</Badge>
             <Badge variant="secondary">
-              {Object.keys(blankAnswers).length}/{gameData.blanks.length} Filled
+              {Object.keys(blankAnswers).length}/{expectedBlanks} Filled
             </Badge>
           </div>
 
           {/* Question with blanks */}
-          <div className="text-lg font-medium leading-relaxed p-4 bg-muted/30 rounded-lg">
-            {renderQuestionWithBlanks()}
+          <div className="p-4 bg-muted/30 rounded-lg">
+            {!isMultiPart && (
+              <div className="text-lg font-medium leading-relaxed">
+                {renderQuestionWithBlanks()}
+              </div>
+            )}
+            {isMultiPart && (
+              <div>
+                <p className="text-lg font-semibold mb-3">{gameData.question}</p>
+                {renderMultiPartQuestion()}
+              </div>
+            )}
           </div>
 
           {/* Word Bank */}
@@ -326,7 +407,10 @@ export function DragDropBlanks({
                   </p>
                   {!isAllCorrect && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      Correct answers: {gameData.blanks.map((b, i) => `${i + 1}. ${b.correctAnswer}`).join(", ")}
+                      Correct answers:{" "}
+                      {isMultiPart
+                        ? gameData.sub_questions?.map((sq, i) => `${i + 1}. ${sq.correctAnswer}`).join(", ")
+                        : gameData.blanks.map((b, i) => `${i + 1}. ${b.correctAnswer}`).join(", ")}
                     </p>
                   )}
                 </div>

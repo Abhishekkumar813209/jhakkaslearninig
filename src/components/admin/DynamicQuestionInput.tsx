@@ -34,6 +34,9 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   // Fill Blanks states
   const [blanksCount, setBlanksCount] = useState(1);
   const [blanks, setBlanks] = useState([{ correctAnswer: '', distractors: ['', '', ''] }]);
+  
+  // True/False multi-statement states
+  const [statements, setStatements] = useState([{ text: '', answer: true }]);
 
   // Match Column states
   const [leftColumn, setLeftColumn] = useState(['', '']);
@@ -70,18 +73,37 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         break;
 
       case 'true_false':
-        gameData = {
-          question: questionText,
-          correctAnswer: correctAnswer === 0,
-          marks,
-          difficulty
-        };
+        // Check if multi-part
+        if (statements.length > 1 || (statements.length === 1 && statements[0].text.trim())) {
+          gameData = {
+            question: questionText || 'Determine whether the following statements are True or False:',
+            statements: statements.filter(s => s.text.trim()),
+            marks,
+            difficulty
+          };
+        } else {
+          // Single statement
+          gameData = {
+            question: questionText,
+            correctAnswer: correctAnswer === 0,
+            marks,
+            difficulty
+          };
+        }
         break;
 
       case 'fill_blank':
+        // Check if multi-part (multiple sub-questions)
+        const filteredBlanks = blanks.filter(b => b.correctAnswer.trim());
         gameData = {
           question: questionText,
-          blanks: blanks.filter(b => b.correctAnswer.trim()),
+          blanks: filteredBlanks,
+          sub_questions: filteredBlanks.length > 1 ? filteredBlanks.map((blank, idx) => ({
+            id: idx + 1,
+            text: `Sub-question ${idx + 1}`,
+            correctAnswer: blank.correctAnswer,
+            distractors: blank.distractors
+          })) : undefined,
           marks,
           difficulty
         };
@@ -183,6 +205,8 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
     if (gameType === 'mcq') {
       setOptions(['', '', '', '']);
       setCorrectAnswer(0);
+    } else if (gameType === 'true_false') {
+      setStatements([{ text: '', answer: true }]);
     } else if (gameType === 'fill_blank') {
       setBlanksCount(1);
       setBlanks([{ correctAnswer: '', distractors: ['', '', ''] }]);
@@ -297,39 +321,101 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
     return (
       <div className="space-y-4">
         <div>
-          <Label>Statement *</Label>
+          <Label>Main Question (Optional)</Label>
           <Textarea
             value={questionText}
             onChange={(e) => { 
               setQuestionText(e.target.value); 
               setTimeout(() => handleDataChange(), 0);
             }}
-            placeholder="Enter a true/false statement..."
+            placeholder="e.g., Determine whether the following statements are True or False..."
             rows={2}
           />
         </div>
 
-        <div className="flex gap-4">
-          <div
-            onClick={() => { 
-              setCorrectAnswer(0); 
-              setTimeout(() => handleDataChange(), 0);
-            }}
-            className={`flex-1 border-2 rounded-lg p-4 cursor-pointer ${correctAnswer === 0 ? 'border-primary bg-primary/10' : 'border-border'}`}
-          >
-            <Switch checked={correctAnswer === 0} />
-            <span className="ml-2 font-medium">True</span>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <Label className="font-semibold">Statements ({statements.filter(s => s.text.trim()).length})</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setStatements([...statements, { text: '', answer: true }]);
+                setTimeout(() => handleDataChange(), 0);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Statement
+            </Button>
           </div>
-          <div
-            onClick={() => { 
-              setCorrectAnswer(1); 
-              setTimeout(() => handleDataChange(), 0);
-            }}
-            className={`flex-1 border-2 rounded-lg p-4 cursor-pointer ${correctAnswer === 1 ? 'border-primary bg-primary/10' : 'border-border'}`}
-          >
-            <Switch checked={correctAnswer === 1} />
-            <span className="ml-2 font-medium">False</span>
-          </div>
+
+          {statements.map((stmt, idx) => (
+            <Card key={idx} className="p-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm font-medium">{idx + 1}. Statement</Label>
+                  {statements.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newStatements = statements.filter((_, i) => i !== idx);
+                        setStatements(newStatements);
+                        setTimeout(() => handleDataChange(), 0);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                
+                <Textarea
+                  value={stmt.text}
+                  onChange={(e) => {
+                    const newStatements = [...statements];
+                    newStatements[idx].text = e.target.value;
+                    setStatements(newStatements);
+                    setTimeout(() => handleDataChange(), 0);
+                  }}
+                  placeholder={`Enter statement ${idx + 1}...`}
+                  rows={2}
+                />
+
+                <div className="flex gap-4">
+                  <div
+                    onClick={() => {
+                      const newStatements = [...statements];
+                      newStatements[idx].answer = true;
+                      setStatements(newStatements);
+                      setTimeout(() => handleDataChange(), 0);
+                    }}
+                    className={`flex-1 border-2 rounded-lg p-3 cursor-pointer transition-colors ${
+                      stmt.answer ? 'border-primary bg-primary/10' : 'border-border'
+                    }`}
+                  >
+                    <Switch checked={stmt.answer} />
+                    <span className="ml-2 font-medium">True</span>
+                  </div>
+                  <div
+                    onClick={() => {
+                      const newStatements = [...statements];
+                      newStatements[idx].answer = false;
+                      setStatements(newStatements);
+                      setTimeout(() => handleDataChange(), 0);
+                    }}
+                    className={`flex-1 border-2 rounded-lg p-3 cursor-pointer transition-colors ${
+                      !stmt.answer ? 'border-primary bg-primary/10' : 'border-border'
+                    }`}
+                  >
+                    <Switch checked={!stmt.answer} />
+                    <span className="ml-2 font-medium">False</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
 
         <div>
@@ -340,9 +426,38 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
               setExplanation(e.target.value); 
               setTimeout(() => handleDataChange(), 0);
             }} 
-            placeholder="Explain why..." 
+            placeholder="Explain the answers..." 
             rows={2} 
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Marks</Label>
+            <Input 
+              type="number" 
+              value={marks} 
+              onChange={(e) => { 
+                setMarks(parseInt(e.target.value)); 
+                setTimeout(() => handleDataChange(), 0);
+              }} 
+            />
+          </div>
+          <div>
+            <Label>Difficulty</Label>
+            <select 
+              className="w-full border rounded px-3 py-2" 
+              value={difficulty} 
+              onChange={(e) => { 
+                setDifficulty(e.target.value); 
+                setTimeout(() => handleDataChange(), 0);
+              }}
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
         </div>
       </div>
     );

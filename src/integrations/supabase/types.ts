@@ -2096,6 +2096,7 @@ export type Database = {
           reviewed_by: string | null
           right_column: string[] | null
           source_file_name: string | null
+          sub_questions: Json | null
           subject: string | null
           topic_id: string | null
           updated_at: string | null
@@ -2127,6 +2128,7 @@ export type Database = {
           reviewed_by?: string | null
           right_column?: string[] | null
           source_file_name?: string | null
+          sub_questions?: Json | null
           subject?: string | null
           topic_id?: string | null
           updated_at?: string | null
@@ -2158,6 +2160,7 @@ export type Database = {
           reviewed_by?: string | null
           right_column?: string[] | null
           source_file_name?: string | null
+          sub_questions?: Json | null
           subject?: string | null
           topic_id?: string | null
           updated_at?: string | null

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, Lightbulb, CheckCircle, XCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
@@ -99,50 +100,40 @@ export function TrueFalseGame({
           {gameData.question}
         </div>
 
-        {/* True/False Buttons */}
+        {/* True/False Toggle Switches */}
         {!hasSubmitted ? (
-          <div className="grid grid-cols-2 gap-6">
-            {/* TRUE Button */}
-            <motion.button
+          <div className="flex gap-4">
+            {/* TRUE Option */}
+            <motion.div
               onClick={() => handleSelect(true)}
               className={cn(
-                "group relative p-8 border-4 rounded-2xl transition-all",
+                "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all",
                 selectedAnswer === true
-                  ? "border-green-500 bg-green-50 shadow-lg scale-105"
-                  : "border-gray-200 hover:border-green-300 bg-background"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
               )}
-              whileHover={{ scale: selectedAnswer === true ? 1.05 : 1.02 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <CheckCircle
-                className={cn(
-                  "w-16 h-16 mx-auto mb-3 transition-colors",
-                  selectedAnswer === true ? "text-green-600" : "text-green-400 group-hover:text-green-500"
-                )}
-              />
-              <span className="text-2xl font-bold text-foreground">TRUE</span>
-            </motion.button>
+              <Switch checked={selectedAnswer === true} />
+              <span className="text-lg font-medium">True</span>
+            </motion.div>
 
-            {/* FALSE Button */}
-            <motion.button
+            {/* FALSE Option */}
+            <motion.div
               onClick={() => handleSelect(false)}
               className={cn(
-                "group relative p-8 border-4 rounded-2xl transition-all",
+                "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all",
                 selectedAnswer === false
-                  ? "border-red-500 bg-red-50 shadow-lg scale-105"
-                  : "border-gray-200 hover:border-red-300 bg-background"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/50"
               )}
-              whileHover={{ scale: selectedAnswer === false ? 1.05 : 1.02 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <XCircle
-                className={cn(
-                  "w-16 h-16 mx-auto mb-3 transition-colors",
-                  selectedAnswer === false ? "text-red-600" : "text-red-400 group-hover:text-red-500"
-                )}
-              />
-              <span className="text-2xl font-bold text-foreground">FALSE</span>
-            </motion.button>
+              <Switch checked={selectedAnswer === false} />
+              <span className="text-lg font-medium">False</span>
+            </motion.div>
           </div>
         ) : (
           /* Result Display */

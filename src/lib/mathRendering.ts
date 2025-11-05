@@ -281,8 +281,16 @@ export const normalizeTrigInverse = (text: string): string => {
 export const renderMath = (input: string): string => {
   if (!input) return '';
   
+  console.group('🔍 Math Rendering Debug');
+  console.log('📥 Input:', input.substring(0, 300));
+  
   // Convert newlines to <br> tags early in the pipeline
   let text = input.replace(/\n/g, '<br />');
+  
+  // Preserve numbered lists (e.g., "1. ", "2. ") with line breaks
+  text = text.replace(/(\n|^)(\d+)\.\s+/g, '$1<br /><strong>$2.</strong> ');
+  
+  console.log('📝 After newline & numbering:', text.substring(0, 300));
   
   // Step 1: Protect MCQ option labels like (A), (B), (C), (D) from transformations
   // Using unique symbols (§§) that won't appear in normal text or get escaped
@@ -291,17 +299,28 @@ export const renderMath = (input: string): string => {
   
   // Protect (A)-(D) MCQ tokens (case-insensitive)
   let protectedInput = text.replace(/\([A-Da-d]\)/g, (match) => {
-    const placeholder = `§§PROTECT§${tokenIndex}§§`;
+    const placeholder = `§§PROTECT§${tokenIndex++}§§`;
     protectedTokens[placeholder] = match;
     return placeholder;
   });
   
   // Protect ALL single-digit/letter parentheses like (8), (1), (x), (B), etc.
   protectedInput = protectedInput.replace(/\(([A-Za-z0-9])\)/g, (match) => {
-    const placeholder = `§§PROTECT§${tokenIndex}§§`;
+    const placeholder = `§§PROTECT§${tokenIndex++}§§`;
     protectedTokens[placeholder] = match;
     return placeholder;
   });
+  
+  // CRITICAL FIX 1: Protect <br /> tags before escapeHtml
+  const brTokens: Record<string, string> = {};
+  let brIndex = 0;
+  protectedInput = protectedInput.replace(/<br\s*\/?>/gi, () => {
+    const token = `§§BR§${brIndex++}§§`;
+    brTokens[token] = '<br />';
+    return token;
+  });
+  
+  console.log('🔒 After protecting tokens & br tags:', protectedInput.substring(0, 300));
   
   // Step 2: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
   let cleaned = normalizeTrigInverse(protectedInput);
@@ -327,6 +346,8 @@ export const renderMath = (input: string): string => {
   // Step 5: Escape HTML for safety (CRITICAL: Do this BEFORE injecting any HTML)
   let safe = escapeHtml(cleaned);
   
+  console.log('🔐 After escapeHtml:', safe.substring(0, 300));
+  
   // Step 6: Apply square root with vinculum AFTER HTML escape
   safe = applySqrtWithVinculum(safe);
   
@@ -350,19 +371,49 @@ export const renderMath = (input: string): string => {
   // Step 10: Apply fraction rendering
   safe = applyFractions(safe);
   
+  // CRITICAL FIX 2: Protect fill-in-blanks (3+ underscores) BEFORE applySupSub
+  const blankTokens: Record<string, string> = {};
+  let blankIndex = 0;
+  safe = safe.replace(/_{3,}/g, (match) => {
+    const token = `§§BLANK§${blankIndex++}§§`;
+    blankTokens[token] = match;
+    return token;
+  });
+  
+  console.log('📝 After protecting blanks:', safe.substring(0, 300));
+  
   // Step 11: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  // Step 12: Restore ALL protected tokens with robust replacement
+  console.log('⬆️ After applySupSub:', safe.substring(0, 300));
+  
+  // Step 12: Restore blanks FIRST (before other tokens)
+  Object.keys(blankTokens).forEach(token => {
+    const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    safe = safe.replace(new RegExp(escapedToken, 'g'), blankTokens[token]);
+  });
+  
+  // Step 13: Restore <br /> tags
+  Object.keys(brTokens).forEach(token => {
+    const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    safe = safe.replace(new RegExp(escapedToken, 'g'), brTokens[token]);
+  });
+  
+  console.log('🔓 After restoring blanks & br:', safe.substring(0, 300));
+  
+  // Step 14: Restore ALL protected tokens with robust replacement
   Object.keys(protectedTokens).forEach(placeholder => {
     // Use global regex replacement to handle all occurrences
     const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     safe = safe.replace(new RegExp(escapedPlaceholder, 'g'), protectedTokens[placeholder]);
   });
   
+  console.log('✅ Final output:', safe.substring(0, 300));
+  console.groupEnd();
+  
   // Fallback: Check if any protection tokens remain (for debugging)
-  if (safe.includes('§§PROTECT§')) {
-    console.warn('Warning: Some protected tokens were not restored properly');
+  if (safe.includes('§§PROTECT§') || safe.includes('§§BR§') || safe.includes('§§BLANK§')) {
+    console.warn('⚠️ Warning: Some protected tokens were not restored properly');
   }
   
   return safe;

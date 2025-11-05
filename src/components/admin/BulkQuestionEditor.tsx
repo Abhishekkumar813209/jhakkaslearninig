@@ -89,7 +89,7 @@ interface ExtractedQuestion {
   // Sub-question fields
   statements?: TrueFalseStatement[];
   sub_questions?: FillBlankSubQuestion[];
-  numberingStyle?: 'numeric' | 'alpha' | 'roman';
+  numberingStyle?: '1,2,3' | 'a,b,c' | 'i,ii,iii';
 }
 
 interface BulkQuestionEditorProps {
@@ -444,7 +444,49 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
   const [isOpen, setIsOpen] = useState(false);
   
   const handleChange = (field: string, value: any) => {
-    onUpdate({ ...question, [field]: value, edited: true });
+    const updatedQuestion = { ...question, [field]: value, edited: true };
+    
+    // Transform data structure for database on save
+    if (field === 'sub_questions' && question.question_type === 'fill_blank') {
+      updatedQuestion.correct_answer = {
+        blanks: (value as FillBlankSubQuestion[]).map(sq => ({
+          correctAnswer: sq.correctAnswer,
+          distractors: sq.distractors || []
+        })),
+        sub_questions: value,
+        numbering_style: question.numberingStyle || '1,2,3'
+      };
+    }
+    
+    if (field === 'statements' && question.question_type === 'true_false') {
+      updatedQuestion.correct_answer = {
+        statements: value,
+        numbering_style: question.numberingStyle || 'i,ii,iii'
+      };
+    }
+    
+    // Also update correct_answer when numbering style changes
+    if (field === 'numberingStyle') {
+      if (question.question_type === 'fill_blank' && question.sub_questions) {
+        updatedQuestion.correct_answer = {
+          blanks: question.sub_questions.map(sq => ({
+            correctAnswer: sq.correctAnswer,
+            distractors: sq.distractors || []
+          })),
+          sub_questions: question.sub_questions,
+          numbering_style: value
+        };
+      }
+      
+      if (question.question_type === 'true_false' && question.statements) {
+        updatedQuestion.correct_answer = {
+          statements: question.statements,
+          numbering_style: value
+        };
+      }
+    }
+    
+    onUpdate(updatedQuestion);
   };
   
   const getStatusIcon = () => {
@@ -488,6 +530,18 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                 if (value === 'match_column' && (!question.left_column || !question.right_column)) {
                   updates.left_column = ['', ''];
                   updates.right_column = ['', ''];
+                }
+                
+                // Auto-initialize fill_blank sub-questions
+                if (value === 'fill_blank' && !question.sub_questions) {
+                  updates.sub_questions = [{ text: '', correctAnswer: '', distractors: [] }];
+                  updates.numberingStyle = '1,2,3';
+                }
+                
+                // Auto-initialize true_false statements
+                if (value === 'true_false' && !question.statements) {
+                  updates.statements = [{ text: '', answer: true }];
+                  updates.numberingStyle = 'i,ii,iii';
                 }
                 
                 const updatedQuestion = { ...question, ...updates };
@@ -563,6 +617,43 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                       __html: renderWithImages(question.question_text)
                     }}
                   />
+                </div>
+              )}
+              
+              {/* Sub-Questions Preview for Fill Blank */}
+              {question.question_type === 'fill_blank' && question.sub_questions && question.sub_questions.length > 0 && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-900">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">Sub-Questions Preview:</p>
+                  <div className="space-y-1.5">
+                    {question.sub_questions.map((subQ, idx) => (
+                      <div key={idx} className="text-sm flex items-start gap-2">
+                        <span className="font-semibold text-blue-600 dark:text-blue-400 min-w-[20px]">
+                          {getNumberingLabel(idx, question.numberingStyle || '1,2,3')}.
+                        </span>
+                        <span className="text-foreground">{subQ.text || '(empty)'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Statements Preview for True/False */}
+              {question.question_type === 'true_false' && question.statements && question.statements.length > 0 && (
+                <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-md border border-purple-200 dark:border-purple-900">
+                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2">Statements Preview:</p>
+                  <div className="space-y-1.5">
+                    {question.statements.map((stmt, idx) => (
+                      <div key={idx} className="text-sm flex items-start gap-2">
+                        <span className="font-semibold text-purple-600 dark:text-purple-400 min-w-[20px]">
+                          {getNumberingLabel(idx, question.numberingStyle || 'i,ii,iii')}.
+                        </span>
+                        <span className="text-foreground flex-1">{stmt.text || '(empty)'}</span>
+                        <Badge variant={stmt.answer ? "default" : "secondary"} className="text-xs">
+                          {stmt.answer ? 'TRUE' : 'FALSE'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -756,16 +847,16 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">Fill-in-the-Blanks Sub-Questions</label>
                   <Select
-                    value={question.numberingStyle || 'numeric'}
+                    value={question.numberingStyle || '1,2,3'}
                     onValueChange={(val) => handleChange('numberingStyle', val)}
                   >
                     <SelectTrigger className="w-32 h-8">
                       <SelectValue placeholder="Numbering" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="numeric">1, 2, 3...</SelectItem>
-                      <SelectItem value="alpha">a, b, c...</SelectItem>
-                      <SelectItem value="roman">i, ii, iii...</SelectItem>
+                      <SelectItem value="1,2,3">1, 2, 3...</SelectItem>
+                      <SelectItem value="a,b,c">a, b, c...</SelectItem>
+                      <SelectItem value="i,ii,iii">i, ii, iii...</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -776,7 +867,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                     <div key={idx} className="border rounded-lg p-3 space-y-2 bg-muted/20">
                       <div className="flex items-center justify-between">
                         <Badge variant="outline" className="text-xs">
-                          {getNumberingLabel(idx, question.numberingStyle || 'numeric')}
+                          {getNumberingLabel(idx, question.numberingStyle || '1,2,3')}
                         </Badge>
                         <Button
                           variant="ghost"
@@ -867,16 +958,16 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">True/False Statements</label>
                   <Select
-                    value={question.numberingStyle || 'numeric'}
+                    value={question.numberingStyle || 'i,ii,iii'}
                     onValueChange={(val) => handleChange('numberingStyle', val)}
                   >
                     <SelectTrigger className="w-32 h-8">
                       <SelectValue placeholder="Numbering" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="numeric">1, 2, 3...</SelectItem>
-                      <SelectItem value="alpha">a, b, c...</SelectItem>
-                      <SelectItem value="roman">i, ii, iii...</SelectItem>
+                      <SelectItem value="1,2,3">1, 2, 3...</SelectItem>
+                      <SelectItem value="a,b,c">a, b, c...</SelectItem>
+                      <SelectItem value="i,ii,iii">i, ii, iii...</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -887,7 +978,7 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                     <div key={idx} className="border rounded-lg p-3 space-y-2 bg-muted/20">
                       <div className="flex items-center justify-between">
                         <Badge variant="outline" className="text-xs">
-                          {getNumberingLabel(idx, question.numberingStyle || 'numeric')}
+                          {getNumberingLabel(idx, question.numberingStyle || 'i,ii,iii')}
                         </Badge>
                         <Button
                           variant="ghost"

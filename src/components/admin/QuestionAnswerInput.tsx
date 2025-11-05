@@ -171,6 +171,13 @@ export const QuestionAnswerInput = ({
   }, [localAnswer, questionType, options, leftColumn, rightColumn]);
 
   const handleChange = (newAnswer: any) => {
+    console.log('🔄 [QAInput] onChange fired:', {
+      questionType,
+      answerType: typeof newAnswer,
+      blanksLen: newAnswer?.blanks?.length || 0,
+      pairsLen: newAnswer?.pairs?.length || 0,
+      preview: JSON.stringify(newAnswer).substring(0, 100)
+    });
     setLocalAnswer(newAnswer);
     onChange(newAnswer);
   };

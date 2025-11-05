@@ -354,11 +354,21 @@ export const SmartQuestionExtractorNew = ({
 
 
   const handleAnswerUpdate = async (questionId: string, answer: any, explanation?: string) => {
+    console.log('🔄 [SmartExtractor] handleAnswerUpdate called:', { 
+      questionId, 
+      answerType: typeof answer,
+      answerKeys: typeof answer === 'object' && answer ? Object.keys(answer) : [],
+      hasBlanks: answer?.blanks?.length || 0,
+      hasPairs: answer?.pairs?.length || 0,
+      answerPreview: JSON.stringify(answer).substring(0, 150)
+    });
+    
     // Track the edit locally instead of saving immediately
     setEditedQuestions(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(questionId) || {};
       newMap.set(questionId, { ...existing, correct_answer: answer, explanation });
+      console.log('✅ [SmartExtractor] editedQuestions updated. Map size:', newMap.size, 'Has this ID?', newMap.has(questionId));
       return newMap;
     });
 
@@ -968,11 +978,27 @@ export const SmartQuestionExtractorNew = ({
                     <CardContent className="p-4 pt-2 space-y-3">
                       {/* Question Text */}
                       <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">Question:</div>
+                        <div className="text-xs font-medium text-muted-foreground">
+                          {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 0 
+                            ? `Sub-Question (1 of ${q.correct_answer.sub_questions.length})` 
+                            : 'Question:'}
+                        </div>
                         <div 
                           className="text-sm prose prose-sm max-w-none question-content bg-muted/30 p-3 rounded-md"
-                          dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
+                          dangerouslySetInnerHTML={{ 
+                            __html: renderWithImages(
+                              q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.question
+                                ? q.correct_answer.sub_questions[0].question
+                                : q.question_text
+                            ) 
+                          }}
                         />
+                        {/* Multi-part badge */}
+                        {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 1 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {q.correct_answer.sub_questions.length} Sub-Questions
+                          </Badge>
+                        )}
                       </div>
 
                       {/* Options */}
@@ -1191,6 +1217,14 @@ export const SmartQuestionExtractorNew = ({
                         </Badge>
                       )}
 
+                      {/* Unsaved Changes Indicator */}
+                      {q.id && editedQuestions.has(q.id) && (
+                        <Badge variant="outline" className="w-full justify-center gap-1 text-orange-600 border-orange-400">
+                          <AlertCircle className="h-3 w-3" />
+                          Unsaved Changes
+                        </Badge>
+                      )}
+
                       {/* Save Changes Button (shown when question has edits) */}
                       {q.id && editedQuestions.has(q.id) && (
                         <Button 
@@ -1199,6 +1233,10 @@ export const SmartQuestionExtractorNew = ({
                           className="w-full"
                           onClick={(e) => {
                             e.stopPropagation();
+                            console.log('💾 [SmartExtractor] Save Changes clicked for:', q.id, {
+                              edits: editedQuestions.get(q.id),
+                              questionType: q.question_type
+                            });
                             handleQuestionUpdate(q.id!);
                           }}
                           disabled={savingQuestionId === q.id}

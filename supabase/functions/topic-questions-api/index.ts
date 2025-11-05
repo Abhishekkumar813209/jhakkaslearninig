@@ -99,8 +99,29 @@ function normalizeCorrectAnswer(questionType: string, correctAnswer: any, option
     return { type: 'boolean', value };
   }
   
-  if (questionType === 'fill_blank' || questionType === 'subjective') {
+  if (questionType === 'fill_blank') {
+    // 🔧 CRITICAL FIX: Preserve JSONB structure for drag-drop blanks
+    // Check if it's the new format with blanks/sub_questions array
+    if (typeof correctAnswer === 'object' && correctAnswer !== null) {
+      if (correctAnswer.blanks || correctAnswer.sub_questions) {
+        console.log('✅ Preserving fill_blank JSONB structure:', JSON.stringify(correctAnswer).substring(0, 100));
+        return correctAnswer; // Store as-is (JSONB)
+      }
+    }
+    // Legacy simple text format
     return { type: 'text', value: String(correctAnswer) };
+  }
+  
+  if (questionType === 'subjective') {
+    return { type: 'text', value: String(correctAnswer) };
+  }
+  
+  if (questionType === 'match_column') {
+    // Preserve match_column pairs structure
+    if (typeof correctAnswer === 'object' && correctAnswer !== null && correctAnswer.pairs) {
+      console.log('✅ Preserving match_column JSONB structure:', JSON.stringify(correctAnswer).substring(0, 100));
+      return correctAnswer;
+    }
   }
   
   return correctAnswer;

@@ -140,7 +140,16 @@ export const ManualQuestionEntry = ({
           correctAnswerFormat = { value: gameData.correctAnswer };
           break;
         case 'fill_blank':
-          correctAnswerFormat = { blanks: gameData.blanks };
+          // Include sub_questions if provided, otherwise just blanks
+          if (gameData.sub_questions?.length >= 1) {
+            correctAnswerFormat = { 
+              sub_questions: gameData.sub_questions,
+              blanks: gameData.blanks,
+              numbering_style: gameData.numbering_style 
+            };
+          } else {
+            correctAnswerFormat = { blanks: gameData.blanks };
+          }
           break;
         case 'match_column':
           correctAnswerFormat = { pairs: gameData.correctPairs };
@@ -186,6 +195,15 @@ export const ManualQuestionEntry = ({
         pairsLength: correctAnswerFormat?.pairs?.length
       });
 
+      // DEBUG: Log full payload for fill_blank questions
+      console.log('📦 FULL SAVE PAYLOAD:', {
+        question_type: gameType,
+        question_text: questionData.questionText,
+        correct_answer: correctAnswerFormat,
+        sub_questions: gameType === 'fill_blank' ? (gameData.sub_questions || null) : null,
+        has_sub_questions: gameType === 'fill_blank' && gameData.sub_questions?.length > 0,
+      });
+
       // Step 1: Save to question_bank
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
@@ -201,6 +219,9 @@ export const ManualQuestionEntry = ({
           left_column: finalLeftColumn,
           right_column: finalRightColumn,
           correct_answer: correctAnswerFormat,
+          sub_questions: gameType === 'fill_blank' && gameData.sub_questions?.length >= 1 
+            ? gameData.sub_questions 
+            : null,
           explanation: questionData.explanation,
           marks: questionData.marks || 1,
           difficulty: questionData.difficulty || 'medium',

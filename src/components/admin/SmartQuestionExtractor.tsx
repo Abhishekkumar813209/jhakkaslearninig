@@ -25,7 +25,7 @@ import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { normalizeChemicalFormula, formatChemicalReaction, preserveChemicalSymbols } from '@/lib/chemistryNotation';
 import { normalizeMathNotation, normalizeUnits, preserveMathSymbols } from '@/lib/mathNotation';
-import { renderMath } from '@/lib/mathRendering';
+import { renderMath, renderWithImages } from '@/lib/mathRendering';
 import QuestionEditDialog from './QuestionEditDialog';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
@@ -37,41 +37,7 @@ const stripHtmlTags = (html: string): string => {
   return div.textContent || div.innerText || '';
 };
 
-// Helper to render math while preserving images and breaks
-const renderWithImages = (html: string | null | undefined): string => {
-  // Handle null/undefined case
-  if (!html || typeof html !== 'string') return '';
-  
-  const tokens: Record<string, string> = {};
-  let i = 0;
-  
-  // Tokenize <img> and <br> tags to preserve them
-  const withTokens = html
-    .replace(/<img[^>]*>/gi, (img) => { 
-      const k = `IMG§${i++}§`; 
-      tokens[k] = img; 
-      return k; 
-    })
-    .replace(/<br\s*\/?>/gi, (br) => { 
-      const k = `BR§${i++}§`; 
-      tokens[k] = '<br />'; 
-      return k; 
-    });
-  
-  // Strip other HTML tags but keep text content
-  const textOnly = withTokens.replace(/<[^>]*>/g, '');
-  
-  // Apply math rendering
-  let out = renderMath(textOnly);
-  
-  // Restore image and break tokens
-  for (const [k, v] of Object.entries(tokens)) {
-    const escapedKey = k.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    out = out.replace(new RegExp(escapedKey, 'g'), v);
-  }
-  
-  return out;
-};
+// Removed duplicate renderWithImages function - now imported from @/lib/mathRendering
 
 interface ExtractedQuestion {
   id: string;

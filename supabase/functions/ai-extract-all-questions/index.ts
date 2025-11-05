@@ -232,6 +232,8 @@ serve(async (req) => {
 4. If you can't find a question number in the text, SKIP IT
 5. Each question MUST have a visible number marker (1., Q1, Question 1, etc.)
 6. PRESERVE all line breaks using \\n characters in question_text, assertion, reason, and options
+7. For multi-part questions with numbered sub-questions (1., 2., 3., 4., etc.), preserve the numbering on separate lines using newline characters (\\n)
+8. Example: "State True or False:\\n1. Helium is a noble gas.\\n2. Bromine is solid.\\n3. Matter exists in plasma state."
 
 **SPECIAL HANDLING FOR FIGURES:**
 - If you encounter [FIGURE id=img_X] with NO [IMAGE_OCR] data below it, the OCR failed

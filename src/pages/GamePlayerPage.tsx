@@ -7,6 +7,7 @@ import { MatchPairsGame } from "@/components/student/games/MatchPairsGame";
 import { InteractiveBlanks } from "@/components/student/games/InteractiveBlanks";
 import { DragDropSequence } from "@/components/student/games/DragDropSequence";
 import { TypingRaceGame } from "@/components/student/games/TypingRaceGame";
+import { TrueFalseGame } from "@/components/student/games/TrueFalseGame";
 import { getAdjacentGames, loadGameById, GameNavigationInfo } from "@/lib/gameNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -543,6 +544,18 @@ const GamePlayerPage = () => {
           <TypingRaceGame
             gameData={gameData.exercise_data}
             {...commonProps}
+          />
+        );
+      
+      case 'true_false':
+        return (
+          <TrueFalseGame
+            gameData={gameData.exercise_data}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={handleGameComplete}
+            onNext={navInfo?.nextGameId ? handleNext : undefined}
+            hasMoreQuestions={!!navInfo?.nextGameId}
           />
         );
       

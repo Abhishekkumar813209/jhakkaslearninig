@@ -1354,13 +1354,47 @@ function LessonContentBuilderInner() {
     }
 
     // Baaki question types ke liye generic checks
-    if (!gameData.question || gameData.question.trim() === '') {
+    // Fill blank uses 'text' field, others use 'question' field
+    const questionText = questionType === 'fill_blank' 
+      ? gameData.text 
+      : gameData.question;
+      
+    if (!questionText || questionText.trim() === '') {
       toast({
         title: "Validation Error",
         description: `Question ${questionNumber}: Question text is empty!`,
         variant: "destructive",
       });
       return false;
+    }
+
+    // Fill blank specific validation for answer data
+    if (questionType === 'fill_blank') {
+      if (!gameData.blanks || !Array.isArray(gameData.blanks) || gameData.blanks.length === 0) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Fill blank ko answer data chahiye (blanks array)!`,
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      // Validate each blank has correctAnswer and 3 distractors
+      const invalidBlanks = gameData.blanks.filter((b: any) => 
+        !b.correctAnswer?.trim() || 
+        !Array.isArray(b.distractors) || 
+        b.distractors.length !== 3 ||
+        b.distractors.some((d: string) => !d?.trim())
+      );
+      
+      if (invalidBlanks.length > 0) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Har blank me 1 correct answer + 3 distractors chahiye!`,
+          variant: "destructive",
+        });
+        return false;
+      }
     }
 
     // MCQ-type options check
@@ -1453,6 +1487,7 @@ function LessonContentBuilderInner() {
               gameData = {
                 original_type: 'fill_blank',
                 text: q.question_text?.trim() || '',
+                blanks: q.correct_answer?.blanks || [],
                 blanks_count: q.blanks_count || 1,
                 difficulty: q.difficulty || 'medium',
                 marks: q.marks || 1,

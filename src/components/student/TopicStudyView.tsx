@@ -607,14 +607,34 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           />
         )}
 
-        {currentQ.exercise_type === 'fill_blank' && (
-          <DragDropBlanks
-            gameData={currentQ.exercise_data}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onComplete={markTopicComplete}
-          />
-        )}
+        {currentQ.exercise_type === 'fill_blank' && (() => {
+          // Extract from correct_answer (new format) or exercise_data (legacy)
+          const fillBlankSource = currentQ.correct_answer || currentQ.exercise_data || {};
+          
+          const fillBlankData = {
+            question: fillBlankSource.question || "",
+            blanks: fillBlankSource.blanks || [],
+            sub_questions: fillBlankSource.sub_questions || [],
+            explanation: currentQ.explanation || fillBlankSource.explanation,
+            marks: fillBlankSource.marks || 1,
+            difficulty: currentQ.difficulty || fillBlankSource.difficulty
+          };
+          
+          console.log('[TopicStudyView] Fill Blank Data:', {
+            hasBlanks: fillBlankData.blanks.length > 0,
+            hasSubQuestions: fillBlankData.sub_questions.length > 0,
+            questionId: currentQ.id
+          });
+          
+          return (
+            <DragDropBlanks
+              gameData={fillBlankData}
+              onCorrect={handleCorrectAnswer}
+              onWrong={handleWrongAnswer}
+              onComplete={markTopicComplete}
+            />
+          );
+        })()}
 
         {currentQ.exercise_type === 'match_column' && (
           <LineMatchingGame

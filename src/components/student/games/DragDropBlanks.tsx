@@ -151,17 +151,22 @@ export function DragDropBlanks({
 
     // Create shuffled word bank from sub_questions or blanks
     const allWords: string[] = [];
+    
+    // Defensive: Check both arrays exist and have length
     if (gameData.sub_questions && gameData.sub_questions.length > 0) {
       gameData.sub_questions.forEach((subQ) => {
         allWords.push(subQ.correctAnswer);
-        allWords.push(...subQ.distractors);
+        allWords.push(...(subQ.distractors || []));
       });
-    } else {
+    } else if (gameData.blanks && gameData.blanks.length > 0) {
       gameData.blanks.forEach((blank) => {
         allWords.push(blank.correctAnswer);
-        allWords.push(...blank.distractors);
+        allWords.push(...(blank.distractors || []));
       });
+    } else {
+      console.error('[DragDropBlanks] No valid blanks or sub_questions data:', gameData);
     }
+    
     setWordBank(allWords.sort(() => Math.random() - 0.5));
   }, [gameData]);
 
@@ -194,7 +199,11 @@ export function DragDropBlanks({
   };
 
   const handleSubmit = () => {
-    const expectedBlanks = gameData.sub_questions?.length || gameData.blanks.length;
+    const expectedBlanks = (gameData.sub_questions?.length || 0) + (gameData.blanks?.length || 0);
+    if (expectedBlanks === 0) {
+      console.error('[DragDropBlanks] No blanks to validate');
+      return;
+    }
     if (Object.keys(blankAnswers).length !== expectedBlanks) {
       return; // Not all blanks filled
     }

@@ -8,6 +8,7 @@ import { InteractiveBlanks } from "@/components/student/games/InteractiveBlanks"
 import { DragDropSequence } from "@/components/student/games/DragDropSequence";
 import { TypingRaceGame } from "@/components/student/games/TypingRaceGame";
 import { TrueFalseGame } from "@/components/student/games/TrueFalseGame";
+import { DragDropBlanks } from "@/components/student/games/DragDropBlanks";
 import { getAdjacentGames, loadGameById, GameNavigationInfo } from "@/lib/gameNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -576,7 +577,49 @@ const GamePlayerPage = () => {
         );
       
       case 'fill_blank':
+        // Extract fill_blank data from correct_answer (new format) or exercise_data (legacy)
+        const fillBlankSource = gameData.correct_answer || gameData.exercise_data || {};
+        
+        const fillBlankData = {
+          question: gameData.question_text || fillBlankSource.question || "",
+          blanks: fillBlankSource.blanks || [],
+          sub_questions: fillBlankSource.sub_questions || [],
+          explanation: gameData.explanation || fillBlankSource.explanation,
+          marks: gameData.marks || fillBlankSource.marks || 1,
+          difficulty: gameData.difficulty || fillBlankSource.difficulty
+        };
+        
+        console.log('[GamePlayerPage] Fill Blank Data:', {
+          hasBlanks: fillBlankData.blanks.length > 0,
+          hasSubQuestions: fillBlankData.sub_questions.length > 0,
+          source: gameData.correct_answer ? 'correct_answer' : 'exercise_data',
+          gameId: gameData.id
+        });
+        
+        // Validate: Must have either blanks or sub_questions
+        if (fillBlankData.blanks.length === 0 && fillBlankData.sub_questions.length === 0) {
+          console.error('[GamePlayerPage] Fill blank has no valid data:', gameData);
+          return (
+            <div className="text-center p-8">
+              <p className="text-destructive">Fill blank data is missing or invalid</p>
+              <Button onClick={handleExit} className="mt-4">Back to Topic</Button>
+            </div>
+          );
+        }
+        
+        return (
+          <DragDropBlanks
+            gameData={fillBlankData}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={handleGameComplete}
+            onNext={navInfo?.nextGameId ? handleNext : undefined}
+            hasMoreQuestions={!!navInfo?.nextGameId}
+          />
+        );
+
       case 'interactive_blanks':
+        // Keep InteractiveBlanks for its own type
         return (
           <InteractiveBlanks
             gameData={gameData.exercise_data}

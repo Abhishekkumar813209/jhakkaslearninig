@@ -623,7 +623,6 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
               {/* Sub-Questions Preview for Fill Blank */}
               {question.question_type === 'fill_blank' && question.sub_questions && question.sub_questions.length > 0 && (
                 <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-900">
-                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">Sub-Questions Preview:</p>
                   <div className="space-y-1.5">
                     {question.sub_questions.map((subQ, idx) => (
                       <div key={idx} className="text-sm flex items-start gap-2">
@@ -640,7 +639,6 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
               {/* Statements Preview for True/False */}
               {question.question_type === 'true_false' && question.statements && question.statements.length > 0 && (
                 <div className="mt-2 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-md border border-purple-200 dark:border-purple-900">
-                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2">Statements Preview:</p>
                   <div className="space-y-1.5">
                     {question.statements.map((stmt, idx) => (
                       <div key={idx} className="text-sm flex items-start gap-2">

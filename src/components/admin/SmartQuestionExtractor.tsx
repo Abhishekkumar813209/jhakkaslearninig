@@ -26,6 +26,7 @@ import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { normalizeChemicalFormula, formatChemicalReaction, preserveChemicalSymbols } from '@/lib/chemistryNotation';
 import { normalizeMathNotation, normalizeUnits, preserveMathSymbols } from '@/lib/mathNotation';
 import { renderMath, renderWithImages } from '@/lib/mathRendering';
+import { getNumberingLabel } from '@/lib/questionParsing';
 import QuestionEditDialog from './QuestionEditDialog';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
@@ -2970,6 +2971,38 @@ export const SmartQuestionExtractor = ({
                             className="prose prose-sm max-w-none question-content mt-2"
                             dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
                           />
+                          
+                          {/* Sub-questions for Fill-in-the-Blanks */}
+                          {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions && q.correct_answer.sub_questions.length > 0 && (
+                            <div className="mt-3 space-y-1.5 ml-4">
+                              {q.correct_answer.sub_questions.map((subQ: any, subIdx: number) => (
+                                <div key={subIdx} className="text-sm flex items-start gap-2">
+                                  <span className="font-semibold min-w-[24px]">
+                                    {getNumberingLabel(subIdx, q.correct_answer?.numbering_style || '1,2,3')}.
+                                  </span>
+                                  <span dangerouslySetInnerHTML={{ __html: renderWithImages(subQ.text) }} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Statements for True/False */}
+                          {q.question_type === 'true_false' && q.correct_answer?.statements && q.correct_answer.statements.length > 0 && (
+                            <div className="mt-3 space-y-1.5 ml-4">
+                              {q.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
+                                <div key={stmtIdx} className="text-sm flex items-start gap-2">
+                                  <span className="font-semibold min-w-[24px]">
+                                    {getNumberingLabel(stmtIdx, q.correct_answer?.numbering_style || 'i,ii,iii')}.
+                                  </span>
+                                  <span dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} />
+                                  <Badge variant={stmt.answer ? "default" : "secondary"} className="ml-2">
+                                    {stmt.answer ? "True" : "False"}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
                           {q.options && q.options.length > 0 && (
                             <ul className="mt-3 space-y-1">
                               {q.options.map((opt, i) => (

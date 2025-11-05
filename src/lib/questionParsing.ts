@@ -118,6 +118,20 @@ export function countBlanks(text: string): number {
 }
 
 /**
+ * Get numbering label based on style
+ */
+export function getNumberingLabel(index: number, style: string = '1,2,3'): string {
+  if (style === 'i,ii,iii') {
+    const romans = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+    return romans[index] || `${index + 1}`;
+  } else if (style === 'a,b,c') {
+    return String.fromCharCode(97 + index); // a, b, c...
+  } else {
+    return `${index + 1}`; // 1, 2, 3...
+  }
+}
+
+/**
  * Auto-detect and structure True/False questions
  */
 export function autoStructureTrueFalse(questionText: string): {

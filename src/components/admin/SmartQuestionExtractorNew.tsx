@@ -437,9 +437,23 @@ export const SmartQuestionExtractorNew = ({
         return typeof ans === 'boolean' || typeof ans?.value === 'boolean';
       
       case 'fill_blank':
-        // Accept both legacy (string) and new (object with text) formats
+        // New drag-drop format with blanks array
+        if (ans?.blanks && Array.isArray(ans.blanks)) {
+          return ans.blanks.length > 0 && ans.blanks.every((b: any) => 
+            b.correctAnswer?.trim().length > 0 && 
+            Array.isArray(b.distractors) && 
+            b.distractors.length === 3 &&
+            b.distractors.every((d: string) => typeof d === 'string' && d.trim().length > 0)
+          );
+        }
+        // Sub-questions format (multi-part)
+        if (ans?.sub_questions && Array.isArray(ans.sub_questions)) {
+          return ans.sub_questions.length > 0;
+        }
+        // Legacy formats
         if (typeof ans === 'string') return ans.trim().length > 0;
-        return !!ans?.text?.trim();
+        if (ans?.text) return ans.text.trim().length > 0;
+        return false;
       
       case 'match_column':
         // Accept both legacy (array) and new (object with pairs) formats

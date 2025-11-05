@@ -274,6 +274,15 @@ export const SmartQuestionExtractor = ({
             // Use correct_answer_index directly for MCQs
             let correctAnswer = q.correct_answer_index ?? q.correct_answer;
             
+            // Parse correct_answer if it's a JSON string
+            if (typeof correctAnswer === 'string' && (correctAnswer.trim().startsWith('{') || correctAnswer.trim().startsWith('['))) {
+              try {
+                correctAnswer = JSON.parse(correctAnswer);
+              } catch (e) {
+                console.warn('Failed to parse correct_answer:', correctAnswer, e);
+              }
+            }
+            
             // Normalize match_column answers to handle legacy formats
             if (questionType === 'match_column') {
               if (correctAnswer?.pairs && Array.isArray(correctAnswer.pairs)) {
@@ -2973,7 +2982,11 @@ export const SmartQuestionExtractor = ({
                           />
                           
                           {/* Sub-questions for Fill-in-the-Blanks */}
-                          {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions && q.correct_answer.sub_questions.length > 0 && (
+                          {q.question_type === 'fill_blank' && 
+                           typeof q.correct_answer === 'object' && 
+                           q.correct_answer?.sub_questions && 
+                           Array.isArray(q.correct_answer.sub_questions) && 
+                           q.correct_answer.sub_questions.length > 0 && (
                             <div className="mt-3 space-y-1.5 ml-4">
                               {q.correct_answer.sub_questions.map((subQ: any, subIdx: number) => (
                                 <div key={subIdx} className="text-sm flex items-start gap-2">
@@ -2987,7 +3000,11 @@ export const SmartQuestionExtractor = ({
                           )}
                           
                           {/* Statements for True/False */}
-                          {q.question_type === 'true_false' && q.correct_answer?.statements && q.correct_answer.statements.length > 0 && (
+                          {q.question_type === 'true_false' && 
+                           typeof q.correct_answer === 'object' && 
+                           q.correct_answer?.statements && 
+                           Array.isArray(q.correct_answer.statements) && 
+                           q.correct_answer.statements.length > 0 && (
                             <div className="mt-3 space-y-1.5 ml-4">
                               {q.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
                                 <div key={stmtIdx} className="text-sm flex items-start gap-2">

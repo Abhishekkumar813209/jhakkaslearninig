@@ -133,6 +133,33 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
         }
       }
       
+      // Hydrate fill_blank sub_questions from correct_answer.blanks if missing
+      if (baseQuestion.question_type === 'fill_blank') {
+        const ca = baseQuestion.correct_answer;
+        if (typeof ca === 'object' && ca) {
+          // If has blanks but no sub_questions, derive sub_questions
+          if (Array.isArray(ca.blanks) && (!baseQuestion.sub_questions || baseQuestion.sub_questions.length === 0)) {
+            baseQuestion.sub_questions = ca.blanks.map((b: any) => ({
+              text: '',
+              correctAnswer: b.correctAnswer || '',
+              distractors: b.distractors || []
+            }));
+          }
+          // If has sub_questions, use them as-is
+          else if (Array.isArray(ca.sub_questions)) {
+            baseQuestion.sub_questions = ca.sub_questions;
+          }
+        }
+      }
+      
+      // Hydrate true_false statements from correct_answer if missing
+      if (baseQuestion.question_type === 'true_false') {
+        const ca = baseQuestion.correct_answer;
+        if (typeof ca === 'object' && ca && Array.isArray(ca.statements)) {
+          baseQuestion.statements = ca.statements;
+        }
+      }
+      
       return baseQuestion;
     });
     setEditableQuestions(normalized);
@@ -521,6 +548,37 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                   edited: true
                 };
                 
+                // Clear unrelated fields when changing type
+                if (value !== 'match_column') {
+                  updates.left_column = undefined;
+                  updates.right_column = undefined;
+                }
+                
+                if (value !== 'assertion_reason') {
+                  updates.assertion = undefined;
+                  updates.reason = undefined;
+                }
+                
+                if (value !== 'fill_blank') {
+                  updates.blanks_count = undefined;
+                } else {
+                  // Auto-initialize fill_blank sub-questions
+                  if (!question.sub_questions) {
+                    updates.sub_questions = [{ text: '', correctAnswer: '', distractors: [] }];
+                    updates.numberingStyle = '1,2,3';
+                  }
+                }
+                
+                if (value !== 'true_false') {
+                  // Clear statements if switching away
+                } else {
+                  // Auto-initialize true_false statements
+                  if (!question.statements) {
+                    updates.statements = [{ text: '', answer: true }];
+                    updates.numberingStyle = 'i,ii,iii';
+                  }
+                }
+                
                 // Auto-initialize options array for MCQ/Assertion Reason
                 if ((value === 'mcq' || value === 'assertion_reason') && !question.options) {
                   updates.options = ['', '', '', ''];
@@ -530,18 +588,6 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                 if (value === 'match_column' && (!question.left_column || !question.right_column)) {
                   updates.left_column = ['', ''];
                   updates.right_column = ['', ''];
-                }
-                
-                // Auto-initialize fill_blank sub-questions
-                if (value === 'fill_blank' && !question.sub_questions) {
-                  updates.sub_questions = [{ text: '', correctAnswer: '', distractors: [] }];
-                  updates.numberingStyle = '1,2,3';
-                }
-                
-                // Auto-initialize true_false statements
-                if (value === 'true_false' && !question.statements) {
-                  updates.statements = [{ text: '', answer: true }];
-                  updates.numberingStyle = 'i,ii,iii';
                 }
                 
                 const updatedQuestion = { ...question, ...updates };

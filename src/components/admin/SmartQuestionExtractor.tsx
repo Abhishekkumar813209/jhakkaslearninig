@@ -283,6 +283,29 @@ export const SmartQuestionExtractor = ({
               }
             }
             
+            // Normalize fill_blank: ensure both blanks and sub_questions exist
+            if (questionType === 'fill_blank' && typeof correctAnswer === 'object' && correctAnswer) {
+              // If has sub_questions but no blanks, derive blanks
+              if (Array.isArray(correctAnswer.sub_questions) && !Array.isArray(correctAnswer.blanks)) {
+                correctAnswer.blanks = correctAnswer.sub_questions.map((sq: any) => ({
+                  correctAnswer: sq.correctAnswer || '',
+                  distractors: sq.distractors || []
+                }));
+              }
+              // If has blanks but no sub_questions, derive sub_questions
+              else if (Array.isArray(correctAnswer.blanks) && !Array.isArray(correctAnswer.sub_questions)) {
+                correctAnswer.sub_questions = correctAnswer.blanks.map((b: any) => ({
+                  text: '',
+                  correctAnswer: b.correctAnswer || '',
+                  distractors: b.distractors || []
+                }));
+              }
+              // Ensure blanks is always an array for preview/game
+              if (!Array.isArray(correctAnswer.blanks)) {
+                correctAnswer.blanks = [];
+              }
+            }
+            
             // Normalize match_column answers to handle legacy formats
             if (questionType === 'match_column') {
               if (correctAnswer?.pairs && Array.isArray(correctAnswer.pairs)) {
@@ -677,10 +700,23 @@ export const SmartQuestionExtractor = ({
 
       case 'fill_blank':
         gameType = 'fill_blanks';
+        // Ensure blanks is always an array
+        let blanks = [];
+        const ca = q.correct_answer;
+        if (typeof ca === 'object' && ca) {
+          blanks = Array.isArray(ca.blanks) ? ca.blanks : 
+                   Array.isArray(ca.sub_questions) ? ca.sub_questions.map((sq: any) => ({
+                     correctAnswer: sq.correctAnswer || '',
+                     distractors: sq.distractors || []
+                   })) : [];
+        }
         gameData = {
-          text: q.question_text,
-          blanks_count: q.blanks_count || 1,
-          difficulty: q.difficulty || 'medium'
+          question: q.question_text,
+          blanks: blanks,
+          blanks_count: blanks.length || q.blanks_count || 1,
+          difficulty: q.difficulty || 'medium',
+          correctAnswer: ca,
+          explanation: q.explanation
         };
         break;
         
@@ -1673,6 +1709,12 @@ export const SmartQuestionExtractor = ({
       case 'true_false':
         return typeof answer?.value === 'boolean';
       case 'fill_blank':
+        // Support both modern blanks array format and legacy text format
+        if (typeof answer === 'object' && Array.isArray(answer?.blanks)) {
+          return answer.blanks.length > 0 && 
+                 answer.blanks.every((b: any) => b.correctAnswer?.trim());
+        }
+        // Legacy text format
         return !!answer?.text && answer.text.trim().length > 0;
       case 'match_column':
         return Array.isArray(answer?.pairs) && answer.pairs.length > 0;
@@ -3033,7 +3075,7 @@ export const SmartQuestionExtractor = ({
                               ))}
                             </ul>
                           )}
-                          {q.left_column && q.right_column && (
+                          {(q.left_column?.length || 0) > 0 && (q.right_column?.length || 0) > 0 && (
                             <div className="grid grid-cols-2 gap-4 mt-3">
                               <div>
                                 <p className="font-medium text-sm mb-1">Column I:</p>

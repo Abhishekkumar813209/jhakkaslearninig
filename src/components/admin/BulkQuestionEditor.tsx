@@ -548,19 +548,21 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                   edited: true
                 };
                 
-                // Clear unrelated fields when changing type
+                // Clear unrelated fields when changing type (use delete to remove from object)
+                const updatedQ = { ...question, ...updates };
+                
                 if (value !== 'match_column') {
-                  updates.left_column = undefined;
-                  updates.right_column = undefined;
+                  delete updatedQ.left_column;
+                  delete updatedQ.right_column;
                 }
                 
                 if (value !== 'assertion_reason') {
-                  updates.assertion = undefined;
-                  updates.reason = undefined;
+                  delete updatedQ.assertion;
+                  delete updatedQ.reason;
                 }
                 
                 if (value !== 'fill_blank') {
-                  updates.blanks_count = undefined;
+                  delete updatedQ.blanks_count;
                 } else {
                   // Auto-initialize fill_blank sub-questions
                   if (!question.sub_questions) {
@@ -590,8 +592,8 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                   updates.right_column = ['', ''];
                 }
                 
-                const updatedQuestion = { ...question, ...updates };
-                onUpdate(updatedQuestion);
+                Object.assign(updatedQ, updates);
+                onUpdate(updatedQ);
                 
                 // Immediate save on type change
                 setTimeout(() => {

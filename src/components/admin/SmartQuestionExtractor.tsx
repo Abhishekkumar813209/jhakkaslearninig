@@ -265,8 +265,8 @@ export const SmartQuestionExtractor = ({
             const explanation = q.explanation || '';
             
             // Preserve match_column specific fields
-            const leftColumn = q.left_column || [];
-            const rightColumn = q.right_column || [];
+            let leftColumn = q.left_column || [];
+            let rightColumn = q.right_column || [];
             const assertion = q.assertion || '';
             const reason = q.reason || '';
             const blanksCount = q.blanks_count || 0;
@@ -304,6 +304,16 @@ export const SmartQuestionExtractor = ({
               if (!Array.isArray(correctAnswer.blanks)) {
                 correctAnswer.blanks = [];
               }
+              
+              // Clean up match_column fields for fill_blank
+              leftColumn = undefined;
+              rightColumn = undefined;
+            }
+            
+            // Clean up match_column fields for true_false questions
+            if (questionType === 'true_false') {
+              leftColumn = undefined;
+              rightColumn = undefined;
             }
             
             // Normalize match_column answers to handle legacy formats
@@ -1585,6 +1595,43 @@ export const SmartQuestionExtractor = ({
     });
   };
 
+  // Clean question data before save based on question type
+  const cleanQuestionForSave = (q: any) => {
+    const cleaned = { ...q };
+    
+    if (q.question_type === 'fill_blank' || q.question_type === 'true_false') {
+      delete cleaned.left_column;
+      delete cleaned.right_column;
+      delete cleaned.assertion;
+      delete cleaned.reason;
+    }
+    
+    if (q.question_type === 'mcq') {
+      delete cleaned.left_column;
+      delete cleaned.right_column;
+      delete cleaned.assertion;
+      delete cleaned.reason;
+      delete cleaned.sub_questions;
+      delete cleaned.statements;
+    }
+    
+    if (q.question_type === 'match_column') {
+      delete cleaned.sub_questions;
+      delete cleaned.statements;
+      delete cleaned.assertion;
+      delete cleaned.reason;
+    }
+    
+    if (q.question_type === 'assertion_reason') {
+      delete cleaned.left_column;
+      delete cleaned.right_column;
+      delete cleaned.sub_questions;
+      delete cleaned.statements;
+    }
+    
+    return cleaned;
+  };
+
   const handleSaveAllChanges = async (questionId: string) => {
     setSavingQuestionId(questionId);
     const edits = editedQuestions.get(questionId);
@@ -1596,6 +1643,7 @@ export const SmartQuestionExtractor = ({
     }
     
     const updatedQuestion = { ...question, ...edits };
+    const cleanedQuestion = cleanQuestionForSave(updatedQuestion);
     
     try {
       // Only save to database if it's a valid UUID (already in DB)
@@ -1605,18 +1653,18 @@ export const SmartQuestionExtractor = ({
           body: {
             action: 'update_full_question',
             question_id: questionId,
-            question_text: updatedQuestion.question_text,
-            question_type: updatedQuestion.question_type,
-            options: updatedQuestion.options,
-            left_column: updatedQuestion.left_column,
-            right_column: updatedQuestion.right_column,
-            assertion: updatedQuestion.assertion,
-            reason: updatedQuestion.reason,
-            blanks_count: updatedQuestion.blanks_count,
-            marks: updatedQuestion.marks,
-            difficulty: updatedQuestion.difficulty,
-            correct_answer: updatedQuestion.correct_answer,
-            explanation: updatedQuestion.explanation
+            question_text: cleanedQuestion.question_text,
+            question_type: cleanedQuestion.question_type,
+            options: cleanedQuestion.options,
+            left_column: cleanedQuestion.left_column,
+            right_column: cleanedQuestion.right_column,
+            assertion: cleanedQuestion.assertion,
+            reason: cleanedQuestion.reason,
+            blanks_count: cleanedQuestion.blanks_count,
+            marks: cleanedQuestion.marks,
+            difficulty: cleanedQuestion.difficulty,
+            correct_answer: cleanedQuestion.correct_answer,
+            explanation: cleanedQuestion.explanation
           }
         });
         
@@ -1653,23 +1701,25 @@ export const SmartQuestionExtractor = ({
     // Also update in database if question exists
     const isDbQuestion = isUUID(updatedQuestion.id);
     if (isDbQuestion) {
+      const cleanedQuestion = cleanQuestionForSave(updatedQuestion);
+      
       invokeWithAuth({
         name: 'topic-questions-api',
         body: {
           action: 'update_full_question',
-          question_id: updatedQuestion.id,
-          question_text: updatedQuestion.question_text,
-          question_type: updatedQuestion.question_type,
-          options: updatedQuestion.options,
-          left_column: updatedQuestion.left_column,
-          right_column: updatedQuestion.right_column,
-          assertion: updatedQuestion.assertion,
-          reason: updatedQuestion.reason,
-          blanks_count: updatedQuestion.blanks_count,
-          marks: updatedQuestion.marks,
-          difficulty: updatedQuestion.difficulty,
-          correct_answer: updatedQuestion.correct_answer,
-          explanation: updatedQuestion.explanation
+          question_id: cleanedQuestion.id,
+          question_text: cleanedQuestion.question_text,
+          question_type: cleanedQuestion.question_type,
+          options: cleanedQuestion.options,
+          left_column: cleanedQuestion.left_column,
+          right_column: cleanedQuestion.right_column,
+          assertion: cleanedQuestion.assertion,
+          reason: cleanedQuestion.reason,
+          blanks_count: cleanedQuestion.blanks_count,
+          marks: cleanedQuestion.marks,
+          difficulty: cleanedQuestion.difficulty,
+          correct_answer: cleanedQuestion.correct_answer,
+          explanation: cleanedQuestion.explanation
         }
       })
         .then(() => {

@@ -139,8 +139,12 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
         if (typeof ca === 'object' && ca) {
           // If has blanks but no sub_questions, derive sub_questions
           if (Array.isArray(ca.blanks) && (!baseQuestion.sub_questions || baseQuestion.sub_questions.length === 0)) {
+            // If single blank and question_text has blank marker, use question_text as sub-question text
+            const isSingleBlank = ca.blanks.length === 1;
+            const hasBlankInText = baseQuestion.question_text?.includes('____') || baseQuestion.question_text?.includes('___');
+            
             baseQuestion.sub_questions = ca.blanks.map((b: any) => ({
-              text: '',
+              text: (isSingleBlank && hasBlankInText) ? baseQuestion.question_text : '',
               correctAnswer: b.correctAnswer || '',
               distractors: b.distractors || []
             }));
@@ -677,10 +681,26 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                         <span className="font-semibold text-blue-600 dark:text-blue-400 min-w-[20px]">
                           {getNumberingLabel(idx, question.numberingStyle || '1,2,3')}.
                         </span>
-                        <span className="text-foreground">{subQ.text || '(empty)'}</span>
+                        <span className="text-foreground">
+                          {subQ.text ? (
+                            <span>{subQ.text}</span>
+                          ) : (
+                            question.sub_questions?.length === 1 && 
+                            (question.question_text?.includes('____') || question.question_text?.includes('___')) ? (
+                              <span className="text-blue-600 dark:text-blue-400">{question.question_text}</span>
+                            ) : (
+                              <span className="text-muted-foreground italic">(click to add sub-question text)</span>
+                            )
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
+                  {question.sub_questions?.some(sq => !sq.text?.trim()) && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                      💡 Tip: For single blanks, the main question text is used automatically. For multiple blanks, enter each sub-question text below.
+                    </p>
+                  )}
                 </div>
               )}
               

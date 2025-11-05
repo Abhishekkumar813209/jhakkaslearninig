@@ -284,13 +284,17 @@ export const renderMath = (input: string): string => {
   console.group('🔍 Math Rendering Debug');
   console.log('📥 Input:', input.substring(0, 300));
   
+  // Normalize HTML-encoded breaks/images and nbsp before further processing
+  const normalizedInput = input
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br />')
+    .replace(/&nbsp;|&amp;nbsp;/gi, ' ')
+    .replace(/&lt;img\b[^>]*&gt;/gi, (m) => m.replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
+  
   // Convert newlines to <br> tags early in the pipeline
-  let text = input.replace(/\n/g, '<br />');
+  let text = normalizedInput.replace(/\n/g, '<br />');
   
   // Preserve numbered lists (e.g., "1. ", "2. ") with line breaks
   text = text.replace(/(\n|^)(\d+)\.\s+/g, '$1<br /><strong>$2.</strong> ');
-  
-  console.log('📝 After newline & numbering:', text.substring(0, 300));
   
   // Step 1: Protect MCQ option labels like (A), (B), (C), (D) from transformations
   // Using unique symbols (§§) that won't appear in normal text or get escaped
@@ -446,6 +450,12 @@ export const renderWithImages = (html: string): string => {
   
   // First expand any image tokens
   let text = expandImageTokens(html);
+  
+  // Normalize encoded <br>, <img> and nbsp entities before tokenization
+  text = text
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br />')
+    .replace(/&nbsp;|&amp;nbsp;/gi, ' ')
+    .replace(/&lt;img\b[^>]*&gt;/gi, (m) => m.replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
   
   // Convert newlines to <br> tags before tokenization
   text = text.replace(/\n/g, '<br />');

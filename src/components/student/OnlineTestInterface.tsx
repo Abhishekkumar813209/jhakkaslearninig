@@ -547,7 +547,7 @@ const OnlineTestInterface: React.FC = () => {
             {/* Question Text */}
             <div 
               className="text-lg leading-relaxed question-content prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.question_text) }}
+              dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.question_text) }}
             />
 
             {/* Options - NTA Style with Radio Buttons */}
@@ -660,11 +660,11 @@ const OnlineTestInterface: React.FC = () => {
                   <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg space-y-2">
                     <div>
                       <span className="font-bold text-blue-700 dark:text-blue-400">Assertion (A): </span>
-                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.assertion || '') }} />
+                      <span dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.assertion || '') }} />
                     </div>
                     <div>
                       <span className="font-bold text-blue-700 dark:text-blue-400">Reason (R): </span>
-                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.reason || '') }} />
+                      <span dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.reason || '') }} />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -738,7 +738,7 @@ const OnlineTestInterface: React.FC = () => {
                       {currentQuestion.left_column?.map((item, index) => (
                         <div key={index} className="p-3 mb-2 border-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
                           <span className="font-bold mr-2">{index + 1}.</span>
-                          <span dangerouslySetInnerHTML={{ __html: renderMath(item.text) }} />
+                          <span dangerouslySetInnerHTML={{ __html: renderWithImages(item.text) }} />
                         </div>
                       ))}
                     </div>
@@ -850,7 +850,7 @@ const OnlineTestInterface: React.FC = () => {
                           <span className="font-bold text-lg mr-2">
                             {optionLabel}.
                           </span>
-                          <span dangerouslySetInnerHTML={{ __html: renderMath(option.text) }} />
+                          <span dangerouslySetInnerHTML={{ __html: renderWithImages(option.text) }} />
                         </div>
                       </div>
                     );
@@ -910,11 +910,11 @@ const OnlineTestInterface: React.FC = () => {
                   <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg space-y-2">
                     <div>
                       <span className="font-bold text-blue-700 dark:text-blue-400">Assertion (A): </span>
-                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.assertion || '') }} />
+                      <span dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.assertion || '') }} />
                     </div>
                     <div>
                       <span className="font-bold text-blue-700 dark:text-blue-400">Reason (R): </span>
-                      <span dangerouslySetInnerHTML={{ __html: renderMath(currentQuestion.reason || '') }} />
+                      <span dangerouslySetInnerHTML={{ __html: renderWithImages(currentQuestion.reason || '') }} />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -988,7 +988,7 @@ const OnlineTestInterface: React.FC = () => {
                       {currentQuestion.left_column?.map((item, index) => (
                         <div key={index} className="p-3 mb-2 border-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
                           <span className="font-bold mr-2">{index + 1}.</span>
-                          <span dangerouslySetInnerHTML={{ __html: renderMath(item.text) }} />
+                          <span dangerouslySetInnerHTML={{ __html: renderWithImages(item.text) }} />
                         </div>
                       ))}
                     </div>

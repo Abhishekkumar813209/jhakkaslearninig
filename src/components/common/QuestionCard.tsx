@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { renderMath } from "@/lib/mathRendering";
+import { renderWithImages } from "@/lib/mathRendering";
 import { 
   CheckCircle, 
   Edit, 
@@ -165,7 +165,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
         {/* Question Text */}
         <div 
           className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: renderMath(question.question_text) }}
+          dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
         />
         
         {/* Options for MCQ */}
@@ -193,7 +193,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
                       </Badge>
                       <div 
                         className="flex-1"
-                        dangerouslySetInnerHTML={{ __html: renderMath(option) }}
+                        dangerouslySetInnerHTML={{ __html: renderWithImages(option) }}
                       />
                       {isCorrect && <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />}
                     </div>
@@ -213,7 +213,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
             </div>
             <div 
               className="text-sm text-green-900 dark:text-green-100"
-              dangerouslySetInnerHTML={{ __html: renderMath(getCorrectAnswerDisplay()) }}
+              dangerouslySetInnerHTML={{ __html: renderWithImages(getCorrectAnswerDisplay()) }}
             />
           </div>
         )}
@@ -228,7 +228,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
             <CollapsibleContent className="mt-2">
               <div className="bg-primary/5 border border-primary/20 rounded-md p-3 text-sm">
                 <div 
-                  dangerouslySetInnerHTML={{ __html: renderMath(question.explanation) }}
+                  dangerouslySetInnerHTML={{ __html: renderWithImages(question.explanation) }}
                 />
               </div>
             </CollapsibleContent>

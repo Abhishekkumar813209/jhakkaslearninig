@@ -393,6 +393,8 @@ export const SmartQuestionExtractorNew = ({
           question_text: edits.question_text ?? question.question_text,
           question_type: edits.question_type ?? question.question_type,
           options: edits.options ?? question.options,
+          left_column: edits.left_column ?? question.left_column,
+          right_column: edits.right_column ?? question.right_column,
           marks: edits.marks ?? question.marks,
           difficulty: edits.difficulty ?? question.difficulty,
           correct_answer: edits.correct_answer ?? question.correct_answer,
@@ -1140,12 +1142,19 @@ export const SmartQuestionExtractorNew = ({
                                     toast.error('Both columns need at least 1 item');
                                     return;
                                   }
-                                  // Update question with columns
+                                  // Update question with columns (local state)
                                   setQuestions(prev => prev.map(question => 
                                     question.id === q.id 
                                       ? { ...question, left_column: validLeft, right_column: validRight }
                                       : question
                                   ));
+                                  // Mark as edited so Save Changes button appears and PATCH includes columns
+                                  setEditedQuestions(prev => {
+                                    const newMap = new Map(prev);
+                                    const existing = newMap.get(q.id!) || {};
+                                    newMap.set(q.id!, { ...existing, left_column: validLeft, right_column: validRight });
+                                    return newMap;
+                                  });
                                   // Clear editing state
                                   const newMap = new Map(editingColumns);
                                   newMap.delete(q.id!);

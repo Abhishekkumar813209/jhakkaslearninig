@@ -6,13 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop, Upload, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { renderMath } from '@/lib/mathRendering';
 import { RichQuestionEditor } from './RichQuestionEditor';
 import { PDFQuestionExtractor } from './PDFQuestionExtractor';
 import { getNumberingLabel } from '@/lib/questionParsing';
+import { Textarea } from '@/components/ui/textarea';
 
 // Helper to render math while preserving images and breaks
 const renderWithImages = (html: string): string => {
@@ -48,6 +49,17 @@ const renderWithImages = (html: string): string => {
   return out;
 };
 
+interface TrueFalseStatement {
+  text: string;
+  answer: boolean;
+}
+
+interface FillBlankSubQuestion {
+  text: string;
+  correctAnswer: string;
+  distractors?: string[];
+}
+
 interface ExtractedQuestion {
   id: string;
   question_number: string;
@@ -74,6 +86,10 @@ interface ExtractedQuestion {
     requires_manual_review: boolean;
     error?: string;
   };
+  // Sub-question fields
+  statements?: TrueFalseStatement[];
+  sub_questions?: FillBlankSubQuestion[];
+  numberingStyle?: 'numeric' | 'alpha' | 'roman';
 }
 
 interface BulkQuestionEditorProps {
@@ -734,21 +750,212 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
               </div>
             )}
             
-            {/* Fill in Blank */}
+            {/* Fill in Blank - Sub-questions */}
             {question.question_type === 'fill_blank' && (
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Number of Blanks</label>
-                <Input
-                  type="number"
-                  value={question.blanks_count || 1}
-                  onChange={(e) => handleChange('blanks_count', parseInt(e.target.value) || 1)}
-                  className="w-32"
-                  min={1}
-                  max={10}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use _____ (5 underscores) to mark blanks in the question text
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Fill-in-the-Blanks Sub-Questions</label>
+                  <Select
+                    value={question.numberingStyle || 'numeric'}
+                    onValueChange={(val) => handleChange('numberingStyle', val)}
+                  >
+                    <SelectTrigger className="w-32 h-8">
+                      <SelectValue placeholder="Numbering" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="numeric">1, 2, 3...</SelectItem>
+                      <SelectItem value="alpha">a, b, c...</SelectItem>
+                      <SelectItem value="roman">i, ii, iii...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sub-questions list */}
+                <div className="space-y-3">
+                  {(question.sub_questions || []).map((subQ, idx) => (
+                    <div key={idx} className="border rounded-lg p-3 space-y-2 bg-muted/20">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">
+                          {getNumberingLabel(idx, question.numberingStyle || 'numeric')}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newSubQuestions = [...(question.sub_questions || [])];
+                            newSubQuestions.splice(idx, 1);
+                            handleChange('sub_questions', newSubQuestions);
+                          }}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Sub-question Text</label>
+                        <Textarea
+                          value={subQ.text}
+                          onChange={(e) => {
+                            const newSubQuestions = [...(question.sub_questions || [])];
+                            newSubQuestions[idx] = { ...subQ, text: e.target.value };
+                            handleChange('sub_questions', newSubQuestions);
+                          }}
+                          placeholder="Enter sub-question text (use _____ for blanks)"
+                          className="min-h-[60px]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Correct Answer</label>
+                        <Input
+                          value={subQ.correctAnswer}
+                          onChange={(e) => {
+                            const newSubQuestions = [...(question.sub_questions || [])];
+                            newSubQuestions[idx] = { ...subQ, correctAnswer: e.target.value };
+                            handleChange('sub_questions', newSubQuestions);
+                          }}
+                          placeholder="Correct answer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Distractors (comma-separated)</label>
+                        <Input
+                          value={(subQ.distractors || []).join(', ')}
+                          onChange={(e) => {
+                            const newSubQuestions = [...(question.sub_questions || [])];
+                            newSubQuestions[idx] = { 
+                              ...subQ, 
+                              distractors: e.target.value.split(',').map(d => d.trim()).filter(Boolean)
+                            };
+                            handleChange('sub_questions', newSubQuestions);
+                          }}
+                          placeholder="distractor1, distractor2, distractor3"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add sub-question button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newSubQuestions = [
+                      ...(question.sub_questions || []),
+                      { text: '', correctAnswer: '', distractors: [] }
+                    ];
+                    handleChange('sub_questions', newSubQuestions);
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="h-3 w-3 mr-1.5" />
+                  Add Sub-Question
+                </Button>
+
+                <p className="text-xs text-muted-foreground">
+                  💡 Use _____ (5 underscores) to mark blanks in sub-question text
                 </p>
+              </div>
+            )}
+
+            {/* True/False - Statements */}
+            {question.question_type === 'true_false' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">True/False Statements</label>
+                  <Select
+                    value={question.numberingStyle || 'numeric'}
+                    onValueChange={(val) => handleChange('numberingStyle', val)}
+                  >
+                    <SelectTrigger className="w-32 h-8">
+                      <SelectValue placeholder="Numbering" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="numeric">1, 2, 3...</SelectItem>
+                      <SelectItem value="alpha">a, b, c...</SelectItem>
+                      <SelectItem value="roman">i, ii, iii...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Statements list */}
+                <div className="space-y-3">
+                  {(question.statements || []).map((stmt, idx) => (
+                    <div key={idx} className="border rounded-lg p-3 space-y-2 bg-muted/20">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">
+                          {getNumberingLabel(idx, question.numberingStyle || 'numeric')}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newStatements = [...(question.statements || [])];
+                            newStatements.splice(idx, 1);
+                            handleChange('statements', newStatements);
+                          }}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Statement</label>
+                        <Textarea
+                          value={stmt.text}
+                          onChange={(e) => {
+                            const newStatements = [...(question.statements || [])];
+                            newStatements[idx] = { ...stmt, text: e.target.value };
+                            handleChange('statements', newStatements);
+                          }}
+                          placeholder="Enter statement"
+                          className="min-h-[60px]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">Correct Answer</label>
+                        <Select
+                          value={stmt.answer ? 'true' : 'false'}
+                          onValueChange={(val) => {
+                            const newStatements = [...(question.statements || [])];
+                            newStatements[idx] = { ...stmt, answer: val === 'true' };
+                            handleChange('statements', newStatements);
+                          }}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">True</SelectItem>
+                            <SelectItem value="false">False</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add statement button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newStatements = [
+                      ...(question.statements || []),
+                      { text: '', answer: true }
+                    ];
+                    handleChange('statements', newStatements);
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="h-3 w-3 mr-1.5" />
+                  Add Statement
+                </Button>
               </div>
             )}
             

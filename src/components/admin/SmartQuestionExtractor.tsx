@@ -2642,12 +2642,64 @@ export const SmartQuestionExtractor = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => {
-                      if (confirm('Delete all extracted questions? This cannot be undone.')) {
+                    onClick={async () => {
+                      // Get IDs to delete
+                      const idsToDelete = selectedIds.length > 0 
+                        ? selectedIds.filter(id => id && id.length === 36) // UUID validation
+                        : extractedQuestions
+                            .filter(q => q.id && q.id.length === 36)
+                            .map(q => q.id!);
+                      
+                      if (idsToDelete.length === 0) {
+                        // No DB questions, just clear UI
                         setExtractedQuestions([]);
                         setSelectedIds([]);
                         clearProgress();
-                        toast.success('All questions cleared');
+                        toast.info('Cleared view (no database questions to delete)');
+                        return;
+                      }
+                      
+                      const confirmMsg = selectedIds.length > 0
+                        ? `Delete ${idsToDelete.length} selected question(s) from database?`
+                        : `Delete ALL ${idsToDelete.length} loaded question(s) from database?`;
+                      
+                      if (!confirm(confirmMsg + '\n\nThis cannot be undone.')) {
+                        return;
+                      }
+                      
+                      setIsProcessing(true);
+                      try {
+                        console.log('🗑️ Bulk deleting from question_bank:', idsToDelete.length);
+                        
+                        // Delete in chunks of 100 to avoid URL length limits
+                        const CHUNK_SIZE = 100;
+                        for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+                          const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+                          console.log(`  Deleting chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(idsToDelete.length/CHUNK_SIZE)}:`, chunk.length);
+                          
+                          const { error } = await supabase
+                            .from('question_bank')
+                            .delete()
+                            .in('id', chunk);
+                          
+                          if (error) throw error;
+                        }
+                        
+                        console.log('✅ Database deletion successful');
+                        
+                        // Update UI only after successful deletion
+                        setExtractedQuestions(prev => 
+                          prev.filter(q => !idsToDelete.includes(q.id!))
+                        );
+                        setSelectedIds([]);
+                        clearProgress();
+                        
+                        toast.success(`Successfully deleted ${idsToDelete.length} question(s) from database`);
+                      } catch (error: any) {
+                        console.error('❌ Failed to delete:', error);
+                        toast.error(`Failed to delete: ${error.message || 'Unknown error'}`);
+                      } finally {
+                        setIsProcessing(false);
                       }
                     }}
                   >

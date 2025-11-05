@@ -424,10 +424,44 @@ const GamePlayerPage = () => {
     }
   };
 
+  // Normalize exercise_type to handle variations, synonyms, and database inconsistencies
+  const normalizeExerciseType = (type: string): string => {
+    if (!type) return '';
+    
+    // Step 1: Basic cleanup
+    let normalized = type.trim().toLowerCase();
+    
+    // Step 2: Convert spaces and hyphens to underscores
+    normalized = normalized.replace(/[\s-]+/g, '_');
+    
+    // Step 3: Handle synonyms and variations
+    const synonymMap: Record<string, string> = {
+      'fill_up': 'fill_blank',
+      'fill_blanks': 'fill_blank',
+      'interactive_label': 'interactive_blanks',
+      'drag_drop_sequence': 'drag_drop_sort',
+      'sequence_order': 'drag_drop_sort',
+      'match_column': 'match_pairs',
+      'boolean': 'true_false',
+      'tf': 'true_false',
+      't_f': 'true_false',
+    };
+    
+    return synonymMap[normalized] || normalized;
+  };
+
   const renderGame = () => {
     if (!gameData) return null;
 
-    const exerciseType = gameData.exercise_type;
+    const rawType = gameData.exercise_type;
+    const exerciseType = normalizeExerciseType(rawType);
+    
+    console.log('[GamePlayerPage] Exercise Type Debug:', {
+      rawType,
+      normalizedType: exerciseType,
+      gameId: gameData.id,
+      hasExerciseData: !!gameData.exercise_data
+    });
     
     // For MCQ: Extract correct answer with CORRECT priority order
     if (exerciseType === 'mcq') {
@@ -548,9 +582,22 @@ const GamePlayerPage = () => {
         );
       
       case 'true_false':
+        // Shape data properly - convert 0/1 to boolean
+        const tfData = {
+          question: gameData.exercise_data?.question || gameData.question_text || '',
+          correctAnswer: typeof gameData.exercise_data?.correct_answer === 'boolean'
+            ? gameData.exercise_data.correct_answer
+            : Number(gameData.exercise_data?.correct_answer) === 1,
+          explanation: gameData.exercise_data?.explanation,
+          marks: gameData.exercise_data?.marks,
+          difficulty: gameData.exercise_data?.difficulty
+        };
+        
+        console.log('[GamePlayerPage] True/False Data:', tfData);
+        
         return (
           <TrueFalseGame
-            gameData={gameData.exercise_data}
+            gameData={tfData}
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onComplete={handleGameComplete}

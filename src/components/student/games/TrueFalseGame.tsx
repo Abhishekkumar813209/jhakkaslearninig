@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
+import { parseBoolean } from "@/lib/gameValidation";
 
 interface TrueFalseGameData {
   question: string;
@@ -56,8 +57,17 @@ export function TrueFalseGame({
     if (selectedAnswer === null) return;
 
     setHasSubmitted(true);
-    const correct = selectedAnswer === gameData.correctAnswer;
+    // Robust boolean comparison
+    const parsedCorrect = parseBoolean(gameData.correctAnswer);
+    const correct = selectedAnswer === parsedCorrect;
     setIsCorrect(correct);
+
+    console.log('[TrueFalseGame] Answer check:', {
+      selected: selectedAnswer,
+      correct: parsedCorrect,
+      rawCorrect: gameData.correctAnswer,
+      isCorrect: correct
+    });
 
     if (correct) {
       playSound("correct");
@@ -112,7 +122,7 @@ export function TrueFalseGame({
               !hasSubmitted && "cursor-pointer",
               hasSubmitted && selectedAnswer === true && isCorrect && "border-green-500 bg-green-500/10",
               hasSubmitted && selectedAnswer === true && !isCorrect && "border-red-500 bg-red-500/10",
-              hasSubmitted && selectedAnswer !== true && gameData.correctAnswer === true && "border-green-500/40 bg-green-500/5",
+              hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "border-green-500/40 bg-green-500/5",
               hasSubmitted && "cursor-default"
             )}
             whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
@@ -124,7 +134,7 @@ export function TrueFalseGame({
               className={cn(
                 hasSubmitted && selectedAnswer === true && isCorrect && "data-[state=checked]:bg-green-500",
                 hasSubmitted && selectedAnswer === true && !isCorrect && "data-[state=checked]:bg-red-500",
-                hasSubmitted && selectedAnswer !== true && gameData.correctAnswer === true && "data-[state=checked]:bg-green-500"
+                hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "data-[state=checked]:bg-green-500"
               )}
             />
             <span className="text-lg font-medium">True</span>
@@ -140,7 +150,7 @@ export function TrueFalseGame({
               !hasSubmitted && "cursor-pointer",
               hasSubmitted && selectedAnswer === false && isCorrect && "border-green-500 bg-green-500/10",
               hasSubmitted && selectedAnswer === false && !isCorrect && "border-red-500 bg-red-500/10",
-              hasSubmitted && selectedAnswer !== false && gameData.correctAnswer === false && "border-green-500/40 bg-green-500/5",
+              hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "border-green-500/40 bg-green-500/5",
               hasSubmitted && "cursor-default"
             )}
             whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
@@ -152,7 +162,7 @@ export function TrueFalseGame({
               className={cn(
                 hasSubmitted && selectedAnswer === false && isCorrect && "data-[state=checked]:bg-green-500",
                 hasSubmitted && selectedAnswer === false && !isCorrect && "data-[state=checked]:bg-red-500",
-                hasSubmitted && selectedAnswer !== false && gameData.correctAnswer === false && "data-[state=checked]:bg-green-500"
+                hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "data-[state=checked]:bg-green-500"
               )}
             />
             <span className="text-lg font-medium">False</span>

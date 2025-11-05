@@ -11,9 +11,13 @@ import { TrueFalseGame } from "@/components/student/games/TrueFalseGame";
 import { getAdjacentGames, loadGameById, GameNavigationInfo } from "@/lib/gameNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Home } from "lucide-react";
 import confetti from "canvas-confetti";
 import { XP_MULTIPLIERS } from "@/lib/xpConfig";
+import { validateGameData, parseBoolean } from "@/lib/gameValidation";
+import { Switch as DebugSwitch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const GamePlayerPage = () => {
   const { roadmapId, topicId, gameId } = useParams();
@@ -24,6 +28,7 @@ const GamePlayerPage = () => {
   const [navInfo, setNavInfo] = useState<GameNavigationInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoAdvanceTimeout, setAutoAdvanceTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showDebugData, setShowDebugData] = useState(false);
 
   useEffect(() => {
     // Guard against invalid params
@@ -436,15 +441,29 @@ const GamePlayerPage = () => {
     
     // Step 3: Handle synonyms and variations
     const synonymMap: Record<string, string> = {
+      // Fill blanks variants
       'fill_up': 'fill_blank',
       'fill_blanks': 'fill_blank',
       'interactive_label': 'interactive_blanks',
+      
+      // Drag drop variants
       'drag_drop_sequence': 'drag_drop_sort',
       'sequence_order': 'drag_drop_sort',
+      
+      // Match pairs variants
       'match_column': 'match_pairs',
+      'matching': 'match_pairs',
+      
+      // True/False variants
       'boolean': 'true_false',
       'tf': 'true_false',
       't_f': 'true_false',
+      'true-false': 'true_false',
+      
+      // Assertion-Reason variants
+      'assertion-reason': 'assertion_reason',
+      'assertion_and_reason': 'assertion_reason',
+      'ar': 'assertion_reason',
     };
     
     return synonymMap[normalized] || normalized;
@@ -582,18 +601,27 @@ const GamePlayerPage = () => {
         );
       
       case 'true_false':
-        // Shape data properly - convert 0/1 to boolean
+        // Shape data properly - use robust boolean parser
+        const rawTFAnswer = gameData.exercise_data?.correct_answer ?? gameData.correct_answer;
         const tfData = {
           question: gameData.exercise_data?.question || gameData.question_text || '',
-          correctAnswer: typeof gameData.exercise_data?.correct_answer === 'boolean'
-            ? gameData.exercise_data.correct_answer
-            : Number(gameData.exercise_data?.correct_answer) === 1,
-          explanation: gameData.exercise_data?.explanation,
-          marks: gameData.exercise_data?.marks,
-          difficulty: gameData.exercise_data?.difficulty
+          correctAnswer: parseBoolean(rawTFAnswer),
+          explanation: gameData.exercise_data?.explanation || gameData.explanation,
+          marks: gameData.exercise_data?.marks || gameData.marks,
+          difficulty: gameData.exercise_data?.difficulty || gameData.difficulty
         };
         
-        console.log('[GamePlayerPage] True/False Data:', tfData);
+        console.log('[GamePlayerPage] True/False Data:', {
+          raw: rawTFAnswer,
+          parsed: tfData.correctAnswer,
+          question: tfData.question.substring(0, 50) + '...'
+        });
+        
+        // Validate
+        const tfValidation = validateGameData('true_false', tfData);
+        if (!tfValidation.success) {
+          console.error('[GamePlayerPage] True/False validation failed:', tfValidation.error);
+        }
         
         return (
           <TrueFalseGame
@@ -603,6 +631,58 @@ const GamePlayerPage = () => {
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
             hasMoreQuestions={!!navInfo?.nextGameId}
+          />
+        );
+      
+      case 'assertion_reason':
+        // Auto-generate default options if missing
+        const defaultAROptions = [
+          "Both Assertion and Reason are correct, and Reason is the correct explanation of Assertion",
+          "Both Assertion and Reason are correct, but Reason is NOT the correct explanation of Assertion",
+          "Assertion is correct, but Reason is incorrect",
+          "Both Assertion and Reason are incorrect"
+        ];
+        
+        const arData = {
+          question: `Assertion: ${gameData.exercise_data?.assertion || ''}\n\nReason: ${gameData.exercise_data?.reason || ''}`,
+          options: gameData.exercise_data?.options || gameData.options || defaultAROptions,
+          correct_answer: gameData.exercise_data?.correct_answer ?? gameData.correct_answer ?? 0,
+          explanation: gameData.exercise_data?.explanation || gameData.explanation,
+          marks: gameData.exercise_data?.marks || gameData.marks || 1,
+          difficulty: gameData.exercise_data?.difficulty || gameData.difficulty
+        };
+        
+        console.log('[GamePlayerPage] Assertion-Reason Data:', {
+          hasOptions: arData.options.length > 0,
+          correctAnswer: arData.correct_answer
+        });
+        
+        // Validate
+        const arValidation = validateGameData('assertion_reason', {
+          assertion: gameData.exercise_data?.assertion || '',
+          reason: gameData.exercise_data?.reason || '',
+          options: arData.options,
+          correct_answer: arData.correct_answer,
+          explanation: arData.explanation,
+          marks: arData.marks
+        });
+        
+        if (!arValidation.success) {
+          console.error('[GamePlayerPage] Assertion-Reason validation failed:', arValidation.error);
+        }
+        
+        return (
+          <MCQGame
+            gameData={arData}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={handleGameComplete}
+            onNext={navInfo?.nextGameId ? handleNext : undefined}
+            onPrevious={navInfo?.prevGameId ? handlePrevious : undefined}
+            onExit={handleExit}
+            hasMoreQuestions={!!navInfo?.nextGameId}
+            currentQuestionNum={navInfo?.currentGameNum || 1}
+            totalQuestions={navInfo?.totalGames || 1}
           />
         );
       
@@ -674,6 +754,43 @@ const GamePlayerPage = () => {
             Game {navInfo?.currentGameNum}/{navInfo?.totalGames}
           </span>
         </div>
+
+        {/* Debug Toggle (Dev Only) */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="mb-4 border-yellow-500/50 bg-yellow-50/20 dark:bg-yellow-950/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <DebugSwitch
+                  checked={showDebugData}
+                  onCheckedChange={setShowDebugData}
+                  id="debug-toggle"
+                />
+                <Label htmlFor="debug-toggle" className="text-sm font-medium cursor-pointer">
+                  Show Raw Data (Debug Mode)
+                </Label>
+              </div>
+              
+              {showDebugData && gameData && (
+                <div className="mt-4 space-y-3">
+                  <div className="bg-black/5 dark:bg-white/5 p-3 rounded-lg">
+                    <p className="text-xs font-mono text-yellow-700 dark:text-yellow-400 mb-2">Raw Game Data:</p>
+                    <pre className="text-xs overflow-auto max-h-64">
+                      {JSON.stringify({
+                        id: gameData.id,
+                        exercise_type: gameData.exercise_type,
+                        normalized_type: normalizeExerciseType(gameData.exercise_type),
+                        question_text: gameData.question_text,
+                        exercise_data: gameData.exercise_data,
+                        correct_answer: gameData.correct_answer,
+                        options: gameData.options
+                      }, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {renderGame()}
       </div>

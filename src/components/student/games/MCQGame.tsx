@@ -81,8 +81,24 @@ export function MCQGame({
     if (selectedAnswer === null) return;
     setHasSubmitted(true);
     
+    // Validate correct answer index
+    if (gameData.correct_answer >= gameData.options.length) {
+      console.warn('[MCQGame] Correct answer index out of range:', {
+        correctIndex: gameData.correct_answer,
+        optionsLength: gameData.options.length
+      });
+    }
+    
     const correct = selectedAnswer === gameData.correct_answer;
     setIsCorrect(correct);
+    
+    // Dev log for debugging
+    console.log('[MCQGame] Answer check:', {
+      selected: selectedAnswer,
+      correct: gameData.correct_answer,
+      isCorrect: correct,
+      optionsCount: gameData.options.length
+    });
 
     if (correct) {
       playSound('correct');

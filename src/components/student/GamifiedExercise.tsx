@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
+import { parseBoolean } from "@/lib/gameValidation";
 
 interface Exercise {
   id: string;
@@ -84,7 +85,10 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
       case "mcq":
         return answer === exercise.correct_answer;
       case "true_false":
-        return answer.toLowerCase() === exercise.correct_answer.toLowerCase();
+        const userBool = answer === 'true';
+        const correctBool = parseBoolean(exercise.correct_answer);
+        console.log('[GamifiedExercise] T/F check:', { user: userBool, correct: correctBool, raw: exercise.correct_answer });
+        return userBool === correctBool;
       case "fill_blank":
         return answer.toLowerCase().trim() === exercise.correct_answer.toLowerCase().trim();
       default:
@@ -119,7 +123,10 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
         );
 
       case "true_false":
-        const correctAnswer = exercise.correct_answer.toString().toLowerCase();
+        const parsedCorrect = parseBoolean(exercise.correct_answer);
+        const userSelectedTrue = answer === 'true';
+        const userSelectedFalse = answer === 'false';
+        
         return (
           <div className="space-y-6">
             <p className="text-lg font-medium">{exercise.exercise_data.statement}</p>
@@ -130,28 +137,26 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
                 whileTap={!submitted ? { scale: 0.98 } : {}}
                 onClick={() => !submitted && setAnswer("true")}
                 className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${
-                  !submitted && answer === "true" ? "border-primary bg-primary/10" : ""
+                  !submitted && userSelectedTrue ? "border-primary bg-primary/10" : ""
                 } ${
-                  !submitted && answer !== "true" ? "border-border hover:border-primary/50" : ""
+                  !submitted && !userSelectedTrue ? "border-border hover:border-primary/50" : ""
                 } ${
-                  submitted && answer === "true" && isCorrect ? "border-green-500 bg-green-500/10" : ""
+                  submitted && userSelectedTrue && isCorrect ? "border-green-500 bg-green-500/10" : ""
                 } ${
-                  submitted && answer === "true" && !isCorrect ? "border-red-500 bg-red-500/10" : ""
+                  submitted && userSelectedTrue && !isCorrect ? "border-red-500 bg-red-500/10" : ""
                 } ${
-                  submitted && answer !== "true" && correctAnswer === "true" ? "border-green-500/40 bg-green-500/5" : ""
+                  submitted && !userSelectedTrue && parsedCorrect === true ? "border-green-500/40 bg-green-500/5" : ""
                 } ${
                   submitted ? "cursor-default" : "cursor-pointer"
                 }`}
               >
                 <Switch 
-                  checked={answer === "true"}
+                  checked={userSelectedTrue}
                   disabled={submitted}
                   className={`${
-                    submitted && answer === "true" && isCorrect ? "data-[state=checked]:bg-green-500" : ""
+                    submitted && userSelectedTrue && isCorrect ? "data-[state=checked]:bg-green-500" : ""
                   } ${
-                    submitted && answer === "true" && !isCorrect ? "data-[state=checked]:bg-red-500" : ""
-                  } ${
-                    submitted && answer !== "true" && correctAnswer === "true" ? "data-[state=checked]:bg-green-500" : ""
+                    submitted && userSelectedTrue && !isCorrect ? "data-[state=checked]:bg-red-500" : ""
                   }`}
                 />
                 <span className="text-lg font-medium">True</span>
@@ -163,28 +168,26 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
                 whileTap={!submitted ? { scale: 0.98 } : {}}
                 onClick={() => !submitted && setAnswer("false")}
                 className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${
-                  !submitted && answer === "false" ? "border-primary bg-primary/10" : ""
+                  !submitted && userSelectedFalse ? "border-primary bg-primary/10" : ""
                 } ${
-                  !submitted && answer !== "false" ? "border-border hover:border-primary/50" : ""
+                  !submitted && !userSelectedFalse ? "border-border hover:border-primary/50" : ""
                 } ${
-                  submitted && answer === "false" && isCorrect ? "border-green-500 bg-green-500/10" : ""
+                  submitted && userSelectedFalse && isCorrect ? "border-green-500 bg-green-500/10" : ""
                 } ${
-                  submitted && answer === "false" && !isCorrect ? "border-red-500 bg-red-500/10" : ""
+                  submitted && userSelectedFalse && !isCorrect ? "border-red-500 bg-red-500/10" : ""
                 } ${
-                  submitted && answer !== "false" && correctAnswer === "false" ? "border-green-500/40 bg-green-500/5" : ""
+                  submitted && !userSelectedFalse && parsedCorrect === false ? "border-green-500/40 bg-green-500/5" : ""
                 } ${
                   submitted ? "cursor-default" : "cursor-pointer"
                 }`}
               >
                 <Switch 
-                  checked={answer === "false"}
+                  checked={userSelectedFalse}
                   disabled={submitted}
                   className={`${
-                    submitted && answer === "false" && isCorrect ? "data-[state=checked]:bg-green-500" : ""
+                    submitted && userSelectedFalse && isCorrect ? "data-[state=checked]:bg-green-500" : ""
                   } ${
-                    submitted && answer === "false" && !isCorrect ? "data-[state=checked]:bg-red-500" : ""
-                  } ${
-                    submitted && answer !== "false" && correctAnswer === "false" ? "data-[state=checked]:bg-green-500" : ""
+                    submitted && userSelectedFalse && !isCorrect ? "data-[state=checked]:bg-red-500" : ""
                   }`}
                 />
                 <span className="text-lg font-medium">False</span>

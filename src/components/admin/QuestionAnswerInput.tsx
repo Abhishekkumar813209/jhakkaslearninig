@@ -112,7 +112,26 @@ export const QuestionAnswerInput = ({
         valid = typeof localAnswer?.value === 'boolean';
         break;
       case 'fill_blank':
-        valid = !!localAnswer?.text && localAnswer.text.trim().length > 0;
+        // New drag-drop format with blanks array
+        if (localAnswer?.blanks && Array.isArray(localAnswer.blanks)) {
+          valid = localAnswer.blanks.length > 0 && localAnswer.blanks.every((b: any) => 
+            b.correctAnswer?.trim().length > 0 && 
+            Array.isArray(b.distractors) && 
+            b.distractors.length === 3 &&
+            b.distractors.every((d: string) => typeof d === 'string' && d.trim().length > 0)
+          );
+        }
+        // Sub-questions format (multi-part)
+        else if (localAnswer?.sub_questions && Array.isArray(localAnswer.sub_questions)) {
+          valid = localAnswer.sub_questions.length > 0;
+        }
+        // Legacy simple text format
+        else if (localAnswer?.text) {
+          valid = localAnswer.text.trim().length > 0;
+        }
+        else {
+          valid = false;
+        }
         break;
       case 'match_column':
         valid = Array.isArray(localAnswer?.pairs) && localAnswer.pairs.length > 0;
@@ -127,6 +146,17 @@ export const QuestionAnswerInput = ({
         valid = false;
     }
     setIsValid(valid);
+
+    // Debug log for fill_blank validation
+    if (questionType === 'fill_blank') {
+      console.log('🔍 Fill Blank Validation:', {
+        localAnswer,
+        hasText: !!localAnswer?.text,
+        hasBlanks: !!localAnswer?.blanks,
+        hasSubQuestions: !!localAnswer?.sub_questions,
+        isValid: valid
+      });
+    }
   }, [localAnswer, questionType, options, leftColumn, rightColumn]);
 
   const handleChange = (newAnswer: any) => {

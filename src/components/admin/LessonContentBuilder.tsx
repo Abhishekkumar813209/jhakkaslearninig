@@ -1325,6 +1325,8 @@ function LessonContentBuilderInner() {
 
   // Validation helper for game data
   const validateGameData = (gameData: any, questionType: string, questionNumber: string): boolean => {
+    console.log('🎮 validateGameData called:', { questionNumber, questionType, gameData });
+    
     // Match column (as match_pairs game) validation
     if (questionType === 'match_column') {
       const pairs = gameData.pairs as Array<{ id: string; left: string; right: string }> | undefined;
@@ -1370,7 +1372,15 @@ function LessonContentBuilderInner() {
 
     // Fill blank specific validation for answer data
     if (questionType === 'fill_blank') {
+      console.log('🔍 Fill blank validation check:', { 
+        hasBlanks: !!gameData.blanks, 
+        isArray: Array.isArray(gameData.blanks),
+        blanksLength: gameData.blanks?.length,
+        blanksData: gameData.blanks
+      });
+      
       if (!gameData.blanks || !Array.isArray(gameData.blanks) || gameData.blanks.length === 0) {
+        console.log('❌ Fill blank validation FAILED: Missing blanks array');
         toast({
           title: "Validation Error",
           description: `Question ${questionNumber}: Fill blank ko answer data chahiye (blanks array)!`,

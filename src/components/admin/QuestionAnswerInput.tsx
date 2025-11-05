@@ -112,14 +112,25 @@ export const QuestionAnswerInput = ({
         valid = typeof localAnswer?.value === 'boolean';
         break;
       case 'fill_blank':
-        // New drag-drop format with blanks array
+        // New drag-drop format with blanks array - Accept >=1 distractor per blank
         if (localAnswer?.blanks && Array.isArray(localAnswer.blanks)) {
           valid = localAnswer.blanks.length > 0 && localAnswer.blanks.every((b: any) => 
             b.correctAnswer?.trim().length > 0 && 
             Array.isArray(b.distractors) && 
-            b.distractors.length === 3 &&
-            b.distractors.every((d: string) => typeof d === 'string' && d.trim().length > 0)
+            b.distractors.filter((d: string) => typeof d === 'string' && d.trim().length > 0).length >= 1
           );
+          
+          // Log specific blank issues for debugging
+          if (!valid) {
+            console.warn('[fill_blank] Validation failed:', {
+              blanks: localAnswer?.blanks,
+              issues: localAnswer.blanks.map((b: any, idx: number) => ({
+                blankIdx: idx,
+                hasCorrect: !!b.correctAnswer?.trim(),
+                validDistractors: b.distractors?.filter((d: string) => typeof d === 'string' && d.trim().length > 0).length || 0
+              }))
+            });
+          }
         }
         // Sub-questions format (multi-part)
         else if (localAnswer?.sub_questions && Array.isArray(localAnswer.sub_questions)) {
@@ -330,17 +341,30 @@ export const QuestionAnswerInput = ({
 
             {/* Distractors */}
             <div className="space-y-1.5">
-              <Label className="text-sm text-muted-foreground font-medium">× Distractor Options (wrong answers)</Label>
+              <Label className="text-sm text-muted-foreground font-medium">
+                × Distractor Options (minimum 1, recommended 3)
+              </Label>
               <div className="grid gap-2">
-                {[0, 1, 2].map((distractorIdx) => (
-                  <Input
-                    key={distractorIdx}
-                    value={blanks[idx]?.distractors?.[distractorIdx] || ''}
-                    onChange={(e) => handleDistractorChange(idx, distractorIdx, e.target.value)}
-                    placeholder={`Distractor ${distractorIdx + 1}`}
-                  />
-                ))}
+                {[0, 1, 2].map((distractorIdx) => {
+                  const distractorValue = blanks[idx]?.distractors?.[distractorIdx] || '';
+                  const validDistractorsCount = blanks[idx]?.distractors?.filter((d: string) => d && d.trim().length > 0).length || 0;
+                  return (
+                    <div key={distractorIdx} className="relative">
+                      <Input
+                        value={distractorValue}
+                        onChange={(e) => handleDistractorChange(idx, distractorIdx, e.target.value)}
+                        placeholder={`Distractor ${distractorIdx + 1} ${distractorIdx === 0 ? '(required)' : '(optional)'}`}
+                        className={distractorIdx === 0 && !distractorValue ? 'border-orange-500/50' : ''}
+                      />
+                    </div>
+                  );
+                })}
               </div>
+              {blanks[idx]?.distractors?.filter((d: string) => d && d.trim().length > 0).length < 3 && (
+                <p className="text-xs text-orange-600">
+                  ⚠️ At least 1 distractor required. Add 3 for best gameplay.
+                </p>
+              )}
             </div>
 
             {/* Preview */}

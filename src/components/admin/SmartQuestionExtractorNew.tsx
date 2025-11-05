@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
@@ -136,6 +137,9 @@ export const SmartQuestionExtractorNew = ({
 
   // Track published questions
   const [publishedQuestionIds, setPublishedQuestionIds] = useState<Set<string>>(new Set());
+
+  // Column editing state for match_column questions
+  const [editingColumns, setEditingColumns] = useState<Map<string, { left: string[], right: string[] }>>(new Map());
 
   // Auto-load draft questions when topic changes
   useEffect(() => {
@@ -437,14 +441,25 @@ export const SmartQuestionExtractorNew = ({
         return typeof ans === 'boolean' || typeof ans?.value === 'boolean';
       
       case 'fill_blank':
-        // New drag-drop format with blanks array
+        // New drag-drop format with blanks array - Accept >=1 distractor per blank
         if (ans?.blanks && Array.isArray(ans.blanks)) {
-          return ans.blanks.length > 0 && ans.blanks.every((b: any) => 
+          const isValid = ans.blanks.length > 0 && ans.blanks.every((b: any) => 
             b.correctAnswer?.trim().length > 0 && 
             Array.isArray(b.distractors) && 
-            b.distractors.length === 3 &&
-            b.distractors.every((d: string) => typeof d === 'string' && d.trim().length > 0)
+            b.distractors.filter((d: string) => typeof d === 'string' && d.trim().length > 0).length >= 1
           );
+          
+          // Log warning if valid but has fewer than 3 distractors
+          if (isValid) {
+            const blanksWithFewDistractors = ans.blanks.filter((b: any) => 
+              b.distractors?.filter((d: string) => d && d.trim().length > 0).length < 3
+            );
+            if (blanksWithFewDistractors.length > 0) {
+              console.warn('[validateAnswer] fill_blank valid but has blanks with <3 distractors:', blanksWithFewDistractors.length);
+            }
+          }
+          
+          return isValid;
         }
         // Sub-questions format (multi-part)
         if (ans?.sub_questions && Array.isArray(ans.sub_questions)) {
@@ -500,10 +515,34 @@ export const SmartQuestionExtractorNew = ({
       return;
     }
 
-    // Call parent callback
+    // Auto-complete missing distractors for fill_blank questions
+    const processedQuestions = selectedQuestions.map(q => {
+      if (q.question_type === 'fill_blank' && q.correct_answer?.blanks) {
+        const updatedBlanks = q.correct_answer.blanks.map((blank: any, idx: number) => {
+          const validDistractors = blank.distractors?.filter((d: string) => d && d.trim().length > 0) || [];
+          if (validDistractors.length < 3) {
+            // Generate safe fallback distractors that don't duplicate correctAnswer
+            const fallbacks = ['___', '...', '???'];
+            const correctAns = blank.correctAnswer?.toLowerCase() || '';
+            const safeDistractors = fallbacks.filter(f => 
+              f.toLowerCase() !== correctAns && !validDistractors.includes(f)
+            );
+            const needed = 3 - validDistractors.length;
+            const fillers = safeDistractors.slice(0, needed);
+            console.log(`[Auto-complete] Blank ${idx}: adding ${fillers.length} distractors`);
+            return { ...blank, distractors: [...validDistractors, ...fillers] };
+          }
+          return blank;
+        });
+        return { ...q, correct_answer: { ...q.correct_answer, blanks: updatedBlanks } };
+      }
+      return q;
+    });
+
+    // Call parent callback with processed questions
     if (onQuestionsAdded) {
-      onQuestionsAdded(selectedQuestions);
-      toast.success(`Added ${selectedQuestions.length} questions to Lesson Library`);
+      onQuestionsAdded(processedQuestions);
+      toast.success(`Added ${processedQuestions.length} questions to Lesson Library`);
       setSelectedIds(new Set()); // Clear selections
     } else {
       toast.error('Cannot add to Lesson Library: callback not configured');
@@ -981,6 +1020,144 @@ export const SmartQuestionExtractorNew = ({
                           const { leftColumn, rightColumn } = parseMatchingQuestion(q.question_text);
                           q.left_column = leftColumn;
                           q.right_column = rightColumn;
+                        }
+                        
+                        // Inline Column Editor for match_column if columns still missing
+                        if (q.question_type === 'match_column' && (!q.left_column?.length || !q.right_column?.length)) {
+                          const currentEdit = editingColumns.get(q.id!) || { left: q.left_column || [''], right: q.right_column || [''] };
+                          
+                          return (
+                            <div onClick={(e) => e.stopPropagation()} className="space-y-3 border border-orange-500/50 rounded-lg p-3 bg-orange-50/50">
+                              <Alert className="py-2">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription className="text-xs">
+                                  Columns not detected. Add them manually below:
+                                </AlertDescription>
+                              </Alert>
+                              
+                              <div className="grid grid-cols-2 gap-3">
+                                {/* Left Column */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs font-semibold">Column A (Left)</Label>
+                                  {currentEdit.left.map((item, idx) => (
+                                    <div key={idx} className="flex gap-1">
+                                      <Input
+                                        value={item}
+                                        onChange={(e) => {
+                                          const newEdit = { ...currentEdit };
+                                          newEdit.left[idx] = e.target.value;
+                                          setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
+                                        }}
+                                        placeholder={`Item ${idx + 1}`}
+                                        className="text-xs h-8"
+                                      />
+                                      {currentEdit.left.length > 1 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => {
+                                            const newEdit = { ...currentEdit };
+                                            newEdit.left = newEdit.left.filter((_, i) => i !== idx);
+                                            setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
+                                          }}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full h-7 text-xs"
+                                    onClick={() => {
+                                      const newEdit = { ...currentEdit };
+                                      newEdit.left = [...newEdit.left, ''];
+                                      setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add Item
+                                  </Button>
+                                </div>
+                                
+                                {/* Right Column */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs font-semibold">Column B (Right)</Label>
+                                  {currentEdit.right.map((item, idx) => (
+                                    <div key={idx} className="flex gap-1">
+                                      <Input
+                                        value={item}
+                                        onChange={(e) => {
+                                          const newEdit = { ...currentEdit };
+                                          newEdit.right[idx] = e.target.value;
+                                          setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
+                                        }}
+                                        placeholder={`Item ${idx + 1}`}
+                                        className="text-xs h-8"
+                                      />
+                                      {currentEdit.right.length > 1 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={() => {
+                                            const newEdit = { ...currentEdit };
+                                            newEdit.right = newEdit.right.filter((_, i) => i !== idx);
+                                            setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
+                                          }}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full h-7 text-xs"
+                                    onClick={() => {
+                                      const newEdit = { ...currentEdit };
+                                      newEdit.right = [...newEdit.right, ''];
+                                      setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add Item
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  const validLeft = currentEdit.left.filter(i => i.trim().length > 0);
+                                  const validRight = currentEdit.right.filter(i => i.trim().length > 0);
+                                  if (validLeft.length === 0 || validRight.length === 0) {
+                                    toast.error('Both columns need at least 1 item');
+                                    return;
+                                  }
+                                  // Update question with columns
+                                  setQuestions(prev => prev.map(question => 
+                                    question.id === q.id 
+                                      ? { ...question, left_column: validLeft, right_column: validRight }
+                                      : question
+                                  ));
+                                  // Clear editing state
+                                  const newMap = new Map(editingColumns);
+                                  newMap.delete(q.id!);
+                                  setEditingColumns(newMap);
+                                  toast.success('Columns added! Now select the correct pairs below.');
+                                }}
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Save Columns
+                              </Button>
+                            </div>
+                          );
                         }
                         
                         return (

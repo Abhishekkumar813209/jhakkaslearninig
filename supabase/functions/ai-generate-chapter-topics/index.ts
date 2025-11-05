@@ -80,38 +80,16 @@ Deno.serve(async (req) => {
     const maxTopics = Math.max(2, Math.min(10, estimated_days));
     const shouldCluster = estimated_days < 3;
     
-    const systemPrompt = `You are an expert educational content creator specializing in ${exam_type} exam preparation.
-Your task is to ${contentToProcess ? 'PARSE the provided syllabus content and extract' : 'generate a'} BUDGET-AWARE list of topics that STRICTLY respects the ${estimated_days}-day time budget.
+    const systemPrompt = `You are an expert at generating CONCISE topics for ${subject} (${exam_type} - ${exam_name}).
 
-CRITICAL TIME BUDGET RULES:
-- Chapter has ONLY ${estimated_days} days total
-- Maximum topics: ${maxTopics}
-- ${shouldCluster ? 'CLUSTER multiple concepts into consolidated topics to fit budget' : 'Distribute topics across available days'}
-- NEVER generate topics exceeding the day budget
-- If budget is tight (1-2 days), create 2-3 CONSOLIDATED topics that combine related concepts
-
-TOPIC DISTRIBUTION:
-${estimated_days >= 5 ? `- Generate ${Math.min(estimated_days, 7)} detailed topics (1 per day)` : ''}
-${estimated_days === 3 || estimated_days === 4 ? `- Generate ${estimated_days} focused topics (1 per day)` : ''}
-${estimated_days <= 2 ? `- Generate 2-3 CONSOLIDATED topics combining multiple concepts\n  Example: "Introduction + Core Concepts + Applications" (1 combined topic for 1 day)` : ''}
-
-TOPIC QUALITY:
-- Make topics exam-specific and highly relevant
-- Topics should be actionable learning objectives
-- Use ${exam_type} exam terminology
-- Topics should build on each other logically
-
-OUTPUT FORMAT: Return ONLY a valid JSON array, no markdown:
-[
-  {
-    "topic_name": "string (specific, may combine concepts if budget tight)",
-    "day_number": number (1 to ${estimated_days}, MUST NOT exceed this),
-    "xp_reward": number (30-100 based on complexity),
-    "coin_reward": number (5-20 based on difficulty),
-    "difficulty": "easy" | "medium" | "hard",
-    "animation_type": "interactive_svg" | "physics_animation" | "concept_puzzle"
-  }
-]`;
+CRITICAL RULES:
+1. Generate exactly ${estimated_days} topics (1 per day)
+2. Keep topic names UNDER 65 characters - be brief!
+3. Return ONLY valid JSON array: [{"topic_name": "...", "day_number": 1, "xp_reward": 60, "coin_reward": 10, "difficulty": "medium", "animation_type": "interactive_svg"}]
+4. NO markdown, NO code blocks, NO explanations - ONLY raw JSON array starting with [ and ending with ]
+5. difficulty: "easy" (30 XP) | "medium" (40 XP) | "hard" (50 XP)
+6. animation_type: "interactive_svg" | "physics_animation" | "concept_puzzle"
+7. Keep topic names focused - avoid long descriptions`;
 
     const userPrompt = contentToProcess 
       ? `Parse this syllabus content and extract BUDGET-AWARE topics:
@@ -146,48 +124,83 @@ EXAM CONTEXT:
 - Include practical, exam-oriented content
 - Topics should prepare students effectively within the time budget`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again in a moment.');
-      }
-      if (response.status === 402) {
-        throw new Error('AI credits exhausted. Please add credits to your workspace.');
-      }
-      const errorText = await response.text();
-      console.error('AI API Error:', response.status, errorText);
-      throw new Error(`AI generation failed: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    const generatedText = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    if (!generatedText) {
-      throw new Error('No content generated from AI');
-    }
-
-    console.log('AI Response:', generatedText);
-
-    // Parse JSON from response (handle markdown code blocks)
     let topics;
-    try {
-      const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        topics = JSON.parse(jsonMatch[0]);
-      } else {
-        topics = JSON.parse(generatedText);
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    while (retryCount <= maxRetries) {
+      const tokenLimit = retryCount === 0 ? 4000 : retryCount === 1 ? 3000 : 2500;
+      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: tokenLimit }
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a moment.');
+        }
+        if (response.status === 402) {
+          throw new Error('AI credits exhausted. Please add credits to your workspace.');
+        }
+        const errorText = await response.text();
+        console.error('AI API Error:', response.status, errorText);
+        throw new Error(`AI generation failed: ${response.status}`);
       }
-    } catch (parseError) {
-      console.error('JSON Parse Error:', parseError);
-      throw new Error('Failed to parse AI response. Please try again.');
+
+      const aiResponse = await response.json();
+      const generatedText = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      if (!generatedText) {
+        throw new Error('No content generated from AI');
+      }
+
+      console.log(`AI Response (attempt ${retryCount + 1}, length: ${generatedText.length} chars):`);
+      console.log('Preview:', generatedText.substring(0, 150) + '...');
+      console.log('End:', '...' + generatedText.substring(Math.max(0, generatedText.length - 100)));
+
+      // Check if response is complete
+      const trimmed = generatedText.trim();
+      if (!trimmed.endsWith(']') && !trimmed.endsWith('}')) {
+        if (retryCount < maxRetries) {
+          console.warn(`⚠️ Response truncated (${generatedText.length} chars). Retrying with ${tokenLimit === 4000 ? 3000 : 2500} tokens...`);
+          retryCount++;
+          continue;
+        }
+        console.error('❌ Response still truncated after retries');
+        throw new Error('AI response was incomplete. Please try with fewer topics or shorter chapter name.');
+      }
+
+      // Parse JSON from response
+      try {
+        const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          topics = JSON.parse(jsonMatch[0]);
+        } else {
+          topics = JSON.parse(generatedText);
+        }
+
+        if (!Array.isArray(topics) || topics.length === 0) {
+          throw new Error('Invalid topics format');
+        }
+
+        console.log(`✅ Successfully parsed ${topics.length} topics`);
+        break; // Success!
+
+      } catch (parseError) {
+        if (retryCount < maxRetries) {
+          console.warn(`⚠️ Parse failed (attempt ${retryCount + 1}):`, parseError.message);
+          retryCount++;
+          continue;
+        }
+        console.error('❌ Final parse error:', parseError);
+        console.error('Raw response:', generatedText);
+        throw new Error('Failed to parse AI response after retries. Please try again.');
+      }
     }
 
     // Validate and sanitize topics

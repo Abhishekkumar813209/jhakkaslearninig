@@ -504,13 +504,55 @@ export const SmartQuestionExtractorNew = ({
     setSelectedIds(new Set());
   };
 
-  const handleClearAll = () => {
-    setQuestions([]);
-    setSelectedIds(new Set());
-    if (selectedTopic) {
-      localStorage.removeItem(`question-selections-${selectedTopic}`);
+  const handleClearAll = async () => {
+    const selectedQuestions = questions.filter(q => q.id && selectedIds.has(q.id));
+    
+    if (selectedQuestions.length === 0) {
+      toast.error('No questions selected to delete');
+      return;
     }
-    toast.success('All questions cleared');
+
+    // Show confirmation dialog before deleting
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete ${selectedQuestions.length} selected question(s) from the database?`
+    );
+    
+    if (!confirmDelete) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('🗑️ Deleting selected questions from database:', selectedQuestions.map(q => q.id));
+      
+      // Delete from database
+      const { error } = await supabase
+        .from('generated_questions')
+        .delete()
+        .in('id', selectedQuestions.map(q => q.id!));
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('✅ Database deletion successful');
+
+      // Remove from UI state only after successful database deletion
+      setQuestions(prev => prev.filter(q => !q.id || !selectedIds.has(q.id)));
+      setSelectedIds(new Set());
+      
+      // Clear localStorage
+      if (selectedTopic) {
+        localStorage.removeItem(`question-selections-${selectedTopic}`);
+      }
+
+      toast.success(`Successfully deleted ${selectedQuestions.length} question(s) from database`);
+    } catch (error: any) {
+      console.error('Failed to delete questions from database:', error);
+      toast.error(`Failed to delete: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Filter questions

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Trophy, Coins, Star, CheckCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Trophy, Star } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
@@ -119,6 +119,7 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
         );
 
       case "true_false":
+        const correctAnswer = exercise.correct_answer.toString().toLowerCase();
         return (
           <div className="space-y-6">
             <p className="text-lg font-medium">{exercise.exercise_data.statement}</p>
@@ -129,12 +130,30 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
                 whileTap={!submitted ? { scale: 0.98 } : {}}
                 onClick={() => !submitted && setAnswer("true")}
                 className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${
-                  answer === "true"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                } ${submitted ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                  !submitted && answer === "true" ? "border-primary bg-primary/10" : ""
+                } ${
+                  !submitted && answer !== "true" ? "border-border hover:border-primary/50" : ""
+                } ${
+                  submitted && answer === "true" && isCorrect ? "border-green-500 bg-green-500/10" : ""
+                } ${
+                  submitted && answer === "true" && !isCorrect ? "border-red-500 bg-red-500/10" : ""
+                } ${
+                  submitted && answer !== "true" && correctAnswer === "true" ? "border-green-500/40 bg-green-500/5" : ""
+                } ${
+                  submitted ? "cursor-default" : "cursor-pointer"
+                }`}
               >
-                <Switch checked={answer === "true"} disabled={submitted} />
+                <Switch 
+                  checked={answer === "true"}
+                  disabled={submitted}
+                  className={`${
+                    submitted && answer === "true" && isCorrect ? "data-[state=checked]:bg-green-500" : ""
+                  } ${
+                    submitted && answer === "true" && !isCorrect ? "data-[state=checked]:bg-red-500" : ""
+                  } ${
+                    submitted && answer !== "true" && correctAnswer === "true" ? "data-[state=checked]:bg-green-500" : ""
+                  }`}
+                />
                 <span className="text-lg font-medium">True</span>
               </motion.div>
 
@@ -144,12 +163,30 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
                 whileTap={!submitted ? { scale: 0.98 } : {}}
                 onClick={() => !submitted && setAnswer("false")}
                 className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${
-                  answer === "false"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                } ${submitted ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                  !submitted && answer === "false" ? "border-primary bg-primary/10" : ""
+                } ${
+                  !submitted && answer !== "false" ? "border-border hover:border-primary/50" : ""
+                } ${
+                  submitted && answer === "false" && isCorrect ? "border-green-500 bg-green-500/10" : ""
+                } ${
+                  submitted && answer === "false" && !isCorrect ? "border-red-500 bg-red-500/10" : ""
+                } ${
+                  submitted && answer !== "false" && correctAnswer === "false" ? "border-green-500/40 bg-green-500/5" : ""
+                } ${
+                  submitted ? "cursor-default" : "cursor-pointer"
+                }`}
               >
-                <Switch checked={answer === "false"} disabled={submitted} />
+                <Switch 
+                  checked={answer === "false"}
+                  disabled={submitted}
+                  className={`${
+                    submitted && answer === "false" && isCorrect ? "data-[state=checked]:bg-green-500" : ""
+                  } ${
+                    submitted && answer === "false" && !isCorrect ? "data-[state=checked]:bg-red-500" : ""
+                  } ${
+                    submitted && answer !== "false" && correctAnswer === "false" ? "data-[state=checked]:bg-green-500" : ""
+                  }`}
+                />
                 <span className="text-lg font-medium">False</span>
               </motion.div>
             </div>

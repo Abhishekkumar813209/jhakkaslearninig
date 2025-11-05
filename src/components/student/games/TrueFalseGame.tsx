@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Lightbulb, CheckCircle, XCircle } from "lucide-react";
+import { Check, X, Lightbulb } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
@@ -101,82 +101,63 @@ export function TrueFalseGame({
         </div>
 
         {/* True/False Toggle Switches */}
-        {!hasSubmitted ? (
-          <div className="flex gap-4">
-            {/* TRUE Option */}
-            <motion.div
-              onClick={() => handleSelect(true)}
-              className={cn(
-                "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all",
-                selectedAnswer === true
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-primary/50"
-              )}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Switch checked={selectedAnswer === true} />
-              <span className="text-lg font-medium">True</span>
-            </motion.div>
-
-            {/* FALSE Option */}
-            <motion.div
-              onClick={() => handleSelect(false)}
-              className={cn(
-                "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all",
-                selectedAnswer === false
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-primary/50"
-              )}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Switch checked={selectedAnswer === false} />
-              <span className="text-lg font-medium">False</span>
-            </motion.div>
-          </div>
-        ) : (
-          /* Result Display */
-          <div className="grid grid-cols-2 gap-6">
-            {/* User's Answer */}
-            <div
-              className={cn(
-                "p-8 border-4 rounded-2xl",
-                selectedAnswer === true && isCorrect && "border-green-500 bg-green-50",
-                selectedAnswer === true && !isCorrect && "border-red-500 bg-red-50",
-                selectedAnswer === false && isCorrect && "border-green-500 bg-green-50",
-                selectedAnswer === false && !isCorrect && "border-red-500 bg-red-50"
-              )}
-            >
-              {selectedAnswer === true ? (
-                <CheckCircle className="w-16 h-16 mx-auto mb-3 text-green-600" />
-              ) : (
-                <XCircle className="w-16 h-16 mx-auto mb-3 text-red-600" />
-              )}
-              <span className="block text-2xl font-bold text-foreground mb-2">
-                {selectedAnswer ? "TRUE" : "FALSE"}
-              </span>
-              <span className="text-sm text-muted-foreground">Your Answer</span>
-              {isCorrect && <Check className="w-6 h-6 mx-auto mt-2 text-green-600" />}
-              {!isCorrect && <X className="w-6 h-6 mx-auto mt-2 text-red-600" />}
-            </div>
-
-            {/* Correct Answer (if wrong) */}
-            {!isCorrect && (
-              <div className="p-8 border-4 border-green-500 bg-green-50 rounded-2xl opacity-70">
-                {gameData.correctAnswer === true ? (
-                  <CheckCircle className="w-16 h-16 mx-auto mb-3 text-green-600" />
-                ) : (
-                  <XCircle className="w-16 h-16 mx-auto mb-3 text-red-600" />
-                )}
-                <span className="block text-2xl font-bold text-foreground mb-2">
-                  {gameData.correctAnswer ? "TRUE" : "FALSE"}
-                </span>
-                <span className="text-sm text-muted-foreground">Correct Answer</span>
-              </div>
+        <div className="flex gap-4">
+          {/* TRUE Option */}
+          <motion.div
+            onClick={() => !hasSubmitted && handleSelect(true)}
+            className={cn(
+              "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
+              !hasSubmitted && selectedAnswer === true && "border-primary bg-primary/10",
+              !hasSubmitted && selectedAnswer !== true && "border-border hover:border-primary/50",
+              !hasSubmitted && "cursor-pointer",
+              hasSubmitted && selectedAnswer === true && isCorrect && "border-green-500 bg-green-500/10",
+              hasSubmitted && selectedAnswer === true && !isCorrect && "border-red-500 bg-red-500/10",
+              hasSubmitted && selectedAnswer !== true && gameData.correctAnswer === true && "border-green-500/40 bg-green-500/5",
+              hasSubmitted && "cursor-default"
             )}
-          </div>
-        )}
+            whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
+            whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
+          >
+            <Switch 
+              checked={selectedAnswer === true}
+              disabled={hasSubmitted}
+              className={cn(
+                hasSubmitted && selectedAnswer === true && isCorrect && "data-[state=checked]:bg-green-500",
+                hasSubmitted && selectedAnswer === true && !isCorrect && "data-[state=checked]:bg-red-500",
+                hasSubmitted && selectedAnswer !== true && gameData.correctAnswer === true && "data-[state=checked]:bg-green-500"
+              )}
+            />
+            <span className="text-lg font-medium">True</span>
+          </motion.div>
+
+          {/* FALSE Option */}
+          <motion.div
+            onClick={() => !hasSubmitted && handleSelect(false)}
+            className={cn(
+              "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
+              !hasSubmitted && selectedAnswer === false && "border-primary bg-primary/10",
+              !hasSubmitted && selectedAnswer !== false && "border-border hover:border-primary/50",
+              !hasSubmitted && "cursor-pointer",
+              hasSubmitted && selectedAnswer === false && isCorrect && "border-green-500 bg-green-500/10",
+              hasSubmitted && selectedAnswer === false && !isCorrect && "border-red-500 bg-red-500/10",
+              hasSubmitted && selectedAnswer !== false && gameData.correctAnswer === false && "border-green-500/40 bg-green-500/5",
+              hasSubmitted && "cursor-default"
+            )}
+            whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
+            whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
+          >
+            <Switch 
+              checked={selectedAnswer === false}
+              disabled={hasSubmitted}
+              className={cn(
+                hasSubmitted && selectedAnswer === false && isCorrect && "data-[state=checked]:bg-green-500",
+                hasSubmitted && selectedAnswer === false && !isCorrect && "data-[state=checked]:bg-red-500",
+                hasSubmitted && selectedAnswer !== false && gameData.correctAnswer === false && "data-[state=checked]:bg-green-500"
+              )}
+            />
+            <span className="text-lg font-medium">False</span>
+          </motion.div>
+        </div>
 
         {/* Result Message */}
         <AnimatePresence>

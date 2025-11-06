@@ -2008,7 +2008,10 @@ function LessonContentBuilderInner() {
           // Normalize game_type after setting it
           let normalizedGameType = null;
           if (lessonType === 'game') {
+            console.log(`🔍 [Q${q.question_number}] Pre-normalization gameType:`, gameType);
             normalizedGameType = normalizeGameTypeForContent(gameType);
+            console.log(`🔍 [Q${q.question_number}] Post-normalization normalizedGameType:`, normalizedGameType);
+            
             if (!normalizedGameType) {
               console.warn(`⚠️ Skipping question ${q.question_number} with unsupported game type: ${gameType}`);
               continue;
@@ -2061,21 +2064,63 @@ function LessonContentBuilderInner() {
         description: `${lessonsToInsert.length} of ${questions.length} questions are valid and ready to insert`
       });
 
+      // CRITICAL: Pre-insert validation to prevent database errors
+      const validGameTypes = ['match_columns', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pairs', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
+      
+      console.log('🔍 Starting pre-insert validation for', lessonsToInsert.length, 'lessons');
+      
+      for (let i = 0; i < lessonsToInsert.length; i++) {
+        const lesson = lessonsToInsert[i];
+        if (lesson.lesson_type === 'game' && lesson.game_type) {
+          console.log(`🔍 [Lesson ${i+1}/${lessonsToInsert.length}] Validating game_type: "${lesson.game_type}" (type: ${typeof lesson.game_type})`);
+          
+          if (!validGameTypes.includes(lesson.game_type)) {
+            console.error(`❌ BLOCKING INSERT: Invalid game_type "${lesson.game_type}" at index ${i}`);
+            console.error(`❌ Full lesson object:`, JSON.stringify(lesson, null, 2));
+            console.error(`❌ Valid types:`, validGameTypes);
+            
+            toast({ 
+              title: "Invalid Game Type", 
+              description: `Cannot save: game_type "${lesson.game_type}" is invalid.\n\nValid types: ${validGameTypes.join(', ')}\n\nPlease hard refresh (Ctrl+Shift+R) and try again.`,
+              variant: "destructive"
+            });
+            setLoading(false);
+            return; // STOP the insert completely
+          }
+          
+          console.log(`✅ [Lesson ${i+1}] Validation passed for game_type: "${lesson.game_type}"`);
+        }
+      }
+      
+      console.log('✅ All lessons passed validation');
+      console.log('🔍 Final lessonsToInsert array:', JSON.stringify(lessonsToInsert.slice(0, 2), null, 2), '...'); // Log first 2 for brevity
+
       const { error } = await supabase
         .from('topic_learning_content')
         .insert(lessonsToInsert);
 
       if (error) {
-        console.error('❌ Question-to-game insert error:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          sample: lessonsToInsert[0] ? {
-            lesson_type: lessonsToInsert[0].lesson_type,
-            game_type: lessonsToInsert[0].game_type
-          } : 'No lessons to insert'
+        console.error('❌ DATABASE INSERT ERROR:', error);
+        console.error('❌ Error code:', error.code);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error details:', error.details);
+        console.error('❌ Error hint:', error.hint);
+        console.error('❌ Failed lessons sample (first 2):', JSON.stringify(lessonsToInsert.slice(0, 2), null, 2));
+        console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+        
+        // Enhanced error message with actionable steps
+        const errorMsg = error.message || 'Unknown database error';
+        const isGameTypeError = errorMsg.toLowerCase().includes('game_type');
+        
+        toast({ 
+          title: "Database Error", 
+          description: isGameTypeError 
+            ? `Game type validation failed: ${errorMsg}\n\nPlease:\n1. Hard refresh: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)\n2. Clear browser cache\n3. Try again`
+            : `Failed to save questions: ${errorMsg}`,
+          variant: "destructive"
         });
+        
+        setLoading(false);
         throw error;
       }
 

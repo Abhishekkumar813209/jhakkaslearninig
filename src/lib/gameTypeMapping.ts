@@ -47,10 +47,19 @@ export const GAME_TYPE_FOR_MAPPING: Record<string, string> = {
  * Normalize game type for insertion into topic_learning_content
  */
 export function normalizeGameTypeForContent(gameType: string | undefined | null): string | null {
-  if (!gameType) return null;
-  const normalized = GAME_TYPE_FOR_CONTENT[gameType.toLowerCase().trim()];
+  if (!gameType) {
+    console.log('🔍 normalizeGameTypeForContent: Input is null/undefined');
+    return null;
+  }
+  
+  const input = gameType.toLowerCase().trim();
+  const normalized = GAME_TYPE_FOR_CONTENT[input];
+  
+  console.log(`🔍 normalizeGameTypeForContent: "${gameType}" -> "${input}" -> "${normalized || 'INVALID'}"`);
+  
   if (!normalized) {
     console.error('❌ Invalid game_type for topic_learning_content:', gameType);
+    console.error('❌ Valid types are:', Object.keys(GAME_TYPE_FOR_CONTENT));
     return null;
   }
   return normalized;

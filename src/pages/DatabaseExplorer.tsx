@@ -407,13 +407,6 @@ const DatabaseExplorer = () => {
   );
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
-  // Sync URL with selected table
-  useEffect(() => {
-    const tableFromUrl = searchParams.get('table');
-    if (tableFromUrl && tableFromUrl !== selectedTable) {
-      setSelectedTable(tableFromUrl);
-    }
-  }, [searchParams, selectedTable]);
 
   // Update URL when table changes
   const handleTableChange = (table: string | null) => {

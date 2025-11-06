@@ -1084,15 +1084,15 @@ function LessonContentBuilderInner() {
         }
         
         // Get the next available game_order slot
-        const { data: existingGames } = await supabase
+        const { data: existingGameOrders } = await supabase
           .from('gamified_exercises')
           .select('game_order')
           .eq('topic_content_id', mapping.id)
           .order('game_order', { ascending: false })
           .limit(1);
         
-        const nextOrder = existingGames && existingGames.length > 0 
-          ? (existingGames[0].game_order ?? 0) + 1 
+        const nextOrder = existingGameOrders && existingGameOrders.length > 0 
+          ? (existingGameOrders[0].game_order ?? 0) + 1
           : approvedGames.indexOf(lesson) + 1;
         
         // Type-aware data extraction based on game type
@@ -1111,33 +1111,42 @@ function LessonContentBuilderInner() {
         }
 
         // Check if this exact game already exists to avoid duplicates
-        const { data: existingGame } = await supabase
+        // Fetch ALL games of this type for this topic
+        const { data: existingGames } = await supabase
           .from('gamified_exercises')
-          .select('id')
+          .select('id, exercise_data, question_text')
           .eq('topic_content_id', mapping.id)
-          .eq('exercise_type', lesson.game_type as any)
-          .maybeSingle();
-        
-        // For match_pairs, verify pairs match to avoid duplicates
-        if (existingGame && lesson.game_type === 'match_pairs') {
-          const { data: gameDetails } = await supabase
-            .from('gamified_exercises')
-            .select('exercise_data')
-            .eq('id', existingGame.id)
-            .single();
-          
-          const existingPairs = JSON.stringify((gameDetails?.exercise_data as any)?.pairs || []);
-          const newPairs = JSON.stringify((lesson.game_data as any)?.pairs || []);
-          
-          if (existingPairs === newPairs) {
-            console.log(`Identical match_pairs game already exists, skipping`);
-            published++;
-            continue;
+          .eq('exercise_type', lesson.game_type as any);
+
+        let isDuplicate = false;
+
+        if (existingGames && existingGames.length > 0) {
+          if (lesson.game_type === 'match_pairs') {
+            // For match_pairs, compare the actual pairs content
+            const newPairs = JSON.stringify((lesson.game_data as any)?.pairs || []);
+            
+            isDuplicate = existingGames.some(eg => {
+              const existingPairs = JSON.stringify((eg.exercise_data as any)?.pairs || []);
+              return existingPairs === newPairs;
+            });
+            
+            if (isDuplicate) {
+              console.log(`⏭️ Skipping duplicate match_pairs game (identical pairs)`);
+              published++;
+              continue;
+            }
+          } else {
+            // For other types, compare question_text
+            isDuplicate = existingGames.some(eg => 
+              eg.question_text === questionText && questionText !== ''
+            );
+            
+            if (isDuplicate) {
+              console.log(`⏭️ Skipping duplicate ${lesson.game_type} game`);
+              published++;
+              continue;
+            }
           }
-        } else if (existingGame) {
-          console.log(`Game already published for lesson ${lesson.id}, skipping`);
-          published++;
-          continue;
         }
         
         // Prepare insert data based on game type

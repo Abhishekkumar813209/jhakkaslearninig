@@ -37,26 +37,31 @@ type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'mat
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
 // Normalize various frontend game types to DB enum exercise_type
+// Maps all known UI/AI variants to valid DB enum values
 const normalizeGameType = (
   t?: string | null
 ): Database['public']['Enums']['exercise_type'] | null => {
-  const key = (t || '').toLowerCase();
-  const map: Record<string, Database['public']['Enums']['exercise_type']> = {
-    theory: 'theory',
-    mcq: 'mcq',
-    true_false: 'true_false',
-    match_pairs: 'match_column',
-    match_column: 'match_column',
-    drag_drop: 'drag_drop_sort',
-    drag_drop_sort: 'drag_drop_sort',
-    fill_blanks: 'fill_up',
-    fill_up: 'fill_up',
-    subjective: 'subjective',
-    interactive_label: 'interactive_label',
-    // Map unsupported types to nearest compatible kind
-    assertion_reason: 'subjective',
+  const key = (t || '').toLowerCase().trim();
+  
+  // Direct enum pass-through (already valid)
+  const validEnums = [
+    'theory', 'mcq', 'true_false', 'match_pairs', 'match_column',
+    'drag_drop_sort', 'drag_drop_sequence', 'fill_blanks', 'fill_up',
+    'subjective', 'interactive_label', 'assertion_reason', 'crossword', 'typing_race'
+  ];
+  if (validEnums.includes(key)) {
+    return key as Database['public']['Enums']['exercise_type'];
+  }
+  
+  // Map variants to their correct enum values
+  const variantMap: Record<string, Database['public']['Enums']['exercise_type']> = {
+    'drag_drop': 'drag_drop_sort',
+    'sequence_order': 'drag_drop_sequence',
+    'word_puzzle': 'crossword',
+    'fill_blank': 'fill_blanks',
   };
-  return (map as any)[key] || null;
+  
+  return variantMap[key] || null;
 };
 
 interface Lesson {
@@ -1499,32 +1504,84 @@ function LessonContentBuilderInner() {
 
       if (data?.lessons && data.lessons.length > 0) {
         const { data: user } = await supabase.auth.getUser();
-        const lessonsToInsert = data.lessons.map((lesson: any, idx: number) => ({
-          topic_id: selectedTopic,
-          lesson_type: lesson.lesson_type,
-          content_order: lessons.length + idx + 1,
-          theory_text: lesson.theory_text,
-          theory_html: lesson.theory_html,
-          svg_type: lesson.svg_type,
-          svg_data: lesson.svg_data,
-          game_type: lesson.game_type,
-          game_data: lesson.game_data,
-          estimated_time_minutes: lesson.estimated_time_minutes || 5,
-          xp_reward: lesson.xp_reward || 20,
-          generated_by: 'ai',
-          created_by: user?.user?.id,
-          human_reviewed: false,
-        }));
+        const lessonsToInsert = [];
+        let skippedCount = 0;
+
+        for (const lesson of data.lessons) {
+          const isGame = lesson.lesson_type === 'game';
+          const isSvg = lesson.lesson_type === 'interactive_svg';
+          
+          // Normalize game_type for game lessons
+          let normalizedGameType = null;
+          if (isGame) {
+            normalizedGameType = normalizeGameType(lesson.game_type);
+            if (!normalizedGameType) {
+              console.warn(`⚠️ Skipping AI lesson with unsupported game type: ${lesson.game_type}`);
+              skippedCount++;
+              continue;
+            }
+          }
+
+          // Build clean payload based on lesson type
+          const cleanLesson: any = {
+            topic_id: selectedTopic,
+            lesson_type: lesson.lesson_type,
+            content_order: lessons.length + lessonsToInsert.length + 1,
+            estimated_time_minutes: lesson.estimated_time_minutes || 5,
+            xp_reward: lesson.xp_reward || 20,
+            generated_by: 'ai',
+            created_by: user?.user?.id,
+            human_reviewed: false,
+          };
+
+          // Add type-specific fields
+          if (isGame) {
+            cleanLesson.game_type = normalizedGameType;
+            cleanLesson.game_data = lesson.game_data;
+          } else if (isSvg) {
+            cleanLesson.svg_type = lesson.svg_type;
+            cleanLesson.svg_data = lesson.svg_data;
+          } else {
+            // Theory
+            cleanLesson.theory_text = lesson.theory_text;
+            cleanLesson.theory_html = lesson.theory_html;
+          }
+
+          lessonsToInsert.push(cleanLesson);
+        }
+
+        if (lessonsToInsert.length === 0) {
+          toast({ 
+            title: "No Valid Lessons", 
+            description: `All ${data.lessons.length} AI-generated lessons were invalid or unsupported.`,
+            variant: "destructive" 
+          });
+          setLoading(false);
+          return;
+        }
 
         const { error: insertError } = await supabase
           .from('topic_learning_content')
           .insert(lessonsToInsert);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('❌ Bulk AI insert error:', {
+            code: insertError.code,
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+            sample: lessonsToInsert[0]
+          });
+          throw insertError;
+        }
 
+        const summary = skippedCount > 0 
+          ? `Generated ${lessonsToInsert.length} lessons (${skippedCount} skipped due to invalid types)`
+          : `Generated ${lessonsToInsert.length} AI-powered lessons`;
+        
         toast({ 
           title: "Success!", 
-          description: `Generated ${data.lessons.length} AI-powered lessons. Review and approve them.`
+          description: `${summary}. Review and approve them.`
         });
         fetchLessons();
       } else {
@@ -1883,18 +1940,26 @@ function LessonContentBuilderInner() {
               };
           }
 
-          // Validate before inserting (CRITICAL)
+          // Normalize game_type after setting it
+          let normalizedGameType = null;
           if (lessonType === 'game') {
+            normalizedGameType = normalizeGameType(gameType);
+            if (!normalizedGameType) {
+              console.warn(`⚠️ Skipping question ${q.question_number} with unsupported game type: ${gameType}`);
+              continue;
+            }
+
+            // Validate before inserting (CRITICAL)
             if (!validateGameData(gameData, q.question_type, q.question_number)) {
               console.warn(`Skipping invalid question ${q.question_number}`);
-              continue; // Skip this question
+              continue;
             }
           }
 
           lessonsToInsert.push({
             topic_id: selectedTopic,
             lesson_type: lessonType,
-            game_type: lessonType === 'game' ? gameType : null,
+            game_type: lessonType === 'game' ? normalizedGameType : null,
             game_data: lessonType === 'game' ? gameData : null,
             theory_text: lessonType === 'theory' ? q.question_text : null,
             content_order: lessons.length + lessonsToInsert.length + 1,
@@ -1935,7 +2000,19 @@ function LessonContentBuilderInner() {
         .from('topic_learning_content')
         .insert(lessonsToInsert);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Question-to-game insert error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          sample: lessonsToInsert[0] ? {
+            lesson_type: lessonsToInsert[0].lesson_type,
+            game_type: lessonsToInsert[0].game_type
+          } : 'No lessons to insert'
+        });
+        throw error;
+      }
 
       toast({ 
         title: "Success!", 

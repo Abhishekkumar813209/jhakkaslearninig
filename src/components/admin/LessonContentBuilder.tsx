@@ -29,6 +29,7 @@ import { SmartQuestionExtractorNew } from "./SmartQuestionExtractorNew";
 import { LessonPreviewDialog } from "./LessonPreviewDialog";
 import { TheoryCheckpointBuilder } from "./TheoryCheckpointBuilder";
 import { LessonBuilderProvider, useLessonBuilder } from "@/contexts/LessonBuilderContext";
+import { GameTypePublishTester } from "./GameTypePublishTester";
 import * as LucideIcons from "lucide-react";
 import { useEffect as useEffectForContext } from "react";
 
@@ -2845,13 +2846,15 @@ function LessonContentBuilderInner() {
 
             {/* Analytics Tab */}
             <TabsContent value="analytics" className="space-y-4">
+              <GameTypePublishTester />
+              
               <Card>
                 <CardHeader>
                   <CardTitle>Content Analytics</CardTitle>
-                  <CardDescription>Coming soon - Analytics for lesson content performance</CardDescription>
+                  <CardDescription>Track lesson performance and student engagement</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Track lesson completion rates, student engagement, and content effectiveness.</p>
+                  <p className="text-muted-foreground">Coming soon - Analytics for lesson completion rates and content effectiveness.</p>
                 </CardContent>
               </Card>
             </TabsContent>

@@ -32,78 +32,15 @@ import { LessonBuilderProvider, useLessonBuilder } from "@/contexts/LessonBuilde
 import * as LucideIcons from "lucide-react";
 import { useEffect as useEffectForContext } from "react";
 
+import { 
+  normalizeGameTypeForContent, 
+  normalizeGameTypeForMapping, 
+  getGameTypeErrorMessage 
+} from '@/lib/gameTypeMapping';
+
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
 type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'match_column' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
-
-// Normalize game types for topic_content_mapping (exercise_type enum)
-// Maps all known UI/AI variants to valid exercise_type enum values
-const normalizeGameTypeForMapping = (
-  t?: string | null
-): Database['public']['Enums']['exercise_type'] | null => {
-  const key = (t || '').toLowerCase().trim();
-  
-  // Direct enum pass-through (already valid)
-  const validEnums = [
-    'theory', 'mcq', 'true_false', 'match_pairs', 'match_column',
-    'drag_drop_sort', 'drag_drop_sequence', 'fill_blanks', 'fill_up',
-    'subjective', 'interactive_label', 'assertion_reason', 'crossword', 'typing_race'
-  ];
-  if (validEnums.includes(key)) {
-    return key as Database['public']['Enums']['exercise_type'];
-  }
-  
-  // Map variants to their correct enum values
-  const variantMap: Record<string, Database['public']['Enums']['exercise_type']> = {
-    'drag_drop': 'drag_drop_sort',
-    'sequence_order': 'drag_drop_sequence',
-    'word_puzzle': 'crossword',
-    'fill_blank': 'fill_blanks',
-  };
-  
-  return variantMap[key] || null;
-};
-
-// Normalize game types for topic_learning_content (legacy string names)
-// Returns only the specific values allowed by topic_learning_content.game_type constraint
-const normalizeGameTypeForContent = (t?: string | null): string | null => {
-  const key = (t || '').toLowerCase().trim();
-  
-  // Map to legacy names allowed by topic_learning_content table CHECK constraint
-  const contentTypeMap: Record<string, string> = {
-    // Match variants
-    'match_column': 'match_columns',
-    'match_columns': 'match_columns',
-    'match_pairs': 'match_pairs',
-    
-    // Drag-drop variants
-    'drag_drop': 'drag_drop',
-    'drag_drop_sort': 'drag_drop',
-    
-    // Sequence variants
-    'sequence_order': 'sequence_order',
-    'drag_drop_sequence': 'sequence_order',
-    
-    // Word puzzle variants
-    'word_puzzle': 'word_puzzle',
-    'crossword': 'word_puzzle',
-    
-    // Fill blanks variants
-    'fill_blank': 'fill_blanks',
-    'fill_blanks': 'fill_blanks',
-    
-    // Direct pass-through types
-    'mcq': 'mcq',
-    'true_false': 'true_false',
-    'assertion_reason': 'assertion_reason',
-    'typing_race': 'typing_race',
-  };
-  
-  return contentTypeMap[key] || null;
-};
-
-// Legacy function for backward compatibility (uses mapping logic)
-const normalizeGameType = normalizeGameTypeForMapping;
 
 interface Lesson {
   id?: string;
@@ -965,13 +902,19 @@ function LessonContentBuilderInner() {
       const normalizedForContent = normalizeGameTypeForContent(newLesson.game_type);
       
       if (!normalizedForContent) {
+        console.error('❌ Invalid game_type for topic_learning_content:', newLesson.game_type);
         toast({
           title: "Unsupported game type",
-          description: `Game type '${newLesson.game_type}' is not supported. Allowed: mcq, match_columns, match_pairs, drag_drop, sequence_order, word_puzzle, fill_blanks, typing_race, true_false, assertion_reason`,
+          description: getGameTypeErrorMessage(newLesson.game_type, false),
           variant: "destructive",
         });
         return;
       }
+      
+      console.log('✅ Game type normalized for content:', {
+        raw: newLesson.game_type,
+        normalized: normalizedForContent
+      });
       
       lessonData.game_type = normalizedForContent;
       lessonData.game_data = newLesson.game_data;
@@ -1213,8 +1156,9 @@ function LessonContentBuilderInner() {
         });
         
         if (!normalizedType) {
-          console.warn(`⚠️ Skipping lesson with unsupported game type: ${lesson.game_type}`);
-          errors.push(`Unsupported game type: ${lesson.game_type}`);
+          const errorMsg = getGameTypeErrorMessage(lesson.game_type || '', true);
+          console.error(`❌ ${errorMsg}`);
+          errors.push(errorMsg);
           continue;
         }
         // Check if mapping already exists for this topic (reuse it)
@@ -1247,13 +1191,16 @@ function LessonContentBuilderInner() {
           const orderNum = Number.isFinite(Number(lesson.content_order)) ? Number(lesson.content_order) : 1;
           const normalizedTypeForMapping = normalizeGameTypeForMapping(lesson.game_type);
           if (!normalizedTypeForMapping) {
-            console.warn(`⚠️ Skipping lesson with unsupported game type: ${lesson.game_type}`);
-            errors.push(`Unsupported game type: ${lesson.game_type}`);
+            const errorMsg = getGameTypeErrorMessage(lesson.game_type || '', true);
+            console.error(`❌ ${errorMsg}`);
+            errors.push(errorMsg);
             continue;
           }
-          const insertPayload = {
+          
+          // Strict whitelist for topic_content_mapping payload
+          const insertPayload: Database['public']['Tables']['topic_content_mapping']['Insert'] = {
             topic_id: selectedTopic,
-            content_type: normalizedTypeForMapping,
+            content_type: normalizedTypeForMapping as Database['public']['Enums']['exercise_type'],
             order_num: orderNum,
             is_required: true,
             xp_value: lesson.xp_reward || 10,
@@ -1631,7 +1578,7 @@ function LessonContentBuilderInner() {
           // Normalize game_type for game lessons
           let normalizedGameType = null;
           if (isGame) {
-            normalizedGameType = normalizeGameType(lesson.game_type);
+            normalizedGameType = normalizeGameTypeForContent(lesson.game_type);
             if (!normalizedGameType) {
               console.warn(`⚠️ Skipping AI lesson with unsupported game type: ${lesson.game_type}`);
               skippedCount++;
@@ -2060,7 +2007,7 @@ function LessonContentBuilderInner() {
           // Normalize game_type after setting it
           let normalizedGameType = null;
           if (lessonType === 'game') {
-            normalizedGameType = normalizeGameType(gameType);
+            normalizedGameType = normalizeGameTypeForContent(gameType);
             if (!normalizedGameType) {
               console.warn(`⚠️ Skipping question ${q.question_number} with unsupported game type: ${gameType}`);
               continue;

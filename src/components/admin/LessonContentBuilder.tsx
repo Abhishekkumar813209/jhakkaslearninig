@@ -921,20 +921,23 @@ function LessonContentBuilderInner() {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
 
-    const lessonData = {
-      ...newLesson,
+    // Build base lesson data
+    let lessonData: any = {
       topic_id: selectedTopic,
+      lesson_type: newLesson.lesson_type,
       content_order: lessons.length + 1,
+      estimated_time_minutes: newLesson.estimated_time_minutes || 5,
+      xp_reward: newLesson.xp_reward || 10,
+      generated_by: newLesson.generated_by || 'manual',
+      human_reviewed: newLesson.human_reviewed || false,
       created_by: user.user.id,
-    } as any;
+    };
 
     // Handle theory with checkpoints
     if (lessonData.lesson_type === 'theory' && theorySections.length > 0) {
-      // Combine all section texts
       lessonData.theory_text = theorySections.map(s => s.section_text).join('\n\n');
       lessonData.theory_html = theorySections.map(s => `<p>${s.section_text}</p>`).join('');
-      
-      // Save checkpoint configuration
+      lessonData.theory_language = newLesson.theory_language || 'english';
       lessonData.checkpoint_config = {
         sections: theorySections.map(s => ({
           section_order: s.section_order,
@@ -942,15 +945,15 @@ function LessonContentBuilderInner() {
           ...(s.has_checkpoint && s.checkpoint ? { checkpoint: s.checkpoint } : {})
         }))
       };
+    } else if (lessonData.lesson_type === 'theory') {
+      lessonData.theory_text = newLesson.theory_text;
+      lessonData.theory_html = newLesson.theory_html;
+      lessonData.theory_language = newLesson.theory_language || 'english';
     }
 
-    // Clean data based on lesson type to avoid constraint violations
-    if (lessonData.lesson_type !== 'game') {
-      delete lessonData.game_type;
-      delete lessonData.game_data;
-    } else {
-      // Validate game lessons have required fields
-      if (!lessonData.game_type || !lessonData.game_data) {
+    // Handle game lessons
+    if (lessonData.lesson_type === 'game') {
+      if (!newLesson.game_type || !newLesson.game_data) {
         toast({ 
           title: "Error", 
           description: "Game lessons require game_type and game_data", 
@@ -958,58 +961,74 @@ function LessonContentBuilderInner() {
         });
         return;
       }
-      // Normalize game_type for topic_learning_content table (uses legacy names)
-      const normalizedForContent = normalizeGameTypeForContent(lessonData.game_type);
       
-      console.log('🎮 Game type normalization for content insert:', {
-        raw: lessonData.game_type,
-        normalized_for_content: normalizedForContent,
-        lesson_type: lessonData.lesson_type
-      });
+      const normalizedForContent = normalizeGameTypeForContent(newLesson.game_type);
       
       if (!normalizedForContent) {
         toast({
           title: "Unsupported game type",
-          description: `Game type '${lessonData.game_type}' is not supported for topic_learning_content. Allowed: mcq, match_columns, match_pairs, drag_drop, sequence_order, word_puzzle, fill_blanks, typing_race, true_false, assertion_reason`,
+          description: `Game type '${newLesson.game_type}' is not supported. Allowed: mcq, match_columns, match_pairs, drag_drop, sequence_order, word_puzzle, fill_blanks, typing_race, true_false, assertion_reason`,
           variant: "destructive",
         });
         return;
       }
+      
       lessonData.game_type = normalizedForContent;
+      lessonData.game_data = newLesson.game_data;
     }
 
-    if (lessonData.lesson_type !== 'interactive_svg') {
-      delete lessonData.svg_type;
-      delete lessonData.svg_data;
+    // Handle interactive SVG
+    if (lessonData.lesson_type === 'interactive_svg') {
+      lessonData.svg_type = newLesson.svg_type;
+      lessonData.svg_data = newLesson.svg_data;
     }
 
-    console.log('📤 Inserting into topic_learning_content:', {
-      topic_id: lessonData.topic_id,
-      lesson_type: lessonData.lesson_type,
-      game_type: lessonData.game_type,
-      has_game_data: !!lessonData.game_data
-    });
+    // Whitelist: Only send valid columns to avoid 400 errors
+    const allowedFields = [
+      'topic_id', 'lesson_type', 'content_order', 
+      'theory_text', 'theory_html', 'theory_language', 
+      'checkpoint_config', 'svg_type', 'svg_data', 
+      'game_type', 'game_data', 
+      'estimated_time_minutes', 'xp_reward', 
+      'generated_by', 'human_reviewed', 
+      'created_by', 'approved_by', 'approved_at'
+    ];
+    
+    const safePayload = Object.keys(lessonData)
+      .filter(key => allowedFields.includes(key))
+      .reduce((obj: any, key) => {
+        obj[key] = lessonData[key];
+        return obj;
+      }, {});
 
-    const { error } = await supabase.from('topic_learning_content').insert([lessonData]);
+    try {
+      const { error } = await supabase.from('topic_learning_content').insert([safePayload]);
 
-    if (error) {
-      console.error('❌ topic_learning_content insert error:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        payload: lessonData
-      });
+      if (error) {
+        console.error('❌ Insert failed:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        toast({ 
+          title: "Insert Failed", 
+          description: `${error.message}${error.code ? ` (${error.code})` : ''}`, 
+          variant: "destructive" 
+        });
+      } else {
+        toast({ title: "Success", description: "Lesson added successfully" });
+        setIsAddDialogOpen(false);
+        fetchLessons();
+        resetForm();
+      }
+    } catch (err: any) {
+      console.error('❌ Unexpected error:', err);
       toast({ 
         title: "Error", 
-        description: `${error.message} (code: ${error.code})`, 
+        description: err.message || "Failed to add lesson", 
         variant: "destructive" 
       });
-    } else {
-      toast({ title: "Success", description: "Lesson added successfully" });
-      setIsAddDialogOpen(false);
-      fetchLessons();
-      resetForm();
     }
   };
 
@@ -1248,11 +1267,12 @@ function LessonContentBuilderInner() {
             normalized: normalizedTypeForMapping
           });
           
-          const { data: newMapping, error: mappingError } = await supabase
+          // Insert without .select() to avoid 400 errors with ?columns param
+          const { error: mappingError } = await supabase
             .from('topic_content_mapping')
-            .insert([insertPayload])
-            .select()
-            .maybeSingle();
+            .insert([insertPayload]);
+          
+          let newMapping = null;
           
           if (mappingError) {
             console.error('❌ Mapping insert error:', {
@@ -1262,29 +1282,30 @@ function LessonContentBuilderInner() {
               hint: mappingError.hint,
               payload: insertPayload
             });
-            errors.push(`Mapping insert failed for lesson ${lesson.id}: ${mappingError.message} (code: ${mappingError.code})`);
+            errors.push(`Mapping insert failed: ${mappingError.message}${mappingError.code ? ` (${mappingError.code})` : ''}`);
             continue;
           }
           
-          // Handle case where insert succeeded but no row returned (RLS select issue)
-          if (!newMapping) {
-            console.warn('⚠️ Mapping insert succeeded but no row returned (possible RLS issue), retrying fetch...');
-            const { data: refetchedMapping, error: refetchError } = await supabase
-              .from('topic_content_mapping')
-              .select('id')
-              .eq('topic_id', selectedTopic)
-              .eq('content_id', lesson.id)
-              .maybeSingle();
-            
-            if (refetchError || !refetchedMapping) {
-              console.error('❌ Failed to refetch mapping after insert:', refetchError);
-              errors.push(`Mapping refetch failed for lesson ${lesson.id}`);
-              continue;
-            }
-            mapping = refetchedMapping;
-          } else {
-            mapping = newMapping;
+          // Fetch the inserted mapping since we didn't use .select()
+          const { data: refetchedMapping, error: refetchError } = await supabase
+            .from('topic_content_mapping')
+            .select('id')
+            .eq('topic_id', selectedTopic)
+            .eq('content_id', lesson.id)
+            .maybeSingle();
+          
+          if (refetchError || !refetchedMapping) {
+            console.error('❌ Failed to fetch mapping after insert:', {
+              code: refetchError?.code,
+              message: refetchError?.message,
+              details: refetchError?.details
+            });
+            errors.push(`Mapping fetch failed after insert`);
+            continue;
           }
+          
+          newMapping = refetchedMapping;
+          mapping = newMapping;
           createdMapping = true;
           console.log('✅ Created new mapping:', mapping.id);
         }

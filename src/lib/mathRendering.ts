@@ -281,8 +281,11 @@ export const normalizeTrigInverse = (text: string): string => {
 export const renderMath = (input: string): string => {
   if (!input) return '';
   
-  console.group('🔍 Math Rendering Debug');
-  console.log('📥 Input:', input.substring(0, 300));
+  const DEBUG = false; // Set to true for debugging
+  if (DEBUG) {
+    console.group('🔍 Math Rendering Debug');
+    console.log('📥 Input:', input.substring(0, 300));
+  }
   
   // Normalize HTML-encoded breaks/images and nbsp before further processing
   const normalizedInput = input
@@ -324,7 +327,7 @@ export const renderMath = (input: string): string => {
     return token;
   });
   
-  console.log('🔒 After protecting tokens & br tags:', protectedInput.substring(0, 300));
+  if (DEBUG) console.log('🔒 After protecting tokens & br tags:', protectedInput.substring(0, 300));
   
   // Step 2: Normalize trigonometric inverse functions (cos inverse → cos⁻¹)
   let cleaned = normalizeTrigInverse(protectedInput);
@@ -350,7 +353,7 @@ export const renderMath = (input: string): string => {
   // Step 5: Escape HTML for safety (CRITICAL: Do this BEFORE injecting any HTML)
   let safe = escapeHtml(cleaned);
   
-  console.log('🔐 After escapeHtml:', safe.substring(0, 300));
+  if (DEBUG) console.log('🔐 After escapeHtml:', safe.substring(0, 300));
   
   // Step 6: Apply square root with vinculum AFTER HTML escape
   safe = applySqrtWithVinculum(safe);
@@ -384,12 +387,12 @@ export const renderMath = (input: string): string => {
     return token;
   });
   
-  console.log('📝 After protecting blanks:', safe.substring(0, 300));
+  if (DEBUG) console.log('📝 After protecting blanks:', safe.substring(0, 300));
   
   // Step 11: Process remaining plain-text math patterns (superscripts/subscripts)
   safe = applySupSub(safe);
   
-  console.log('⬆️ After applySupSub:', safe.substring(0, 300));
+  if (DEBUG) console.log('⬆️ After applySupSub:', safe.substring(0, 300));
   
   // Step 12: Restore blanks FIRST (before other tokens)
   Object.keys(blankTokens).forEach(token => {
@@ -403,7 +406,7 @@ export const renderMath = (input: string): string => {
     safe = safe.replace(new RegExp(escapedToken, 'g'), brTokens[token]);
   });
   
-  console.log('🔓 After restoring blanks & br:', safe.substring(0, 300));
+  if (DEBUG) console.log('🔓 After restoring blanks & br:', safe.substring(0, 300));
   
   // Step 14: Restore ALL protected tokens with robust replacement
   Object.keys(protectedTokens).forEach(placeholder => {
@@ -412,12 +415,14 @@ export const renderMath = (input: string): string => {
     safe = safe.replace(new RegExp(escapedPlaceholder, 'g'), protectedTokens[placeholder]);
   });
   
-  console.log('✅ Final output:', safe.substring(0, 300));
-  console.groupEnd();
-  
-  // Fallback: Check if any protection tokens remain (for debugging)
-  if (safe.includes('§§PROTECT§') || safe.includes('§§BR§') || safe.includes('§§BLANK§')) {
-    console.warn('⚠️ Warning: Some protected tokens were not restored properly');
+  if (DEBUG) {
+    console.log('✅ Final output:', safe.substring(0, 300));
+    console.groupEnd();
+    
+    // Check if any protection tokens remain (for debugging)
+    if (safe.includes('§§PROTECT§') || safe.includes('§§BR§') || safe.includes('§§BLANK§')) {
+      console.warn('⚠️ Warning: Some protected tokens were not restored properly');
+    }
   }
   
   return safe;

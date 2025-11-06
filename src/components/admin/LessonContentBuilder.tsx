@@ -1474,33 +1474,37 @@ function LessonContentBuilderInner() {
     if (questionType === 'match_column') {
       const leftCol = gameData.leftColumn;
       const rightCol = gameData.rightColumn;
-      const pairs = gameData.correctPairs;
+      const pairs = Array.isArray(gameData.correctPairs) && gameData.correctPairs.length > 0
+        ? gameData.correctPairs
+        : (Array.isArray(leftCol) && Array.isArray(rightCol)
+            ? Array.from({ length: Math.min(leftCol.length, rightCol.length) }, (_, i) => ({ left: i, right: i }))
+            : []);
 
-      // Check leftColumn exists and has items
-      if (!Array.isArray(leftCol) || leftCol.length < 2) {
+      // Check leftColumn exists and has items (allow single pair)
+      if (!Array.isArray(leftCol) || leftCol.length < 1) {
         toast({
           title: "Validation Error",
-          description: `Question ${questionNumber}: Left column me kam se kam 2 items chahiye!`,
+          description: `Question ${questionNumber}: Left column me kam se kam 1 item chahiye!`,
           variant: "destructive",
         });
         return false;
       }
 
-      // Check rightColumn exists and has items
-      if (!Array.isArray(rightCol) || rightCol.length < 2) {
+      // Check rightColumn exists and has items (allow single pair)
+      if (!Array.isArray(rightCol) || rightCol.length < 1) {
         toast({
           title: "Validation Error",
-          description: `Question ${questionNumber}: Right column me kam se kam 2 items chahiye!`,
+          description: `Question ${questionNumber}: Right column me kam se kam 1 item chahiye!`,
           variant: "destructive",
         });
         return false;
       }
 
-      // Check correctPairs array exists with {left: number, right: number}
-      if (!Array.isArray(pairs) || pairs.length < 2) {
+      // Check pairs array exists with {left: number, right: number} (allow single pair)
+      if (!Array.isArray(pairs) || pairs.length < 1) {
         toast({
           title: "Validation Error",
-          description: `Question ${questionNumber}: Kam se kam 2 correct pairs chahiye!`,
+          description: `Question ${questionNumber}: Kam se kam 1 correct pair chahiye!`,
           variant: "destructive",
         });
         return false;

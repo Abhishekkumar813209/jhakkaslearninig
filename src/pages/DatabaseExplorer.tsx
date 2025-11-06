@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -397,9 +398,32 @@ const columnDocumentation = {
 
 const DatabaseExplorer = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  
+  // Get table from URL or default to 'profiles'
+  const [selectedTable, setSelectedTable] = useState<string | null>(
+    searchParams.get('table') || 'profiles'
+  );
   const [selectedRow, setSelectedRow] = useState<any>(null);
+
+  // Sync URL with selected table
+  useEffect(() => {
+    const tableFromUrl = searchParams.get('table');
+    if (tableFromUrl && tableFromUrl !== selectedTable) {
+      setSelectedTable(tableFromUrl);
+    }
+  }, [searchParams, selectedTable]);
+
+  // Update URL when table changes
+  const handleTableChange = (table: string | null) => {
+    setSelectedTable(table);
+    if (table) {
+      setSearchParams({ table });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   return (
     <div className="h-screen w-full bg-background flex flex-col">
@@ -423,7 +447,7 @@ const DatabaseExplorer = () => {
         </div>
         
         <div className="w-full md:w-64">
-          <TableSelector value={selectedTable} onChange={setSelectedTable} />
+          <TableSelector value={selectedTable} onChange={handleTableChange} />
         </div>
       </header>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1055,6 +1056,21 @@ function LessonContentBuilderInner() {
       setLoading(false);
       return;
     }
+
+    // Admin role preflight (server-side role check via RPC)
+    const { data: isAdmin, error: roleCheckError } = await supabase.rpc('has_role', { user_id: user.id, check_role: 'admin' });
+    if (roleCheckError) {
+      console.error('❌ Role check error:', roleCheckError);
+    }
+    if (!isAdmin) {
+      toast({
+        title: "Admin Access Required",
+        description: "Only admins can publish games.",
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
     
     console.log('🔐 Publishing as user:', user.id);
     
@@ -1065,11 +1081,12 @@ function LessonContentBuilderInner() {
     try {
       for (const lesson of approvedGames) {
         // Check if mapping already exists for this topic (reuse it)
-        const { data: existingMapping, error: mappingFetchError } = await supabase
+        const { data: mappingRows, error: mappingFetchError } = await supabase
           .from('topic_content_mapping')
           .select('id')
           .eq('topic_id', selectedTopic)
-          .maybeSingle();
+          .limit(1);
+        const existingMapping = mappingRows?.[0];
         
         if (mappingFetchError) {
           console.error('❌ Mapping fetch error:', {
@@ -1090,10 +1107,11 @@ function LessonContentBuilderInner() {
           console.log(`✅ Reusing existing mapping ${mapping.id} for topic ${selectedTopic}`);
         } else {
           // Create new mapping only if none exists
+          const orderNum = Number.isFinite(Number(lesson.content_order)) ? Number(lesson.content_order) : 1;
           const insertPayload = {
             topic_id: selectedTopic,
             content_type: lesson.game_type as any,
-            order_num: lesson.content_order,
+            order_num: orderNum,
             is_required: true,
             xp_value: lesson.xp_reward || 10,
             difficulty: lesson.game_data?.difficulty || 'medium',
@@ -1185,7 +1203,7 @@ function LessonContentBuilderInner() {
         // Prepare insert data based on game type
         let insertData: any = {
           topic_content_id: mapping.id,
-          exercise_type: lesson.game_type as any,
+          exercise_type: lesson.game_type as unknown as Database['public']['Enums']['exercise_type'],
           marks: lesson.game_data?.marks || 1,
           explanation: lesson.game_data?.explanation,
           difficulty: lesson.game_data?.difficulty || 'medium',
@@ -1231,7 +1249,7 @@ function LessonContentBuilderInner() {
 
           const questionTitle = (lesson.game_data as any)?.question || `Match the Columns (${left.length} items)`;
 
-          insertData.exercise_type = 'match_column' as any;
+          insertData.exercise_type = 'match_column' as unknown as Database['public']['Enums']['exercise_type'];
           insertData.question_text = questionTitle;
           insertData.options = null;
           insertData.correct_answer_index = null;

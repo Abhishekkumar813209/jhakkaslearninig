@@ -1095,36 +1095,95 @@ function LessonContentBuilderInner() {
           ? (existingGames[0].game_order ?? 0) + 1 
           : approvedGames.indexOf(lesson) + 1;
         
+        // Type-aware data extraction based on game type
+        let uniqueIdentifier: string;
+        let questionText: string;
+
+        if (lesson.game_type === 'match_pairs') {
+          // Use pairs array as unique identifier for match_pairs
+          const pairsString = JSON.stringify((lesson.game_data as any)?.pairs || []);
+          uniqueIdentifier = pairsString.substring(0, 100);
+          questionText = `Match ${(lesson.game_data as any)?.pairs?.length || 0} pairs`;
+        } else {
+          // For MCQ, fill_blank, true_false, etc.
+          uniqueIdentifier = lesson.game_data?.question || lesson.game_data?.text || '';
+          questionText = uniqueIdentifier;
+        }
+
         // Check if this exact game already exists to avoid duplicates
         const { data: existingGame } = await supabase
           .from('gamified_exercises')
           .select('id')
           .eq('topic_content_id', mapping.id)
-          .eq('question_text', lesson.game_data?.question || '')
+          .eq('exercise_type', lesson.game_type as any)
           .maybeSingle();
         
-        if (existingGame) {
+        // For match_pairs, verify pairs match to avoid duplicates
+        if (existingGame && lesson.game_type === 'match_pairs') {
+          const { data: gameDetails } = await supabase
+            .from('gamified_exercises')
+            .select('exercise_data')
+            .eq('id', existingGame.id)
+            .single();
+          
+          const existingPairs = JSON.stringify((gameDetails?.exercise_data as any)?.pairs || []);
+          const newPairs = JSON.stringify((lesson.game_data as any)?.pairs || []);
+          
+          if (existingPairs === newPairs) {
+            console.log(`Identical match_pairs game already exists, skipping`);
+            published++;
+            continue;
+          }
+        } else if (existingGame) {
           console.log(`Game already published for lesson ${lesson.id}, skipping`);
           published++;
           continue;
         }
         
+        // Prepare insert data based on game type
+        let insertData: any = {
+          topic_content_id: mapping.id,
+          exercise_type: lesson.game_type as any,
+          marks: lesson.game_data?.marks || 1,
+          explanation: lesson.game_data?.explanation,
+          difficulty: lesson.game_data?.difficulty || 'medium',
+          xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
+          game_order: nextOrder,
+          exercise_data: lesson.game_data || {}
+        };
+
+        // Add type-specific fields
+        if (lesson.game_type === 'match_pairs') {
+          // match_pairs specific - no question, options, or single correct answer
+          insertData.question_text = questionText;
+          insertData.options = null;
+          insertData.correct_answer_index = null;
+          console.log(`Publishing match_pairs game:`, {
+            id: lesson.id,
+            pairs_count: (lesson.game_data as any)?.pairs?.length,
+            question_text: questionText
+          });
+        } else if (['mcq', 'true_false', 'assertion_reason'].includes(lesson.game_type || '')) {
+          // MCQ-type games
+          insertData.question_text = lesson.game_data?.question || '';
+          insertData.options = lesson.game_data?.options || [];
+          insertData.correct_answer_index = lesson.game_data?.correct_answer ?? 0;
+        } else if (lesson.game_type === 'fill_blanks') {
+          // Fill blanks
+          insertData.question_text = (lesson.game_data as any)?.text || (lesson.game_data as any)?.question || '';
+          insertData.options = null;
+          insertData.correct_answer = (lesson.game_data as any)?.blanks || null;
+        } else {
+          // Generic fallback
+          insertData.question_text = lesson.game_data?.question || lesson.game_data?.text || '';
+          insertData.options = lesson.game_data?.options || null;
+          insertData.correct_answer_index = lesson.game_data?.correct_answer ?? null;
+        }
+
         // Insert new game
         const { error: exerciseError } = await supabase
           .from('gamified_exercises')
-          .insert({
-            topic_content_id: mapping.id,
-            exercise_type: lesson.game_type as any,
-            question_text: lesson.game_data?.question || '',
-            options: lesson.game_data?.options || [],
-            correct_answer_index: lesson.game_data?.correct_answer ?? 0,
-            marks: lesson.game_data?.marks || 1,
-            explanation: lesson.game_data?.explanation,
-            difficulty: lesson.game_data?.difficulty || 'medium',
-            xp_reward: lesson.xp_reward || (lesson.game_data?.marks ?? 10),
-            game_order: nextOrder,
-            exercise_data: lesson.game_data || {} // Always populate exercise_data with full game data
-          } as any)
+          .insert(insertData)
         
         if (exerciseError) {
           // Handle duplicate key error gracefully

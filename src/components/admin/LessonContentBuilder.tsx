@@ -1044,6 +1044,7 @@ function LessonContentBuilderInner() {
     
     setLoading(true);
     let published = 0;
+    let skippedDuplicates = 0;
     const errors: string[] = [];
     
     try {
@@ -1056,6 +1057,7 @@ function LessonContentBuilderInner() {
           .maybeSingle();
         
         let mapping;
+        let createdMapping = false;
         if (existingMapping) {
           // Reuse existing mapping - DO NOT delete existing games
           mapping = existingMapping;
@@ -1081,6 +1083,7 @@ function LessonContentBuilderInner() {
             continue;
           }
           mapping = newMapping;
+          createdMapping = true;
         }
         
         // Get the next available game_order slot
@@ -1131,8 +1134,11 @@ function LessonContentBuilderInner() {
             });
             
             if (isDuplicate) {
-              console.log(`⏭️ Skipping duplicate match_pairs game (identical pairs)`);
-              published++;
+              console.log(`⏭️ Skipping duplicate match_pairs game (identical pairs)`, {
+                pairs_count: (lesson.game_data as any)?.pairs?.length,
+                sample_pair: (lesson.game_data as any)?.pairs?.[0]
+              });
+              skippedDuplicates++;
               continue;
             }
           } else {
@@ -1142,8 +1148,10 @@ function LessonContentBuilderInner() {
             );
             
             if (isDuplicate) {
-              console.log(`⏭️ Skipping duplicate ${lesson.game_type} game`);
-              published++;
+              console.log(`⏭️ Skipping duplicate ${lesson.game_type} game`, {
+                question_text: questionText.substring(0, 100)
+              });
+              skippedDuplicates++;
               continue;
             }
           }
@@ -1211,14 +1219,16 @@ function LessonContentBuilderInner() {
         if (exerciseError) {
           // Handle duplicate key error gracefully
           if (exerciseError.code === '23505') {
-            console.warn('Duplicate exercise detected, treating as published');
-            published++;
+            console.warn('Duplicate exercise detected, treating as skipped');
+            skippedDuplicates++;
             continue;
           }
           
           errors.push(`Exercise error for lesson ${lesson.id}: ${exerciseError.message}`);
-          // Rollback mapping
-          await supabase.from('topic_content_mapping').delete().eq('id', mapping.id);
+          // Rollback mapping only if we created it in this run
+          if (createdMapping) {
+            await supabase.from('topic_content_mapping').delete().eq('id', mapping.id);
+          }
           continue;
         }
 
@@ -1235,10 +1245,20 @@ function LessonContentBuilderInner() {
         published++;
       }
       
+      // Summary log
+      console.log(`📊 Publishing summary:`, {
+        total: approvedGames.length,
+        published,
+        skippedDuplicates,
+        errors: errors.length
+      });
+      
+      // Show appropriate toast based on results
       if (published > 0) {
+        const duplicateInfo = skippedDuplicates > 0 ? ` (Skipped ${skippedDuplicates} duplicate(s))` : '';
         toast({ 
           title: "Published Successfully!", 
-          description: `Published ${published} game(s) to students. They can now see and play them.`
+          description: `Published ${published} game(s) to students${duplicateInfo}. They can now see and play them.`
         });
         
         // Update stats
@@ -1246,12 +1266,19 @@ function LessonContentBuilderInner() {
           approved: approvedGames.length, 
           published 
         });
+      } else if (published === 0 && skippedDuplicates > 0) {
+        toast({ 
+          title: "No New Games Created", 
+          description: `All ${skippedDuplicates} game(s) were duplicates. No changes made to database.`,
+          variant: "destructive"
+        });
       }
       
       if (errors.length > 0) {
+        const resultInfo = published > 0 ? `Published ${published}, skipped ${skippedDuplicates}.` : '';
         toast({ 
           title: "Partial Success", 
-          description: `Published ${published} of ${approvedGames.length}. First error: ${errors[0]}`,
+          description: `${resultInfo} ${errors.length} error(s). First: ${errors[0]}`,
           variant: "destructive"
         });
       }

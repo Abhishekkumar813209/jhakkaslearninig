@@ -1043,6 +1043,21 @@ function LessonContentBuilderInner() {
     }
     
     setLoading(true);
+    
+    // Check authentication before database operations
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login as admin to publish content.",
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
+    
+    console.log('🔐 Publishing as user:', user.id);
+    
     let published = 0;
     let skippedDuplicates = 0;
     const errors: string[] = [];

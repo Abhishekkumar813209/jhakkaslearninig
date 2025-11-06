@@ -36,9 +36,9 @@ type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
 type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'match_column' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
-// Normalize various frontend game types to DB enum exercise_type
-// Maps all known UI/AI variants to valid DB enum values
-const normalizeGameType = (
+// Normalize game types for topic_content_mapping (exercise_type enum)
+// Maps all known UI/AI variants to valid exercise_type enum values
+const normalizeGameTypeForMapping = (
   t?: string | null
 ): Database['public']['Enums']['exercise_type'] | null => {
   const key = (t || '').toLowerCase().trim();
@@ -63,6 +63,47 @@ const normalizeGameType = (
   
   return variantMap[key] || null;
 };
+
+// Normalize game types for topic_learning_content (legacy string names)
+// Returns only the specific values allowed by topic_learning_content.game_type constraint
+const normalizeGameTypeForContent = (t?: string | null): string | null => {
+  const key = (t || '').toLowerCase().trim();
+  
+  // Map to legacy names allowed by topic_learning_content table CHECK constraint
+  const contentTypeMap: Record<string, string> = {
+    // Match variants
+    'match_column': 'match_columns',
+    'match_columns': 'match_columns',
+    'match_pairs': 'match_pairs',
+    
+    // Drag-drop variants
+    'drag_drop': 'drag_drop',
+    'drag_drop_sort': 'drag_drop',
+    
+    // Sequence variants
+    'sequence_order': 'sequence_order',
+    'drag_drop_sequence': 'sequence_order',
+    
+    // Word puzzle variants
+    'word_puzzle': 'word_puzzle',
+    'crossword': 'word_puzzle',
+    
+    // Fill blanks variants
+    'fill_blank': 'fill_blanks',
+    'fill_blanks': 'fill_blanks',
+    
+    // Direct pass-through types
+    'mcq': 'mcq',
+    'true_false': 'true_false',
+    'assertion_reason': 'assertion_reason',
+    'typing_race': 'typing_race',
+  };
+  
+  return contentTypeMap[key] || null;
+};
+
+// Legacy function for backward compatibility (uses mapping logic)
+const normalizeGameType = normalizeGameTypeForMapping;
 
 interface Lesson {
   id?: string;
@@ -917,17 +958,24 @@ function LessonContentBuilderInner() {
         });
         return;
       }
-      // Normalize game_type to DB enum values
-      const normalized = normalizeGameType(lessonData.game_type);
-      if (!normalized) {
+      // Normalize game_type for topic_learning_content table (uses legacy names)
+      const normalizedForContent = normalizeGameTypeForContent(lessonData.game_type);
+      
+      console.log('🎮 Game type normalization for content insert:', {
+        raw: lessonData.game_type,
+        normalized_for_content: normalizedForContent,
+        lesson_type: lessonData.lesson_type
+      });
+      
+      if (!normalizedForContent) {
         toast({
           title: "Unsupported game type",
-          description: `Game type '${lessonData.game_type}' is not supported.`,
+          description: `Game type '${lessonData.game_type}' is not supported for topic_learning_content. Allowed: mcq, match_columns, match_pairs, drag_drop, sequence_order, word_puzzle, fill_blanks, typing_race, true_false, assertion_reason`,
           variant: "destructive",
         });
         return;
       }
-      lessonData.game_type = normalized;
+      lessonData.game_type = normalizedForContent;
     }
 
     if (lessonData.lesson_type !== 'interactive_svg') {
@@ -935,10 +983,28 @@ function LessonContentBuilderInner() {
       delete lessonData.svg_data;
     }
 
+    console.log('📤 Inserting into topic_learning_content:', {
+      topic_id: lessonData.topic_id,
+      lesson_type: lessonData.lesson_type,
+      game_type: lessonData.game_type,
+      has_game_data: !!lessonData.game_data
+    });
+
     const { error } = await supabase.from('topic_learning_content').insert([lessonData]);
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error('❌ topic_learning_content insert error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        payload: lessonData
+      });
+      toast({ 
+        title: "Error", 
+        description: `${error.message} (code: ${error.code})`, 
+        variant: "destructive" 
+      });
     } else {
       toast({ title: "Success", description: "Lesson added successfully" });
       setIsAddDialogOpen(false);
@@ -1119,7 +1185,14 @@ function LessonContentBuilderInner() {
     
     try {
       for (const lesson of approvedGames) {
-        const normalizedType = normalizeGameType(lesson.game_type);
+        const normalizedType = normalizeGameTypeForMapping(lesson.game_type);
+        
+        console.log('🎮 Game type normalization for mapping:', {
+          lesson_id: lesson.id,
+          raw: lesson.game_type,
+          normalized_for_mapping: normalizedType
+        });
+        
         if (!normalizedType) {
           console.warn(`⚠️ Skipping lesson with unsupported game type: ${lesson.game_type}`);
           errors.push(`Unsupported game type: ${lesson.game_type}`);
@@ -1153,15 +1226,15 @@ function LessonContentBuilderInner() {
         } else {
           // Create new mapping only if none exists
           const orderNum = Number.isFinite(Number(lesson.content_order)) ? Number(lesson.content_order) : 1;
-          const normalizedType = normalizeGameType(lesson.game_type);
-          if (!normalizedType) {
+          const normalizedTypeForMapping = normalizeGameTypeForMapping(lesson.game_type);
+          if (!normalizedTypeForMapping) {
             console.warn(`⚠️ Skipping lesson with unsupported game type: ${lesson.game_type}`);
             errors.push(`Unsupported game type: ${lesson.game_type}`);
             continue;
           }
           const insertPayload = {
             topic_id: selectedTopic,
-            content_type: normalizedType,
+            content_type: normalizedTypeForMapping,
             order_num: orderNum,
             is_required: true,
             xp_value: lesson.xp_reward || 10,
@@ -1169,13 +1242,17 @@ function LessonContentBuilderInner() {
             content_id: lesson.id
           };
           
-          console.log('🔄 Attempting mapping insert:', insertPayload);
+          console.log('🔄 Attempting mapping insert:', {
+            payload: insertPayload,
+            raw_game_type: lesson.game_type,
+            normalized: normalizedTypeForMapping
+          });
           
           const { data: newMapping, error: mappingError } = await supabase
             .from('topic_content_mapping')
             .insert([insertPayload])
             .select()
-            .single();
+            .maybeSingle();
           
           if (mappingError) {
             console.error('❌ Mapping insert error:', {
@@ -1188,7 +1265,26 @@ function LessonContentBuilderInner() {
             errors.push(`Mapping insert failed for lesson ${lesson.id}: ${mappingError.message} (code: ${mappingError.code})`);
             continue;
           }
-          mapping = newMapping;
+          
+          // Handle case where insert succeeded but no row returned (RLS select issue)
+          if (!newMapping) {
+            console.warn('⚠️ Mapping insert succeeded but no row returned (possible RLS issue), retrying fetch...');
+            const { data: refetchedMapping, error: refetchError } = await supabase
+              .from('topic_content_mapping')
+              .select('id')
+              .eq('topic_id', selectedTopic)
+              .eq('content_id', lesson.id)
+              .maybeSingle();
+            
+            if (refetchError || !refetchedMapping) {
+              console.error('❌ Failed to refetch mapping after insert:', refetchError);
+              errors.push(`Mapping refetch failed for lesson ${lesson.id}`);
+              continue;
+            }
+            mapping = refetchedMapping;
+          } else {
+            mapping = newMapping;
+          }
           createdMapping = true;
           console.log('✅ Created new mapping:', mapping.id);
         }

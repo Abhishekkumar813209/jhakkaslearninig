@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import { MCQGame } from "@/components/student/games/MCQGame";
 import { MatchPairsGame } from "@/components/student/games/MatchPairsGame";
+import { LineMatchingGame } from "@/components/student/games/LineMatchingGame";
 import { InteractiveBlanks } from "@/components/student/games/InteractiveBlanks";
 import { DragDropSequence } from "@/components/student/games/DragDropSequence";
 import { TypingRaceGame } from "@/components/student/games/TypingRaceGame";
@@ -452,7 +453,6 @@ const GamePlayerPage = () => {
       'sequence_order': 'drag_drop_sort',
       
       // Match pairs variants
-      'match_column': 'match_pairs',
       'matching': 'match_pairs',
       
       // True/False variants
@@ -568,6 +568,40 @@ const GamePlayerPage = () => {
     };
 
     switch (exerciseType) {
+      case 'match_column':
+        // Validate data structure for LineMatchingGame
+        const matchColumnData = gameData.exercise_data;
+        
+        console.log('[GamePlayerPage] Match Column Data:', {
+          hasLeftColumn: !!matchColumnData?.leftColumn,
+          hasRightColumn: !!matchColumnData?.rightColumn,
+          hasCorrectPairs: !!matchColumnData?.correctPairs,
+          leftLength: matchColumnData?.leftColumn?.length,
+          rightLength: matchColumnData?.rightColumn?.length,
+          correctPairsLength: matchColumnData?.correctPairs?.length
+        });
+        
+        if (!matchColumnData?.leftColumn || !matchColumnData?.rightColumn || !matchColumnData?.correctPairs) {
+          console.error('[GamePlayerPage] Match column data missing:', matchColumnData);
+          return (
+            <div className="text-center p-8">
+              <p className="text-destructive">Match column data is missing or invalid</p>
+              <Button onClick={handleExit} className="mt-4">Back to Topic</Button>
+            </div>
+          );
+        }
+        
+        return (
+          <LineMatchingGame
+            gameData={matchColumnData}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={handleGameComplete}
+            onNext={navInfo?.nextGameId ? handleNext : undefined}
+            hasMoreQuestions={!!navInfo?.nextGameId}
+          />
+        );
+
       case 'match_pairs':
         return (
           <MatchPairsGame

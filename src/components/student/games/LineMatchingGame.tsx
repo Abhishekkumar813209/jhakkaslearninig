@@ -40,6 +40,81 @@ export function LineMatchingGame({
   onNext,
   hasMoreQuestions = false,
 }: LineMatchingGameProps) {
+  console.log('[LMG] 🎯 Received gameData:', {
+    hasGameData: !!gameData,
+    gameDataType: typeof gameData,
+    hasLeftColumn: !!gameData?.leftColumn,
+    hasRightColumn: !!gameData?.rightColumn,
+    hasCorrectPairs: !!gameData?.correctPairs,
+    leftLength: gameData?.leftColumn?.length,
+    rightLength: gameData?.rightColumn?.length,
+    correctPairsLength: gameData?.correctPairs?.length,
+    leftColumnSample: gameData?.leftColumn?.[0],
+    rightColumnSample: gameData?.rightColumn?.[0],
+    fullGameData: gameData
+  });
+
+  // 🛡️ Defensive checks - Show helpful error messages if data is missing
+  if (!gameData) {
+    console.error('[LMG] ❌ No game data received');
+    return (
+      <Card className="p-8 bg-destructive/10 border-destructive">
+        <div className="text-center space-y-4">
+          <X className="h-12 w-12 mx-auto text-destructive" />
+          <p className="text-destructive font-semibold">❌ No game data received</p>
+          <p className="text-sm text-muted-foreground">
+            The match column game data is missing. Please try refreshing the page.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!gameData.leftColumn || !gameData.rightColumn) {
+    console.error('[LMG] ❌ Missing column data:', { 
+      hasLeft: !!gameData.leftColumn, 
+      hasRight: !!gameData.rightColumn 
+    });
+    return (
+      <Card className="p-8 bg-yellow-50 border-yellow-200">
+        <div className="text-center space-y-4">
+          <Lightbulb className="h-12 w-12 mx-auto text-yellow-600" />
+          <p className="text-yellow-700 font-semibold">⚠️ Missing column data</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            The left or right column data is missing from the database.
+          </p>
+          <details className="text-left">
+            <summary className="cursor-pointer text-sm font-medium mb-2">Debug Info</summary>
+            <pre className="text-xs bg-white p-3 rounded overflow-auto">
+              {JSON.stringify({
+                hasLeftColumn: !!gameData.leftColumn,
+                hasRightColumn: !!gameData.rightColumn,
+                leftColumnLength: gameData.leftColumn?.length,
+                rightColumnLength: gameData.rightColumn?.length,
+                gameDataKeys: Object.keys(gameData)
+              }, null, 2)}
+            </pre>
+          </details>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!gameData.correctPairs || gameData.correctPairs.length === 0) {
+    console.error('[LMG] ❌ Missing correct pairs data');
+    return (
+      <Card className="p-8 bg-yellow-50 border-yellow-200">
+        <div className="text-center space-y-4">
+          <Lightbulb className="h-12 w-12 mx-auto text-yellow-600" />
+          <p className="text-yellow-700 font-semibold">⚠️ Missing answer key</p>
+          <p className="text-sm text-muted-foreground">
+            The correct pairs data is missing. Cannot validate answers.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
   const [selectedLeft, setSelectedLeft] = useState<number | null>(null);
   const [userPairs, setUserPairs] = useState<MatchPair[]>([]);
   const [hasSubmitted, setHasSubmitted] = useState(false);

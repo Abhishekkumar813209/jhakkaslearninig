@@ -636,14 +636,32 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           );
         })()}
 
-        {currentQ.exercise_type === 'match_column' && (
-          <LineMatchingGame
-            gameData={currentQ.exercise_data}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onComplete={markTopicComplete}
-          />
-        )}
+        {currentQ.exercise_type === 'match_column' && (() => {
+          console.log('[TSV] 🎮 Match Column Data Debug:', {
+            questionId: currentQ.id,
+            hasExerciseData: !!currentQ.exercise_data,
+            exerciseDataType: typeof currentQ.exercise_data,
+            exerciseDataKeys: currentQ.exercise_data ? Object.keys(currentQ.exercise_data) : [],
+            leftColumn: currentQ.exercise_data?.leftColumn,
+            rightColumn: currentQ.exercise_data?.rightColumn,
+            correctPairs: currentQ.exercise_data?.correctPairs,
+            leftColumnLength: currentQ.exercise_data?.leftColumn?.length,
+            rightColumnLength: currentQ.exercise_data?.rightColumn?.length,
+            correctPairsLength: currentQ.exercise_data?.correctPairs?.length,
+            fullExerciseData: currentQ.exercise_data
+          });
+          
+          return (
+            <LineMatchingGame
+              gameData={currentQ.exercise_data}
+              onCorrect={handleCorrectAnswer}
+              onWrong={handleWrongAnswer}
+              onComplete={markTopicComplete}
+              hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
+              onNext={handleNextQuestion}
+            />
+          );
+        })()}
 
         {currentQ.exercise_type === 'match_pairs' && (
           <MatchPairsGame

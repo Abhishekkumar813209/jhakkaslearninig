@@ -1470,26 +1470,68 @@ function LessonContentBuilderInner() {
   const validateGameData = (gameData: any, questionType: string, questionNumber: string): boolean => {
     console.log('🎮 validateGameData called:', { questionNumber, questionType, gameData });
     
-    // Match column (as match_pairs game) validation
+    // Match column validation (leftColumn/rightColumn/correctPairs structure)
     if (questionType === 'match_column') {
-      const pairs = gameData.pairs as Array<{ id: string; left: string; right: string }> | undefined;
+      const leftCol = gameData.leftColumn;
+      const rightCol = gameData.rightColumn;
+      const pairs = gameData.correctPairs;
 
-      if (!Array.isArray(pairs) || pairs.length < 2) {
+      // Check leftColumn exists and has items
+      if (!Array.isArray(leftCol) || leftCol.length < 2) {
         toast({
           title: "Validation Error",
-          description: `Question ${questionNumber}: Match column ko kam se kam 2 pairs chahiye!`,
+          description: `Question ${questionNumber}: Left column me kam se kam 2 items chahiye!`,
           variant: "destructive",
         });
         return false;
       }
 
+      // Check rightColumn exists and has items
+      if (!Array.isArray(rightCol) || rightCol.length < 2) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Right column me kam se kam 2 items chahiye!`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Check correctPairs array exists with {left: number, right: number}
+      if (!Array.isArray(pairs) || pairs.length < 2) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Kam se kam 2 correct pairs chahiye!`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Validate each pair has valid indices
       const invalidPairs = pairs.filter(
-        (p) => !p || !p.left || !p.right || String(p.left).trim() === '' || String(p.right).trim() === ''
+        (p: any) => 
+          typeof p.left !== 'number' || 
+          typeof p.right !== 'number' ||
+          p.left < 0 || p.left >= leftCol.length ||
+          p.right < 0 || p.right >= rightCol.length
       );
+
       if (invalidPairs.length > 0) {
         toast({
           title: "Validation Error",
-          description: `Question ${questionNumber}: Har pair me left aur right dono filled hone chahiye!`,
+          description: `Question ${questionNumber}: Kuch pairs ki indices invalid hain!`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Validate all items are non-empty strings
+      const emptyLeftItems = leftCol.filter((item: any) => !item || String(item).trim() === '');
+      const emptyRightItems = rightCol.filter((item: any) => !item || String(item).trim() === '');
+
+      if (emptyLeftItems.length > 0 || emptyRightItems.length > 0) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Columns me empty items nahi hone chahiye!`,
           variant: "destructive",
         });
         return false;

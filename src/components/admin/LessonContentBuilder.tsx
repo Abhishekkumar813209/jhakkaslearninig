@@ -1125,22 +1125,9 @@ function LessonContentBuilderInner() {
 
         if (existingGames && existingGames.length > 0) {
           if (lesson.game_type === 'match_pairs') {
-            // For match_pairs, compare the actual pairs content
-            const newPairs = JSON.stringify((lesson.game_data as any)?.pairs || []);
-            
-            isDuplicate = existingGames.some(eg => {
-              const existingPairs = JSON.stringify((eg.exercise_data as any)?.pairs || []);
-              return existingPairs === newPairs;
-            });
-            
-            if (isDuplicate) {
-              console.log(`⏭️ Skipping duplicate match_pairs game (identical pairs)`, {
-                pairs_count: (lesson.game_data as any)?.pairs?.length,
-                sample_pair: (lesson.game_data as any)?.pairs?.[0]
-              });
-              skippedDuplicates++;
-              continue;
-            }
+            // FORCE PUBLISH: Skip duplicate detection for match_pairs to ensure they publish
+            console.log(`⚠️ Duplicate detection disabled for match_pairs - force publishing`);
+            isDuplicate = false;
           } else {
             // For other types, compare question_text
             isDuplicate = existingGames.some(eg => 

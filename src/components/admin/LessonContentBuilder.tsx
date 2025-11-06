@@ -1163,14 +1163,26 @@ function LessonContentBuilderInner() {
 
         // Add type-specific fields
         if (lesson.game_type === 'match_pairs') {
-          // match_pairs specific - no question, options, or single correct answer
+          const pairs = (lesson.game_data as any)?.pairs || [];
+          
+          // Validate pairs exist
+          if (pairs.length === 0) {
+            console.warn(`⚠️ Skipping match_pairs with 0 pairs (lesson ${lesson.id})`);
+            errors.push(`Lesson ${lesson.id}: match_pairs has no pairs to match`);
+            continue;
+          }
+          
+          // match_pairs specific - no question, options, or single correct answer index
           insertData.question_text = questionText;
           insertData.options = null;
           insertData.correct_answer_index = null;
-          console.log(`Publishing match_pairs game:`, {
+          insertData.correct_answer = { pairs }; // Store pairs for validation
+          
+          console.log(`📤 Publishing match_pairs game:`, {
             id: lesson.id,
-            pairs_count: (lesson.game_data as any)?.pairs?.length,
-            question_text: questionText
+            pairs_count: pairs.length,
+            question_text: questionText,
+            sample_pair: pairs[0]
           });
         } else if (['mcq', 'true_false', 'assertion_reason'].includes(lesson.game_type || '')) {
           // MCQ-type games
@@ -1190,9 +1202,11 @@ function LessonContentBuilderInner() {
         }
 
         // Insert new game
-        const { error: exerciseError } = await supabase
+        const { error: exerciseError, data: insertedData } = await supabase
           .from('gamified_exercises')
           .insert(insertData)
+          .select('id, question_text, correct_answer, exercise_type')
+          .single();
         
         if (exerciseError) {
           // Handle duplicate key error gracefully
@@ -1206,6 +1220,16 @@ function LessonContentBuilderInner() {
           // Rollback mapping
           await supabase.from('topic_content_mapping').delete().eq('id', mapping.id);
           continue;
+        }
+
+        // Verify insertion for match_pairs
+        if (lesson.game_type === 'match_pairs' && insertedData) {
+          console.log(`✅ match_pairs inserted successfully:`, {
+            id: insertedData.id,
+            question_text: insertedData.question_text,
+            has_correct_answer: !!insertedData.correct_answer,
+            pairs_in_answer: (insertedData.correct_answer as any)?.pairs?.length
+          });
         }
         
         published++;

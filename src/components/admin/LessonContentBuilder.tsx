@@ -1065,40 +1065,63 @@ function LessonContentBuilderInner() {
     try {
       for (const lesson of approvedGames) {
         // Check if mapping already exists for this topic (reuse it)
-        const { data: existingMapping } = await supabase
+        const { data: existingMapping, error: mappingFetchError } = await supabase
           .from('topic_content_mapping')
           .select('id')
           .eq('topic_id', selectedTopic)
           .maybeSingle();
+        
+        if (mappingFetchError) {
+          console.error('❌ Mapping fetch error:', {
+            code: mappingFetchError.code,
+            message: mappingFetchError.message,
+            details: mappingFetchError.details,
+            hint: mappingFetchError.hint
+          });
+          errors.push(`Mapping fetch failed: ${mappingFetchError.message} (code: ${mappingFetchError.code})`);
+          continue;
+        }
         
         let mapping;
         let createdMapping = false;
         if (existingMapping) {
           // Reuse existing mapping - DO NOT delete existing games
           mapping = existingMapping;
-          console.log(`Reusing existing mapping ${mapping.id} for topic ${selectedTopic}`);
+          console.log(`✅ Reusing existing mapping ${mapping.id} for topic ${selectedTopic}`);
         } else {
           // Create new mapping only if none exists
+          const insertPayload = {
+            topic_id: selectedTopic,
+            content_type: lesson.game_type as any,
+            order_num: lesson.content_order,
+            is_required: true,
+            xp_value: lesson.xp_reward || 10,
+            difficulty: lesson.game_data?.difficulty || 'medium',
+            content_id: lesson.id
+          };
+          
+          console.log('🔄 Attempting mapping insert:', insertPayload);
+          
           const { data: newMapping, error: mappingError } = await supabase
             .from('topic_content_mapping')
-            .insert([{
-              topic_id: selectedTopic,
-              content_type: lesson.game_type as any,
-              order_num: lesson.content_order,
-              is_required: true,
-              xp_value: lesson.xp_reward || 10,
-              difficulty: lesson.game_data?.difficulty || 'medium',
-              content_id: lesson.id
-            }])
+            .insert([insertPayload])
             .select()
             .single();
           
           if (mappingError) {
-            errors.push(`Mapping error for lesson ${lesson.id}: ${mappingError.message}`);
+            console.error('❌ Mapping insert error:', {
+              code: mappingError.code,
+              message: mappingError.message,
+              details: mappingError.details,
+              hint: mappingError.hint,
+              payload: insertPayload
+            });
+            errors.push(`Mapping insert failed for lesson ${lesson.id}: ${mappingError.message} (code: ${mappingError.code})`);
             continue;
           }
           mapping = newMapping;
           createdMapping = true;
+          console.log('✅ Created new mapping:', mapping.id);
         }
         
         // Get the next available game_order slot
@@ -1249,6 +1272,8 @@ function LessonContentBuilderInner() {
         }
 
         // Insert new game
+        console.log('🔄 Attempting exercise insert:', insertData);
+        
         const { error: exerciseError, data: insertedData } = await supabase
           .from('gamified_exercises')
           .insert(insertData)
@@ -1256,6 +1281,14 @@ function LessonContentBuilderInner() {
           .single();
         
         if (exerciseError) {
+          console.error('❌ Exercise insert error:', {
+            code: exerciseError.code,
+            message: exerciseError.message,
+            details: exerciseError.details,
+            hint: exerciseError.hint,
+            payload: insertData
+          });
+          
           // Handle duplicate key error gracefully
           if (exerciseError.code === '23505') {
             console.warn('Duplicate exercise detected, treating as skipped');
@@ -1263,7 +1296,7 @@ function LessonContentBuilderInner() {
             continue;
           }
           
-          errors.push(`Exercise error for lesson ${lesson.id}: ${exerciseError.message}`);
+          errors.push(`Failed to publish game for lesson ${lesson.id}: ${exerciseError.message} (code: ${exerciseError.code})`);
           // Rollback mapping only if we created it in this run
           if (createdMapping) {
             await supabase.from('topic_content_mapping').delete().eq('id', mapping.id);

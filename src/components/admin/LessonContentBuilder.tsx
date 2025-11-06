@@ -32,7 +32,7 @@ import * as LucideIcons from "lucide-react";
 import { useEffect as useEffectForContext } from "react";
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
-type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
+type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'match_column' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
 interface Lesson {
@@ -1124,9 +1124,9 @@ function LessonContentBuilderInner() {
         let isDuplicate = false;
 
         if (existingGames && existingGames.length > 0) {
-          if (lesson.game_type === 'match_pairs') {
-            // FORCE PUBLISH: Skip duplicate detection for match_pairs to ensure they publish
-            console.log(`⚠️ Duplicate detection disabled for match_pairs - force publishing`);
+          if (lesson.game_type === 'match_pairs' || lesson.game_type === 'match_column') {
+            // FORCE PUBLISH: Skip duplicate detection for match_pairs/match_column to ensure they publish
+            console.log(`⚠️ Duplicate detection disabled for ${lesson.game_type} - force publishing`);
             isDuplicate = false;
           } else {
             // For other types, compare question_text
@@ -1178,6 +1178,43 @@ function LessonContentBuilderInner() {
             pairs_count: pairs.length,
             question_text: questionText,
             sample_pair: pairs[0]
+          });
+        } else if (lesson.game_type === 'match_column') {
+          // match_column specific - leftColumn/rightColumn/correctPairs format
+          const left = (lesson.game_data as any)?.leftColumn || [];
+          const right = (lesson.game_data as any)?.rightColumn || [];
+          const cp = (lesson.game_data as any)?.correctPairs || [];
+
+          if (!Array.isArray(left) || !Array.isArray(right) || left.length === 0 || right.length === 0) {
+            console.warn(`⚠️ Skipping match_column with invalid columns (lesson ${lesson.id})`);
+            errors.push(`Lesson ${lesson.id}: match_column has invalid columns`);
+            continue;
+          }
+
+          const questionTitle = (lesson.game_data as any)?.question || `Match the Columns (${left.length} items)`;
+
+          insertData.exercise_type = 'match_column' as any;
+          insertData.question_text = questionTitle;
+          insertData.options = null;
+          insertData.correct_answer_index = null;
+
+          insertData.exercise_data = {
+            question: questionTitle,
+            leftColumn: left,
+            rightColumn: right,
+            correctPairs: cp,
+            explanation: lesson.game_data?.explanation,
+            marks: lesson.game_data?.marks || 1,
+            difficulty: lesson.game_data?.difficulty || 'medium',
+          };
+
+          insertData.correct_answer = { pairs: cp };
+
+          console.log(`📤 Publishing match_column:`, {
+            id: lesson.id,
+            left_len: left.length,
+            right_len: right.length,
+            pairs: cp.length
           });
         } else if (['mcq', 'true_false', 'assertion_reason'].includes(lesson.game_type || '')) {
           // MCQ-type games
@@ -1612,41 +1649,29 @@ function LessonContentBuilderInner() {
               break;
             
             case 'match_column':
-              gameType = 'match_pairs';
+              gameType = 'match_column';
               {
                 const leftRaw: string[] = Array.isArray(q.left_column) ? q.left_column : [];
                 const rightRaw: string[] = Array.isArray(q.right_column) ? q.right_column : [];
 
-                const pairs: { id: string; left: string; right: string }[] = [];
+                // Correct pairs derive from correct_answer
                 const ans = (q as any).correct_answer as any;
-                if (ans && Array.isArray(ans.pairs)) {
-                  ans.pairs.forEach((p: any, idx: number) => {
-                    const leftText = (leftRaw[p.left] ?? '').toString().trim();
-                    const rightText = (rightRaw[p.right] ?? '').toString().trim();
-                    if (leftText && rightText) {
-                      pairs.push({ id: `pair_${idx + 1}`, left: leftText, right: rightText });
-                    }
-                  });
-                }
-
-                if (pairs.length === 0) {
-                  const minLen = Math.min(leftRaw.length, rightRaw.length);
-                  for (let i = 0; i < minLen; i++) {
-                    const leftText = (leftRaw[i] ?? '').toString().trim();
-                    const rightText = (rightRaw[i] ?? '').toString().trim();
-                    if (leftText && rightText) {
-                      pairs.push({ id: `pair_${i + 1}`, left: leftText, right: rightText });
-                    }
-                  }
-                }
+                const correctPairs = Array.isArray(ans?.pairs) && ans.pairs.length > 0
+                  ? ans.pairs.map((p: any) => ({ 
+                      left: Number(p.left), 
+                      right: Number(p.right) 
+                    }))
+                  : leftRaw.map((_, idx) => ({ left: idx, right: idx })); // Default 1-to-1 mapping
 
                 gameData = {
-                  pairs,
-                  time_limit: 120,
-                  max_attempts: 10,
+                  question: q.question_text?.trim() || 'Match the Columns',
+                  leftColumn: leftRaw.map(s => (s ?? '').toString().trim()).filter(Boolean),
+                  rightColumn: rightRaw.map(s => (s ?? '').toString().trim()).filter(Boolean),
+                  correctPairs,
+                  explanation: q.explanation || '',
                   difficulty: q.difficulty || 'medium',
                   marks: q.marks || 1,
-                  question_number: q.question_number,
+                  question_number: q.question_number
                 };
               }
               break;

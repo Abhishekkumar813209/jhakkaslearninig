@@ -36,6 +36,29 @@ type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
 type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'match_column' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
+// Normalize various frontend game types to DB enum exercise_type
+const normalizeGameType = (
+  t?: string | null
+): Database['public']['Enums']['exercise_type'] | null => {
+  const key = (t || '').toLowerCase();
+  const map: Record<string, Database['public']['Enums']['exercise_type']> = {
+    theory: 'theory',
+    mcq: 'mcq',
+    true_false: 'true_false',
+    match_pairs: 'match_column',
+    match_column: 'match_column',
+    drag_drop: 'drag_drop_sort',
+    drag_drop_sort: 'drag_drop_sort',
+    fill_blanks: 'fill_up',
+    fill_up: 'fill_up',
+    subjective: 'subjective',
+    interactive_label: 'interactive_label',
+    // Map unsupported types to nearest compatible kind
+    assertion_reason: 'subjective',
+  };
+  return (map as any)[key] || null;
+};
+
 interface Lesson {
   id?: string;
   topic_id: string;
@@ -889,6 +912,17 @@ function LessonContentBuilderInner() {
         });
         return;
       }
+      // Normalize game_type to DB enum values
+      const normalized = normalizeGameType(lessonData.game_type);
+      if (!normalized) {
+        toast({
+          title: "Unsupported game type",
+          description: `Game type '${lessonData.game_type}' is not supported.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      lessonData.game_type = normalized;
     }
 
     if (lessonData.lesson_type !== 'interactive_svg') {
@@ -1080,6 +1114,12 @@ function LessonContentBuilderInner() {
     
     try {
       for (const lesson of approvedGames) {
+        const normalizedType = normalizeGameType(lesson.game_type);
+        if (!normalizedType) {
+          console.warn(`⚠️ Skipping lesson with unsupported game type: ${lesson.game_type}`);
+          errors.push(`Unsupported game type: ${lesson.game_type}`);
+          continue;
+        }
         // Check if mapping already exists for this topic (reuse it)
         const { data: mappingRows, error: mappingFetchError } = await supabase
           .from('topic_content_mapping')
@@ -1108,9 +1148,15 @@ function LessonContentBuilderInner() {
         } else {
           // Create new mapping only if none exists
           const orderNum = Number.isFinite(Number(lesson.content_order)) ? Number(lesson.content_order) : 1;
+          const normalizedType = normalizeGameType(lesson.game_type);
+          if (!normalizedType) {
+            console.warn(`⚠️ Skipping lesson with unsupported game type: ${lesson.game_type}`);
+            errors.push(`Unsupported game type: ${lesson.game_type}`);
+            continue;
+          }
           const insertPayload = {
             topic_id: selectedTopic,
-            content_type: lesson.game_type as any,
+            content_type: normalizedType,
             order_num: orderNum,
             is_required: true,
             xp_value: lesson.xp_reward || 10,
@@ -1175,7 +1221,7 @@ function LessonContentBuilderInner() {
           .from('gamified_exercises')
           .select('id, exercise_data, question_text')
           .eq('topic_content_id', mapping.id)
-          .eq('exercise_type', lesson.game_type as any);
+          .eq('exercise_type', normalizedType as any);
 
         let isDuplicate = false;
 
@@ -1203,7 +1249,7 @@ function LessonContentBuilderInner() {
         // Prepare insert data based on game type
         let insertData: any = {
           topic_content_id: mapping.id,
-          exercise_type: lesson.game_type as unknown as Database['public']['Enums']['exercise_type'],
+          exercise_type: normalizedType,
           marks: lesson.game_data?.marks || 1,
           explanation: lesson.game_data?.explanation,
           difficulty: lesson.game_data?.difficulty || 'medium',

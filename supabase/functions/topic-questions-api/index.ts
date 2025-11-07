@@ -1123,6 +1123,20 @@ serve(async (req) => {
           legacy_fields_keys: Object.keys(legacyFields)
         });
         
+        // 🛡️ STEP 8: Optional JSONB validation guard
+        const qd_keys = Object.keys(question_data);
+        const ad_keys = Object.keys(answer_data);
+        const hasMinimalData = qd_keys.includes('text') && question_data.text?.trim();
+        
+        if (!hasMinimalData) {
+          console.error('⛔ JSONB validation failed - no question text:', { 
+            type: q.question_type, 
+            question_data_keys: qd_keys,
+            answer_data_keys: ad_keys 
+          });
+          continue; // Skip this malformed question
+        }
+        
         const { data, error } = await serviceClient
           .from('question_bank')
           .insert({

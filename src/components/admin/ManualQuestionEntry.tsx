@@ -185,154 +185,134 @@ export const ManualQuestionEntry = ({
       const finalLeftColumn = leftColumnData && leftColumnData.length > 0 ? leftColumnData : null;
       const finalRightColumn = rightColumnData && rightColumnData.length > 0 ? rightColumnData : null;
 
-      // === PHASE 2: DUAL-WRITE MODE ===
+      // === STEP 5: DUAL-WRITE MODE (JSONB + Legacy) ===
       // Build unified JSONB structures for new columns
-      let questionDataJSON: any = {};
-      let answerDataJSON: any = {};
+      let questionDataJSON: any = {
+        text: questionData.questionText,
+        marks: questionData.marks || 1
+      };
+      let answerDataJSON: any = {
+        explanation: questionData.explanation || ''
+      };
+
+      // Legacy fields for backward compatibility
+      const legacyFields: any = {
+        question_text: questionData.questionText
+      };
 
       switch (gameType) {
         case 'mcq':
-          questionDataJSON = {
-            text: questionData.questionText,
-            options: gameData.options || [],
-            type: 'mcq'
-          };
-          answerDataJSON = {
-            correctIndex: gameData.correctAnswerIndex || 0,
-            explanation: questionData.explanation
-          };
+          questionDataJSON.options = gameData.options || [];
+          answerDataJSON.correctIndex = gameData.correctAnswerIndex || 0;
+          
+          // Legacy
+          legacyFields.options = gameData.options || [];
+          legacyFields.correct_answer = gameData.correctAnswerIndex?.toString() || '0';
           break;
 
         case 'true_false':
-          questionDataJSON = {
-            statement: questionData.questionText,
-            type: 'true_false'
-          };
-          answerDataJSON = {
-            value: gameData.correctAnswer || false,
-            explanation: questionData.explanation
-          };
+          answerDataJSON.value = gameData.correctAnswer !== undefined ? gameData.correctAnswer : false;
+          
+          // Legacy
+          legacyFields.correct_answer = String(gameData.correctAnswer || false);
           break;
 
         case 'fill_blank':
-          questionDataJSON = {
-            text: questionData.questionText,
-            blanks: gameData.blanks || [],
-            sub_questions: gameData.sub_questions || null,
-            numbering_style: gameData.numbering_style || null,
-            type: 'fill_blank'
-          };
-          answerDataJSON = {
-            blanks: gameData.blanks || [],
-            sub_questions: gameData.sub_questions || null,
-            explanation: questionData.explanation
-          };
+          if (gameData.sub_questions?.length >= 1) {
+            questionDataJSON.sub_questions = gameData.sub_questions;
+            questionDataJSON.numbering_style = gameData.numbering_style || '1,2,3';
+            answerDataJSON.blanks = gameData.blanks || [];
+          } else {
+            answerDataJSON.blanks = gameData.blanks || [];
+          }
+          
+          // Legacy
+          legacyFields.correct_answer = JSON.stringify({ blanks: gameData.blanks || [] });
           break;
 
         case 'match_column':
-          questionDataJSON = {
-            leftColumn: finalLeftColumn || [],
-            rightColumn: finalRightColumn || [],
-            questionText: questionData.questionText,
-            type: 'match_column'
-          };
-          answerDataJSON = {
-            correctPairs: gameData.correctPairs || [],
-            explanation: questionData.explanation
-          };
+          questionDataJSON.leftColumn = finalLeftColumn || [];
+          questionDataJSON.rightColumn = finalRightColumn || [];
+          answerDataJSON.pairs = gameData.correctPairs || [];
+          
+          // Legacy
+          legacyFields.left_column = finalLeftColumn || [];
+          legacyFields.right_column = finalRightColumn || [];
+          legacyFields.correct_answer = JSON.stringify(gameData.correctPairs || []);
           break;
 
         case 'match_pairs':
-          questionDataJSON = {
-            pairs: gameData.pairs || [],
-            type: 'match_pairs'
-          };
-          answerDataJSON = {
-            pairs: gameData.pairs || [],
-            explanation: questionData.explanation
-          };
+          answerDataJSON.pairs = gameData.pairs || [];
+          
+          // Legacy
+          legacyFields.correct_answer = JSON.stringify(gameData.pairs || []);
           break;
 
         case 'sequence_order':
-          questionDataJSON = {
-            text: questionData.questionText,
-            items: gameData.items || gameData.options || [],
-            type: 'drag_drop_sort'
-          };
-          answerDataJSON = {
-            correctOrder: gameData.correctSequence || [],
-            explanation: questionData.explanation
-          };
+          questionDataJSON.items = gameData.items || gameData.options || [];
+          answerDataJSON.correctOrder = gameData.correctSequence || [];
+          
+          // Legacy
+          legacyFields.correct_answer = JSON.stringify({ correctSequence: gameData.correctSequence || [] });
           break;
 
         case 'card_memory':
-          questionDataJSON = {
-            pairs: gameData.pairs || [],
-            type: 'card_memory'
-          };
-          answerDataJSON = {
-            pairs: gameData.pairs || [],
-            explanation: questionData.explanation
-          };
+          answerDataJSON.pairs = gameData.pairs || [];
+          
+          // Legacy
+          legacyFields.correct_answer = JSON.stringify(gameData.pairs || []);
           break;
 
         case 'typing_race':
-          questionDataJSON = {
-            text: questionData.questionText,
+          questionDataJSON.targetText = gameData.targetText || questionData.questionText;
+          questionDataJSON.timeLimit = gameData.timeLimit || 60;
+          answerDataJSON.targetText = gameData.targetText || questionData.questionText;
+          answerDataJSON.minAccuracy = gameData.minAccuracy || 90;
+          
+          // Legacy
+          legacyFields.correct_answer = JSON.stringify({
             targetText: gameData.targetText || questionData.questionText,
             timeLimit: gameData.timeLimit || 60,
-            type: 'typing_race'
-          };
-          answerDataJSON = {
-            targetText: gameData.targetText || questionData.questionText,
-            minAccuracy: gameData.minAccuracy || 90,
-            explanation: questionData.explanation
-          };
+            minAccuracy: gameData.minAccuracy || 90
+          });
           break;
 
         case 'interactive_blanks':
-          questionDataJSON = {
-            text: questionData.questionText,
-            blanks: gameData.blanks || [],
-            type: 'interactive_blanks'
-          };
-          answerDataJSON = {
-            blanks: gameData.blanks || [],
-            explanation: questionData.explanation
-          };
+          answerDataJSON.blanks = gameData.blanks || [];
+          
+          // Legacy
+          legacyFields.correct_answer = JSON.stringify({ blanks: gameData.blanks || [] });
           break;
 
         default:
-          questionDataJSON = {
-            text: questionData.questionText,
-            type: gameType
-          };
-          answerDataJSON = {
-            explanation: questionData.explanation
-          };
+          answerDataJSON.value = gameData;
+          legacyFields.correct_answer = JSON.stringify(gameData);
       }
 
 
-      console.log('💾 Saving question (JSONB-ONLY MODE):', {
+      console.log('💾 Saving question (DUAL-WRITE MODE):', {
         gameType,
-        // New JSONB format only
-        question_data: questionDataJSON,
-        answer_data: answerDataJSON
+        question_data_keys: Object.keys(questionDataJSON),
+        answer_data_keys: Object.keys(answerDataJSON),
+        legacy_fields_keys: Object.keys(legacyFields),
+        question_data_sample: JSON.stringify(questionDataJSON).substring(0, 150),
+        answer_data_sample: JSON.stringify(answerDataJSON).substring(0, 150)
       });
 
-      // Save to question_bank (JSONB-ONLY: no legacy columns except required question_text)
+      // Save to question_bank (DUAL-WRITE: JSONB + Legacy columns)
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
         .insert([{
-          // Minimal legacy field (required by schema)
-          question_text: questionData.questionText,
-          
-          // JSONB-only columns
+          // JSONB columns (NEW)
           question_type: gameType,
           question_data: questionDataJSON,
           answer_data: answerDataJSON,
           
+          // Legacy columns (for compatibility)
+          ...legacyFields,
+          
           // Metadata
+          explanation: questionData.explanation || null,
           marks: questionData.marks || 1,
           difficulty: questionData.difficulty || 'medium',
           is_published: true,
@@ -344,6 +324,7 @@ export const ManualQuestionEntry = ({
 
       if (questionBankError) throw questionBankError;
 
+      console.log('✅ Question saved with ID:', questionBankData.id, 'BOTH JSONB + legacy data written');
       toast.success("✅ Question saved to Question Bank and ready for students!");
       
       // Reset form

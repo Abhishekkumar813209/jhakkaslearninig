@@ -129,10 +129,20 @@ function normalizeCorrectAnswer(questionType: string, correctAnswer: any, option
 
 // Convert question data to JSONB format for storage
 function convertQuestionToJSONB(question: any): { question_data: any; answer_data: any } {
+  // 🚀 STEP 2A: Pass-through if already in new JSONB format
+  if (question.question_data && typeof question.question_data === 'object' && 
+      question.answer_data && typeof question.answer_data === 'object') {
+    console.log('✅ Pass-through: Already in JSONB format');
+    return { 
+      question_data: question.question_data, 
+      answer_data: question.answer_data 
+    };
+  }
+
   const qType = question.question_type;
   
   const question_data: any = {
-    text: question.question_text || '',
+    text: question.question_text || question.text || '',
     marks: question.marks || 1
   };
   
@@ -142,13 +152,32 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
 
   switch (qType) {
     case 'mcq':
-      question_data.options = question.options || [];
-      answer_data.correctIndex = typeof question.correct_answer === 'number' 
-        ? question.correct_answer 
-        : (question.correct_answer?.index ?? 0);
+    case 'MCQ':
+      question_data.options = stripHtmlFromOptions(question.options || []);
+      
+      // Handle multiple formats: number, string, letter, object
+      let correctIndex = 0;
+      const ca = question.correct_answer;
+      
+      if (typeof ca === 'number') {
+        correctIndex = ca;
+      } else if (typeof ca === 'object' && ca !== null) {
+        correctIndex = ca.index ?? ca.value ?? 0;
+      } else if (typeof ca === 'string') {
+        const normalized = ca.trim().toUpperCase();
+        if (normalized.length === 1 && normalized >= 'A' && normalized <= 'Z') {
+          correctIndex = normalized.charCodeAt(0) - 65;
+        } else {
+          const parsed = parseInt(ca);
+          correctIndex = isNaN(parsed) ? 0 : parsed;
+        }
+      }
+      
+      answer_data.correctIndex = correctIndex;
       break;
 
     case 'assertion_reason':
+    case 'Assertion_Reason':
       question_data.assertion = question.assertion || '';
       question_data.reason = question.reason || '';
       question_data.options = question.options || [];
@@ -158,7 +187,7 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
       break;
 
     case 'fill_blank':
-      // Support both single blank and multi-part sub-questions
+    case 'Fill_Blank':
       if (question.sub_questions && Array.isArray(question.sub_questions)) {
         question_data.sub_questions = question.sub_questions.map((sq: any) => ({
           text: sq.text || '',
@@ -174,7 +203,7 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
           answer_data.blanks = ca.blanks;
         } else {
           answer_data.blanks = [{
-            correctAnswer: typeof ca === 'string' ? ca : (ca?.text || ''),
+            correctAnswer: typeof ca === 'string' ? ca : (ca?.text || ca?.value || ''),
             distractors: ca?.distractors || []
           }];
         }
@@ -182,7 +211,7 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
       break;
 
     case 'true_false':
-      // Support both single statement and multi-part statements
+    case 'True_False':
       if (question.statements && Array.isArray(question.statements)) {
         question_data.statements = question.statements.map((s: any) => s.text || '');
         question_data.numbering_style = question.numberingStyle || 'i,ii,iii';
@@ -190,22 +219,50 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
       } else {
         answer_data.value = typeof question.correct_answer === 'boolean'
           ? question.correct_answer
-          : (question.correct_answer?.value ?? true);
+          : (question.correct_answer?.value ?? (String(question.correct_answer).toLowerCase() === 'true'));
       }
       break;
 
     case 'match_column':
-      question_data.leftColumn = question.left_column || [];
-      question_data.rightColumn = question.right_column || [];
+    case 'Match_Column':
+      question_data.leftColumn = question.left_column || question.leftColumn || [];
+      question_data.rightColumn = question.right_column || question.rightColumn || [];
       
-      const ca = question.correct_answer;
-      if (ca?.pairs && Array.isArray(ca.pairs)) {
-        answer_data.pairs = ca.pairs;
-      } else if (typeof ca === 'object' && !Array.isArray(ca) && ca !== null) {
-        answer_data.pairs = Object.entries(ca).map(([left, right]) => ({
+      const ca_match = question.correct_answer;
+      if (ca_match?.pairs && Array.isArray(ca_match.pairs)) {
+        answer_data.pairs = ca_match.pairs;
+      } else if (typeof ca_match === 'string') {
+        try {
+          const parsed = JSON.parse(ca_match);
+          answer_data.pairs = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          answer_data.pairs = [];
+        }
+      } else if (typeof ca_match === 'object' && !Array.isArray(ca_match) && ca_match !== null) {
+        answer_data.pairs = Object.entries(ca_match).map(([left, right]) => ({
           left: parseInt(left),
           right: typeof right === 'number' ? right : parseInt(right as string)
         }));
+      } else {
+        answer_data.pairs = [];
+      }
+      break;
+
+    case 'match_pairs':
+    case 'Match_Pairs':
+      // 🆕 STEP 2B: Handle match_pairs distinctly
+      const ca_pairs = question.correct_answer;
+      if (ca_pairs?.pairs && Array.isArray(ca_pairs.pairs)) {
+        answer_data.pairs = ca_pairs.pairs;
+      } else if (typeof ca_pairs === 'string') {
+        try {
+          const parsed = JSON.parse(ca_pairs);
+          answer_data.pairs = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          answer_data.pairs = [];
+        }
+      } else if (Array.isArray(ca_pairs)) {
+        answer_data.pairs = ca_pairs;
       } else {
         answer_data.pairs = [];
       }
@@ -491,7 +548,7 @@ serve(async (req) => {
 
       const { data: questions, error } = await serviceClient
         .from('question_bank')
-        .select('id, question_type, question_data, answer_data, explanation, xp_reward, difficulty, subject, chapter_name, created_at')
+        .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_name, created_at')
         .eq('topic_id', topic_id)
         .order('created_at', { ascending: false });
 
@@ -509,8 +566,10 @@ serve(async (req) => {
         question_data: q.question_data || {},
         answer_data: q.answer_data || {},
         explanation: q.explanation || '',
-        xp_reward: q.xp_reward || 10,
-        difficulty: q.difficulty || 'medium'
+        marks: q.marks || 1,
+        difficulty: q.difficulty || 'medium',
+        subject: q.subject,
+        chapter_name: q.chapter_name
       }));
 
       return new Response(
@@ -969,7 +1028,66 @@ serve(async (req) => {
       const savedQuestions = [];
       for (const q of questions) {
         // Convert to JSONB format using the helper
-        const { question_data, answer_data } = convertQuestionToJSONB(q);
+        let { question_data, answer_data } = convertQuestionToJSONB(q);
+        
+        // 🛡️ STEP 3: Safety check - patch JSONB if incomplete
+        const qType = q.question_type?.toLowerCase();
+        
+        // Check if question_data is too minimal (only text/marks)
+        const hasTypeSpecificData = 
+          (qType === 'mcq' && question_data.options) ||
+          (qType === 'fill_blank' && (answer_data.blanks || question_data.sub_questions)) ||
+          (qType === 'true_false' && (answer_data.value !== undefined || answer_data.values)) ||
+          (qType === 'match_column' && question_data.leftColumn && question_data.rightColumn) ||
+          (qType === 'match_pairs' && answer_data.pairs) ||
+          (qType === 'assertion_reason' && question_data.assertion);
+        
+        if (!hasTypeSpecificData) {
+          console.warn('⚠️ JSONB incomplete, patching from legacy fields:', qType);
+          
+          // Patch from legacy fields
+          if (qType === 'mcq' && q.options) {
+            question_data.options = stripHtmlFromOptions(q.options);
+            if (q.correct_answer !== undefined) {
+              answer_data.correctIndex = typeof q.correct_answer === 'number' ? q.correct_answer : 0;
+            }
+          }
+          
+          if ((qType === 'match_column' || qType === 'match_pairs') && q.left_column && q.right_column) {
+            question_data.leftColumn = q.left_column;
+            question_data.rightColumn = q.right_column;
+            if (q.correct_answer) {
+              try {
+                const parsed = typeof q.correct_answer === 'string' ? JSON.parse(q.correct_answer) : q.correct_answer;
+                answer_data.pairs = Array.isArray(parsed) ? parsed : [];
+              } catch {
+                answer_data.pairs = [];
+              }
+            }
+          }
+          
+          if (qType === 'assertion_reason' && q.assertion && q.reason) {
+            question_data.assertion = q.assertion;
+            question_data.reason = q.reason;
+            question_data.options = q.options || [];
+            answer_data.correctIndex = typeof q.correct_answer === 'number' ? q.correct_answer : 0;
+          }
+          
+          if (qType === 'fill_blank' && q.correct_answer) {
+            if (!answer_data.blanks) {
+              answer_data.blanks = [{
+                correctAnswer: typeof q.correct_answer === 'string' ? q.correct_answer : '',
+                distractors: []
+              }];
+            }
+          }
+          
+          if (qType === 'true_false' && q.correct_answer !== undefined) {
+            if (answer_data.value === undefined && !answer_data.values) {
+              answer_data.value = String(q.correct_answer).toLowerCase() === 'true';
+            }
+          }
+        }
         
         // Prepare legacy fields for dual-write compatibility
         const legacyFields: any = {
@@ -999,7 +1117,9 @@ serve(async (req) => {
         console.log('✨ Dual-write conversion:', { 
           type: q.question_type, 
           question_data_keys: Object.keys(question_data),
+          question_data_sample: JSON.stringify(question_data).substring(0, 150),
           answer_data_keys: Object.keys(answer_data),
+          answer_data_sample: JSON.stringify(answer_data).substring(0, 150),
           legacy_fields_keys: Object.keys(legacyFields)
         });
         

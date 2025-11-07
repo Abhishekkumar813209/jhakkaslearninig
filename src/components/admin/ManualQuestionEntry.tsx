@@ -15,8 +15,9 @@ interface ManualQuestionEntryProps {
   selectedTopic: { id: string; topic_name: string };
   selectedChapter: { id: string; chapter_name: string };
   selectedSubject: string;
-  selectedBatch: string;
+  selectedBatch: string; // This is the batch ID (UUID)
   selectedDomain: string | null;
+  examName?: string; // exam_name from the batch
   onComplete: () => void;
 }
 
@@ -26,6 +27,7 @@ export const ManualQuestionEntry = ({
   selectedSubject,
   selectedBatch,
   selectedDomain,
+  examName,
   onComplete
 }: ManualQuestionEntryProps) => {
   const [selectedGameType, setSelectedGameType] = useState<GameType>("mcq");
@@ -315,6 +317,9 @@ export const ManualQuestionEntry = ({
           topic_id: selectedTopic.id,
           chapter_id: selectedChapter.id,
           subject: selectedSubject,
+          batch_id: selectedBatch, // Batch ID (UUID)
+          exam_domain: selectedDomain,
+          exam_name: examName || selectedDomain || '',
           
           // Metadata
           explanation: questionData.explanation || null,

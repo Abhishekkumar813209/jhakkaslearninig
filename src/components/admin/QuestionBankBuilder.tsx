@@ -694,6 +694,7 @@ export const QuestionBankBuilder = () => {
                   selectedSubject={selectedSubject}
                   selectedBatch={selectedBatch}
                   selectedDomain={selectedDomain}
+                  examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
                   onComplete={handleQuestionsComplete}
                 />
               </TabsContent>

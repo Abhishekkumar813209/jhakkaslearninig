@@ -222,8 +222,30 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const parseGameData = (gameType: string | undefined, rawGameData: any) => {
-    // If game_data doesn't have question_data/answer_data, return as-is (already parsed)
+    // If game_data doesn't have question_data/answer_data, it's likely already plain shape
+    // but handle true_false specially (extract from statements[] and map to MCQ shape)
     if (!rawGameData?.question_data && !rawGameData?.answer_data) {
+      if (gameType === 'true_false') {
+        const statementText = rawGameData?.question
+          ?? (Array.isArray(rawGameData?.statements) ? rawGameData.statements[0] : undefined)
+          ?? rawGameData?.text
+          ?? 'True or False?';
+
+        // Determine correct answer index (0: True, 1: False)
+        const correctBool = typeof rawGameData?.correct_answer === 'boolean'
+          ? rawGameData.correct_answer
+          : (typeof rawGameData?.correctValue === 'boolean' ? rawGameData.correctValue : undefined);
+        const correctIndex = typeof correctBool === 'boolean' ? (correctBool ? 0 : 1) : 0;
+
+        return {
+          question: statementText,
+          options: ['True', 'False'],
+          correct_answer: correctIndex,
+          explanation: rawGameData?.explanation || '',
+          marks: rawGameData?.marks || 1,
+          difficulty: rawGameData?.difficulty,
+        };
+      }
       return rawGameData;
     }
 
@@ -243,25 +265,30 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           difficulty: rawGameData.question_data?.difficulty || rawGameData.difficulty
         };
         
-      case 'true_false':
+      case 'true_false': {
         parsed = parseTrueFalseData(rawGameData);
-        if (parsed.statements?.length > 0) {
-          // Multi-part
-          return {
-            statements: parsed.statements,
-            numbering_style: parsed.numbering_style,
-            explanation: parsed.explanation,
-            marks: rawGameData.question_data?.marks || rawGameData.marks || 1
-          };
-        } else {
-          // Single
-          return {
-            question: parsed.statement,
-            correctAnswer: parsed.correctValue,
-            explanation: parsed.explanation,
-            marks: rawGameData.question_data?.marks || rawGameData.marks || 1
-          };
-        }
+        // Always map to MCQGame shape
+        const statementText = parsed?.statement
+          ?? parsed?.statements?.[0]?.text
+          ?? rawGameData?.question_data?.text
+          ?? rawGameData?.question
+          ?? rawGameData?.statements?.[0]
+          ?? 'True or False?';
+
+        const correctBool = typeof parsed?.correctValue === 'boolean'
+          ? parsed.correctValue
+          : (typeof parsed?.statements?.[0]?.answer === 'boolean' ? parsed.statements[0].answer : undefined);
+        const correctIndex = typeof correctBool === 'boolean' ? (correctBool ? 0 : 1) : 0;
+
+        return {
+          question: statementText,
+          options: ['True', 'False'],
+          correct_answer: correctIndex,
+          explanation: parsed?.explanation,
+          marks: rawGameData.question_data?.marks || rawGameData.marks || 1,
+          difficulty: rawGameData.question_data?.difficulty || rawGameData.difficulty,
+        };
+      }
         
       case 'fill_blanks':
       case 'interactive_blanks':

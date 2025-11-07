@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { renderWithImages } from "@/lib/mathRendering";
+import { parseQuestionData } from "@/lib/questionDataHelpers";
 import { 
   CheckCircle, 
   Edit, 
@@ -24,10 +25,12 @@ interface QuestionCardProps {
   question: {
     id: string;
     question_number?: string;
-    question_text: string;
     question_type: string;
-    options?: string[];
-    correct_answer?: any;
+    question_data?: any;  // JSONB column
+    answer_data?: any;    // JSONB column
+    question_text?: string; // Legacy fallback
+    options?: string[];     // Legacy fallback
+    correct_answer?: any;   // Legacy fallback
     explanation?: string;
     marks?: number;
     difficulty?: string;
@@ -62,23 +65,33 @@ const difficultyColors: Record<string, string> = {
 export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }: QuestionCardProps) => {
   const [showExplanation, setShowExplanation] = useState(false);
   
+  // Parse JSONB data
+  const parsed = parseQuestionData(question);
+  const questionText = parsed.text || question.question_text || '';
+  const explanation = parsed.explanation || question.explanation || '';
+  
   const GameIcon = gameTypeIcons[question.question_type] || FileQuestion;
   
   const getCorrectAnswerDisplay = () => {
-    const { question_type, correct_answer, options } = question;
+    const { question_type } = question;
     
-    if (question_type === 'mcq' && options) {
-      const answerIndex = typeof correct_answer === 'number' ? correct_answer : 
-                         correct_answer?.value ?? correct_answer?.index ?? 0;
-      return options[answerIndex] || 'N/A';
+    if (question_type === 'mcq' && parsed.options) {
+      return parsed.options[parsed.correctIndex] || 'N/A';
     }
     
     if (question_type === 'true_false') {
-      return correct_answer === true || correct_answer === 'true' ? 'True' : 'False';
+      return parsed.correctValue ? 'True' : 'False';
     }
     
-    if (typeof correct_answer === 'string') return correct_answer;
-    if (typeof correct_answer === 'object') return JSON.stringify(correct_answer);
+    if (question_type === 'fill_blank' || question_type === 'fill_blanks') {
+      if (parsed.blanks && parsed.blanks.length > 0) {
+        return parsed.blanks.map((b: any) => b.correctAnswer).join(', ');
+      }
+    }
+    
+    if (question_type === 'match_column' || question_type === 'match_pairs') {
+      return `${parsed.correctPairs?.length || 0} pairs`;
+    }
     
     return 'N/A';
   };
@@ -165,18 +178,16 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
         {/* Question Text */}
         <div 
           className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
+          dangerouslySetInnerHTML={{ __html: renderWithImages(questionText) }}
         />
         
         {/* Options for MCQ */}
-        {question.question_type === 'mcq' && question.options && question.options.length > 0 && (
+        {question.question_type === 'mcq' && parsed.options && parsed.options.length > 0 && (
           <div className="space-y-2 mt-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase">Options:</div>
             <div className="grid gap-2">
-              {question.options.map((option, idx) => {
-                const isCorrect = typeof question.correct_answer === 'number' 
-                  ? idx === question.correct_answer
-                  : idx === (question.correct_answer?.value ?? question.correct_answer?.index ?? 0);
+              {parsed.options.map((option: string, idx: number) => {
+                const isCorrect = idx === parsed.correctIndex;
                 
                 return (
                   <div
@@ -205,7 +216,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
         )}
         
         {/* Correct Answer for non-MCQ */}
-        {question.question_type !== 'mcq' && question.correct_answer && (
+        {question.question_type !== 'mcq' && (
           <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-500/30 rounded-md p-3">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle className="h-4 w-4 text-green-600" />
@@ -219,7 +230,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
         )}
         
         {/* Explanation (Collapsible) */}
-        {question.explanation && (
+        {explanation && (
           <Collapsible open={showExplanation} onOpenChange={setShowExplanation}>
             <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-primary hover:underline">
               <ChevronDown className={`h-4 w-4 transition-transform ${showExplanation ? 'rotate-180' : ''}`} />
@@ -228,7 +239,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
             <CollapsibleContent className="mt-2">
               <div className="bg-primary/5 border border-primary/20 rounded-md p-3 text-sm">
                 <div 
-                  dangerouslySetInnerHTML={{ __html: renderWithImages(question.explanation) }}
+                  dangerouslySetInnerHTML={{ __html: renderWithImages(explanation) }}
                 />
               </div>
             </CollapsibleContent>

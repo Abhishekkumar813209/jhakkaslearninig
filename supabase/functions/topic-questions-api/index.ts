@@ -956,7 +956,7 @@ serve(async (req) => {
       );
     }
 
-    // ========== save_draft_questions (JSONB-ONLY WRITES) ==========
+    // ========== save_draft_questions (DUAL WRITE: JSONB + Legacy) ==========
     if (action === 'save_draft_questions') {
       const { questions, topic_id, subject, chapter_name, batch_id, roadmap_id, source_id, exam_domain, exam_name } = body;
       
@@ -964,28 +964,58 @@ serve(async (req) => {
         throw new Error('Missing questions array or topic_id');
       }
 
-      console.log(`💾 Saving ${questions.length} draft questions (JSONB-only) for topic: ${topic_id}`);
+      console.log(`💾 Saving ${questions.length} draft questions (DUAL WRITE) for topic: ${topic_id}`);
 
       const savedQuestions = [];
       for (const q of questions) {
         // Convert to JSONB format using the helper
         const { question_data, answer_data } = convertQuestionToJSONB(q);
         
-        console.log('✨ Converting to JSONB:', { 
+        // Prepare legacy fields for dual-write compatibility
+        const legacyFields: any = {
+          question_text: q.question_text || question_data.text || question_data.question || '',
+        };
+
+        // Populate legacy columns based on question type
+        if (q.question_type === 'mcq' || q.question_type === 'MCQ') {
+          legacyFields.options = q.options || question_data.options || null;
+          legacyFields.correct_answer = q.correct_answer || (answer_data.correctIndex !== undefined ? answer_data.correctIndex.toString() : null);
+        } else if (q.question_type === 'match_column' || q.question_type === 'Match_Column') {
+          legacyFields.left_column = q.left_column || question_data.leftColumn || null;
+          legacyFields.right_column = q.right_column || question_data.rightColumn || null;
+          legacyFields.correct_answer = q.correct_answer || (answer_data.pairs ? JSON.stringify(answer_data.pairs) : null);
+        } else if (q.question_type === 'match_pairs' || q.question_type === 'Match_Pairs') {
+          legacyFields.correct_answer = q.correct_answer || (answer_data.pairs ? JSON.stringify(answer_data.pairs) : null);
+        } else if (q.question_type === 'true_false' || q.question_type === 'True_False') {
+          legacyFields.correct_answer = q.correct_answer || (answer_data.value !== undefined ? answer_data.value.toString() : null);
+        } else if (q.question_type === 'fill_blank' || q.question_type === 'Fill_Blank') {
+          legacyFields.correct_answer = q.correct_answer || (answer_data.blanks ? JSON.stringify(answer_data.blanks) : null);
+        } else if (q.question_type === 'assertion_reason' || q.question_type === 'Assertion_Reason') {
+          legacyFields.assertion = q.assertion || question_data.assertion || null;
+          legacyFields.reason = q.reason || question_data.reason || null;
+          legacyFields.correct_answer = q.correct_answer || answer_data.value || null;
+        }
+        
+        console.log('✨ Dual-write conversion:', { 
           type: q.question_type, 
           question_data_keys: Object.keys(question_data),
-          answer_data_keys: Object.keys(answer_data)
+          answer_data_keys: Object.keys(answer_data),
+          legacy_fields_keys: Object.keys(legacyFields)
         });
         
         const { data, error } = await serviceClient
           .from('question_bank')
           .insert({
-            // JSONB-only columns
+            // JSONB columns (NEW)
             question_type: q.question_type,
             question_data: question_data,
             answer_data: answer_data,
             
+            // Legacy columns (for compatibility during transition)
+            ...legacyFields,
+            
             // Metadata columns
+            explanation: q.explanation || null,
             marks: q.marks || 1,
             difficulty: q.difficulty || 'medium',
             topic_id: topic_id,
@@ -1005,13 +1035,13 @@ serve(async (req) => {
         
         if (!error) {
           savedQuestions.push(data);
-          console.log(`✅ Saved question ${data.id} with JSONB data`);
+          console.log(`✅ Saved question ${data.id} with BOTH JSONB + legacy data`);
         } else {
           console.error(`❌ Failed to save question:`, error);
         }
       }
 
-      console.log(`✅ Saved ${savedQuestions.length}/${questions.length} draft questions (JSONB-only)`);
+      console.log(`✅ Saved ${savedQuestions.length}/${questions.length} draft questions (DUAL WRITE)`);
 
       return new Response(
         JSON.stringify({ 

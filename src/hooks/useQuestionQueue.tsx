@@ -5,12 +5,16 @@ import { invokeWithAuth } from "@/lib/invokeWithAuth";
 
 interface Question {
   id: string;
-  exercise_type: string;
-  exercise_data: any;
-  correct_answer: any;
-  explanation: string;
+  question_type: string;
+  question_data: any;
+  answer_data: any;
+  explanation?: string;
   xp_reward: number;
   difficulty?: string;
+  // Legacy fields for backward compatibility
+  exercise_type?: string;
+  exercise_data?: any;
+  correct_answer?: any;
 }
 
 export const useQuestionQueue = (topicId: string) => {

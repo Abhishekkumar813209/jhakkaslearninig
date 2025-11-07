@@ -358,7 +358,7 @@ serve(async (req) => {
 
       const { data: questions, error } = await serviceClient
         .from('question_bank')
-        .select('*')
+        .select('id, question_type, question_data, answer_data, explanation, xp_reward, difficulty, subject, chapter_name, created_at')
         .eq('topic_id', topic_id)
         .order('created_at', { ascending: false });
 
@@ -369,34 +369,16 @@ serve(async (req) => {
 
       console.log(`✅ Found ${questions?.length || 0} questions in question_bank`);
 
-      // Map to UI-friendly format for admin tool
-      const normalized = (questions || []).map(q => {
-        let ans = q.correct_answer;
-        
-        // 🔧 STRING PARSE: Parse JSON strings back to objects
-        if (typeof ans === 'string' && (ans.startsWith('{') || ans.startsWith('['))) {
-          try {
-            console.log(`🔄 Parsing JSON string for Q${q.id}:`, ans.substring(0, 100));
-            ans = JSON.parse(ans);
-            console.log(`✅ Parsed to object for Q${q.id}:`, ans);
-          } catch (err) {
-            console.warn(`⚠️ JSON parse failed for Q${q.id}:`, err);
-          }
-        }
-        
-        // For MCQ, ensure 0-based index format
-        if (q.question_type === 'mcq' && ans !== null && ans !== undefined) {
-          if (typeof ans === 'string' && /^\d+$/.test(ans)) {
-            // Already 0-based string index after migration
-            ans = parseInt(ans);
-          } else if (typeof ans === 'number') {
-            // Already 0-based number
-            ans = ans;
-          }
-        }
-        
-        return { ...q, correct_answer: ans };
-      });
+      // Return questions with JSONB fields
+      const normalized = (questions || []).map(q => ({
+        id: q.id,
+        question_type: q.question_type || 'mcq',
+        question_data: q.question_data || {},
+        answer_data: q.answer_data || {},
+        explanation: q.explanation || '',
+        xp_reward: q.xp_reward || 10,
+        difficulty: q.difficulty || 'medium'
+      }));
 
       return new Response(
         JSON.stringify({ success: true, questions: normalized }),

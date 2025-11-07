@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import confetti from 'canvas-confetti';
 import { calculateXP, getDifficultyColor, getDifficultyBadgeVariant, type Difficulty } from "@/lib/xpConfig";
 import { useQuestionQueue } from "@/hooks/useQuestionQueue";
+import { parseQuestionData } from "@/lib/questionDataHelpers";
 import { MCQGame } from "./games/MCQGame";
 import { TrueFalseGame } from "./games/TrueFalseGame";
 import { DragDropBlanks } from "./games/DragDropBlanks";
@@ -38,12 +39,16 @@ interface TopicContent {
   }>;
   exercises: Array<{
     id: string;
-    exercise_type: string;
-    exercise_data: any;
-    correct_answer: any;
+    question_type: string;
+    question_data: any;
+    answer_data: any;
     explanation: string;
     xp_reward: number;
     difficulty?: Difficulty;
+    // Legacy fields for backward compatibility
+    exercise_type?: string;
+    exercise_data?: any;
+    correct_answer?: any;
   }>;
 }
 
@@ -598,120 +603,67 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           </>
         )}
         
-        {currentQ.exercise_type === 'true_false' && (
+        {questionType === 'true_false' && (
           <TrueFalseGame
-            gameData={currentQ.exercise_data}
+            gameData={{
+              question: parsedData.statement,
+              correctAnswer: parsedData.correctValue,
+              explanation: parsedData.explanation,
+              marks: currentQ.xp_reward,
+              difficulty: currentQ.difficulty
+            }}
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onComplete={markTopicComplete}
           />
         )}
 
-        {currentQ.exercise_type === 'fill_blank' && (() => {
-          // Extract from correct_answer (new format) or exercise_data (legacy)
-          const fillBlankSource = currentQ.correct_answer || currentQ.exercise_data || {};
-          
-          const fillBlankData = {
-            question: fillBlankSource.question || "",
-            blanks: fillBlankSource.blanks || [],
-            sub_questions: fillBlankSource.sub_questions || [],
-            explanation: currentQ.explanation || fillBlankSource.explanation,
-            marks: fillBlankSource.marks || 1,
-            difficulty: currentQ.difficulty || fillBlankSource.difficulty
-          };
-          
-          console.log('[TopicStudyView] Fill Blank Data:', {
-            hasBlanks: fillBlankData.blanks.length > 0,
-            hasSubQuestions: fillBlankData.sub_questions.length > 0,
-            questionId: currentQ.id
-          });
-          
-          return (
-            <DragDropBlanks
-              gameData={fillBlankData}
-              onCorrect={handleCorrectAnswer}
-              onWrong={handleWrongAnswer}
-              onComplete={markTopicComplete}
-            />
-          );
-        })()}
-
-        {currentQ.exercise_type === 'match_column' && (() => {
-          console.log('[TSV] 🎮 Match Column Data Debug:', {
-            questionId: currentQ.id,
-            hasExerciseData: !!currentQ.exercise_data,
-            exerciseDataType: typeof currentQ.exercise_data,
-            exerciseDataKeys: currentQ.exercise_data ? Object.keys(currentQ.exercise_data) : [],
-            leftColumn: currentQ.exercise_data?.leftColumn,
-            rightColumn: currentQ.exercise_data?.rightColumn,
-            correctPairs: currentQ.exercise_data?.correctPairs,
-            leftColumnLength: currentQ.exercise_data?.leftColumn?.length,
-            rightColumnLength: currentQ.exercise_data?.rightColumn?.length,
-            correctPairsLength: currentQ.exercise_data?.correctPairs?.length,
-            fullExerciseData: currentQ.exercise_data
-          });
-          
-          return (
-            <LineMatchingGame
-              gameData={currentQ.exercise_data}
-              onCorrect={handleCorrectAnswer}
-              onWrong={handleWrongAnswer}
-              onComplete={markTopicComplete}
-              hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
-              onNext={handleNextQuestion}
-            />
-          );
-        })()}
-
-        {currentQ.exercise_type === 'match_pairs' && (
-          <MatchPairsGame
-            gameData={currentQ.exercise_data}
+        {questionType === 'fill_blank' && (
+          <DragDropBlanks
+            gameData={{
+              question: parsedData.text,
+              blanks: parsedData.blanks || [],
+              explanation: parsedData.explanation,
+              marks: currentQ.xp_reward,
+              difficulty: currentQ.difficulty
+            }}
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onComplete={markTopicComplete}
           />
         )}
 
-        {currentQ.exercise_type === 'card_memory' && (
-          <CardMemoryGame
-            gameData={currentQ.exercise_data}
+        {questionType === 'match_column' && (
+          <LineMatchingGame
+            gameData={{
+              question: parsedData.question,
+              leftColumn: parsedData.leftColumn || [],
+              rightColumn: parsedData.rightColumn || [],
+              correctPairs: parsedData.correctPairs || [],
+              explanation: parsedData.explanation,
+              marks: currentQ.xp_reward,
+              difficulty: currentQ.difficulty
+            }}
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onComplete={markTopicComplete}
+            hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
+            onNext={handleNextQuestion}
           />
         )}
 
-        {currentQ.exercise_type === 'sequence_order' && (
-          <DragDropSequence
-            gameData={currentQ.exercise_data}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onComplete={markTopicComplete}
-          />
-        )}
-
-        {currentQ.exercise_type === 'interactive_blanks' && (
-          <InteractiveBlanks
-            gameData={currentQ.exercise_data}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onComplete={markTopicComplete}
-          />
-        )}
-
-        {currentQ.exercise_type === 'typing_race' && (
-          <TypingRaceGame
-            gameData={currentQ.exercise_data}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onComplete={markTopicComplete}
-          />
-        )}
-        
-        {/* Fallback for other/unknown types */}
-        {!['mcq', 'true_false', 'fill_blank', 'match_column', 'match_pairs', 'card_memory', 'sequence_order', 'interactive_blanks', 'typing_race'].includes(currentQ.exercise_type) && (
+        {/* Fallback for other types or legacy data */}
+        {!['mcq', 'true_false', 'fill_blank', 'match_column'].includes(questionType) && (
           <GamifiedExercise
-            exercise={currentQ}
+            exercise={{
+              id: currentQ.id,
+              exercise_type: questionType,
+              exercise_data: currentQ.question_data || currentQ.exercise_data || {},
+              correct_answer: currentQ.answer_data || currentQ.correct_answer || {},
+              explanation: currentQ.explanation || '',
+              xp_reward: currentQ.xp_reward || 10,
+              difficulty: currentQ.difficulty
+            }}
             onComplete={() => {
               handleCorrectAnswer();
               handleNextQuestion();

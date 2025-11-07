@@ -33,12 +33,12 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   const [marks, setMarks] = useState(1);
   const [difficulty, setDifficulty] = useState("medium");
 
-  // Fill Blanks states
-  const [blanksCount, setBlanksCount] = useState(1);
-  const [blanks, setBlanks] = useState([{ correctAnswer: '', distractors: ['', '', ''] }]);
+  // Fill Blanks states (multi-part for fill_blank game type)
   const [subQuestions, setSubQuestions] = useState<Array<{ text: string; correctAnswer: string; distractors: string[] }>>([]);
-  const [useMultiPart, setUseMultiPart] = useState(true);
   const [fillBlankNumbering, setFillBlankNumbering] = useState('1,2,3');
+  
+  // Interactive Blanks states (for interactive_blanks game type)
+  const [blanks, setBlanks] = useState([{ correctAnswer: '', distractors: ['', '', ''] }]);
   
   // True/False multi-statement states
   const [statements, setStatements] = useState([{ text: '', answer: true }]);
@@ -79,47 +79,25 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         break;
 
       case 'true_false':
-        // Check if multi-part
-        if (statements.length >= 1 && statements[0].text.trim()) {
-          gameData = {
-            statements: statements.filter(s => s.text.trim()),
-            numbering_style: trueFalseNumbering,
-            marks,
-            difficulty
-          };
-        } else {
-          // Single statement
-          gameData = {
-            question: questionText,
-            correctAnswer: correctAnswer === 0,
-            marks,
-            difficulty
-          };
-        }
+        gameData = {
+          statements: statements.filter(s => s.text.trim()),
+          numbering_style: trueFalseNumbering,
+          marks,
+          difficulty
+        };
         break;
 
       case 'fill_blank':
-        // Use sub_questions if multi-part mode
-        if (useMultiPart && subQuestions.length >= 1) {
-          gameData = {
-            sub_questions: subQuestions.filter(sq => sq.text.trim()),
-            blanks: subQuestions.filter(sq => sq.text.trim()).map(sq => ({
-              correctAnswer: sq.correctAnswer,
-              distractors: sq.distractors
-            })),
-            numbering_style: fillBlankNumbering,
-            marks,
-            difficulty
-          };
-        } else {
-          const filteredBlanks = blanks.filter(b => b.correctAnswer.trim());
-          gameData = {
-            question: questionText,
-            blanks: filteredBlanks,
-            marks,
-            difficulty
-          };
-        }
+        gameData = {
+          sub_questions: subQuestions.filter(sq => sq.text.trim()),
+          blanks: subQuestions.filter(sq => sq.text.trim()).map(sq => ({
+            correctAnswer: sq.correctAnswer,
+            distractors: sq.distractors
+          })),
+          numbering_style: fillBlankNumbering,
+          marks,
+          difficulty
+        };
         break;
 
       case 'match_column':
@@ -221,9 +199,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
     } else if (gameType === 'true_false') {
       setStatements([{ text: '', answer: true }]);
     } else if (gameType === 'fill_blank') {
-      setBlanksCount(1);
-      setBlanks([{ correctAnswer: '', distractors: ['', '', ''] }]);
-      setSubQuestions([]);
+      setSubQuestions([{ text: '', correctAnswer: '', distractors: ['', '', ''] }]);
     } else if (gameType === 'match_column') {
       setLeftColumn(['', '']);
       setRightColumn(['', '']);
@@ -489,181 +465,112 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       <div className="space-y-4">
         <Label>Question Type: Fill in the Blanks (Drag & Drop)</Label>
 
-        <div className="flex items-center gap-2 mb-2">
-          <Switch
-            checked={useMultiPart}
-            onCheckedChange={(checked) => {
-              setUseMultiPart(checked);
-              if (checked && subQuestions.length === 0) {
-                setSubQuestions([{ text: '', correctAnswer: '', distractors: ['', '', ''] }]);
-              }
-              setTimeout(() => handleDataChange(), 0);
-            }}
-          />
-          <Label className="text-sm">Use Multi-Part Mode (Multiple Sub-Questions)</Label>
+        <div>
+          <Label>Numbering Style</Label>
+          <Select value={fillBlankNumbering} onValueChange={(value) => {
+            setFillBlankNumbering(value);
+            setTimeout(() => handleDataChange(), 0);
+          }}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1,2,3">1, 2, 3</SelectItem>
+              <SelectItem value="i,ii,iii">i, ii, iii</SelectItem>
+              <SelectItem value="a,b,c">a, b, c</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {useMultiPart ? (
-          <>
-            <div>
-              <Label>Numbering Style</Label>
-              <Select value={fillBlankNumbering} onValueChange={(value) => {
-                setFillBlankNumbering(value);
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <Label className="font-semibold">Sub-Questions ({subQuestions.filter(sq => sq.text.trim()).length})</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSubQuestions([...subQuestions, { text: '', correctAnswer: '', distractors: ['', '', ''] }]);
                 setTimeout(() => handleDataChange(), 0);
-              }}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1,2,3">1, 2, 3</SelectItem>
-                  <SelectItem value="i,ii,iii">i, ii, iii</SelectItem>
-                  <SelectItem value="a,b,c">a, b, c</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Sub-Question
+            </Button>
+          </div>
 
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label className="font-semibold">Sub-Questions ({subQuestions.filter(sq => sq.text.trim()).length})</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSubQuestions([...subQuestions, { text: '', correctAnswer: '', distractors: ['', '', ''] }]);
-                    setTimeout(() => handleDataChange(), 0);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Sub-Question
-                </Button>
-              </div>
-
-              {subQuestions.map((sq, idx) => (
-                <Card key={idx} className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-sm font-medium">{getNumberingLabel(idx, fillBlankNumbering)}. Fill in the blank</Label>
-                      {subQuestions.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            const newSubs = subQuestions.filter((_, i) => i !== idx);
-                            setSubQuestions(newSubs);
-                            setTimeout(() => handleDataChange(), 0);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <Label className="text-xs">Question Text (use ____ for blank)</Label>
-                      <Textarea
-                        value={sq.text}
-                        onChange={(e) => {
-                          const newSubs = [...subQuestions];
-                          newSubs[idx].text = e.target.value;
-                          setSubQuestions(newSubs);
-                          setTimeout(() => handleDataChange(), 0);
-                        }}
-                        placeholder="E.g., A ____ has minute holes called pores"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-xs">Correct Answer</Label>
-                      <Input
-                        value={sq.correctAnswer}
-                        onChange={(e) => {
-                          const newSubs = [...subQuestions];
-                          newSubs[idx].correctAnswer = e.target.value;
-                          setSubQuestions(newSubs);
-                          setTimeout(() => handleDataChange(), 0);
-                        }}
-                        placeholder="Enter correct answer"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-xs">Distractors (wrong options - 3 required)</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {sq.distractors.map((dist, dIdx) => (
-                          <Input
-                            key={dIdx}
-                            value={dist}
-                            onChange={(e) => {
-                              const newSubs = [...subQuestions];
-                              newSubs[idx].distractors[dIdx] = e.target.value;
-                              setSubQuestions(newSubs);
-                              setTimeout(() => handleDataChange(), 0);
-                            }}
-                            placeholder={`Wrong ${dIdx + 1}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <div>
-              <Label>Number of Blanks</Label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={blanksCount}
-                onChange={(e) => {
-                  const count = parseInt(e.target.value);
-                  setBlanksCount(count);
-                  const newBlanks = Array.from({ length: count }, (_, i) => 
-                    blanks[i] || { correctAnswer: '', distractors: ['', '', ''] }
-                  );
-                  setBlanks(newBlanks);
-                  setTimeout(() => handleDataChange(), 0);
-                }}
-              />
-            </div>
-
-            {blanks.map((blank, idx) => (
-              <Card key={idx} className="p-4 space-y-2">
-                <Label className="font-semibold">Blank {idx + 1}</Label>
-                <Input
-                  placeholder="Correct answer"
-                  value={blank.correctAnswer}
-                  onChange={(e) => {
-                    const newBlanks = [...blanks];
-                    newBlanks[idx] = { ...newBlanks[idx], correctAnswer: e.target.value };
-                    setBlanks(newBlanks);
-                    setTimeout(() => handleDataChange(), 0);
-                  }}
-                />
-                <Label className="text-sm text-muted-foreground">Distractors (wrong options)</Label>
-                {blank.distractors.map((dist, dIdx) => (
-                  <Input
-                    key={dIdx}
-                    placeholder={`Distractor ${dIdx + 1}`}
-                    value={dist}
+          {subQuestions.map((sq, idx) => (
+            <Card key={idx} className="p-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm font-medium">{getNumberingLabel(idx, fillBlankNumbering)}. Fill in the blank</Label>
+                  {subQuestions.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newSubs = subQuestions.filter((_, i) => i !== idx);
+                        setSubQuestions(newSubs);
+                        setTimeout(() => handleDataChange(), 0);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                
+                <div>
+                  <Label className="text-xs">Question Text (use ____ for blank)</Label>
+                  <Textarea
+                    value={sq.text}
                     onChange={(e) => {
-                      const newBlanks = [...blanks];
-                      newBlanks[idx].distractors[dIdx] = e.target.value;
-                      setBlanks(newBlanks);
+                      const newSubs = [...subQuestions];
+                      newSubs[idx].text = e.target.value;
+                      setSubQuestions(newSubs);
                       setTimeout(() => handleDataChange(), 0);
                     }}
+                    placeholder="E.g., A ____ has minute holes called pores"
+                    rows={2}
                   />
-                ))}
-              </Card>
-            ))}
-          </>
-        )}
+                </div>
+
+                <div>
+                  <Label className="text-xs">Correct Answer</Label>
+                  <Input
+                    value={sq.correctAnswer}
+                    onChange={(e) => {
+                      const newSubs = [...subQuestions];
+                      newSubs[idx].correctAnswer = e.target.value;
+                      setSubQuestions(newSubs);
+                      setTimeout(() => handleDataChange(), 0);
+                    }}
+                    placeholder="Enter correct answer"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Distractors (wrong options - 3 required)</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {sq.distractors.map((dist, dIdx) => (
+                      <Input
+                        key={dIdx}
+                        value={dist}
+                        onChange={(e) => {
+                          const newSubs = [...subQuestions];
+                          newSubs[idx].distractors[dIdx] = e.target.value;
+                          setSubQuestions(newSubs);
+                          setTimeout(() => handleDataChange(), 0);
+                        }}
+                        placeholder={`Wrong ${dIdx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
 
         <div>
           <Label>Explanation</Label>

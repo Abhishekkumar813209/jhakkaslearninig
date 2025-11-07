@@ -72,22 +72,12 @@ export const ManualQuestionEntry = ({
     
     switch (gameType) {
       case 'true_false':
-        // Check for multi-part statements
-        if (gameData.statements && Array.isArray(gameData.statements)) {
-          return gameData.statements.length > 0 && 
-                 gameData.statements.some((s: any) => s.text?.trim());
-        }
-        // Single statement - check questionText
-        return !!questionData.questionText?.trim();
+        return gameData.statements?.length > 0 && 
+               gameData.statements.some((s: any) => s.text?.trim());
         
       case 'fill_blank':
-        // Check for multi-part sub-questions
-        if (gameData.sub_questions && Array.isArray(gameData.sub_questions)) {
-          return gameData.sub_questions.length > 0 && 
-                 gameData.sub_questions.some((sq: any) => sq.text?.trim());
-        }
-        // Single blank - check questionText
-        return !!questionData.questionText?.trim();
+        return gameData.sub_questions?.length > 0 && 
+               gameData.sub_questions.some((sq: any) => sq.text?.trim());
         
       case 'mcq':
         return !!questionData.questionText?.trim() && 

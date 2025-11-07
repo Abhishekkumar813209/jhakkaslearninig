@@ -311,6 +311,11 @@ export const ManualQuestionEntry = ({
           // Legacy columns (for compatibility)
           ...legacyFields,
           
+          // Foreign Keys (CRITICAL)
+          topic_id: selectedTopic.id,
+          chapter_id: selectedChapter.id,
+          subject: selectedSubject,
+          
           // Metadata
           explanation: questionData.explanation || null,
           marks: questionData.marks || 1,

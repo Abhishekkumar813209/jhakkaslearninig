@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { renderWithImages } from "@/lib/mathRendering";
+import { parseMCQData } from "@/lib/questionDataHelpers";
 
 interface UnansweredQuestion {
   id: string;
@@ -34,23 +35,30 @@ export const QuestionBankReview = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('question_bank')
-        .select('*')
+        .select('id, question_type, question_data, answer_data, marks, difficulty, subject, chapter_id, topic_id, created_at')
         .eq('question_type', 'mcq')
-        .is('correct_answer', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setUnansweredQuestions((data || []).map(q => ({
-        id: q.id,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        options: Array.isArray(q.options) ? q.options.map(opt => String(opt)) : [],
-        subject: q.subject || null,
-        chapter_name: q.chapter_id || q.subject || null,
-        topic_id: q.topic_id || null,
-        created_at: q.created_at
-      })));
+      const parsedQuestions = (data || []).map(q => {
+        const parsed = parseMCQData(q);
+        return {
+          id: q.id,
+          question_text: parsed.text,
+          question_type: q.question_type,
+          options: parsed.options,
+          subject: q.subject || null,
+          chapter_name: q.chapter_id || q.subject || null,
+          topic_id: q.topic_id || null,
+          created_at: q.created_at,
+          correct_answer_index: parsed.correctIndex
+        };
+      });
+
+      setUnansweredQuestions(parsedQuestions.filter(q => 
+        q.correct_answer_index === null || q.correct_answer_index === undefined
+      ));
     } catch (error) {
       console.error('Failed to load unanswered questions:', error);
       toast.error('Failed to load questions');
@@ -66,7 +74,7 @@ export const QuestionBankReview = () => {
       const { error } = await supabase
         .from('question_bank')
         .update({
-          correct_answer: optionIndex.toString(), // 0-based index
+          answer_data: { correctIndex: optionIndex, explanation: '' },
           admin_reviewed: true,
           reviewed_at: new Date().toISOString()
         })

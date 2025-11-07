@@ -22,6 +22,13 @@ import { cn } from "@/lib/utils";
 import { renderWithImages } from "@/lib/mathRendering";
 import { normalizeMatchColumnAnswer } from "@/lib/answers";
 import { autoStructureTrueFalse, autoStructureFillBlanks } from "@/lib/questionParsing";
+import { 
+  parseMCQData,
+  parseFillBlankData,
+  parseTrueFalseData,
+  parseMatchPairsData,
+  parseAssertionReasonData
+} from "@/lib/questionDataHelpers";
 
 interface ExtractedQuestion {
   id?: string;
@@ -36,6 +43,8 @@ interface ExtractedQuestion {
   correct_answer?: any;
   explanation?: string;
   admin_reviewed?: boolean;
+  question_data?: any; // JSONB column from database
+  answer_data?: any; // JSONB column from database
 }
 
 interface SmartQuestionExtractorNewProps {
@@ -193,60 +202,98 @@ export const SmartQuestionExtractorNew = ({
       if (data.success) {
         const rawQuestions = data.questions || [];
         
-        // Normalize all answers to support legacy formats AND ensure columns exist
+        // ✅ Parse JSONB into legacy format for admin UI
         const normalizedQuestions = rawQuestions.map(q => {
-          let leftColumn = q.left_column || [];
-          let rightColumn = q.right_column || [];
+          let parsed: any = {};
           
-          // Fallback: Parse columns from question_text if missing
-          if (q.question_type === 'match_column' && (leftColumn.length === 0 && rightColumn.length === 0)) {
-            const parsed = parseColumnsFromText(q.question_text);
-            if (parsed) {
-              leftColumn = parsed.leftColumn;
-              rightColumn = parsed.rightColumn;
-              console.log('📝 Parsed columns from text for question:', q.id);
-            }
-          }
-
-          // Auto-structure True/False multi-part questions
-          if (q.question_type === 'true_false') {
-            const structured = autoStructureTrueFalse(q.question_text);
-            if (structured.statements && structured.statements.length >= 2) {
-              console.log('✨ Auto-split True/False into', structured.statements.length, 'statements');
+          // Parse based on type using JSONB parsers
+          switch (q.question_type) {
+            case 'mcq':
+              parsed = parseMCQData(q);
               return {
                 ...q,
-                question_text: structured.question,
-                correct_answer: { statements: structured.statements },
-                left_column: leftColumn,
-                right_column: rightColumn
+                question_text: parsed.text,
+                options: parsed.options,
+                correct_answer: parsed.correctIndex !== null ? { index: parsed.correctIndex } : null,
+                explanation: parsed.explanation,
+                marks: q.question_data?.marks || q.marks || 1,
+                difficulty: q.question_data?.difficulty || q.difficulty
               };
-            }
-          }
-
-          // Auto-structure Fill-in-the-Blanks multi-part questions
-          if (q.question_type === 'fill_blank') {
-            const structured = autoStructureFillBlanks(q.question_text);
-            if (structured.sub_questions && structured.sub_questions.length >= 2) {
-              console.log('✨ Auto-split Fill Blanks into', structured.sub_questions.length, 'sub-questions');
+              
+            case 'true_false':
+              parsed = parseTrueFalseData(q);
+              if (parsed.statements?.length > 0) {
+                // Multi-part
+                return {
+                  ...q,
+                  question_text: parsed.question || "True/False Statements",
+                  correct_answer: { statements: parsed.statements },
+                  explanation: parsed.explanation,
+                  marks: q.question_data?.marks || q.marks || 1,
+                  difficulty: q.question_data?.difficulty || q.difficulty
+                };
+              } else {
+                // Single statement
+                return {
+                  ...q,
+                  question_text: parsed.statement,
+                  correct_answer: parsed.correctValue !== null ? { value: parsed.correctValue } : null,
+                  explanation: parsed.explanation,
+                  marks: q.question_data?.marks || q.marks || 1,
+                  difficulty: q.question_data?.difficulty || q.difficulty
+                };
+              }
+              
+            case 'fill_blank':
+              parsed = parseFillBlankData(q);
               return {
                 ...q,
-                question_text: structured.question,
+                question_text: parsed.text,
                 correct_answer: {
-                  sub_questions: structured.sub_questions,
-                  blanks: structured.blanks
+                  blanks: parsed.blanks || [],
+                  sub_questions: parsed.sub_questions || []
                 },
-                left_column: leftColumn,
-                right_column: rightColumn
+                explanation: parsed.explanation,
+                marks: q.question_data?.marks || q.marks || 1,
+                difficulty: q.question_data?.difficulty || q.difficulty
               };
-            }
+              
+            case 'match_column':
+            case 'match_pairs':
+              parsed = parseMatchPairsData(q);
+              return {
+                ...q,
+                question_text: parsed.question,
+                left_column: parsed.leftColumn,
+                right_column: parsed.rightColumn,
+                correct_answer: parsed.correctPairs?.length > 0 ? { pairs: parsed.correctPairs } : null,
+                explanation: parsed.explanation,
+                marks: q.question_data?.marks || q.marks || 1,
+                difficulty: q.question_data?.difficulty || q.difficulty
+              };
+              
+            case 'assertion_reason':
+              parsed = parseAssertionReasonData(q);
+              return {
+                ...q,
+                question_text: `Assertion: ${parsed.assertion}\nReason: ${parsed.reason}`,
+                options: parsed.options,
+                correct_answer: parsed.correctIndex !== null ? { index: parsed.correctIndex } : null,
+                explanation: parsed.explanation,
+                marks: q.question_data?.marks || q.marks || 1,
+                difficulty: q.question_data?.difficulty || q.difficulty
+              };
+              
+            default:
+              // Unknown type - try to use legacy data or return minimal structure
+              return {
+                ...q,
+                question_text: q.question_data?.text || q.question_text || 'No question text',
+                correct_answer: normalizeCorrectAnswer(q),
+                marks: q.question_data?.marks || q.marks || 1,
+                difficulty: q.question_data?.difficulty || q.difficulty
+              };
           }
-          
-          return {
-            ...q,
-            left_column: leftColumn,
-            right_column: rightColumn,
-            correct_answer: normalizeCorrectAnswer(q)
-          };
         });
         // Debug audit: Before vs After for match_column
         console.group('🧾 Match Column Data (Before/After)');

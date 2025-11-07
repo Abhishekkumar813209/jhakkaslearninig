@@ -58,6 +58,9 @@ interface TopicStudyViewProps {
   onBack: () => void;
 }
 
+// Helper to strip HTML tags for display
+const stripHtml = (s: string) => (s || '').replace(/<[^>]+>/g, '').trim();
+
 export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewProps) => {
   const [content, setContent] = useState<TopicContent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -620,20 +623,32 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           />
         )}
         
-        {questionType === 'true_false' && (
-          <TrueFalseGame
-            gameData={{
-              question: parsedData.statement || '',
-              correctAnswer: parsedData.correctValue ?? false,
-              explanation: parsedData.explanation,
-              marks: currentQ.xp_reward,
-              difficulty: currentQ.difficulty
-            }}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
-            onComplete={markTopicComplete}
-          />
-        )}
+        {questionType === 'true_false' && (() => {
+          const isMulti = Array.isArray(parsedData.statements) && parsedData.statements.length > 0;
+          const tfGameData = isMulti
+            ? {
+                statements: parsedData.statements,
+                explanation: parsedData.explanation,
+                marks: currentQ.xp_reward,
+                difficulty: currentQ.difficulty
+              }
+            : {
+                question: stripHtml(parsedData.statement || currentQ.question_data?.text || ''),
+                correctAnswer: parsedData.correctValue ?? false,
+                explanation: parsedData.explanation,
+                marks: currentQ.xp_reward,
+                difficulty: currentQ.difficulty
+              };
+
+          return (
+            <TrueFalseGame
+              gameData={tfGameData}
+              onCorrect={handleCorrectAnswer}
+              onWrong={handleWrongAnswer}
+              onComplete={markTopicComplete}
+            />
+          );
+        })()}
 
         {questionType === 'fill_blank' && (
           <DragDropBlanks

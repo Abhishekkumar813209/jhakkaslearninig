@@ -180,7 +180,9 @@ export const ManualQuestionEntry = ({
           correctAnswerFormat = { index: gameData.correctAnswerIndex };
           break;
         case 'true_false':
-          correctAnswerFormat = { value: gameData.correctAnswer };
+          correctAnswerFormat = { 
+            statements: gameData.statements || [] 
+          };
           break;
         case 'fill_blank':
           // Include sub_questions if provided, otherwise just blanks
@@ -231,9 +233,18 @@ export const ManualQuestionEntry = ({
       // === STEP 5: DUAL-WRITE MODE (JSONB + Legacy) ===
       // Build unified JSONB structures for new columns
       let questionDataJSON: any = {
-        text: questionData.questionText,
         marks: questionData.marks || 1
       };
+
+      // Set text or statements based on type
+      if (gameType === 'true_false') {
+        questionDataJSON.statements = gameData.statements || [];
+        questionDataJSON.numbering_style = gameData.numbering_style || 'i,ii,iii';
+      } else if (gameType === 'fill_blank' && gameData.sub_questions?.length >= 1) {
+        // Handled separately below in fill_blank case
+      } else {
+        questionDataJSON.text = questionData.questionText;
+      }
       let answerDataJSON: any = {
         explanation: questionData.explanation || ''
       };
@@ -254,10 +265,13 @@ export const ManualQuestionEntry = ({
           break;
 
         case 'true_false':
-          answerDataJSON.value = gameData.correctAnswer !== undefined ? gameData.correctAnswer : false;
+          // Store the complete statements array with answers
+          answerDataJSON.statements = gameData.statements || [];
           
-          // Legacy
-          legacyFields.correct_answer = String(gameData.correctAnswer || false);
+          // Legacy - for backward compatibility
+          legacyFields.correct_answer = JSON.stringify({ 
+            statements: gameData.statements || [] 
+          });
           break;
 
         case 'fill_blank':

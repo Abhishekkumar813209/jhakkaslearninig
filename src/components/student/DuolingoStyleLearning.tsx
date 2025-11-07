@@ -22,6 +22,13 @@ import { MathGraphAnimation } from "./svg-animations/MathGraphAnimation";
 import { PhysicsMotionAnimation } from "./svg-animations/PhysicsMotionAnimation";
 import { ChemistryMoleculeAnimation } from "./svg-animations/ChemistryMoleculeAnimation";
 import { AlgorithmVisualization } from "./svg-animations/AlgorithmVisualization";
+import { 
+  parseMCQData,
+  parseFillBlankData,
+  parseTrueFalseData,
+  parseMatchPairsData,
+  parseAssertionReasonData
+} from "@/lib/questionDataHelpers";
 
 interface Lesson {
   id: string;
@@ -214,6 +221,81 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     }, 3000);
   };
 
+  const parseGameData = (gameType: string | undefined, rawGameData: any) => {
+    // If game_data doesn't have question_data/answer_data, return as-is (already parsed)
+    if (!rawGameData?.question_data && !rawGameData?.answer_data) {
+      return rawGameData;
+    }
+
+    // Parse JSONB format
+    let parsed: any = {};
+    
+    switch (gameType) {
+      case 'mcq':
+      case 'assertion_reason':
+        parsed = parseMCQData(rawGameData);
+        return {
+          question: parsed.text,
+          options: parsed.options,
+          correct_answer: parsed.correctIndex,
+          explanation: parsed.explanation,
+          marks: rawGameData.question_data?.marks || rawGameData.marks || 1,
+          difficulty: rawGameData.question_data?.difficulty || rawGameData.difficulty
+        };
+        
+      case 'true_false':
+        parsed = parseTrueFalseData(rawGameData);
+        if (parsed.statements?.length > 0) {
+          // Multi-part
+          return {
+            statements: parsed.statements,
+            numbering_style: parsed.numbering_style,
+            explanation: parsed.explanation,
+            marks: rawGameData.question_data?.marks || rawGameData.marks || 1
+          };
+        } else {
+          // Single
+          return {
+            question: parsed.statement,
+            correctAnswer: parsed.correctValue,
+            explanation: parsed.explanation,
+            marks: rawGameData.question_data?.marks || rawGameData.marks || 1
+          };
+        }
+        
+      case 'fill_blanks':
+      case 'interactive_blanks':
+        parsed = parseFillBlankData(rawGameData);
+        return {
+          question: parsed.text,
+          blanks: parsed.blanks,
+          sub_questions: parsed.sub_questions,
+          numbering_style: parsed.numbering_style,
+          explanation: parsed.explanation,
+          marks: rawGameData.question_data?.marks || rawGameData.marks || 1
+        };
+        
+      case 'match_pairs':
+        parsed = parseMatchPairsData(rawGameData);
+        // Transform to pairs array format for MatchPairsGame
+        const pairs = parsed.leftColumn.map((left: string, idx: number) => ({
+          id: idx + 1,
+          left,
+          right: parsed.rightColumn[parsed.correctPairs.find((p: any) => p.left === idx)?.right || idx]
+        }));
+        return {
+          question: parsed.question,
+          pairs,
+          explanation: parsed.explanation,
+          marks: rawGameData.question_data?.marks || rawGameData.marks || 1
+        };
+        
+      default:
+        console.warn('Unknown game type for parsing:', gameType);
+        return rawGameData;
+    }
+  };
+
   const getGameComponent = (gameType: string | undefined) => {
     switch (gameType) {
       case 'mcq':
@@ -250,9 +332,18 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       );
     }
 
+    // Parse JSONB data before passing to component
+    const parsedGameData = parseGameData(lesson.game_type, lesson.game_data);
+    
+    console.log('[DuolingoStyleLearning] Parsed game data:', {
+      gameType: lesson.game_type,
+      raw: lesson.game_data,
+      parsed: parsedGameData
+    });
+
     return (
       <GameComponent
-        gameData={lesson.game_data}
+        gameData={parsedGameData}
         onCorrect={handleCorrectAnswer}
         onWrong={handleWrongAnswer}
         onComplete={completeLesson}

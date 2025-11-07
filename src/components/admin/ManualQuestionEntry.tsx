@@ -359,6 +359,57 @@ export const ManualQuestionEntry = ({
     onComplete();
   };
 
+  // Helper function to validate question data
+  const isQuestionValid = (): boolean => {
+    if (!questionData) return false;
+    
+    const gameType = questionData.question_type || selectedGameType;
+    const gameData = questionData.gameData || {};
+    
+    switch (gameType) {
+      case 'true_false':
+        // Check for multi-part statements
+        if (gameData.statements && Array.isArray(gameData.statements)) {
+          return gameData.statements.length > 0 && 
+                 gameData.statements.some((s: any) => s.text?.trim());
+        }
+        // Single statement - check questionText
+        return !!questionData.questionText?.trim();
+        
+      case 'fill_blank':
+        // Check for multi-part sub-questions
+        if (gameData.sub_questions && Array.isArray(gameData.sub_questions)) {
+          return gameData.sub_questions.length > 0 && 
+                 gameData.sub_questions.some((sq: any) => sq.text?.trim());
+        }
+        // Single blank - check questionText
+        return !!questionData.questionText?.trim();
+        
+      case 'mcq':
+        return !!questionData.questionText?.trim() && 
+               gameData.options?.length >= 2;
+               
+      case 'match_column':
+        return gameData.leftColumn?.length >= 2 && 
+               gameData.rightColumn?.length >= 2;
+               
+      case 'match_pairs':
+        return gameData.pairs?.length >= 2;
+        
+      case 'sequence_order':
+        return gameData.items?.length >= 2;
+        
+      case 'card_memory':
+        return gameData.pairs?.length >= 2;
+        
+      case 'typing_race':
+        return !!questionData.questionText?.trim() || !!gameData.targetText?.trim();
+        
+      default:
+        return !!questionData.questionText?.trim();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -419,7 +470,7 @@ export const ManualQuestionEntry = ({
           <div className="flex gap-3 pt-4 border-t">
             <Button
               onClick={handleSaveAndNew}
-              disabled={saving || !questionData?.questionText}
+              disabled={saving || !isQuestionValid()}
               className="flex-1"
               variant="outline"
             >
@@ -428,7 +479,7 @@ export const ManualQuestionEntry = ({
             </Button>
             <Button
               onClick={handleSaveAndExit}
-              disabled={saving || !questionData?.questionText}
+              disabled={saving || !isQuestionValid()}
               className="flex-1"
             >
               <Save className="mr-2 h-4 w-4" />

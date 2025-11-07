@@ -2071,6 +2071,7 @@ export type Database = {
       question_bank: {
         Row: {
           admin_reviewed: boolean | null
+          answer_data: Json | null
           assertion: string | null
           batch_id: string | null
           chapter_id: string | null
@@ -2088,6 +2089,7 @@ export type Database = {
           left_column: string[] | null
           marks: number
           options: Json | null
+          question_data: Json | null
           question_number: string | null
           question_text: string
           question_type: string
@@ -2103,6 +2105,7 @@ export type Database = {
         }
         Insert: {
           admin_reviewed?: boolean | null
+          answer_data?: Json | null
           assertion?: string | null
           batch_id?: string | null
           chapter_id?: string | null
@@ -2120,6 +2123,7 @@ export type Database = {
           left_column?: string[] | null
           marks?: number
           options?: Json | null
+          question_data?: Json | null
           question_number?: string | null
           question_text: string
           question_type: string
@@ -2135,6 +2139,7 @@ export type Database = {
         }
         Update: {
           admin_reviewed?: boolean | null
+          answer_data?: Json | null
           assertion?: string | null
           batch_id?: string | null
           chapter_id?: string | null
@@ -2152,6 +2157,7 @@ export type Database = {
           left_column?: string[] | null
           marks?: number
           options?: Json | null
+          question_data?: Json | null
           question_number?: string | null
           question_text?: string
           question_type?: string

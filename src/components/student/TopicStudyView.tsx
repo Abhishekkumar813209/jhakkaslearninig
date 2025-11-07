@@ -136,8 +136,17 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         ...contentData,
         difficulty: contentData.difficulty as Difficulty,
         exercises: (exercisesData || []).map(ex => ({
-          ...ex,
-          difficulty: ex.difficulty as Difficulty
+          id: ex.id,
+          question_type: ex.exercise_type,
+          question_data: ex.exercise_data,
+          answer_data: ex.correct_answer,
+          explanation: ex.explanation || '',
+          xp_reward: ex.xp_reward || 10,
+          difficulty: ex.difficulty as Difficulty,
+          // Keep legacy fields for backward compatibility
+          exercise_type: ex.exercise_type,
+          exercise_data: ex.exercise_data,
+          correct_answer: ex.correct_answer
         }))
       });
     } catch (error: any) {
@@ -552,6 +561,10 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       ? Math.round((questionsCorrect / questionsAttempted) * 100)
       : 0;
     
+    // Parse question data based on question_type
+    const questionType = currentQ.question_type || currentQ.exercise_type || 'mcq';
+    const parsedData = parseQuestionData(currentQ);
+    
     return (
       <div className="space-y-4">
         {/* Enhanced Header with Stats */}
@@ -583,31 +596,35 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           </div>
         </div>
 
-        {/* Render different game types based on exercise_type */}
-        {currentQ.exercise_type === 'mcq' && (
-          <>
-            {console.log('[TSV] Rendering MCQGame - index/total:', questionQueue.currentIndex, '/', questionQueue.totalQuestions)}
-            <MCQGame
-              gameData={currentQ.exercise_data}
-              onCorrect={handleCorrectAnswer}
-              onWrong={handleWrongAnswer}
-              onNext={handleNextQuestion}
-              onPrevious={() => questionQueue.previousQuestion()}
-              onExit={() => setShowExercises(false)}
-              onComplete={markTopicComplete}
-              autoAdvanceDelay={3000}
-              hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
-              currentQuestionNum={questionQueue.currentIndex + 1}
-              totalQuestions={questionQueue.totalQuestions}
-            />
-          </>
+        {/* Render different game types based on question_type */}
+        {questionType === 'mcq' && (
+          <MCQGame
+            gameData={{
+              question: parsedData.text || '',
+              options: parsedData.options || [],
+              correct_answer: parsedData.correctIndex ?? 0,
+              explanation: parsedData.explanation,
+              marks: currentQ.xp_reward,
+              difficulty: currentQ.difficulty
+            }}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onNext={handleNextQuestion}
+            onPrevious={() => questionQueue.previousQuestion()}
+            onExit={() => setShowExercises(false)}
+            onComplete={markTopicComplete}
+            autoAdvanceDelay={3000}
+            hasMoreQuestions={questionQueue.currentIndex < questionQueue.totalQuestions - 1}
+            currentQuestionNum={questionQueue.currentIndex + 1}
+            totalQuestions={questionQueue.totalQuestions}
+          />
         )}
         
         {questionType === 'true_false' && (
           <TrueFalseGame
             gameData={{
-              question: parsedData.statement,
-              correctAnswer: parsedData.correctValue,
+              question: parsedData.statement || '',
+              correctAnswer: parsedData.correctValue ?? false,
               explanation: parsedData.explanation,
               marks: currentQ.xp_reward,
               difficulty: currentQ.difficulty
@@ -621,7 +638,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         {questionType === 'fill_blank' && (
           <DragDropBlanks
             gameData={{
-              question: parsedData.text,
+              question: parsedData.text || '',
               blanks: parsedData.blanks || [],
               explanation: parsedData.explanation,
               marks: currentQ.xp_reward,
@@ -636,7 +653,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         {questionType === 'match_column' && (
           <LineMatchingGame
             gameData={{
-              question: parsedData.question,
+              question: parsedData.question || '',
               leftColumn: parsedData.leftColumn || [],
               rightColumn: parsedData.rightColumn || [],
               correctPairs: parsedData.correctPairs || [],
@@ -661,8 +678,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
               exercise_data: currentQ.question_data || currentQ.exercise_data || {},
               correct_answer: currentQ.answer_data || currentQ.correct_answer || {},
               explanation: currentQ.explanation || '',
-              xp_reward: currentQ.xp_reward || 10,
-              difficulty: currentQ.difficulty
+              xp_reward: currentQ.xp_reward || 10
             }}
             onComplete={() => {
               handleCorrectAnswer();

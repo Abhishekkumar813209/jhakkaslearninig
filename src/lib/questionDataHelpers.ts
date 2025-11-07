@@ -93,7 +93,7 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
   // Multi-part sub-questions format
   if (questionData.sub_questions && Array.isArray(questionData.sub_questions)) {
     return {
-      text: questionData.text || question.question_text || '',
+      text: '', // No header text for multi-part
       blanks: answerData.blanks || [],
       sub_questions: questionData.sub_questions.map((sq: any, idx: number) => ({
         text: sq.text || sq,
@@ -105,6 +105,7 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
     };
   }
 
+  // Single Fill Blank (legacy)
   return {
     text: questionData.text || question.question_text || '',
     blanks: answerData.blanks || question.correct_answer?.blanks || [],
@@ -138,7 +139,7 @@ export const parseTrueFalseData = (question: any): ParsedTrueFalseData => {
   // Multi-part statements format
   if (questionData.statements && Array.isArray(questionData.statements)) {
     return {
-      statement: questionData.text || question.question_text || '',
+      statement: '', // No header text for multi-part
       correctValue: true, // Not used in multi-part
       statements: questionData.statements.map((text: string, idx: number) => ({
         text,
@@ -149,6 +150,7 @@ export const parseTrueFalseData = (question: any): ParsedTrueFalseData => {
     };
   }
 
+  // Single True/False (legacy)
   return {
     statement: questionData.statement || questionData.text || question.question_text || '',
     correctValue: answerData.value ?? question.correct_answer?.value ?? false,

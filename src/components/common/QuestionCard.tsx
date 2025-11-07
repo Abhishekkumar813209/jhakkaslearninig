@@ -176,43 +176,66 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
         </div>
         
         {/* Question Text */}
-        <div 
-          className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: renderWithImages(questionText) }}
-        />
-        
-        {/* Options for MCQ */}
-        {question.question_type === 'mcq' && parsed.options && parsed.options.length > 0 && (
-          <div className="space-y-2 mt-3">
-            <div className="text-xs font-semibold text-muted-foreground uppercase">Options:</div>
-            <div className="grid gap-2">
-              {parsed.options.map((option: string, idx: number) => {
-                const isCorrect = idx === parsed.correctIndex;
-                
-                return (
-                  <div
-                    key={idx}
-                    className={`p-2 rounded-md border text-sm ${
-                      isCorrect 
-                        ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-500/30' 
-                        : 'bg-muted/30 border-border'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <Badge variant={isCorrect ? "default" : "outline"} className="shrink-0 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                        {String.fromCharCode(65 + idx)}
-                      </Badge>
-                      <div 
-                        className="flex-1"
-                        dangerouslySetInnerHTML={{ __html: renderWithImages(option) }}
-                      />
-                      {isCorrect && <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />}
+        {question.question_type === 'mcq' && parsed.options && parsed.options.length > 0 ? (
+          <div className="space-y-3">
+            <div 
+              className="text-sm leading-relaxed font-medium"
+              dangerouslySetInnerHTML={{ __html: renderWithImages(questionText) }}
+            />
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase">Options:</div>
+              <div className="grid gap-2">
+                {parsed.options.map((option: string, idx: number) => {
+                  const isCorrect = idx === parsed.correctIndex;
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-2 rounded-md border text-sm ${
+                        isCorrect 
+                          ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-500/30' 
+                          : 'bg-muted/30 border-border'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Badge variant={isCorrect ? "default" : "outline"} className="shrink-0 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                          {String.fromCharCode(65 + idx)}
+                        </Badge>
+                        <div 
+                          className="flex-1"
+                          dangerouslySetInnerHTML={{ __html: renderWithImages(option) }}
+                        />
+                        {isCorrect && <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
+        ) : question.question_type === 'true_false' && parsed.statements ? (
+          <div className="space-y-2">
+            <div className="text-sm leading-relaxed font-medium">
+              i. {parsed.statements[0].text}
+              {parsed.statements.length > 1 && (
+                <Badge variant="secondary" className="ml-2 text-xs">+{parsed.statements.length - 1} more</Badge>
+              )}
+            </div>
+          </div>
+        ) : question.question_type === 'fill_blank' && parsed.sub_questions ? (
+          <div className="space-y-2">
+            <div className="text-sm leading-relaxed font-medium">
+              1. {parsed.sub_questions[0].text}
+              {parsed.sub_questions.length > 1 && (
+                <Badge variant="secondary" className="ml-2 text-xs">+{parsed.sub_questions.length - 1} more</Badge>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div 
+            className="text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: renderWithImages(questionText) }}
+          />
         )}
         
         {/* Correct Answer for non-MCQ */}

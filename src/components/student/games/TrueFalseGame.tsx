@@ -16,9 +16,9 @@ interface Statement {
 }
 
 interface TrueFalseGameData {
-  question: string;
+  question?: string; // Legacy single statement (deprecated)
   correctAnswer?: boolean; // For single statement
-  statements?: Statement[]; // For multi-part
+  statements?: Statement[]; // For multi-part (preferred)
   explanation?: string;
   marks?: number;
   difficulty?: string;
@@ -126,7 +126,7 @@ export function TrueFalseGame({
 
   return (
     <Card className="w-full">
-      <CardContent className="p-6 space-y-6">
+      <CardContent className="p-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <Badge variant="outline">True or False</Badge>
@@ -135,19 +135,13 @@ export function TrueFalseGame({
           )}
         </div>
 
-        {/* Question */}
-        <div className="text-lg font-medium p-6 bg-muted/30 rounded-lg text-center">
-          {gameData.question}
-        </div>
-
         {/* Multi-Part Statements OR Single True/False */}
         {isMultiPart ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground font-medium">Select True or False for each statement:</p>
+          <div className="space-y-6">
             <ol className="list-[lower-roman] pl-6 space-y-4">
               {gameData.statements!.map((stmt, idx) => (
                 <li key={idx} className="space-y-2">
-                  <p className="text-base leading-relaxed">{stmt.text}</p>
+                  <p className="text-lg font-medium leading-relaxed">{stmt.text}</p>
                   
                   {!hasSubmitted ? (
                     <div className="grid grid-cols-2 gap-3 ml-4">
@@ -213,64 +207,70 @@ export function TrueFalseGame({
               ))}
             </ol>
           </div>
-        ) : (
-          // Single True/False Toggle Switches
-          <div className="flex gap-4">
-            <motion.div
-              onClick={() => !hasSubmitted && handleSelect(true)}
-              className={cn(
-                "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
-                !hasSubmitted && selectedAnswer === true && "border-primary bg-primary/10",
-                !hasSubmitted && selectedAnswer !== true && "border-border hover:border-primary/50",
-                !hasSubmitted && "cursor-pointer",
-                hasSubmitted && selectedAnswer === true && isCorrect && "border-green-500 bg-green-500/10",
-                hasSubmitted && selectedAnswer === true && !isCorrect && "border-red-500 bg-red-500/10",
-                hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "border-green-500/40 bg-green-500/5",
-                hasSubmitted && "cursor-default"
-              )}
-              whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
-              whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
-            >
-              <Switch 
-                checked={selectedAnswer === true}
-                disabled={hasSubmitted}
+        ) : gameData.question ? (
+          // Single True/False with question text
+          <div className="space-y-6">
+            <div className="text-lg font-medium p-6 bg-muted/30 rounded-lg text-center">
+              {gameData.question}
+            </div>
+            {/* Single True/False Toggle Switches */}
+            <div className="flex gap-4">
+              <motion.div
+                onClick={() => !hasSubmitted && handleSelect(true)}
                 className={cn(
-                  hasSubmitted && selectedAnswer === true && isCorrect && "data-[state=checked]:bg-green-500",
-                  hasSubmitted && selectedAnswer === true && !isCorrect && "data-[state=checked]:bg-red-500",
-                  hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "data-[state=checked]:bg-green-500"
+                  "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
+                  !hasSubmitted && selectedAnswer === true && "border-primary bg-primary/10",
+                  !hasSubmitted && selectedAnswer !== true && "border-border hover:border-primary/50",
+                  !hasSubmitted && "cursor-pointer",
+                  hasSubmitted && selectedAnswer === true && isCorrect && "border-green-500 bg-green-500/10",
+                  hasSubmitted && selectedAnswer === true && !isCorrect && "border-red-500 bg-red-500/10",
+                  hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "border-green-500/40 bg-green-500/5",
+                  hasSubmitted && "cursor-default"
                 )}
-              />
-              <span className="text-lg font-medium">True</span>
-            </motion.div>
+                whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
+                whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
+              >
+                <Switch 
+                  checked={selectedAnswer === true}
+                  disabled={hasSubmitted}
+                  className={cn(
+                    hasSubmitted && selectedAnswer === true && isCorrect && "data-[state=checked]:bg-green-500",
+                    hasSubmitted && selectedAnswer === true && !isCorrect && "data-[state=checked]:bg-red-500",
+                    hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "data-[state=checked]:bg-green-500"
+                  )}
+                />
+                <span className="text-lg font-medium">True</span>
+              </motion.div>
 
-            <motion.div
-              onClick={() => !hasSubmitted && handleSelect(false)}
-              className={cn(
-                "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
-                !hasSubmitted && selectedAnswer === false && "border-primary bg-primary/10",
-                !hasSubmitted && selectedAnswer !== false && "border-border hover:border-primary/50",
-                !hasSubmitted && "cursor-pointer",
-                hasSubmitted && selectedAnswer === false && isCorrect && "border-green-500 bg-green-500/10",
-                hasSubmitted && selectedAnswer === false && !isCorrect && "border-red-500 bg-red-500/10",
-                hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "border-green-500/40 bg-green-500/5",
-                hasSubmitted && "cursor-default"
-              )}
-              whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
-              whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
-            >
-              <Switch 
-                checked={selectedAnswer === false}
-                disabled={hasSubmitted}
+              <motion.div
+                onClick={() => !hasSubmitted && handleSelect(false)}
                 className={cn(
-                  hasSubmitted && selectedAnswer === false && isCorrect && "data-[state=checked]:bg-green-500",
-                  hasSubmitted && selectedAnswer === false && !isCorrect && "data-[state=checked]:bg-red-500",
-                  hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "data-[state=checked]:bg-green-500"
+                  "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
+                  !hasSubmitted && selectedAnswer === false && "border-primary bg-primary/10",
+                  !hasSubmitted && selectedAnswer !== false && "border-border hover:border-primary/50",
+                  !hasSubmitted && "cursor-pointer",
+                  hasSubmitted && selectedAnswer === false && isCorrect && "border-green-500 bg-green-500/10",
+                  hasSubmitted && selectedAnswer === false && !isCorrect && "border-red-500 bg-red-500/10",
+                  hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "border-green-500/40 bg-green-500/5",
+                  hasSubmitted && "cursor-default"
                 )}
-              />
-              <span className="text-lg font-medium">False</span>
-            </motion.div>
+                whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
+                whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
+              >
+                <Switch 
+                  checked={selectedAnswer === false}
+                  disabled={hasSubmitted}
+                  className={cn(
+                    hasSubmitted && selectedAnswer === false && isCorrect && "data-[state=checked]:bg-green-500",
+                    hasSubmitted && selectedAnswer === false && !isCorrect && "data-[state=checked]:bg-red-500",
+                    hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "data-[state=checked]:bg-green-500"
+                  )}
+                />
+                <span className="text-lg font-medium">False</span>
+              </motion.div>
+            </div>
           </div>
-        )}
+        ) : null}
 
         {/* Result Message */}
         <AnimatePresence>

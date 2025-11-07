@@ -80,9 +80,8 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
       case 'true_false':
         // Check if multi-part
-        if (statements.length > 1 || (statements.length === 1 && statements[0].text.trim())) {
+        if (statements.length >= 1 && statements[0].text.trim()) {
           gameData = {
-            question: questionText || 'Determine whether the following statements are True or False:',
             statements: statements.filter(s => s.text.trim()),
             numbering_style: trueFalseNumbering,
             marks,
@@ -103,7 +102,6 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         // Use sub_questions if multi-part mode
         if (useMultiPart && subQuestions.length >= 1) {
           gameData = {
-            question: questionText || 'Fill in the blanks:',
             sub_questions: subQuestions.filter(sq => sq.text.trim()),
             blanks: subQuestions.filter(sq => sq.text.trim()).map(sq => ({
               correctAnswer: sq.correctAnswer,
@@ -336,18 +334,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   if (gameType === 'true_false') {
     return (
       <div className="space-y-4">
-        <div>
-          <Label>Main Question (Optional Header)</Label>
-          <Textarea
-            value={questionText}
-            onChange={(e) => { 
-              setQuestionText(e.target.value);
-              setTimeout(() => handleDataChange(), 0);
-            }}
-            placeholder="E.g., 'Determine whether the following statements are True or False:'"
-            rows={2}
-          />
-        </div>
+        <Label>Question Type: True/False</Label>
 
         <div>
           <Label>Numbering Style</Label>
@@ -500,18 +487,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   if (gameType === 'fill_blank') {
     return (
       <div className="space-y-4">
-        <div>
-          <Label>Main Question (Optional Header)</Label>
-          <Textarea
-            value={questionText}
-            onChange={(e) => { 
-              setQuestionText(e.target.value);
-              setTimeout(() => handleDataChange(), 0);
-            }}
-            placeholder="E.g., 'Fill in the blanks:'"
-            rows={2}
-          />
-        </div>
+        <Label>Question Type: Fill in the Blanks (Drag & Drop)</Label>
 
         <div className="flex items-center gap-2 mb-2">
           <Switch

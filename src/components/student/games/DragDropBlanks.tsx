@@ -21,9 +21,9 @@ interface SubQuestion {
 }
 
 interface DragDropBlanksGameData {
-  question: string;
-  blanks: BlankAnswer[];
-  sub_questions?: SubQuestion[]; // Multi-part with numbering
+  question?: string; // Legacy single blank (deprecated)
+  blanks?: BlankAnswer[];
+  sub_questions?: SubQuestion[]; // Multi-part with numbering (preferred)
   explanation?: string;
   marks?: number;
   difficulty?: string;
@@ -199,7 +199,7 @@ export function DragDropBlanks({
   };
 
   const handleSubmit = () => {
-    const expectedBlanks = (gameData.sub_questions?.length || 0) + (gameData.blanks?.length || 0);
+    const expectedBlanks = gameData.sub_questions?.length || gameData.blanks?.length || 0;
     if (expectedBlanks === 0) {
       console.error('[DragDropBlanks] No blanks to validate');
       return;
@@ -363,14 +363,13 @@ export function DragDropBlanks({
 
           {/* Question with blanks */}
           <div className="p-4 bg-muted/30 rounded-lg">
-            {!isMultiPart && (
+            {!isMultiPart && gameData.question && (
               <div className="text-lg font-medium leading-relaxed">
                 {renderQuestionWithBlanks()}
               </div>
             )}
             {isMultiPart && (
               <div>
-                <p className="text-lg font-semibold mb-3">{gameData.question}</p>
                 {renderMultiPartQuestion()}
               </div>
             )}

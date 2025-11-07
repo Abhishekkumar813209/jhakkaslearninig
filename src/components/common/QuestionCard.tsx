@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import { renderWithImages } from "@/lib/mathRendering";
 import { parseQuestionData } from "@/lib/questionDataHelpers";
 import { 
@@ -214,12 +215,38 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
             </div>
           </div>
         ) : question.question_type === 'true_false' && parsed.statements ? (
-          <div className="space-y-2">
-            <div className="text-sm leading-relaxed font-medium">
-              i. {parsed.statements[0].text}
-              {parsed.statements.length > 1 && (
-                <Badge variant="secondary" className="ml-2 text-xs">+{parsed.statements.length - 1} more</Badge>
-              )}
+          <div className="space-y-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+              True/False Statements ({parsed.statements.length}):
+            </div>
+            <div className="space-y-2">
+              {parsed.statements.map((stmt: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-3 p-2 rounded-md border bg-muted/30"
+                >
+                  <Badge 
+                    variant="outline" 
+                    className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono"
+                  >
+                    {idx + 1}
+                  </Badge>
+                  <div 
+                    className="flex-1 text-sm" 
+                    dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} 
+                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Switch 
+                      checked={stmt.answer} 
+                      disabled 
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                    <span className="text-xs font-medium text-muted-foreground w-12">
+                      {stmt.answer ? 'True' : 'False'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ) : question.question_type === 'fill_blank' && parsed.sub_questions ? (

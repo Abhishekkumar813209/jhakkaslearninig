@@ -185,35 +185,157 @@ export const ManualQuestionEntry = ({
       const finalLeftColumn = leftColumnData && leftColumnData.length > 0 ? leftColumnData : null;
       const finalRightColumn = rightColumnData && rightColumnData.length > 0 ? rightColumnData : null;
 
-      console.log('💾 Saving question with columns (ManualQuestionEntry):', {
+      // === PHASE 2: DUAL-WRITE MODE ===
+      // Build unified JSONB structures for new columns
+      let questionDataJSON: any = {};
+      let answerDataJSON: any = {};
+
+      switch (gameType) {
+        case 'mcq':
+          questionDataJSON = {
+            text: questionData.questionText,
+            options: gameData.options || [],
+            type: 'mcq'
+          };
+          answerDataJSON = {
+            correctIndex: gameData.correctAnswerIndex || 0,
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'true_false':
+          questionDataJSON = {
+            statement: questionData.questionText,
+            type: 'true_false'
+          };
+          answerDataJSON = {
+            value: gameData.correctAnswer || false,
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'fill_blank':
+          questionDataJSON = {
+            text: questionData.questionText,
+            blanks: gameData.blanks || [],
+            sub_questions: gameData.sub_questions || null,
+            numbering_style: gameData.numbering_style || null,
+            type: 'fill_blank'
+          };
+          answerDataJSON = {
+            blanks: gameData.blanks || [],
+            sub_questions: gameData.sub_questions || null,
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'match_column':
+          questionDataJSON = {
+            leftColumn: finalLeftColumn || [],
+            rightColumn: finalRightColumn || [],
+            questionText: questionData.questionText,
+            type: 'match_column'
+          };
+          answerDataJSON = {
+            correctPairs: gameData.correctPairs || [],
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'match_pairs':
+          questionDataJSON = {
+            pairs: gameData.pairs || [],
+            type: 'match_pairs'
+          };
+          answerDataJSON = {
+            pairs: gameData.pairs || [],
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'sequence_order':
+          questionDataJSON = {
+            text: questionData.questionText,
+            items: gameData.items || gameData.options || [],
+            type: 'drag_drop_sort'
+          };
+          answerDataJSON = {
+            correctOrder: gameData.correctSequence || [],
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'card_memory':
+          questionDataJSON = {
+            pairs: gameData.pairs || [],
+            type: 'card_memory'
+          };
+          answerDataJSON = {
+            pairs: gameData.pairs || [],
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'typing_race':
+          questionDataJSON = {
+            text: questionData.questionText,
+            targetText: gameData.targetText || questionData.questionText,
+            timeLimit: gameData.timeLimit || 60,
+            type: 'typing_race'
+          };
+          answerDataJSON = {
+            targetText: gameData.targetText || questionData.questionText,
+            minAccuracy: gameData.minAccuracy || 90,
+            explanation: questionData.explanation
+          };
+          break;
+
+        case 'interactive_blanks':
+          questionDataJSON = {
+            text: questionData.questionText,
+            blanks: gameData.blanks || [],
+            type: 'interactive_blanks'
+          };
+          answerDataJSON = {
+            blanks: gameData.blanks || [],
+            explanation: questionData.explanation
+          };
+          break;
+
+        default:
+          questionDataJSON = {
+            text: questionData.questionText,
+            type: gameType
+          };
+          answerDataJSON = {
+            explanation: questionData.explanation
+          };
+      }
+
+      console.log('💾 Saving question (DUAL-WRITE MODE):', {
         gameType,
+        // Old format
         leftColumn: finalLeftColumn,
         rightColumn: finalRightColumn,
         correctAnswer: correctAnswerFormat,
-        correctPairs: gameData.correctPairs,
-        pairsInCorrectAnswer: correctAnswerFormat?.pairs,
-        pairsLength: correctAnswerFormat?.pairs?.length
+        // New JSONB format
+        question_data: questionDataJSON,
+        answer_data: answerDataJSON
       });
 
-      // DEBUG: Log full payload for fill_blank questions
-      console.log('📦 FULL SAVE PAYLOAD:', {
-        question_type: gameType,
-        question_text: questionData.questionText,
-        correct_answer: correctAnswerFormat,
-        sub_questions: gameType === 'fill_blank' ? (gameData.sub_questions || null) : null,
-        has_sub_questions: gameType === 'fill_blank' && gameData.sub_questions?.length > 0,
-      });
-
-      // Step 1: Save to question_bank
+      // Step 1: Save to question_bank (DUAL-WRITE: both old and new columns)
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
         .insert({
+          // Context fields
           topic_id: selectedTopic.id,
           chapter_id: selectedChapter.id,
           subject: selectedSubject,
           batch_id: selectedBatch,
           exam_domain: selectedDomain,
           question_type: gameType,
+          
+          // OLD FORMAT (legacy columns) - for backward compatibility
           question_text: questionData.questionText,
           options: gameData.options || null,
           left_column: finalLeftColumn,
@@ -223,6 +345,12 @@ export const ManualQuestionEntry = ({
             ? gameData.sub_questions 
             : null,
           explanation: questionData.explanation,
+          
+          // NEW FORMAT (unified JSONB columns)
+          question_data: questionDataJSON,
+          answer_data: answerDataJSON,
+          
+          // Metadata
           marks: questionData.marks || 1,
           difficulty: questionData.difficulty || 'medium',
           is_published: true,

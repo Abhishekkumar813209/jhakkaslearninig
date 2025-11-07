@@ -1018,7 +1018,7 @@ serve(async (req) => {
 
     // ========== save_draft_questions (DUAL WRITE: JSONB + Legacy) ==========
     if (action === 'save_draft_questions') {
-      const { questions, topic_id, subject, chapter_name, batch_id, roadmap_id, source_id, exam_domain, exam_name } = body;
+      const { questions, topic_id, subject, batch_id, roadmap_id, source_id, exam_domain, exam_name } = body;
       
       if (!questions || !Array.isArray(questions) || !topic_id) {
         throw new Error('Missing questions array or topic_id');
@@ -1155,7 +1155,6 @@ serve(async (req) => {
             difficulty: q.difficulty || 'medium',
             topic_id: topic_id,
             subject: subject,
-            chapter_name: chapter_name,
             batch_id: batch_id || null,
             roadmap_id: roadmap_id || null,
             source_id: source_id || null,
@@ -1232,7 +1231,7 @@ serve(async (req) => {
 
       const allowedFields = [
         'question_text', 'options', 'marks', 'difficulty', 
-        'subject', 'chapter_name', 'explanation', 'question_type'
+        'subject', 'explanation', 'question_type'
       ];
       
       const sanitizedUpdates: any = {};

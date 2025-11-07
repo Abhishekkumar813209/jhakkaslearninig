@@ -1018,7 +1018,7 @@ serve(async (req) => {
 
     // ========== save_draft_questions (DUAL WRITE: JSONB + Legacy) ==========
     if (action === 'save_draft_questions') {
-      const { questions, topic_id, subject, batch_id, roadmap_id, source_id, exam_domain, exam_name } = body;
+      const { questions, topic_id, subject, batch_id, source_id, exam_domain, exam_name } = body;
       
       if (!questions || !Array.isArray(questions) || !topic_id) {
         throw new Error('Missing questions array or topic_id');
@@ -1156,7 +1156,6 @@ serve(async (req) => {
             topic_id: topic_id,
             subject: subject,
             batch_id: batch_id || null,
-            roadmap_id: roadmap_id || null,
             source_id: source_id || null,
             exam_domain: exam_domain || null,
             exam_name: exam_name || null,

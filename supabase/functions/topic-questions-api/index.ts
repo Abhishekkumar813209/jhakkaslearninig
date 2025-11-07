@@ -548,7 +548,7 @@ serve(async (req) => {
 
       const { data: questions, error } = await serviceClient
         .from('question_bank')
-        .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_name, created_at')
+        .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at')
         .eq('topic_id', topic_id)
         .order('created_at', { ascending: false });
 
@@ -569,7 +569,7 @@ serve(async (req) => {
         marks: q.marks || 1,
         difficulty: q.difficulty || 'medium',
         subject: q.subject,
-        chapter_name: q.chapter_name
+        chapter_id: q.chapter_id
       }));
 
       return new Response(

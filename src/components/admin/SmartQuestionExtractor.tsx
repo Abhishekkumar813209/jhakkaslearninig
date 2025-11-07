@@ -546,16 +546,17 @@ export const SmartQuestionExtractor = ({
           questions: extractedQuestions,
           topic_id: selectedTopic,
           subject: subjectName,
-          chapter_name: chapterName,
-          batch_id: batchId,
-          roadmap_id: null,
-          source_id: null
+          batch_id: batchId
         })
       });
 
       const data = await response.json();
       if (data.success) {
         toast.success(`${data.saved_count} questions saved as drafts!`);
+        if (data.errors && data.errors.length > 0) {
+          console.warn('Partial failures while saving drafts:', data.errors[0]);
+          toast.warning(`Some items failed: ${data.errors[0].message || 'Check logs'}`);
+        }
         await loadTopicQuestions(selectedTopic);
         setExtractedQuestions([]);
       } else {
@@ -1818,11 +1819,9 @@ export const SmartQuestionExtractor = ({
             questions: selected,
             topic_id: topicId,
             subject: subjectName,
-            chapter_name: chapterName,
             batch_id: batchId,
             exam_domain: examDomain,
-            exam_name: examName,
-            source_id: null
+            exam_name: examName
           }
         });
 
@@ -1850,8 +1849,7 @@ export const SmartQuestionExtractor = ({
             action: 'save_draft_questions',
             questions: selected,
             topic_id: selectedTopic,
-            subject: 'General',
-            chapter_name: null
+            subject: 'General'
           }
         });
 

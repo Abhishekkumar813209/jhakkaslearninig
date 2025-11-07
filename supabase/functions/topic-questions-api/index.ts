@@ -1026,7 +1026,8 @@ serve(async (req) => {
 
       console.log(`💾 Saving ${questions.length} draft questions (DUAL WRITE) for topic: ${topic_id}`);
 
-      const savedQuestions = [];
+      const savedQuestions: any[] = [];
+      const errors: any[] = [];
       for (const q of questions) {
         // Convert to JSONB format using the helper
         let { question_data, answer_data } = convertQuestionToJSONB(q);
@@ -1138,31 +1139,34 @@ serve(async (req) => {
           continue; // Skip this malformed question
         }
         
+        const insertPayload = {
+          // JSONB columns (NEW)
+          question_type: q.question_type,
+          question_data: question_data,
+          answer_data: answer_data,
+          
+          // Legacy columns (for compatibility during transition)
+          ...legacyFields,
+          
+          // Metadata columns
+          explanation: q.explanation || null,
+          marks: q.marks || 1,
+          difficulty: q.difficulty || 'medium',
+          topic_id: topic_id,
+          subject: subject,
+          batch_id: batch_id || null,
+          // source_id removed
+          exam_domain: exam_domain || null,
+          exam_name: exam_name || null,
+          is_approved: false,
+          admin_reviewed: false,
+          created_at: new Date().toISOString()
+        };
+
+        console.log('🧾 question_bank insert keys:', Object.keys(insertPayload));
         const { data, error } = await serviceClient
           .from('question_bank')
-          .insert({
-            // JSONB columns (NEW)
-            question_type: q.question_type,
-            question_data: question_data,
-            answer_data: answer_data,
-            
-            // Legacy columns (for compatibility during transition)
-            ...legacyFields,
-            
-            // Metadata columns
-            explanation: q.explanation || null,
-            marks: q.marks || 1,
-            difficulty: q.difficulty || 'medium',
-            topic_id: topic_id,
-            subject: subject,
-            batch_id: batch_id || null,
-            source_id: source_id || null,
-            exam_domain: exam_domain || null,
-            exam_name: exam_name || null,
-            is_approved: false,
-            admin_reviewed: false,
-            created_at: new Date().toISOString()
-          })
+          .insert(insertPayload)
           .select()
           .single();
         
@@ -1170,7 +1174,21 @@ serve(async (req) => {
           savedQuestions.push(data);
           console.log(`✅ Saved question ${data.id} with BOTH JSONB + legacy data`);
         } else {
-          console.error(`❌ Failed to save question:`, error);
+          console.error('❌ question_bank insert failed:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            payload_keys: Object.keys(insertPayload),
+            type: q.question_type
+          });
+          errors.push({
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            type: q.question_type,
+          });
         }
       }
 
@@ -1180,7 +1198,9 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           saved_count: savedQuestions.length,
-          question_ids: savedQuestions.map(q => q.id)
+          failed_count: errors.length,
+          question_ids: savedQuestions.map(q => q.id),
+          errors
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

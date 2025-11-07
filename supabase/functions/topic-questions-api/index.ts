@@ -127,6 +127,104 @@ function normalizeCorrectAnswer(questionType: string, correctAnswer: any, option
   return correctAnswer;
 }
 
+// Convert question data to JSONB format for storage
+function convertQuestionToJSONB(question: any): { question_data: any; answer_data: any } {
+  const qType = question.question_type;
+  
+  const question_data: any = {
+    text: question.question_text || '',
+    marks: question.marks || 1
+  };
+  
+  const answer_data: any = {
+    explanation: question.explanation || ''
+  };
+
+  switch (qType) {
+    case 'mcq':
+      question_data.options = question.options || [];
+      answer_data.correctIndex = typeof question.correct_answer === 'number' 
+        ? question.correct_answer 
+        : (question.correct_answer?.index ?? 0);
+      break;
+
+    case 'assertion_reason':
+      question_data.assertion = question.assertion || '';
+      question_data.reason = question.reason || '';
+      question_data.options = question.options || [];
+      answer_data.correctIndex = typeof question.correct_answer === 'number'
+        ? question.correct_answer
+        : (question.correct_answer?.index ?? 0);
+      break;
+
+    case 'fill_blank':
+      // Support both single blank and multi-part sub-questions
+      if (question.sub_questions && Array.isArray(question.sub_questions)) {
+        question_data.sub_questions = question.sub_questions.map((sq: any) => ({
+          text: sq.text || '',
+        }));
+        question_data.numbering_style = question.numberingStyle || '1,2,3';
+        answer_data.blanks = question.sub_questions.map((sq: any) => ({
+          correctAnswer: sq.correctAnswer || '',
+          distractors: sq.distractors || []
+        }));
+      } else {
+        const ca = question.correct_answer;
+        if (ca?.blanks && Array.isArray(ca.blanks)) {
+          answer_data.blanks = ca.blanks;
+        } else {
+          answer_data.blanks = [{
+            correctAnswer: typeof ca === 'string' ? ca : (ca?.text || ''),
+            distractors: ca?.distractors || []
+          }];
+        }
+      }
+      break;
+
+    case 'true_false':
+      // Support both single statement and multi-part statements
+      if (question.statements && Array.isArray(question.statements)) {
+        question_data.statements = question.statements.map((s: any) => s.text || '');
+        question_data.numbering_style = question.numberingStyle || 'i,ii,iii';
+        answer_data.values = question.statements.map((s: any) => s.answer ?? true);
+      } else {
+        answer_data.value = typeof question.correct_answer === 'boolean'
+          ? question.correct_answer
+          : (question.correct_answer?.value ?? true);
+      }
+      break;
+
+    case 'match_column':
+      question_data.leftColumn = question.left_column || [];
+      question_data.rightColumn = question.right_column || [];
+      
+      const ca = question.correct_answer;
+      if (ca?.pairs && Array.isArray(ca.pairs)) {
+        answer_data.pairs = ca.pairs;
+      } else if (typeof ca === 'object' && !Array.isArray(ca) && ca !== null) {
+        answer_data.pairs = Object.entries(ca).map(([left, right]) => ({
+          left: parseInt(left),
+          right: typeof right === 'number' ? right : parseInt(right as string)
+        }));
+      } else {
+        answer_data.pairs = [];
+      }
+      break;
+
+    case 'short_answer':
+    case 'subjective':
+      answer_data.expectedAnswer = typeof question.correct_answer === 'string'
+        ? question.correct_answer
+        : (question.correct_answer?.text || '');
+      break;
+
+    default:
+      answer_data.value = question.correct_answer;
+  }
+
+  return { question_data, answer_data };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -1016,42 +1114,36 @@ serve(async (req) => {
 
       const qType = question_type || existingQuestion.question_type;
 
-      // Build update object with cleaned data
-      const updateData: any = {
-        updated_at: new Date().toISOString()
+      // Build question object for JSONB conversion
+      const questionForConversion: any = {
+        question_text,
+        question_type: qType,
+        options,
+        left_column,
+        right_column,
+        assertion,
+        reason,
+        blanks_count,
+        marks,
+        difficulty,
+        correct_answer,
+        explanation,
+        // Preserve sub-questions and statements if present
+        sub_questions: (body as any).sub_questions,
+        statements: (body as any).statements,
+        numberingStyle: (body as any).numberingStyle
       };
 
-      if (question_text !== undefined) {
-        updateData.question_text = stripHtmlTags(question_text);
-      }
+      // Convert to JSONB format
+      const { question_data, answer_data } = convertQuestionToJSONB(questionForConversion);
 
-      if (question_type !== undefined) {
-        updateData.question_type = question_type;
-      }
-
-      if (options !== undefined) {
-        updateData.options = stripHtmlFromOptions(options);
-      }
-
-      if (left_column !== undefined) {
-        updateData.left_column = stripHtmlFromOptions(left_column);
-      }
-
-      if (right_column !== undefined) {
-        updateData.right_column = stripHtmlFromOptions(right_column);
-      }
-
-      if (assertion !== undefined) {
-        updateData.assertion = stripHtmlTags(assertion);
-      }
-
-      if (reason !== undefined) {
-        updateData.reason = stripHtmlTags(reason);
-      }
-
-      if (blanks_count !== undefined) {
-        updateData.blanks_count = blanks_count;
-      }
+      // Build update object with JSONB-only write
+      const updateData: any = {
+        question_type: qType,
+        question_data,
+        answer_data,
+        updated_at: new Date().toISOString()
+      };
 
       if (marks !== undefined) {
         updateData.marks = marks;
@@ -1059,23 +1151,6 @@ serve(async (req) => {
 
       if (difficulty !== undefined) {
         updateData.difficulty = difficulty;
-      }
-
-      if (explanation !== undefined) {
-        updateData.explanation = explanation;
-      }
-
-      // Handle correct_answer normalization
-      if (correct_answer !== undefined && correct_answer !== null) {
-        const finalOptions = options !== undefined ? options : existingQuestion.options;
-        const normalizedAnswer = normalizeCorrectAnswer(qType, correct_answer, finalOptions);
-        
-        // For MCQ, ensure 0-based index string
-        if (qType === 'mcq' && typeof normalizedAnswer === 'number') {
-          updateData.correct_answer = normalizedAnswer.toString();
-        } else {
-          updateData.correct_answer = normalizedAnswer;
-        }
       }
 
       // Perform update

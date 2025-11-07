@@ -17,6 +17,8 @@ export interface ParsedFillBlankData {
     correctAnswer: string;
     distractors: string[];
   }>;
+  sub_questions?: Array<{ text: string; correctAnswer: string; distractors?: string[] }>;
+  numbering_style?: string;
   explanation?: string;
 }
 
@@ -28,9 +30,19 @@ export interface ParsedMatchPairsData {
   explanation?: string;
 }
 
+export interface ParsedMatchColumnData {
+  question: string;
+  leftColumn: string[];
+  rightColumn: string[];
+  correctPairs: Array<{ left: number; right: number }>;
+  explanation?: string;
+}
+
 export interface ParsedTrueFalseData {
   statement: string;
   correctValue: boolean;
+  statements?: Array<{ text: string; answer: boolean }>;
+  numbering_style?: string;
   explanation?: string;
 }
 
@@ -78,6 +90,21 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
   const questionData = question.question_data || {};
   const answerData = question.answer_data || {};
 
+  // Multi-part sub-questions format
+  if (questionData.sub_questions && Array.isArray(questionData.sub_questions)) {
+    return {
+      text: questionData.text || question.question_text || '',
+      blanks: answerData.blanks || [],
+      sub_questions: questionData.sub_questions.map((sq: any, idx: number) => ({
+        text: sq.text || sq,
+        correctAnswer: answerData.blanks?.[idx]?.correctAnswer || '',
+        distractors: answerData.blanks?.[idx]?.distractors || []
+      })),
+      numbering_style: questionData.numbering_style || '1,2,3',
+      explanation: answerData.explanation || question.explanation
+    };
+  }
+
   return {
     text: questionData.text || question.question_text || '',
     blanks: answerData.blanks || question.correct_answer?.blanks || [],
@@ -107,6 +134,20 @@ export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
 export const parseTrueFalseData = (question: any): ParsedTrueFalseData => {
   const questionData = question.question_data || {};
   const answerData = question.answer_data || {};
+
+  // Multi-part statements format
+  if (questionData.statements && Array.isArray(questionData.statements)) {
+    return {
+      statement: questionData.text || question.question_text || '',
+      correctValue: true, // Not used in multi-part
+      statements: questionData.statements.map((text: string, idx: number) => ({
+        text,
+        answer: answerData.values?.[idx] ?? true
+      })),
+      numbering_style: questionData.numbering_style || 'i,ii,iii',
+      explanation: answerData.explanation || question.explanation
+    };
+  }
 
   return {
     statement: questionData.statement || questionData.text || question.question_text || '',
@@ -185,83 +226,105 @@ export const parseQuestionData = (question: any): any => {
 export const convertToJSONBFormat = (question: any) => {
   const questionType = question.question_type || question.exercise_type;
   
-  let question_data: any = {};
-  let answer_data: any = {};
+  let question_data: any = {
+    text: question.question_text || '',
+    marks: question.marks || 1
+  };
+  let answer_data: any = {
+    explanation: question.explanation || ''
+  };
 
   switch (questionType) {
     case 'mcq':
-      question_data = {
-        text: question.question_text,
-        options: question.options,
-        imageUrl: question.image_url
-      };
-      answer_data = {
-        correctIndex: typeof question.correct_answer === 'object' 
-          ? question.correct_answer.index 
-          : parseInt(question.correct_answer),
-        explanation: question.explanation
-      };
+      question_data.options = question.options || [];
+      answer_data.correctIndex = typeof question.correct_answer === 'number' 
+        ? question.correct_answer 
+        : (question.correct_answer?.index ?? 0);
+      break;
+
+    case 'assertion_reason':
+      question_data.assertion = question.assertion || '';
+      question_data.reason = question.reason || '';
+      question_data.options = question.options || [];
+      answer_data.correctIndex = typeof question.correct_answer === 'number'
+        ? question.correct_answer
+        : (question.correct_answer?.index ?? 0);
       break;
 
     case 'fill_blank':
     case 'fill_blanks':
-      question_data = {
-        text: question.question_text
-      };
-      answer_data = {
-        blanks: question.correct_answer?.blanks || [],
-        explanation: question.explanation
-      };
-      break;
-
-    case 'match_pairs':
-    case 'match_column':
-      question_data = {
-        question: question.question_text,
-        leftColumn: question.left_column,
-        rightColumn: question.right_column
-      };
-      answer_data = {
-        pairs: question.correct_answer?.pairs || [],
-        explanation: question.explanation
-      };
+      // Support both single blank and multi-part sub-questions
+      if (question.sub_questions && Array.isArray(question.sub_questions)) {
+        question_data.sub_questions = question.sub_questions.map((sq: any) => ({
+          text: sq.text || '',
+        }));
+        question_data.numbering_style = question.numberingStyle || '1,2,3';
+        answer_data.blanks = question.sub_questions.map((sq: any) => ({
+          correctAnswer: sq.correctAnswer || '',
+          distractors: sq.distractors || []
+        }));
+      } else {
+        // Single blank in question text
+        const ca = question.correct_answer;
+        if (ca?.blanks && Array.isArray(ca.blanks)) {
+          answer_data.blanks = ca.blanks;
+        } else {
+          answer_data.blanks = [{
+            correctAnswer: typeof ca === 'string' ? ca : (ca?.text || ''),
+            distractors: ca?.distractors || []
+          }];
+        }
+      }
       break;
 
     case 'true_false':
-      question_data = {
-        statement: question.question_text
-      };
-      answer_data = {
-        value: question.correct_answer?.value,
-        explanation: question.explanation
-      };
+      // Support both single statement and multi-part statements
+      if (question.statements && Array.isArray(question.statements)) {
+        question_data.statements = question.statements.map((s: any) => s.text || '');
+        question_data.numbering_style = question.numberingStyle || 'i,ii,iii';
+        answer_data.values = question.statements.map((s: any) => s.answer ?? true);
+      } else {
+        answer_data.value = typeof question.correct_answer === 'boolean'
+          ? question.correct_answer
+          : (question.correct_answer?.value ?? true);
+      }
       break;
 
-    case 'assertion_reason':
-      question_data = {
-        assertion: question.assertion,
-        reason: question.reason
-      };
-      answer_data = {
-        correctAnswer: question.correct_answer?.correctAnswer,
-        explanation: question.explanation
-      };
+    case 'match_column':
+    case 'match_pairs':
+      question_data.leftColumn = question.left_column || [];
+      question_data.rightColumn = question.right_column || [];
+      
+      // Convert correct_answer to pairs array
+      const ca = question.correct_answer;
+      if (ca?.pairs && Array.isArray(ca.pairs)) {
+        answer_data.pairs = ca.pairs;
+      } else if (typeof ca === 'object' && !Array.isArray(ca) && ca !== null) {
+        // Convert object format { "0": 1, "1": 2 } to pairs
+        answer_data.pairs = Object.entries(ca).map(([left, right]) => ({
+          left: parseInt(left),
+          right: typeof right === 'number' ? right : parseInt(right as string)
+        }));
+      } else {
+        answer_data.pairs = [];
+      }
+      break;
+
+    case 'short_answer':
+    case 'subjective':
+      answer_data.expectedAnswer = typeof question.correct_answer === 'string'
+        ? question.correct_answer
+        : (question.correct_answer?.text || '');
       break;
 
     case 'sub_question':
-      question_data = {
-        mainQuestion: question.question_text,
-        subQuestions: question.sub_questions
-      };
-      answer_data = {
-        subQuestionAnswers: question.correct_answer?.subQuestionAnswers || [],
-        explanation: question.explanation
-      };
+      question_data.subQuestions = question.sub_questions || [];
+      answer_data.subQuestionAnswers = question.correct_answer?.subQuestionAnswers || [];
       break;
 
     default:
-      question_data = { text: question.question_text };
-      answer_data = { explanation: question.explanation };
+      // For unknown types, store what we can
+      answer_data.value = question.correct_answer;
   }
 
   return { question_data, answer_data };

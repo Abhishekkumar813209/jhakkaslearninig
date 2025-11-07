@@ -79,13 +79,10 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         break;
 
       case 'true_false':
+        const validStatements = statements.filter(s => s.text.trim());
         gameData = {
-          statements: statements
-            .filter(s => s.text.trim())
-            .map(s => ({
-              text: s.text,
-              answer: s.answer
-            })),
+          statements: validStatements.map(s => s.text),  // Text only
+          answers: validStatements.map(s => s.answer),   // Answers only
           numbering_style: trueFalseNumbering,
           marks,
           difficulty

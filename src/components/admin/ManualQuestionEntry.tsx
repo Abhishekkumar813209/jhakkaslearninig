@@ -72,8 +72,7 @@ export const ManualQuestionEntry = ({
     
     switch (gameType) {
       case 'true_false':
-        return gameData.statements?.length > 0 && 
-               gameData.statements.some((s: any) => s.text?.trim());
+        return gameData.statements?.length > 0;
         
       case 'fill_blank':
         return gameData.sub_questions?.length > 0 && 
@@ -181,7 +180,7 @@ export const ManualQuestionEntry = ({
           break;
         case 'true_false':
           correctAnswerFormat = { 
-            statements: gameData.statements || [] 
+            answers: gameData.answers || []
           };
           break;
         case 'fill_blank':
@@ -265,12 +264,12 @@ export const ManualQuestionEntry = ({
           break;
 
         case 'true_false':
-          // Store the complete statements array with answers
-          answerDataJSON.statements = gameData.statements || [];
+          // Store only answers array
+          answerDataJSON.answers = gameData.answers || [];
           
           // Legacy - for backward compatibility
           legacyFields.correct_answer = JSON.stringify({ 
-            statements: gameData.statements || [] 
+            answers: gameData.answers || []
           });
           break;
 

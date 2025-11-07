@@ -20,6 +20,12 @@ import { XP_MULTIPLIERS } from "@/lib/xpConfig";
 import { validateGameData, parseBoolean } from "@/lib/gameValidation";
 import { Switch as DebugSwitch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { 
+  parseMCQData,
+  parseFillBlankData,
+  parseTrueFalseData,
+  parseMatchPairsData
+} from "@/lib/questionDataHelpers";
 
 const GamePlayerPage = () => {
   const { roadmapId, topicId, gameId } = useParams();
@@ -483,64 +489,23 @@ const GamePlayerPage = () => {
       hasExerciseData: !!gameData.exercise_data
     });
     
-    // For MCQ: Extract correct answer with CORRECT priority order
+    // For MCQ: Use parser to extract from JSONB columns
     if (exerciseType === 'mcq') {
-      let rawCorrectAnswer: any;
-      let answerSource = '';
+      const parsedData = parseMCQData(gameData);
       
-      // Priority 1: correct_answer.correctAnswerIndex (our new format)
-      if (gameData.correct_answer?.correctAnswerIndex !== undefined) {
-        rawCorrectAnswer = gameData.correct_answer.correctAnswerIndex;
-        answerSource = 'correct_answer.correctAnswerIndex';
-      }
-      // Priority 2: exercise_data.correctAnswerIndex
-      else if (gameData.exercise_data?.correctAnswerIndex !== undefined) {
-        rawCorrectAnswer = gameData.exercise_data.correctAnswerIndex;
-        answerSource = 'exercise_data.correctAnswerIndex';
-      }
-      // Priority 3: exercise_data.correct_answer
-      else if (gameData.exercise_data?.correct_answer !== undefined) {
-        rawCorrectAnswer = gameData.exercise_data.correct_answer;
-        answerSource = 'exercise_data.correct_answer';
-      }
-      // Priority 4: LAST RESORT - legacy correct_answer_index column
-      else if (typeof gameData.correct_answer_index === 'number') {
-        rawCorrectAnswer = gameData.correct_answer_index;
-        answerSource = 'correct_answer_index (legacy)';
-      }
-      // Final fallback
-      else {
-        rawCorrectAnswer = 0;
-        answerSource = 'default fallback';
-      }
-
-      // Parse and validate the answer
-      let correctAnswerIndex = 0;
-      if (typeof rawCorrectAnswer === 'number') {
-        correctAnswerIndex = rawCorrectAnswer;
-      } else if (typeof rawCorrectAnswer === 'string' && /^\d+$/.test(rawCorrectAnswer)) {
-        correctAnswerIndex = parseInt(rawCorrectAnswer, 10);
-      } else if (typeof rawCorrectAnswer === 'object' && rawCorrectAnswer?.correctAnswerIndex !== undefined) {
-        correctAnswerIndex = rawCorrectAnswer.correctAnswerIndex;
-      }
-
       const mcqData = {
-        question: gameData.question_text || gameData.exercise_data?.question || "",
-        options: (gameData.options && gameData.options.length > 0) 
-          ? gameData.options 
-          : (gameData.exercise_data?.options || []),
-        correct_answer: correctAnswerIndex,
-        explanation: gameData.explanation || gameData.exercise_data?.explanation,
-        marks: gameData.marks || gameData.exercise_data?.marks || 1,
-        difficulty: gameData.difficulty || gameData.exercise_data?.difficulty
+        question: parsedData.text,
+        options: parsedData.options,
+        correct_answer: parsedData.correctIndex,
+        explanation: parsedData.explanation,
+        marks: gameData.question_data?.marks || gameData.marks || 1,
+        difficulty: gameData.question_data?.difficulty || gameData.difficulty
       };
 
-      console.log('[GamePlayerPage] MCQ Data prepared:', {
+      console.log('[GamePlayerPage] MCQ Data (parsed):', {
         hasOptions: mcqData.options.length > 0,
         optionsCount: mcqData.options.length,
         correctAnswer: mcqData.correct_answer,
-        rawAnswer: rawCorrectAnswer,
-        source: answerSource,
         question: mcqData.question.substring(0, 50) + '...'
       });
 
@@ -569,19 +534,29 @@ const GamePlayerPage = () => {
 
     switch (exerciseType) {
       case 'match_column':
-        // Validate data structure for LineMatchingGame
-        const matchColumnData = gameData.exercise_data;
+        // Use parser to extract from JSONB columns
+        const parsedMatchColumn = parseMatchPairsData(gameData);
         
-        console.log('[GamePlayerPage] Match Column Data:', {
-          hasLeftColumn: !!matchColumnData?.leftColumn,
-          hasRightColumn: !!matchColumnData?.rightColumn,
-          hasCorrectPairs: !!matchColumnData?.correctPairs,
-          leftLength: matchColumnData?.leftColumn?.length,
-          rightLength: matchColumnData?.rightColumn?.length,
-          correctPairsLength: matchColumnData?.correctPairs?.length
+        const matchColumnData = {
+          question: parsedMatchColumn.question,
+          leftColumn: parsedMatchColumn.leftColumn,
+          rightColumn: parsedMatchColumn.rightColumn,
+          correctPairs: parsedMatchColumn.correctPairs,
+          explanation: parsedMatchColumn.explanation,
+          marks: gameData.question_data?.marks || gameData.marks || 1,
+          difficulty: gameData.question_data?.difficulty || gameData.difficulty
+        };
+        
+        console.log('[GamePlayerPage] Match Column Data (parsed):', {
+          hasLeftColumn: matchColumnData.leftColumn.length > 0,
+          hasRightColumn: matchColumnData.rightColumn.length > 0,
+          hasCorrectPairs: matchColumnData.correctPairs.length > 0,
+          leftLength: matchColumnData.leftColumn.length,
+          rightLength: matchColumnData.rightColumn.length,
+          correctPairsLength: matchColumnData.correctPairs.length
         });
         
-        if (!matchColumnData?.leftColumn || !matchColumnData?.rightColumn || !matchColumnData?.correctPairs) {
+        if (!matchColumnData.leftColumn.length || !matchColumnData.rightColumn.length || !matchColumnData.correctPairs.length) {
           console.error('[GamePlayerPage] Match column data missing:', matchColumnData);
           return (
             <div className="text-center p-8">
@@ -603,35 +578,73 @@ const GamePlayerPage = () => {
         );
 
       case 'match_pairs':
+        // Use parser and convert to pairs format
+        const parsedMatchPairs = parseMatchPairsData(gameData);
+        
+        // Convert leftColumn/rightColumn/correctPairs to pairs format
+        const pairs = parsedMatchPairs.correctPairs.map((pair, index) => ({
+          id: `pair-${index}`,
+          left: parsedMatchPairs.leftColumn[pair.left] || '',
+          right: parsedMatchPairs.rightColumn[pair.right] || ''
+        }));
+        
+        const matchPairsData = {
+          pairs,
+          time_limit: 180,
+          max_attempts: 3
+        };
+        
+        console.log('[GamePlayerPage] Match Pairs Data (parsed):', {
+          pairsCount: pairs.length,
+          pairs
+        });
+        
+        if (!pairs.length) {
+          console.error('[GamePlayerPage] Match pairs data missing');
+          return (
+            <div className="text-center p-8">
+              <p className="text-destructive">Match pairs data is missing or invalid</p>
+              <Button onClick={handleExit} className="mt-4">Back to Topic</Button>
+            </div>
+          );
+        }
+        
         return (
           <MatchPairsGame
-            gameData={gameData.exercise_data}
-            {...commonProps}
+            gameData={matchPairsData}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={handleGameComplete}
           />
         );
       
       case 'fill_blank':
-        // Extract fill_blank data from correct_answer (new format) or exercise_data (legacy)
-        const fillBlankSource = gameData.correct_answer || gameData.exercise_data || {};
+        // Use parser to extract from JSONB columns
+        const parsedFB = parseFillBlankData(gameData);
         
+        // Ensure distractors is always an array (never undefined)
         const fillBlankData = {
-          question: gameData.question_text || fillBlankSource.question || "",
-          blanks: fillBlankSource.blanks || [],
-          sub_questions: fillBlankSource.sub_questions || [],
-          explanation: gameData.explanation || fillBlankSource.explanation,
-          marks: gameData.marks || fillBlankSource.marks || 1,
-          difficulty: gameData.difficulty || fillBlankSource.difficulty
+          question: parsedFB.text,
+          blanks: parsedFB.blanks,
+          sub_questions: parsedFB.sub_questions.map(sq => ({
+            text: sq.text,
+            correctAnswer: sq.correctAnswer,
+            distractors: sq.distractors || []
+          })),
+          numbering_style: parsedFB.numbering_style,
+          explanation: parsedFB.explanation,
+          marks: gameData.question_data?.marks || gameData.marks || 1,
+          difficulty: gameData.question_data?.difficulty || gameData.difficulty
         };
         
-        console.log('[GamePlayerPage] Fill Blank Data:', {
+        console.log('[GamePlayerPage] Fill Blank Data (parsed):', {
           hasBlanks: fillBlankData.blanks.length > 0,
-          hasSubQuestions: fillBlankData.sub_questions.length > 0,
-          source: gameData.correct_answer ? 'correct_answer' : 'exercise_data',
+          hasSubQuestions: fillBlankData.sub_questions?.length > 0,
           gameId: gameData.id
         });
         
         // Validate: Must have either blanks or sub_questions
-        if (fillBlankData.blanks.length === 0 && fillBlankData.sub_questions.length === 0) {
+        if (fillBlankData.blanks.length === 0 && (!fillBlankData.sub_questions || fillBlankData.sub_questions.length === 0)) {
           console.error('[GamePlayerPage] Fill blank has no valid data:', gameData);
           return (
             <div className="text-center p-8">
@@ -678,27 +691,29 @@ const GamePlayerPage = () => {
         );
       
       case 'true_false':
-        // Shape data properly - use robust boolean parser
-        const rawTFAnswer = gameData.exercise_data?.correct_answer ?? gameData.correct_answer;
-        const tfData = {
-          question: gameData.exercise_data?.question || gameData.question_text || '',
-          correctAnswer: parseBoolean(rawTFAnswer),
-          explanation: gameData.exercise_data?.explanation || gameData.explanation,
-          marks: gameData.exercise_data?.marks || gameData.marks,
-          difficulty: gameData.exercise_data?.difficulty || gameData.difficulty
-        };
+        // Use parser to extract from JSONB columns
+        const parsedTF = parseTrueFalseData(gameData);
         
-        console.log('[GamePlayerPage] True/False Data:', {
-          raw: rawTFAnswer,
-          parsed: tfData.correctAnswer,
-          question: tfData.question.substring(0, 50) + '...'
-        });
+        // Check if multi-part or single statement
+        const tfData = parsedTF.statements?.length > 0 
+          ? {
+              // Multi-part format
+              statements: parsedTF.statements,
+              numbering_style: parsedTF.numbering_style,
+              explanation: parsedTF.explanation,
+              marks: gameData.question_data?.marks || gameData.marks || 1,
+              difficulty: gameData.question_data?.difficulty || gameData.difficulty
+            }
+          : {
+              // Single statement format (legacy or if only 1 statement)
+              question: parsedTF.statement,
+              correctAnswer: parsedTF.correctValue,
+              explanation: parsedTF.explanation,
+              marks: gameData.question_data?.marks || gameData.marks || 1,
+              difficulty: gameData.question_data?.difficulty || gameData.difficulty
+            };
         
-        // Validate
-        const tfValidation = validateGameData('true_false', tfData);
-        if (!tfValidation.success) {
-          console.error('[GamePlayerPage] True/False validation failed:', tfValidation.error);
-        }
+        console.log('[GamePlayerPage] True/False Data (parsed):', tfData);
         
         return (
           <TrueFalseGame

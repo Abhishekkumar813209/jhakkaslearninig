@@ -282,6 +282,96 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
   return { question_data, answer_data };
 }
 
+// Parse JSONB format back to legacy flat format for frontend compatibility
+function parseJSONBToLegacyFormat(q: any): any {
+  const questionData = q.question_data || {};
+  const answerData = q.answer_data || {};
+  const questionType = q.question_type || 'mcq';
+
+  // Base object with common fields
+  const parsed: any = {
+    id: q.id,
+    question_type: questionType,
+    question_text: questionData.text || questionData.question || '',
+    explanation: q.explanation || answerData.explanation || '',
+    marks: q.marks || 1,
+    difficulty: q.difficulty || 'medium',
+    subject: q.subject,
+    chapter_id: q.chapter_id,
+    created_at: q.created_at,
+  };
+
+  // Type-specific parsing
+  switch (questionType) {
+    case 'mcq':
+    case 'assertion_reason':
+      parsed.options = questionData.options || [];
+      parsed.correct_answer = answerData.correctIndex !== undefined ? answerData.correctIndex : 
+                             (answerData.correct_answer !== undefined ? answerData.correct_answer : 0);
+      if (questionType === 'assertion_reason') {
+        parsed.assertion = questionData.assertion || '';
+        parsed.reason = questionData.reason || '';
+      }
+      break;
+
+    case 'true_false':
+      // Check for multi-part format
+      if (answerData.values && questionData.statements) {
+        parsed.correct_answer = { 
+          statements: answerData.values,
+          statement_texts: questionData.statements 
+        };
+      } else {
+        parsed.correct_answer = answerData.value !== undefined ? answerData.value : 
+                               (answerData.correct_answer !== undefined ? answerData.correct_answer : true);
+      }
+      break;
+
+    case 'fill_blank':
+      // Check for multi-part format
+      if (answerData.blanks && questionData.sub_questions) {
+        parsed.correct_answer = {
+          sub_questions: questionData.sub_questions,
+          blanks: answerData.blanks
+        };
+      } else if (answerData.blanks && Array.isArray(answerData.blanks)) {
+        parsed.correct_answer = answerData.blanks[0]?.correctAnswer || '';
+      } else {
+        parsed.correct_answer = answerData.text || answerData.correct_answer || '';
+      }
+      break;
+
+    case 'match_column':
+      parsed.left_column = questionData.leftColumn || questionData.left_column || [];
+      parsed.right_column = questionData.rightColumn || questionData.right_column || [];
+      parsed.correct_answer = answerData.pairs || answerData.correct_answer || [];
+      break;
+
+    case 'match_pairs':
+      parsed.pairs = questionData.pairs || [];
+      parsed.correct_answer = answerData.pairs || answerData.correct_answer || [];
+      break;
+
+    case 'sequence_order':
+      parsed.items = questionData.items || [];
+      parsed.correct_answer = answerData.correct_order || answerData.correct_answer || [];
+      break;
+
+    case 'short_answer':
+    case 'subjective':
+      parsed.correct_answer = answerData.expectedAnswer || answerData.correct_answer || '';
+      break;
+
+    default:
+      // For unknown types, keep raw JSONB
+      parsed.question_data = questionData;
+      parsed.answer_data = answerData;
+      break;
+  }
+
+  return parsed;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -559,18 +649,8 @@ serve(async (req) => {
 
       console.log(`✅ Found ${questions?.length || 0} questions in question_bank`);
 
-      // Return questions with JSONB fields
-      const normalized = (questions || []).map(q => ({
-        id: q.id,
-        question_type: q.question_type || 'mcq',
-        question_data: q.question_data || {},
-        answer_data: q.answer_data || {},
-        explanation: q.explanation || '',
-        marks: q.marks || 1,
-        difficulty: q.difficulty || 'medium',
-        subject: q.subject,
-        chapter_id: q.chapter_id
-      }));
+      // Parse JSONB to legacy format for frontend compatibility
+      const normalized = (questions || []).map(q => parseJSONBToLegacyFormat(q));
 
       return new Response(
         JSON.stringify({ success: true, questions: normalized }),

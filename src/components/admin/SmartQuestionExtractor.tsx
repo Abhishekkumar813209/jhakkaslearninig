@@ -254,143 +254,127 @@ export const SmartQuestionExtractor = ({
         if (data.success && data.questions && data.questions.length > 0) {
           console.log(`✅ Loaded ${data.questions.length} questions from database`);
           
-          // Transform DB questions to ExtractedQuestion format
+          // Transform DB questions to ExtractedQuestion format with JSONB normalization
           const transformedQuestions: ExtractedQuestion[] = data.questions.map((q: any, index: number) => {
-            // Direct field access - no more exercise_data nesting
-            const questionText = q.question_text || '';
-            const questionType = q.exercise_type || q.question_type || 'mcq';
-            const options = q.options || [];
+            const type = (q.question_type || '').toLowerCase();
+            const qd = q.question_data || {};
+            const ad = q.answer_data || {};
+            
+            // Initialize variables
+            let questionText = qd.text || '';
+            let options: string[] | undefined;
+            let leftColumn: string[] | undefined;
+            let rightColumn: string[] | undefined;
+            let assertion: string | undefined;
+            let reason: string | undefined;
+            let blanksCount: number | undefined;
+            let correctAnswer: any = undefined;
+            let explanation = q.explanation || ad.explanation || '';
             const marks = q.marks || 1;
             const difficulty = q.difficulty || 'medium';
-            const explanation = q.explanation || '';
             
-            // Preserve match_column specific fields
-            let leftColumn = q.left_column || [];
-            let rightColumn = q.right_column || [];
-            const assertion = q.assertion || '';
-            const reason = q.reason || '';
-            const blanksCount = q.blanks_count || 0;
-            
-            // Use correct_answer_index directly for MCQs
-            let correctAnswer = q.correct_answer_index ?? q.correct_answer;
-            
-            // Parse correct_answer if it's a JSON string
-            if (typeof correctAnswer === 'string' && (correctAnswer.trim().startsWith('{') || correctAnswer.trim().startsWith('['))) {
-              try {
-                correctAnswer = JSON.parse(correctAnswer);
-              } catch (e) {
-                console.warn('Failed to parse correct_answer:', correctAnswer, e);
-              }
-            }
-            
-            // Normalize fill_blank: ensure both blanks and sub_questions exist
-            if (questionType === 'fill_blank' && typeof correctAnswer === 'object' && correctAnswer) {
-              // If has sub_questions but no blanks, derive blanks
-              if (Array.isArray(correctAnswer.sub_questions) && !Array.isArray(correctAnswer.blanks)) {
-                correctAnswer.blanks = correctAnswer.sub_questions.map((sq: any) => ({
-                  correctAnswer: sq.correctAnswer || '',
-                  distractors: sq.distractors || []
-                }));
-              }
-              // If has blanks but no sub_questions, derive sub_questions
-              else if (Array.isArray(correctAnswer.blanks) && !Array.isArray(correctAnswer.sub_questions)) {
-                correctAnswer.sub_questions = correctAnswer.blanks.map((b: any) => ({
-                  text: '',
-                  correctAnswer: b.correctAnswer || '',
-                  distractors: b.distractors || []
-                }));
-              }
-              // Ensure blanks is always an array for preview/game
-              if (!Array.isArray(correctAnswer.blanks)) {
-                correctAnswer.blanks = [];
-              }
-              
-              // Clean up match_column fields for fill_blank
-              leftColumn = undefined;
-              rightColumn = undefined;
-            }
-            
-            // Clean up match_column fields for true_false questions
-            if (questionType === 'true_false') {
-              leftColumn = undefined;
-              rightColumn = undefined;
-            }
-            
-            // Normalize match_column answers to handle legacy formats
-            if (questionType === 'match_column') {
-              if (correctAnswer?.pairs && Array.isArray(correctAnswer.pairs)) {
-                // Already in modern format
-                correctAnswer = correctAnswer;
-              } else if (Array.isArray(correctAnswer)) {
-                // Legacy array format
-                correctAnswer = { pairs: correctAnswer };
-              } else if (typeof correctAnswer === 'object' && correctAnswer !== null) {
-                // Legacy object map like {"A":"2", "B":"1"}
-                const pairs = [];
-                const keys = Object.keys(correctAnswer);
+            // Type-specific JSONB normalization
+            switch (type) {
+              case 'mcq':
+                questionText = qd.text || '';
+                options = qd.options || [];
+                correctAnswer = ad.correctIndex ?? ad.value ?? 0;
+                break;
                 
-                for (const key of keys) {
-                  let leftIndex: number;
-                  let rightIndex: number;
-                  
-                  if (/^[A-Z]$/i.test(key)) {
-                    leftIndex = key.toUpperCase().charCodeAt(0) - 65;
-                  } else if (/^\d+$/.test(key)) {
-                    leftIndex = parseInt(key, 10);
-                  } else {
-                    continue;
-                  }
-                  
-                  const val = correctAnswer[key];
-                  if (typeof val === 'number') {
-                    rightIndex = val;
-                  } else if (typeof val === 'string' && /^\d+$/.test(val as string)) {
-                    rightIndex = parseInt(val as string, 10);
-                  } else {
-                    continue;
-                  }
-                  
-                  // Detect 1-based indexing
-                  const allValues = Object.values(correctAnswer)
-                    .filter((v): v is number | string => typeof v === 'number' || typeof v === 'string')
-                    .filter(v => typeof v === 'number' || /^\d+$/.test(v as string))
-                    .map(v => typeof v === 'number' ? v : parseInt(v as string, 10));
-                  
-                  const hasZero = allValues.some(v => v === 0);
-                  const minValue = Math.min(...allValues);
-                  
-                  if (!hasZero && minValue === 1) {
-                    rightIndex = rightIndex - 1;
-                  }
-                  
-                  pairs.push({ left: leftIndex, right: rightIndex });
+              case 'true_false':
+                // Multi-statement mode
+                if (Array.isArray(qd.statements)) {
+                  const vals = Array.isArray(ad.values) ? ad.values : [];
+                  correctAnswer = {
+                    statements: qd.statements.map((s: any, i: number) => ({
+                      text: typeof s === 'string' ? s : (s?.text ?? ''),
+                      answer: vals[i] ?? true,
+                    })),
+                    numbering_style: qd.numbering_style || 'i,ii,iii'
+                  };
+                  // For grid display, use first statement as preview
+                  questionText = correctAnswer.statements[0]?.text || '';
+                } else {
+                  // Single-statement mode
+                  questionText = qd.text || questionText;
+                  correctAnswer = { value: Boolean(ad.value ?? true) };
                 }
+                break;
                 
-                if (pairs.length > 0) {
-                  correctAnswer = { pairs };
+              case 'fill_blank':
+              case 'fill_blanks':
+              case 'interactive_blanks':
+                // Multi-part blanks
+                if (Array.isArray(qd.sub_questions)) {
+                  const blanks = Array.isArray(ad.blanks) ? ad.blanks : [];
+                  correctAnswer = {
+                    blanks,
+                    sub_questions: qd.sub_questions.map((sq: any, i: number) => ({
+                      text: sq?.text || '',
+                      correctAnswer: blanks[i]?.correctAnswer || '',
+                      distractors: blanks[i]?.distractors || []
+                    })),
+                    numbering_style: qd.numbering_style || '1,2,3'
+                  };
+                  blanksCount = correctAnswer.sub_questions.length;
+                  // For grid display, use first sub-question as preview
+                  questionText = correctAnswer.sub_questions[0]?.text || qd.text || '';
+                } else if (Array.isArray(ad.blanks)) {
+                  // Single blank with multiple distractor options
+                  questionText = qd.text || '';
+                  correctAnswer = { blanks: ad.blanks };
+                  blanksCount = ad.blanks.length || 1;
                 }
-              }
-            }
-            // Parse correct_answer if it's still JSONB object (defensive fallback for MCQ)
-            else if (questionType === 'mcq' && typeof correctAnswer === 'object' && correctAnswer !== null) {
-              correctAnswer = correctAnswer.value ?? correctAnswer.index ?? 0;
+                break;
+                
+              case 'match_column':
+              case 'match_pairs':
+                questionText = qd.text || '';
+                leftColumn = qd.leftColumn || [];
+                rightColumn = qd.rightColumn || [];
+                correctAnswer = { pairs: ad.pairs || [] };
+                break;
+                
+              case 'assertion_reason':
+                questionText = qd.text || '';
+                assertion = qd.assertion || '';
+                reason = qd.reason || '';
+                options = qd.options || [];
+                correctAnswer = ad.correctIndex ?? 0;
+                break;
+                
+              case 'short_answer':
+                questionText = qd.text || '';
+                correctAnswer = { expectedAnswer: ad.expectedAnswer || ad.value || '' };
+                break;
+                
+              default:
+                // Fallback: try legacy flat fields
+                questionText = q.question_text || qd.text || '';
+                options = q.options || qd.options;
+                correctAnswer = q.correct_answer_index ?? q.correct_answer ?? ad.correctIndex ?? ad.value;
+                leftColumn = q.left_column;
+                rightColumn = q.right_column;
+                assertion = q.assertion;
+                reason = q.reason;
+                blanksCount = q.blanks_count;
             }
             
             return {
               id: q.id,
               question_number: String(index + 1),
-              question_type: questionType,
+              question_type: type as any,
               question_text: questionText,
-              options: options,
+              options,
               left_column: leftColumn,
               right_column: rightColumn,
-              assertion: assertion,
-              reason: reason,
+              assertion,
+              reason,
               blanks_count: blanksCount,
-              marks: marks,
-              difficulty: difficulty,
+              marks,
+              difficulty,
               correct_answer: correctAnswer,
-              explanation: explanation,
+              explanation,
               auto_corrected: q.admin_reviewed || false,
               confidence: q.admin_reviewed ? 'high' : 'medium'
             };

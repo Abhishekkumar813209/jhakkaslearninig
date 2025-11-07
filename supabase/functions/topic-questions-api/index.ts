@@ -305,124 +305,159 @@ serve(async (req) => {
       );
     }
 
-    // ========== insert_sample_questions: Add 8 sample questions for testing ==========
+    // ========== insert_sample_questions: Add 8 sample questions for testing (JSONB-ONLY) ==========
     if (action === 'insert_sample_questions') {
       const { topic_id, subject, chapter_id, batch_id } = body;
       if (!topic_id) {
         throw new Error('Missing topic_id');
       }
 
-      console.log(`🎯 Inserting 8 sample questions for topic: ${topic_id}`);
+      console.log(`🎯 Inserting 8 sample questions (JSONB-only) for topic: ${topic_id}`);
 
       const sampleQuestions = [
         // 1. MCQ
         {
-          question_text: 'What is the powerhouse of the cell?',
           question_type: 'mcq',
-          options: ['Nucleus', 'Ribosome', 'Mitochondria', 'Chloroplast'],
-          correct_answer: 2,
+          question_data: {
+            text: 'What is the powerhouse of the cell?',
+            options: ['Nucleus', 'Ribosome', 'Mitochondria', 'Chloroplast']
+          },
+          answer_data: {
+            correctIndex: 2,
+            explanation: 'Mitochondria is known as the powerhouse of the cell because it produces ATP.'
+          },
           difficulty: 'easy',
-          marks: 1,
-          explanation: 'Mitochondria is known as the powerhouse of the cell because it produces ATP.',
-          question_number: '1'
+          marks: 1
         },
         // 2. True/False
         {
-          question_text: 'Water boils at 100°C at sea level.',
           question_type: 'true_false',
-          options: ['True', 'False'],
-          correct_answer: 0,
+          question_data: {
+            text: 'Water boils at 100°C at sea level.'
+          },
+          answer_data: {
+            value: true,
+            explanation: 'Water boils at 100°C (212°F) at sea level atmospheric pressure.'
+          },
           difficulty: 'easy',
-          marks: 1,
-          explanation: 'Water boils at 100°C (212°F) at sea level atmospheric pressure.',
-          question_number: '2'
+          marks: 1
         },
         // 3. Fill in the Blank
         {
-          question_text: 'The process by which plants make their own food is called ___.',
           question_type: 'fill_blank',
-          correct_answer: 'photosynthesis',
+          question_data: {
+            text: 'The process by which plants make their own food is called ___.'
+          },
+          answer_data: {
+            blanks: [{
+              correctAnswer: 'photosynthesis',
+              distractors: []
+            }],
+            explanation: 'Photosynthesis is the process where plants use sunlight to synthesize food.'
+          },
           difficulty: 'easy',
-          marks: 1,
-          explanation: 'Photosynthesis is the process where plants use sunlight to synthesize food.',
-          question_number: '3'
+          marks: 1
         },
         // 4. Match Column
         {
-          question_text: 'Match the following scientists with their discoveries:',
           question_type: 'match_column',
-          left_column: ['Isaac Newton', 'Albert Einstein', 'Marie Curie', 'Charles Darwin'],
-          right_column: ['Theory of Evolution', 'Laws of Motion', 'Theory of Relativity', 'Radioactivity'],
-          correct_answer: { '0': 1, '1': 2, '2': 3, '3': 0 },  // Direct object, not stringified
+          question_data: {
+            text: 'Match the following scientists with their discoveries:',
+            leftColumn: ['Isaac Newton', 'Albert Einstein', 'Marie Curie', 'Charles Darwin'],
+            rightColumn: ['Theory of Evolution', 'Laws of Motion', 'Theory of Relativity', 'Radioactivity']
+          },
+          answer_data: {
+            pairs: [
+              { left: 0, right: 1 },
+              { left: 1, right: 2 },
+              { left: 2, right: 3 },
+              { left: 3, right: 0 }
+            ],
+            explanation: 'Newton - Laws of Motion, Einstein - Relativity, Curie - Radioactivity, Darwin - Evolution'
+          },
           difficulty: 'medium',
-          marks: 2,
-          explanation: 'Newton - Laws of Motion, Einstein - Relativity, Curie - Radioactivity, Darwin - Evolution',
-          question_number: '4'
+          marks: 2
         },
         // 5. Assertion-Reason
         {
-          question_text: 'Read the assertion and reason carefully:',
           question_type: 'assertion_reason',
-          assertion: 'Plants release oxygen during photosynthesis.',
-          reason: 'Oxygen is a by-product when plants convert carbon dioxide and water into glucose.',
-          options: [
-            'Both A and R are true and R is the correct explanation of A',
-            'Both A and R are true but R is not the correct explanation of A',
-            'A is true but R is false',
-            'A is false but R is true'
-          ],
-          correct_answer: 0,
+          question_data: {
+            text: 'Read the assertion and reason carefully:',
+            assertion: 'Plants release oxygen during photosynthesis.',
+            reason: 'Oxygen is a by-product when plants convert carbon dioxide and water into glucose.',
+            options: [
+              'Both A and R are true and R is the correct explanation of A',
+              'Both A and R are true but R is not the correct explanation of A',
+              'A is true but R is false',
+              'A is false but R is true'
+            ]
+          },
+          answer_data: {
+            correctIndex: 0,
+            explanation: 'Both statements are true and the reason correctly explains the assertion.'
+          },
           difficulty: 'medium',
-          marks: 2,
-          explanation: 'Both statements are true and the reason correctly explains the assertion.',
-          question_number: '5'
+          marks: 2
         },
         // 6. Short Answer
         {
-          question_text: 'Explain the water cycle in 2-3 sentences.',
           question_type: 'short_answer',
-          correct_answer: 'The water cycle describes how water evaporates from Earth surface, rises into the atmosphere, cools and condenses into clouds, and falls back as precipitation.',
+          question_data: {
+            text: 'Explain the water cycle in 2-3 sentences.'
+          },
+          answer_data: {
+            expectedAnswer: 'The water cycle describes how water evaporates from Earth surface, rises into the atmosphere, cools and condenses into clouds, and falls back as precipitation.',
+            explanation: 'The water cycle involves evaporation, condensation, and precipitation.'
+          },
           difficulty: 'medium',
-          marks: 3,
-          explanation: 'The water cycle involves evaporation, condensation, and precipitation.',
-          question_number: '6'
+          marks: 3
         },
         // 7. MCQ (Science-specific)
         {
-          question_text: 'Which gas is most abundant in Earth\'s atmosphere?',
           question_type: 'mcq',
-          options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'],
-          correct_answer: 1,
+          question_data: {
+            text: 'Which gas is most abundant in Earth\'s atmosphere?',
+            options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen']
+          },
+          answer_data: {
+            correctIndex: 1,
+            explanation: 'Nitrogen makes up about 78% of Earth\'s atmosphere.'
+          },
           difficulty: 'easy',
-          marks: 1,
-          explanation: 'Nitrogen makes up about 78% of Earth\'s atmosphere.',
-          question_number: '7'
+          marks: 1
         },
         // 8. True/False (Science-specific)
         {
-          question_text: 'The speed of light is faster than the speed of sound.',
           question_type: 'true_false',
-          options: ['True', 'False'],
-          correct_answer: 0,
+          question_data: {
+            text: 'The speed of light is faster than the speed of sound.'
+          },
+          answer_data: {
+            value: true,
+            explanation: 'Light travels at approximately 300,000 km/s while sound travels at about 343 m/s in air.'
+          },
           difficulty: 'easy',
-          marks: 1,
-          explanation: 'Light travels at approximately 300,000 km/s while sound travels at about 343 m/s in air.',
-          question_number: '8'
+          marks: 1
         }
       ];
 
-      const insertPromises = sampleQuestions.map((q) => 
-        serviceClient.from('question_bank').insert({
-          ...q,
+      const insertPromises = sampleQuestions.map((q) => {
+        console.log('✨ Inserting JSONB sample question:', { type: q.question_type, keys: Object.keys(q.question_data) });
+        return serviceClient.from('question_bank').insert({
           topic_id,
           subject: subject || 'Science',
           chapter_id: chapter_id || null,
           batch_id: batch_id || null,
           created_by: user.id,
           is_approved: false,
-          admin_reviewed: false
-        })
-      );
+          admin_reviewed: false,
+          question_type: q.question_type,
+          question_data: q.question_data,
+          answer_data: q.answer_data,
+          marks: q.marks,
+          difficulty: q.difficulty
+        });
+      });
 
       const results = await Promise.all(insertPromises);
       const errors = results.filter(r => r.error);
@@ -432,7 +467,7 @@ serve(async (req) => {
         throw new Error(`Failed to insert ${errors.length} questions`);
       }
 
-      console.log(`✅ Successfully inserted ${sampleQuestions.length} sample questions`);
+      console.log(`✅ Successfully inserted ${sampleQuestions.length} JSONB sample questions`);
 
       return new Response(
         JSON.stringify({ 
@@ -921,54 +956,36 @@ serve(async (req) => {
       );
     }
 
-    // ========== save_draft_questions ==========
+    // ========== save_draft_questions (JSONB-ONLY WRITES) ==========
     if (action === 'save_draft_questions') {
-      const { questions, topic_id, subject, chapter_name, batch_id, roadmap_id, source_id } = body;
+      const { questions, topic_id, subject, chapter_name, batch_id, roadmap_id, source_id, exam_domain, exam_name } = body;
       
       if (!questions || !Array.isArray(questions) || !topic_id) {
         throw new Error('Missing questions array or topic_id');
       }
 
-      console.log(`💾 Saving ${questions.length} draft questions for topic: ${topic_id}`);
+      console.log(`💾 Saving ${questions.length} draft questions (JSONB-only) for topic: ${topic_id}`);
 
       const savedQuestions = [];
       for (const q of questions) {
-        let correctAnswer = q.correct_answer;
+        // Convert to JSONB format using the helper
+        const { question_data, answer_data } = convertQuestionToJSONB(q);
         
-        // Normalize to 0-based index for MCQs
-        if (q.question_type === 'mcq' && correctAnswer !== null && correctAnswer !== undefined) {
-          if (typeof correctAnswer === 'string' && /^\d+$/.test(correctAnswer)) {
-            const index = parseInt(correctAnswer);
-            // Convert 1-based to 0-based if needed
-            if (index > 0 && index <= (q.options?.length || 0)) {
-              correctAnswer = (index - 1).toString();
-            } else {
-              correctAnswer = index.toString();
-            }
-          } else if (typeof correctAnswer === 'number') {
-            // If AI returns 1-based, convert to 0-based
-            if (correctAnswer > 0 && correctAnswer <= (q.options?.length || 0)) {
-              correctAnswer = (correctAnswer - 1).toString();
-            } else {
-              correctAnswer = correctAnswer.toString();
-            }
-          } else if (typeof correctAnswer === 'string') {
-            // Text answer - find index in options
-            const optionIndex = (q.options || []).findIndex(
-              opt => opt.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
-            );
-            if (optionIndex !== -1) {
-              correctAnswer = optionIndex.toString();
-            }
-          }
-        }
+        console.log('✨ Converting to JSONB:', { 
+          type: q.question_type, 
+          question_data_keys: Object.keys(question_data),
+          answer_data_keys: Object.keys(answer_data)
+        });
         
         const { data, error } = await serviceClient
           .from('question_bank')
           .insert({
-            question_text: stripHtmlTags(q.question_text),
+            // JSONB-only columns
             question_type: q.question_type,
-            options: stripHtmlFromOptions(q.options || null),
+            question_data: question_data,
+            answer_data: answer_data,
+            
+            // Metadata columns
             marks: q.marks || 1,
             difficulty: q.difficulty || 'medium',
             topic_id: topic_id,
@@ -977,18 +994,24 @@ serve(async (req) => {
             batch_id: batch_id || null,
             roadmap_id: roadmap_id || null,
             source_id: source_id || null,
-            correct_answer: correctAnswer,  // 0-based index or null for draft
-            is_approved: false,     // Not yet approved
+            exam_domain: exam_domain || null,
+            exam_name: exam_name || null,
+            is_approved: false,
             admin_reviewed: false,
             created_at: new Date().toISOString()
           })
           .select()
           .single();
         
-        if (!error) savedQuestions.push(data);
+        if (!error) {
+          savedQuestions.push(data);
+          console.log(`✅ Saved question ${data.id} with JSONB data`);
+        } else {
+          console.error(`❌ Failed to save question:`, error);
+        }
       }
 
-      console.log(`✅ Saved ${savedQuestions.length} draft questions`);
+      console.log(`✅ Saved ${savedQuestions.length}/${questions.length} draft questions (JSONB-only)`);
 
       return new Response(
         JSON.stringify({ 

@@ -312,41 +312,23 @@ export const ManualQuestionEntry = ({
           };
       }
 
-      console.log('💾 Saving question (DUAL-WRITE MODE):', {
+
+      console.log('💾 Saving question (JSONB-ONLY MODE):', {
         gameType,
-        // Old format
-        leftColumn: finalLeftColumn,
-        rightColumn: finalRightColumn,
-        correctAnswer: correctAnswerFormat,
-        // New JSONB format
+        // New JSONB format only
         question_data: questionDataJSON,
         answer_data: answerDataJSON
       });
 
-      // Step 1: Save to question_bank (DUAL-WRITE: both old and new columns)
+      // Save to question_bank (JSONB-ONLY: no legacy columns except required question_text)
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
-        .insert({
-          // Context fields
-          topic_id: selectedTopic.id,
-          chapter_id: selectedChapter.id,
-          subject: selectedSubject,
-          batch_id: selectedBatch,
-          exam_domain: selectedDomain,
-          question_type: gameType,
-          
-          // OLD FORMAT (legacy columns) - for backward compatibility
+        .insert([{
+          // Minimal legacy field (required by schema)
           question_text: questionData.questionText,
-          options: gameData.options || null,
-          left_column: finalLeftColumn,
-          right_column: finalRightColumn,
-          correct_answer: correctAnswerFormat,
-          sub_questions: gameType === 'fill_blank' && gameData.sub_questions?.length >= 1 
-            ? gameData.sub_questions 
-            : null,
-          explanation: questionData.explanation,
           
-          // NEW FORMAT (unified JSONB columns)
+          // JSONB-only columns
+          question_type: gameType,
           question_data: questionDataJSON,
           answer_data: answerDataJSON,
           
@@ -356,7 +338,7 @@ export const ManualQuestionEntry = ({
           is_published: true,
           admin_reviewed: true,
           created_manually: true,
-        })
+        }])
         .select()
         .single();
 

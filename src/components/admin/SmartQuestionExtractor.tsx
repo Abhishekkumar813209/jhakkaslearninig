@@ -1826,38 +1826,27 @@ export const SmartQuestionExtractor = ({
 
     try {
       if (mode === 'question-bank') {
-        // Save to question_bank table with topic metadata
-        const { data: user } = await supabase.auth.getUser();
-        
-        const questionsToSave = selected.map(q => ({
-          topic_id: topicId,
-          chapter_id: chapterId,
-          subject: subjectName,
-          batch_id: batchId,
-          exam_domain: examDomain,
-          exam_name: examName,
-          question_text: q.question_text,
-          question_type: q.question_type,
-          options: q.options || null,
-          left_column: q.left_column || null,
-          right_column: q.right_column || null,
-          correct_answer: q.correct_answer || null,
-          explanation: q.explanation || null,
-          marks: q.marks || 1,
-          difficulty: q.difficulty || 'medium',
-          is_published: false,
-          created_by: user.user?.id,
-          source_file_name: sourceFileName || 'uploaded'
-        }));
+        // Use topic-questions-api edge function for JSONB-only writes
+        const data = await invokeWithAuth<any, { success: boolean; saved_count: number; question_ids: string[] }>({
+          name: 'topic-questions-api',
+          body: {
+            action: 'save_draft_questions',
+            questions: selected,
+            topic_id: topicId,
+            subject: subjectName,
+            chapter_name: chapterName,
+            batch_id: batchId,
+            exam_domain: examDomain,
+            exam_name: examName,
+            source_id: null
+          }
+        });
 
-        const { data, error } = await supabase
-          .from("question_bank")
-          .insert(questionsToSave)
-          .select();
+        if (!data.success) {
+          throw new Error('Failed to save questions');
+        }
 
-        if (error) throw error;
-
-        toast.success(`✅ Saved ${data.length} questions to Question Bank!`, {
+        toast.success(`✅ Saved ${data.saved_count} questions to Question Bank!`, {
           description: `Topic: ${topicName} • Chapter: ${chapterName} • Subject: ${subjectName}`
         });
         
@@ -1870,29 +1859,43 @@ export const SmartQuestionExtractor = ({
         onQuestionsAdded(selected);
         
       } else {
-        // Lesson Builder mode - use topic-questions-api
-        const data = await invokeWithAuth<any, { success: boolean; count: number; mappings_created: number; exercises_created: number }>({
+        // Lesson Builder mode - save drafts then finalize_and_link
+        const saveData = await invokeWithAuth<any, { success: boolean; saved_count: number; question_ids: string[] }>({
           name: 'topic-questions-api',
           body: {
-            action: 'save_extracted_and_link',
+            action: 'save_draft_questions',
+            questions: selected,
             topic_id: selectedTopic,
             subject: 'General',
-            chapter_name: null,
-            topic_name: selectedTopic || null,
-            questions: selected,
-          },
+            chapter_name: null
+          }
         });
 
-        if (!data.success) {
+        if (!saveData.success) {
           throw new Error('Failed to save questions');
         }
 
-        toast.success(`✅ Saved ${data.count} questions to database!`, {
-          description: `${data.mappings_created} linked to topic, ${data.exercises_created} games created`
+        // Now finalize and link
+        const linkData = await invokeWithAuth<any, { success: boolean; linked_count: number; skipped_count: number }>({
+          name: 'topic-questions-api',
+          body: {
+            action: 'finalize_and_link',
+            topic_id: selectedTopic,
+            question_ids: saveData.question_ids
+          }
+        });
+
+        if (!linkData.success) {
+          throw new Error('Failed to link questions');
+        }
+
+        toast.success(`✅ Saved ${saveData.saved_count} questions to database!`, {
+          description: `${linkData.linked_count} linked to topic, ${linkData.skipped_count} skipped (already exist)`
         });
         
         // Questions stay in UI for lesson builder
       }
+      
       
     } catch (error: any) {
       console.error('❌ Save error:', error);

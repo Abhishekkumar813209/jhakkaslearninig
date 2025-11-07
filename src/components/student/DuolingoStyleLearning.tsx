@@ -15,6 +15,7 @@ import { MatchPairsGame } from "./games/MatchPairsGame";
 import { DragDropSequence } from "./games/DragDropSequence";
 import { TypingRaceGame } from "./games/TypingRaceGame";
 import { InteractiveBlanks } from "./games/InteractiveBlanks";
+import { DragDropBlanks } from "./games/DragDropBlanks";
 import { ConceptPuzzle } from "./games/ConceptPuzzle";
 import { PhysicsSimulator } from "./games/PhysicsSimulator";
 import { MCQGame } from "./games/MCQGame";
@@ -222,31 +223,96 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const parseGameData = (gameType: string | undefined, rawGameData: any) => {
-    // If game_data doesn't have question_data/answer_data, it's likely already plain shape
-    // but handle true_false specially (extract from statements[] and map to MCQ shape)
+    // If game_data doesn't have question_data/answer_data, it's plain API format
     if (!rawGameData?.question_data && !rawGameData?.answer_data) {
-      if (gameType === 'true_false') {
-        const statementText = rawGameData?.question
-          ?? (Array.isArray(rawGameData?.statements) ? rawGameData.statements[0] : undefined)
-          ?? rawGameData?.text
-          ?? 'True or False?';
+      switch (gameType) {
+        case 'mcq': {
+          // Extract correct answer index from various possible formats
+          let correctIndex = 0;
+          if (typeof rawGameData?.correct_answer === 'number') {
+            correctIndex = rawGameData.correct_answer;
+          } else if (typeof rawGameData?.correct_answer?.index === 'number') {
+            correctIndex = rawGameData.correct_answer.index;
+          } else if (typeof rawGameData?.correctIndex === 'number') {
+            correctIndex = rawGameData.correctIndex;
+          }
+          
+          return {
+            question: rawGameData?.text || rawGameData?.question || 'Question',
+            options: rawGameData?.options || [],
+            correct_answer: correctIndex,
+            explanation: rawGameData?.explanation || '',
+            marks: rawGameData?.marks || 1,
+            difficulty: rawGameData?.difficulty,
+          };
+        }
+        
+        case 'true_false': {
+          const statementText = rawGameData?.question
+            ?? (Array.isArray(rawGameData?.statements) ? rawGameData.statements[0] : undefined)
+            ?? rawGameData?.text
+            ?? 'True or False?';
 
-        // Determine correct answer index (0: True, 1: False)
-        const correctBool = typeof rawGameData?.correct_answer === 'boolean'
-          ? rawGameData.correct_answer
-          : (typeof rawGameData?.correctValue === 'boolean' ? rawGameData.correctValue : undefined);
-        const correctIndex = typeof correctBool === 'boolean' ? (correctBool ? 0 : 1) : 0;
+          // Determine correct answer index (0: True, 1: False)
+          const correctBool = typeof rawGameData?.correct_answer === 'boolean'
+            ? rawGameData.correct_answer
+            : (typeof rawGameData?.correctValue === 'boolean' ? rawGameData.correctValue : undefined);
+          const correctIndex = typeof correctBool === 'boolean' ? (correctBool ? 0 : 1) : 0;
 
-        return {
-          question: statementText,
-          options: ['True', 'False'],
-          correct_answer: correctIndex,
-          explanation: rawGameData?.explanation || '',
-          marks: rawGameData?.marks || 1,
-          difficulty: rawGameData?.difficulty,
-        };
+          return {
+            question: statementText,
+            options: ['True', 'False'],
+            correct_answer: correctIndex,
+            explanation: rawGameData?.explanation || '',
+            marks: rawGameData?.marks || 1,
+            difficulty: rawGameData?.difficulty,
+          };
+        }
+        
+        case 'match_pairs':
+        case 'match_column': {
+          const leftCol = rawGameData?.leftColumn || [];
+          const rightCol = rawGameData?.rightColumn || [];
+          
+          return {
+            question: rawGameData?.text || '',
+            pairs: leftCol.map((left: string, i: number) => ({
+              id: String(i + 1),
+              left,
+              right: rightCol[i] || ''
+            })),
+            explanation: rawGameData?.explanation || '',
+            marks: rawGameData?.marks || 1,
+          };
+        }
+        
+        case 'fill_blanks':
+        case 'interactive_blanks': {
+          // Multi-part format
+          if (rawGameData?.sub_questions?.length > 0) {
+            return {
+              sub_questions: rawGameData.sub_questions,
+              numbering_style: rawGameData.numbering_style || '1,2,3',
+              explanation: rawGameData?.explanation || '',
+              marks: rawGameData?.marks || 1,
+              difficulty: rawGameData?.difficulty,
+            };
+          }
+          // Single blank format
+          if (rawGameData?.text && (rawGameData?.correct_answer?.blanks || rawGameData?.blanks)) {
+            return {
+              question: rawGameData.text,
+              blanks: rawGameData.correct_answer?.blanks || rawGameData.blanks,
+              explanation: rawGameData?.explanation || '',
+              marks: rawGameData?.marks || 1,
+            };
+          }
+          return rawGameData;
+        }
+        
+        default:
+          return rawGameData;
       }
-      return rawGameData;
     }
 
     // Parse JSONB format
@@ -303,10 +369,11 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         };
         
       case 'match_pairs':
+      case 'match_column':
         parsed = parseMatchPairsData(rawGameData);
         // Transform to pairs array format for MatchPairsGame
         const pairs = parsed.leftColumn.map((left: string, idx: number) => ({
-          id: idx + 1,
+          id: String(idx + 1),
           left,
           right: parsed.rightColumn[parsed.correctPairs.find((p: any) => p.left === idx)?.right || idx]
         }));
@@ -330,13 +397,15 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       case 'assertion_reason':
         return MCQGame;
       case 'match_pairs':
+      case 'match_column':
         return MatchPairsGame;
       case 'drag_drop':
         return DragDropSequence;
       case 'typing_race':
         return TypingRaceGame;
       case 'fill_blanks':
-        return InteractiveBlanks;
+      case 'interactive_blanks':
+        return DragDropBlanks;
       case 'word_puzzle':
         return ConceptPuzzle;
       case 'physics_simulator':

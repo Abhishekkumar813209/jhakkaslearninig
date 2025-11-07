@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop, Upload, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle, AlertCircle, Loader2, Search, X, Crop, Upload, Plus, Trash2, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { renderMath } from '@/lib/mathRendering';
@@ -95,15 +95,17 @@ interface ExtractedQuestion {
 interface BulkQuestionEditorProps {
   questions: ExtractedQuestion[];
   onUpdate: (questions: ExtractedQuestion[]) => void;
+  onPersist?: (questions: ExtractedQuestion[]) => Promise<void>;
   pdfFile?: File | null;
   pdfUrl?: string | null;
 }
 
-export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: BulkQuestionEditorProps) => {
+export const BulkQuestionEditor = ({ questions, onUpdate, onPersist, pdfFile, pdfUrl }: BulkQuestionEditorProps) => {
   const [editableQuestions, setEditableQuestions] = useState(questions);
   const [searchTerm, setSearchTerm] = useState('');
   const [replaceTerm, setReplaceTerm] = useState('');
   const [autoSaving, setAutoSaving] = useState(false);
+  const [isSavingToDB, setIsSavingToDB] = useState(false);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [selectedQuestionForCrop, setSelectedQuestionForCrop] = useState<ExtractedQuestion | null>(null);
   const [localPdfFile, setLocalPdfFile] = useState<File | null>(pdfFile || null);
@@ -323,6 +325,30 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
     setSelectedQuestionForCrop(null);
   };
 
+  const handleSaveAllToDB = async () => {
+    if (!onPersist) {
+      toast.error('Save functionality not available');
+      return;
+    }
+
+    const editedQuestions = editableQuestions.filter(q => q.edited);
+    if (editedQuestions.length === 0) {
+      toast.info('No edited questions to save');
+      return;
+    }
+
+    setIsSavingToDB(true);
+    try {
+      await onPersist(editedQuestions);
+      toast.success(`✅ Saved ${editedQuestions.length} questions to database`);
+    } catch (error: any) {
+      console.error('Failed to save to DB:', error);
+      toast.error('Failed to save: ' + error.message);
+    } finally {
+      setIsSavingToDB(false);
+    }
+  };
+
   const completedCount = editableQuestions.filter(q => q.edited).length;
   const needsReviewCount = editableQuestions.filter(q => !q.edited || q.ocr_status?.requires_manual_review).length;
 
@@ -426,8 +452,31 @@ export const BulkQuestionEditor = ({ questions, onUpdate, pdfFile, pdfUrl }: Bul
               📄 PDF Ready for Crop
             </Badge>
           )}
+          
+          {/* Save to DB Button */}
+          {onPersist && (
+            <Button
+              onClick={handleSaveAllToDB}
+              disabled={isSavingToDB || editableQuestions.filter(q => q.edited).length === 0}
+              size="sm"
+              className="ml-auto"
+            >
+              {isSavingToDB ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Database className="h-3 w-3 mr-1.5" />
+                  Save {editableQuestions.filter(q => q.edited).length} to DB
+                </>
+              )}
+            </Button>
+          )}
+          
           {autoSaving && (
-            <span className="flex items-center gap-1.5 text-muted-foreground ml-auto">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               Auto-saving...
             </span>

@@ -284,7 +284,7 @@ export const SmartQuestionExtractor = ({
               case 'true_false':
                 // Multi-statement mode
                 if (Array.isArray(qd.statements)) {
-                  const vals = Array.isArray(ad.values) ? ad.values : [];
+                  const vals = Array.isArray(ad.values) ? ad.values : Array.isArray(ad.answers) ? ad.answers : [];
                   correctAnswer = {
                     statements: qd.statements.map((s: any, i: number) => ({
                       text: typeof s === 'string' ? s : (s?.text ?? ''),
@@ -1615,6 +1615,61 @@ export const SmartQuestionExtractor = ({
     }
     
     return cleaned;
+  };
+
+  // Handle persisting questions from Bulk Editor to database
+  const handlePersistQuestions = async (questions: ExtractedQuestion[]) => {
+    const existingQuestions = questions.filter(q => isUUID(q.id));
+    const newQuestions = questions.filter(q => !isUUID(q.id));
+
+    console.log(`🔄 Persisting ${existingQuestions.length} existing + ${newQuestions.length} new questions`);
+
+    // Update existing questions in DB
+    for (const question of existingQuestions) {
+      const cleanedQuestion = cleanQuestionForSave(question);
+      
+      await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: {
+          action: 'update_full_question',
+          question_id: cleanedQuestion.id,
+          question_text: cleanedQuestion.question_text,
+          question_type: cleanedQuestion.question_type,
+          options: cleanedQuestion.options,
+          left_column: cleanedQuestion.left_column,
+          right_column: cleanedQuestion.right_column,
+          assertion: cleanedQuestion.assertion,
+          reason: cleanedQuestion.reason,
+          blanks_count: cleanedQuestion.blanks_count,
+          marks: cleanedQuestion.marks,
+          difficulty: cleanedQuestion.difficulty,
+          correct_answer: cleanedQuestion.correct_answer,
+          explanation: cleanedQuestion.explanation,
+          sub_questions: cleanedQuestion.sub_questions,
+          statements: cleanedQuestion.statements,
+          numberingStyle: cleanedQuestion.numberingStyle
+        }
+      });
+    }
+
+    // Save new questions as drafts
+    if (newQuestions.length > 0) {
+      await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: {
+          action: 'save_draft_questions',
+          questions: newQuestions,
+          topic_id: topicId || selectedTopic,
+          subject: subjectName || 'General',
+          batch_id: batchId,
+          exam_domain: examDomain,
+          exam_name: examName
+        }
+      });
+    }
+
+    // Reload questions from database
+    setReloadKey((k) => k + 1);
   };
 
   const handleSaveAllChanges = async (questionId: string) => {
@@ -3029,6 +3084,7 @@ export const SmartQuestionExtractor = ({
               <BulkQuestionEditor
                 questions={extractedQuestions}
                 onUpdate={setExtractedQuestions}
+                onPersist={handlePersistQuestions}
                 pdfFile={uploadedPdfFile}
                 pdfUrl={uploadedPdfUrl}
               />

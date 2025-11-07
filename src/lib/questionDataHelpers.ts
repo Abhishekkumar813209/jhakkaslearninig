@@ -143,7 +143,7 @@ export const parseTrueFalseData = (question: any): ParsedTrueFalseData => {
       correctValue: true, // Not used in multi-part
       statements: questionData.statements.map((text: string, idx: number) => ({
         text,
-        answer: answerData.values?.[idx] ?? true
+        answer: answerData.values?.[idx] ?? answerData.answers?.[idx] ?? true
       })),
       numbering_style: questionData.numbering_style || 'i,ii,iii',
       explanation: answerData.explanation || question.explanation

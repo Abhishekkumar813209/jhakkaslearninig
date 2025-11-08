@@ -1300,6 +1300,44 @@ function LessonContentBuilderInner() {
             // FORCE PUBLISH: Skip duplicate detection for match_pairs/match_column to ensure they publish
             console.log(`⚠️ Duplicate detection disabled for ${lesson.game_type} - force publishing`);
             isDuplicate = false;
+          } else if (lesson.game_type === 'true_false' && Array.isArray((lesson.game_data as any)?.statements)) {
+            // Signature-based duplicate detection for true_false (use statements text)
+            const buildTfSig = (stmts: any[]) => {
+              const key = stmts.map(s => String(s?.text || '').trim()).join('|');
+              let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+              return Math.abs(h).toString(36);
+            };
+            const sig = buildTfSig((lesson.game_data as any).statements);
+            isDuplicate = existingGames.some(eg => {
+              const stmts = (eg as any)?.exercise_data?.statements;
+              if (!Array.isArray(stmts)) return false;
+              const egSig = buildTfSig(stmts);
+              return egSig === sig;
+            });
+            if (isDuplicate) {
+              console.log(`⏭️ Skipping duplicate true_false game (same statements signature)`);
+              skippedDuplicates++;
+              continue;
+            }
+          } else if (lesson.game_type === 'assertion_reason' && (lesson.game_data as any)) {
+            // Signature-based duplicate detection for assertion_reason (assertion|reason)
+            const assertion = String((lesson.game_data as any).assertion || '').trim();
+            const reason = String((lesson.game_data as any).reason || '').trim();
+            const key = `${assertion}|${reason}`;
+            let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+            const sig = Math.abs(h).toString(36);
+            isDuplicate = existingGames.some(eg => {
+              const a = String((eg as any)?.exercise_data?.assertion || '').trim();
+              const r = String((eg as any)?.exercise_data?.reason || '').trim();
+              const egKey = `${a}|${r}`;
+              let hh = 0; for (let i = 0; i < egKey.length; i++) { hh = (hh << 5) - hh + egKey.charCodeAt(i); hh |= 0; }
+              return Math.abs(hh).toString(36) === sig;
+            });
+            if (isDuplicate) {
+              console.log(`⏭️ Skipping duplicate assertion_reason game (same A/R signature)`);
+              skippedDuplicates++;
+              continue;
+            }
           } else {
             // For other types, compare question_text
             isDuplicate = existingGames.some(eg => 
@@ -1391,18 +1429,40 @@ function LessonContentBuilderInner() {
         } else if (['mcq', 'true_false', 'assertion_reason'].includes(lesson.game_type || '')) {
           // MCQ-type games
           let questionText = lesson.game_data?.question || '';
-          
-          // For multi-statement True/False, make question_text unique to avoid duplicate detection
-          if (lesson.game_type === 'true_false' && lesson.game_data?.statements && Array.isArray(lesson.game_data.statements)) {
-            const numStatements = lesson.game_data.statements.length;
-            const firstStatement = lesson.game_data.statements[0]?.text || '';
-            const preview = firstStatement.substring(0, 50);
-            questionText = `${questionText} [${numStatements} statements] ${preview}...`;
+
+          // For True/False and Assertion-Reason, build a human-readable display text and a unique storage text
+          if (lesson.game_type === 'true_false' && Array.isArray((lesson.game_data as any)?.statements)) {
+            const stmts = (lesson.game_data as any).statements as any[];
+            const numStatements = stmts.length;
+            const firstStatement = stmts[0]?.text || '';
+            const preview = String(firstStatement).substring(0, 50);
+            // signature based on statements text
+            const key = stmts.map(s => String(s?.text || '').trim()).join('|');
+            let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+            const sig = Math.abs(h).toString(36);
+
+            const displayText = `${questionText || 'True/False Statements'} [${numStatements} statements] ${preview}...`;
+            const storageText = `${displayText} | sig:${sig}`;
+            questionText = displayText;
+            insertData.exercise_data = { ...((lesson.game_data as any) || {}), question: storageText };
+          } else if (lesson.game_type === 'assertion_reason' && (lesson.game_data as any)) {
+            const assertion = String((lesson.game_data as any).assertion || '').trim();
+            const reason = String((lesson.game_data as any).reason || '').trim();
+            const base = questionText || 'Assertion-Reason';
+            const preview = `${assertion.substring(0, 40)} | ${reason.substring(0, 40)}`;
+            const key = `${assertion}|${reason}`;
+            let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+            const sig = Math.abs(h).toString(36);
+
+            const displayText = `${base} [A/R] ${preview}...`;
+            const storageText = `${displayText} | sig:${sig}`;
+            questionText = displayText;
+            insertData.exercise_data = { ...((lesson.game_data as any) || {}), question: storageText };
           }
           
           insertData.question_text = questionText;
-          insertData.options = lesson.game_data?.options || [];
-          insertData.correct_answer_index = lesson.game_data?.correct_answer ?? 0;
+          insertData.options = (lesson.game_data as any)?.options || [];
+          insertData.correct_answer_index = (lesson.game_data as any)?.correct_answer ?? 0;
         } else if (lesson.game_type === 'fill_blanks') {
           // Fill blanks
           insertData.question_text = (lesson.game_data as any)?.text || (lesson.game_data as any)?.question || '';

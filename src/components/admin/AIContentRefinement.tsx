@@ -137,18 +137,49 @@ export const AIContentRefinement = ({
           if (gameMappingError) throw gameMappingError;
 
           // Create gamified exercise for the game with simplified structure
+          // Prepare question text and exercise_data with unique signature for TF/AR to avoid DB duplicate trigger
+          const exerciseType = game.game_type || 'match_column';
+          let preparedQuestionText: string = game.game_data?.question || game.question || '';
+          let preparedExerciseData: any = game.game_data || game || {};
+
+          if (exerciseType === 'true_false' && Array.isArray(preparedExerciseData?.statements)) {
+            const stmts = preparedExerciseData.statements as any[];
+            const num = stmts.length;
+            const first = stmts[0]?.text || '';
+            const preview = String(first).substring(0, 50);
+            const key = stmts.map(s => String(s?.text || '').trim()).join('|');
+            let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+            const sig = Math.abs(h).toString(36);
+            const displayText = `${preparedQuestionText || 'True/False Statements'} [${num} statements] ${preview}...`;
+            const storageText = `${displayText} | sig:${sig}`;
+            preparedQuestionText = displayText;
+            preparedExerciseData = { ...preparedExerciseData, question: storageText };
+          } else if (exerciseType === 'assertion_reason' && (preparedExerciseData)) {
+            const assertion = String(preparedExerciseData.assertion || '').trim();
+            const reason = String(preparedExerciseData.reason || '').trim();
+            const base = preparedQuestionText || 'Assertion-Reason';
+            const preview = `${assertion.substring(0, 40)} | ${reason.substring(0, 40)}`;
+            const key = `${assertion}|${reason}`;
+            let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+            const sig = Math.abs(h).toString(36);
+            const displayText = `${base} [A/R] ${preview}...`;
+            const storageText = `${displayText} | sig:${sig}`;
+            preparedQuestionText = displayText;
+            preparedExerciseData = { ...preparedExerciseData, question: storageText };
+          }
+
           const { error: gameExerciseError } = await supabase
             .from('gamified_exercises')
             .insert({
               topic_content_id: gameMappingData.id,
-              exercise_type: game.game_type || 'match_column',
-              question_text: game.game_data?.question || game.question || '',
+              exercise_type: exerciseType,
+              question_text: preparedQuestionText,
               options: game.game_data?.options || game.options || [],
               correct_answer_index: game.correct_answer ?? game.game_data?.correct_answer ?? 0,
               marks: game.marks || 1,
               difficulty: metadata?.difficulty || 'medium',
               xp_reward: 15,
-              exercise_data: game.game_data || game || {} // Always populate exercise_data with full game data
+              exercise_data: preparedExerciseData // Always populate exercise_data with full game data
             } as any); // Type assertion until types regenerate
 
           if (gameExerciseError) throw gameExerciseError;

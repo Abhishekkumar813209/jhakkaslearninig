@@ -1390,7 +1390,17 @@ function LessonContentBuilderInner() {
           });
         } else if (['mcq', 'true_false', 'assertion_reason'].includes(lesson.game_type || '')) {
           // MCQ-type games
-          insertData.question_text = lesson.game_data?.question || '';
+          let questionText = lesson.game_data?.question || '';
+          
+          // For multi-statement True/False, make question_text unique to avoid duplicate detection
+          if (lesson.game_type === 'true_false' && lesson.game_data?.statements && Array.isArray(lesson.game_data.statements)) {
+            const numStatements = lesson.game_data.statements.length;
+            const firstStatement = lesson.game_data.statements[0]?.text || '';
+            const preview = firstStatement.substring(0, 50);
+            questionText = `${questionText} [${numStatements} statements] ${preview}...`;
+          }
+          
+          insertData.question_text = questionText;
           insertData.options = lesson.game_data?.options || [];
           insertData.correct_answer_index = lesson.game_data?.correct_answer ?? 0;
         } else if (lesson.game_type === 'fill_blanks') {

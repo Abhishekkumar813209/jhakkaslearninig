@@ -5352,6 +5352,7 @@ export type Database = {
         | "crossword"
         | "physics_simulation"
         | "assertion_reason"
+        | "match_columns"
       question_type: "mcq" | "subjective"
       roadmap_status: "draft" | "active" | "completed" | "archived" | "orphaned"
       student_class:
@@ -5546,6 +5547,7 @@ export const Constants = {
         "crossword",
         "physics_simulation",
         "assertion_reason",
+        "match_columns",
       ],
       question_type: ["mcq", "subjective"],
       roadmap_status: ["draft", "active", "completed", "archived", "orphaned"],

@@ -24,6 +24,7 @@ export const EnhancedXPManagement = () => {
   // Local state for full objects
   const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string } | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
+  const [isHydrating, setIsHydrating] = useState(false);
   
   // Hydrate board/class from URL continuously
   useEffect(() => {
@@ -34,17 +35,19 @@ export const EnhancedXPManagement = () => {
     if (cls && selectedDomain === 'school') hierarchy.setClass(cls);
   }, [searchParams, selectedDomain, hierarchy.setBoard, hierarchy.setClass]);
   
-  // Restore objects from URL on mount
+  // Restore objects from URL on mount - only set if we have the ID but not the object
   useEffect(() => {
     if (selectedRoadmapId && !selectedRoadmap) {
-      // Fetch and set roadmap object if needed
+      setIsHydrating(true);
       setSelectedRoadmap({ id: selectedRoadmapId, title: 'Loading...' });
+      setIsHydrating(false);
     }
     if (selectedChapterId && !selectedChapter) {
-      // Fetch and set chapter object if needed
+      setIsHydrating(true);
       setSelectedChapter({ id: selectedChapterId, name: 'Loading...' });
+      setIsHydrating(false);
     }
-  }, [selectedRoadmapId, selectedChapterId]);
+  }, [selectedRoadmapId, selectedChapterId, selectedRoadmap, selectedChapter]);
 
   const domains = [
     { code: 'school', name: 'School Education', icon: '🏫', color: 'bg-blue-500' },
@@ -287,7 +290,7 @@ export const EnhancedXPManagement = () => {
       )}
 
       {/* Step 6: XP Type Selection (Games vs Tests) + Duplicate Detector */}
-      {selectedChapter && (
+      {selectedChapter && selectedRoadmap && selectedSubject && !isHydrating && (
         <div className="space-y-6">
           <div>
             <Button onClick={handleBackToChapter} variant="outline" className="mb-4">
@@ -295,8 +298,8 @@ export const EnhancedXPManagement = () => {
               Back to Chapters
             </Button>
             <XPTypeSelector
-              roadmapId={selectedRoadmap!.id}
-              subject={selectedSubject!}
+              roadmapId={selectedRoadmap.id}
+              subject={selectedSubject}
               chapter={selectedChapter}
             />
           </div>
@@ -305,6 +308,13 @@ export const EnhancedXPManagement = () => {
             <h2 className="text-xl font-semibold mb-4">Duplicate Detector</h2>
             <DuplicateGameDetector />
           </div>
+        </div>
+      )}
+      
+      {/* Loading state during hydration */}
+      {isHydrating && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-muted-foreground">Loading XP configuration...</div>
         </div>
       )}
     </div>

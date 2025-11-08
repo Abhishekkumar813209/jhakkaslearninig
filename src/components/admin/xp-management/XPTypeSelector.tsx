@@ -10,6 +10,15 @@ interface XPTypeSelectorProps {
 }
 
 export const XPTypeSelector = ({ roadmapId, subject, chapter }: XPTypeSelectorProps) => {
+  // Defensive validation
+  if (!roadmapId || !subject || !chapter) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Invalid configuration. Please go back and reselect your options.
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">Manage XP for: {chapter.name}</h2>

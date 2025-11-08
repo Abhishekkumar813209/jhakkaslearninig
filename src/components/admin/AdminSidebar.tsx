@@ -23,6 +23,7 @@ import {
   Database,
   CheckCircle,
   FunctionSquare,
+  GitBranch,
 } from "lucide-react";
 import {
   Sidebar,
@@ -123,6 +124,7 @@ const menuGroups: MenuGroup[] = [
 const navigationItems = [
   { path: "/database-explorer", label: "Database Explorer", icon: Database },
   { path: "/edge-function-explorer", label: "Edge Function Explorer", icon: FunctionSquare },
+  { path: "/pipeline-validator", label: "Pipeline Validator", icon: GitBranch },
   { path: "/admin/solution-management", label: "Solution Management", icon: CheckCircle },
   { path: "/admin/courses", label: "Course Builder", icon: GraduationCap },
 ];

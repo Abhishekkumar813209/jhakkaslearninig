@@ -46,6 +46,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminCourses = lazy(() => import("./pages/AdminCourses"));
 const SolutionManagement = lazy(() => import("./pages/SolutionManagement"));
 const QuestionBank = lazy(() => import("./pages/QuestionBank"));
+const PipelineValidator = lazy(() => import("./pages/PipelineValidator"));
 
 const queryClient = new QueryClient();
 
@@ -223,6 +224,13 @@ const App = () => (
             <Route path="/edge-function-explorer" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
                 <EdgeFunctionExplorer />
+              </ProtectedRoute>
+            } />
+            <Route path="/pipeline-validator" element={
+              <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  <PipelineValidator />
+                </Suspense>
               </ProtectedRoute>
             } />
             <Route path="/admin/question-bank" element={

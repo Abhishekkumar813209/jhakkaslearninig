@@ -1327,25 +1327,6 @@ function LessonContentBuilderInner() {
             // FORCE PUBLISH: Skip duplicate detection for match_pairs/match_column to ensure they publish
             console.log(`⚠️ Duplicate detection disabled for ${lesson.game_type} - force publishing`);
             isDuplicate = false;
-          } else if (lesson.game_type === 'true_false' && Array.isArray((lesson.game_data as any)?.statements)) {
-            // Signature-based duplicate detection for true_false (use statements text)
-            const buildTfSig = (stmts: any[]) => {
-              const key = stmts.map(s => String(s?.text || '').trim()).join('|');
-              let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
-              return Math.abs(h).toString(36);
-            };
-            const sig = buildTfSig((lesson.game_data as any).statements);
-            isDuplicate = existingGames.some(eg => {
-              const stmts = (eg as any)?.exercise_data?.statements;
-              if (!Array.isArray(stmts)) return false;
-              const egSig = buildTfSig(stmts);
-              return egSig === sig;
-            });
-            if (isDuplicate) {
-              console.log(`⏭️ Skipping duplicate true_false game (same statements signature)`);
-              skippedDuplicates++;
-              continue;
-            }
           } else if (lesson.game_type === 'assertion_reason' && (lesson.game_data as any)) {
             // Signature-based duplicate detection for assertion_reason (assertion|reason)
             const assertion = String((lesson.game_data as any).assertion || '').trim();

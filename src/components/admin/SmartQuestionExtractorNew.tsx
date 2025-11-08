@@ -570,7 +570,10 @@ export const SmartQuestionExtractorNew = ({
         }
         // Sub-questions format (multi-part)
         if (ans?.sub_questions && Array.isArray(ans.sub_questions)) {
-          return ans.sub_questions.length > 0;
+          return ans.sub_questions.length > 0 && 
+                 ans.sub_questions.every((sq: any) => 
+                   sq.correctAnswer?.trim().length > 0
+                 );
         }
         // Legacy formats
         if (typeof ans === 'string') return ans.trim().length > 0;

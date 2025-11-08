@@ -29,3 +29,6 @@ verify_jwt = true
 
 [functions.resync-topic-games]
 verify_jwt = true
+
+[functions.publish-approved-games]
+verify_jwt = true

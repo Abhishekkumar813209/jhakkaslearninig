@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ChevronDown, ChevronRight, Sparkles, RefreshCw, Zap } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronRight, Sparkles, RefreshCw, Zap, AlertTriangle, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -8,6 +8,7 @@ import { GameXPTable } from './GameXPTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Topic {
   id: string;
@@ -15,7 +16,8 @@ interface Topic {
   day_number: number;
   game_count: number;
   approved_games_count?: number;
-  sync_status?: 'synced' | 'pending' | 'issue';
+  missing_data_count?: number;
+  sync_status?: 'synced' | 'pending' | 'incomplete';
 }
 
 export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
@@ -28,6 +30,7 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
   const [currentTopicId, setCurrentTopicId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTopics();
@@ -69,27 +72,39 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
           }
           console.debug(`[GamesXPManager] Topic ${topic.topic_name}: publishedCount=${publishedCount}`);
 
-          // Count approved games in topic_learning_content
-          const { count: approvedCount } = await supabase
+          // Count approved games WITH data (ready to publish)
+          const { count: approvedWithDataCount } = await supabase
             .from('topic_learning_content')
             .select('*', { count: 'exact', head: true })
             .eq('topic_id', topic.id)
             .eq('lesson_type', 'game')
-            .eq('human_reviewed', true);
-          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: approvedCount=${approvedCount}`);
+            .eq('human_reviewed', true)
+            .not('game_data', 'is', null);
+          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: approvedWithDataCount=${approvedWithDataCount}`);
+
+          // Count approved games WITHOUT data (incomplete)
+          const { count: missingDataCount } = await supabase
+            .from('topic_learning_content')
+            .select('*', { count: 'exact', head: true })
+            .eq('topic_id', topic.id)
+            .eq('lesson_type', 'game')
+            .eq('human_reviewed', true)
+            .is('game_data', null);
+          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: missingDataCount=${missingDataCount}`);
 
           // Determine sync status
-          let syncStatus: 'synced' | 'pending' | 'issue' = 'synced';
-          if ((approvedCount || 0) > (publishedCount || 0)) {
-            syncStatus = 'pending'; // Approved but not yet synced
-          } else if ((approvedCount || 0) < (publishedCount || 0)) {
-            syncStatus = 'issue'; // More published than approved (shouldn't happen)
+          let syncStatus: 'synced' | 'pending' | 'incomplete' = 'synced';
+          if ((approvedWithDataCount || 0) > (publishedCount || 0)) {
+            syncStatus = 'pending'; // Ready to publish
+          } else if ((missingDataCount || 0) > 0) {
+            syncStatus = 'incomplete'; // Has approved items but missing data
           }
 
           return {
             ...topic,
             game_count: publishedCount || 0,
-            approved_games_count: approvedCount || 0,
+            approved_games_count: approvedWithDataCount || 0,
+            missing_data_count: missingDataCount || 0,
             sync_status: syncStatus
           };
         })
@@ -132,6 +147,29 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
     await fetchTopics();
     setRefreshing(false);
     toast.success('Topics refreshed');
+  };
+
+  const handlePublishGames = async (topicId: string) => {
+    try {
+      setPublishing(topicId);
+      const { data, error } = await supabase.functions.invoke('publish-approved-games', {
+        body: { topic_id: topicId }
+      });
+
+      if (error) throw error;
+
+      toast.success(data?.message || 'Games published successfully');
+      
+      // Refresh after a short delay
+      setTimeout(() => {
+        fetchTopics();
+        setPublishing(null);
+      }, 800);
+    } catch (error: any) {
+      console.error('Error publishing games:', error);
+      toast.error('Failed to publish games');
+      setPublishing(null);
+    }
   };
 
   const toggleTopic = (topicId: string) => {
@@ -267,9 +305,10 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                           ⚠️ {topic.approved_games_count! - topic.game_count} pending
                         </Badge>
                       )}
-                      {topic.sync_status === 'issue' && (
-                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300 text-xs">
-                          ⚠️ Sync issue
+                      {topic.sync_status === 'incomplete' && topic.missing_data_count && topic.missing_data_count > 0 && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {topic.missing_data_count} missing data
                         </Badge>
                       )}
                     </div>
@@ -278,9 +317,14 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                     <Badge variant={topic.game_count > 0 ? "default" : "secondary"}>
                       {topic.game_count} published
                     </Badge>
-                    {topic.approved_games_count !== undefined && topic.approved_games_count !== topic.game_count && (
-                      <Badge variant="outline" className="text-xs">
-                        {topic.approved_games_count} approved
+                    {topic.approved_games_count !== undefined && topic.approved_games_count > 0 && (
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                        {topic.approved_games_count} ready
+                      </Badge>
+                    )}
+                    {topic.missing_data_count !== undefined && topic.missing_data_count > 0 && (
+                      <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
+                        {topic.missing_data_count} incomplete
                       </Badge>
                     )}
                   </div>
@@ -290,34 +334,66 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
             
             <CollapsibleContent>
               <CardContent className="pt-0 space-y-3">
+                {/* Diagnostics (for debugging) */}
+                <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2 space-y-0.5">
+                  <p><strong>Published:</strong> {topic.game_count} | <strong>Ready (with data):</strong> {topic.approved_games_count || 0} | <strong>Missing data:</strong> {topic.missing_data_count || 0}</p>
+                </div>
+
                 {topic.sync_status === 'pending' && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
-                        <p className="text-yellow-800 font-medium">⚠️ Sync Pending</p>
+                        <p className="text-yellow-800 font-medium">⚠️ Ready to Publish</p>
                         <p className="text-yellow-700 text-xs mt-1">
-                          {topic.approved_games_count! - topic.game_count} approved game(s) waiting to be published.
+                          {topic.approved_games_count! - topic.game_count} approved game(s) with data ready to be published.
                         </p>
                       </div>
-                      <Button
-                        onClick={() => handleSyncTopic(topic.id)}
-                        disabled={syncing === topic.id}
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                      >
-                        {syncing === topic.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                            Syncing...
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="h-3 w-3 mr-1.5" />
-                            Sync now
-                          </>
-                        )}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            disabled={syncing === topic.id || publishing === topic.id}
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                          >
+                            {syncing === topic.id || publishing === topic.id ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <Package className="h-3 w-3 mr-1.5" />
+                                Publish ▾
+                              </>
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleSyncTopic(topic.id)}>
+                            <Zap className="h-3 w-3 mr-2" />
+                            Sync (trigger)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePublishGames(topic.id)}>
+                            <Package className="h-3 w-3 mr-2" />
+                            Publish now (backfill)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )}
+
+                {topic.sync_status === 'incomplete' && topic.missing_data_count && topic.missing_data_count > 0 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-orange-800 font-medium">Incomplete Games</p>
+                        <p className="text-orange-700 text-xs mt-1">
+                          {topic.missing_data_count} approved game(s) are missing game_data. Generate data in Lesson Builder before publishing.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -348,7 +424,9 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                 ) : (
                   <p className="text-muted-foreground text-sm py-4">
                     {topic.approved_games_count && topic.approved_games_count > 0 
-                      ? `${topic.approved_games_count} game(s) approved but not yet published to gamified_exercises table`
+                      ? `${topic.approved_games_count} game(s) ready to publish (approved with data)`
+                      : topic.missing_data_count && topic.missing_data_count > 0
+                      ? `${topic.missing_data_count} game(s) approved but missing data`
                       : 'No games in this topic'}
                   </p>
                 )}

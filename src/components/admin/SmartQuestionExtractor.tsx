@@ -3013,80 +3013,81 @@ export const SmartQuestionExtractor = ({
                     </Alert>
                   )}
                   
-                  <div 
-                    className="text-sm line-clamp-3 mb-3 prose prose-sm max-w-none question-content"
-                    dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
-                  />
-                  
-                  {/* Show all True/False statements with toggles in Grid view */}
-                  {question.question_type === 'true_false' &&
-                   typeof question.correct_answer === 'object' &&
-                   question.correct_answer?.statements &&
-                   Array.isArray(question.correct_answer.statements) &&
-                   question.correct_answer.statements.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      {question.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
-                        <div key={stmtIdx} className="flex items-center gap-3 p-2 rounded-md border bg-muted/30">
-                          <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono">
-                            {stmtIdx + 1}
-                          </Badge>
-                          <div className="flex-1 text-sm" dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} />
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-green-500" />
-                            <span className="text-xs font-medium text-muted-foreground w-12">
-                              {stmt.answer ? 'True' : 'False'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Correct Answer Input */
-                  <div className="mb-4 border-t pt-3">
-                    <QuestionAnswerInput
-                      questionType={question.question_type}
-                      options={question.options}
-                      leftColumn={question.left_column}
-                      rightColumn={question.right_column}
-                      currentAnswer={question.correct_answer}
-                      onChange={(answer) => handleUpdateAnswer(question.id, answer)}
-                      blanksCount={question.blanks_count}
+                  <>
+                    <div 
+                      className="text-sm line-clamp-3 mb-3 prose prose-sm max-w-none question-content"
+                      dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
                     />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingQuestion(question);
-                        setShowEditDialog(true);
-                      }}
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit
-                    </Button>
                     
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const lesson = convertQuestionToLesson(question);
-                        setPreviewLesson(lesson);
-                      }}
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      Preview
-                    </Button>
-                  </div>
+                    {/* Show all True/False statements with toggles in Grid view */}
+                    {question.question_type === 'true_false' &&
+                     typeof question.correct_answer === 'object' &&
+                     question.correct_answer?.statements &&
+                     Array.isArray(question.correct_answer.statements) &&
+                     question.correct_answer.statements.length > 0 && (
+                      <div className="mt-2 mb-3 space-y-2">
+                        {question.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
+                          <div key={stmtIdx} className="flex items-center gap-3 p-2 rounded-md border bg-muted/30">
+                            <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono">
+                              {stmtIdx + 1}
+                            </Badge>
+                            <div className="flex-1 text-sm" dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} />
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-green-500" />
+                              <span className="text-xs font-medium text-muted-foreground w-12">
+                                {stmt.answer ? 'True' : 'False'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  
+                  {/* Correct Answer Input */}
+                    <div className="mb-4 border-t pt-3">
+                      <QuestionAnswerInput
+                        questionType={question.question_type}
+                        options={question.options}
+                        leftColumn={question.left_column}
+                        rightColumn={question.right_column}
+                        currentAnswer={question.correct_answer}
+                        onChange={(answer) => handleUpdateAnswer(question.id, answer)}
+                        blanksCount={question.blanks_count}
+                      />
+                    </div>
 
-                  {/* Save Changes Button (shown when question has edits) */}
-                  {question.id && editedQuestions.has(question.id) && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingQuestion(question);
+                          setShowEditDialog(true);
+                        }}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const lesson = convertQuestionToLesson(question);
+                          setPreviewLesson(lesson);
+                        }}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Preview
+                      </Button>
+                    </div>
+
+                    {/* Save Changes Button (shown when question has edits) */}
+                    {question.id && editedQuestions.has(question.id) && (
                     <Button 
                       variant="default" 
                       size="sm" 
@@ -3110,6 +3111,7 @@ export const SmartQuestionExtractor = ({
                       )}
                     </Button>
                   )}
+                  </>
                 </CardContent>
               </Card>
             ))}

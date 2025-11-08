@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronRight, Sparkles, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -26,6 +26,8 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [distributionPreview, setDistributionPreview] = useState<any>(null);
   const [currentTopicId, setCurrentTopicId] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchTopics();
@@ -54,6 +56,7 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
             .eq('topic_id', topic.id);
 
           const mappingIds = (mappings || []).map(m => m.id);
+          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: mappingIds.length=${mappingIds.length}`);
 
           // Step 2: Count games with these mapping IDs
           const { count: publishedCount, error: publishedError } = await supabase
@@ -64,6 +67,7 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
           if (publishedError) {
             console.error('Error counting published games for topic', topic.id, ':', publishedError);
           }
+          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: publishedCount=${publishedCount}`);
 
           // Count approved games in topic_learning_content
           const { count: approvedCount } = await supabase
@@ -72,6 +76,7 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
             .eq('topic_id', topic.id)
             .eq('lesson_type', 'game')
             .eq('human_reviewed', true);
+          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: approvedCount=${approvedCount}`);
 
           // Determine sync status
           let syncStatus: 'synced' | 'pending' | 'issue' = 'synced';
@@ -97,6 +102,36 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSyncTopic = async (topicId: string) => {
+    try {
+      setSyncing(topicId);
+      const { data, error } = await supabase.functions.invoke('resync-topic-games', {
+        body: { topic_id: topicId }
+      });
+
+      if (error) throw error;
+
+      toast.success(data?.message || 'Games resynced successfully');
+      
+      // Wait a moment for DB trigger to complete, then refresh
+      setTimeout(() => {
+        fetchTopics();
+        setSyncing(null);
+      }, 1000);
+    } catch (error: any) {
+      console.error('Error syncing topic games:', error);
+      toast.error('Failed to sync games');
+      setSyncing(null);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTopics();
+    setRefreshing(false);
+    toast.success('Topics refreshed');
   };
 
   const toggleTopic = (topicId: string) => {
@@ -195,7 +230,18 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
           <h3 className="text-lg font-semibold">Topics with Games</h3>
           <p className="text-sm text-muted-foreground">Manage XP distribution for each topic</p>
         </div>
-        <Badge variant="secondary">{topics.length} topics</Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Badge variant="secondary">{topics.length} topics</Badge>
+        </div>
       </div>
 
       {topics.map((topic) => (
@@ -246,11 +292,33 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
               <CardContent className="pt-0 space-y-3">
                 {topic.sync_status === 'pending' && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-                    <p className="text-yellow-800 font-medium">⚠️ Sync Pending</p>
-                    <p className="text-yellow-700 text-xs mt-1">
-                      {topic.approved_games_count! - topic.game_count} approved game(s) are waiting to be published. 
-                      The database trigger should sync them automatically. If this persists, check the logs.
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-yellow-800 font-medium">⚠️ Sync Pending</p>
+                        <p className="text-yellow-700 text-xs mt-1">
+                          {topic.approved_games_count! - topic.game_count} approved game(s) waiting to be published.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => handleSyncTopic(topic.id)}
+                        disabled={syncing === topic.id}
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                      >
+                        {syncing === topic.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-3 w-3 mr-1.5" />
+                            Sync now
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {topic.game_count > 0 ? (

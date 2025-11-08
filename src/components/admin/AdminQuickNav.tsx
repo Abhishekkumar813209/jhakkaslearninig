@@ -17,11 +17,9 @@ const quickNavItems: QuickNavItem[] = [
   { value: 'manual-topics', label: 'Topics', icon: BookOpen },
   { value: 'lessons', label: 'Lessons', icon: GraduationCap },
   { value: 'question-bank', label: 'Questions', icon: HelpCircle },
+  { value: 'xp-config', label: 'XP Config', icon: Zap },
   { value: 'answer-management', label: 'Solutions', icon: FileCheck },
-  { value: 'zones', label: 'Zones', icon: MapPin },
-  { value: 'schools', label: 'Schools', icon: Building2 },
-  { value: 'tests', label: 'Tests', icon: FileText },
-  { value: 'xp-config', label: 'XP Config', icon: Zap }
+  { value: 'tests', label: 'Tests', icon: FileText }
 ];
 
 interface AdminQuickNavProps {

@@ -87,29 +87,37 @@ export const parseMCQData = (question: any): ParsedMCQData => {
  * Parse Fill in the Blanks question data from JSONB columns
  */
 export const parseFillBlankData = (question: any): ParsedFillBlankData => {
-  const questionData = question.question_data || {};
-  const answerData = question.answer_data || {};
+  // Prioritize exercise_data (for gamified_exercises) over question_data (for questions table)
+  const qd = question.exercise_data || question.question_data || {};
+  const ad = question.answer_data || {};
+
+  // Derive blanks from multiple sources
+  const blanksFromCA = Array.isArray(question.correct_answer)
+    ? question.correct_answer
+    : (question.correct_answer?.blanks || []);
+
+  const blanks = qd.blanks || ad.blanks || blanksFromCA || [];
 
   // Multi-part sub-questions format
-  if (questionData.sub_questions && Array.isArray(questionData.sub_questions)) {
+  if (qd.sub_questions && Array.isArray(qd.sub_questions) && qd.sub_questions.length > 0) {
     return {
-      text: '', // No header text for multi-part
-      blanks: answerData.blanks || [],
-      sub_questions: questionData.sub_questions.map((sq: any, idx: number) => ({
-        text: sq.text || sq,
-        correctAnswer: answerData.blanks?.[idx]?.correctAnswer || '',
-        distractors: answerData.blanks?.[idx]?.distractors || []
+      text: qd.text || qd.question || question.question_text || '',
+      blanks,
+      sub_questions: qd.sub_questions.map((sq: any, idx: number) => ({
+        text: typeof sq === 'string' ? sq : (sq.text || ''),
+        correctAnswer: blanks[idx]?.correctAnswer || '',
+        distractors: blanks[idx]?.distractors || []
       })),
-      numbering_style: questionData.numbering_style || '1,2,3',
-      explanation: answerData.explanation || question.explanation
+      numbering_style: qd.numbering_style || '1,2,3',
+      explanation: qd.explanation || ad.explanation || question.explanation
     };
   }
 
   // Single Fill Blank (legacy)
   return {
-    text: questionData.text || question.question_text || '',
-    blanks: answerData.blanks || question.correct_answer?.blanks || [],
-    explanation: answerData.explanation || question.explanation
+    text: qd.text || qd.question || question.question_text || '',
+    blanks,
+    explanation: qd.explanation || ad.explanation || question.explanation
   };
 };
 

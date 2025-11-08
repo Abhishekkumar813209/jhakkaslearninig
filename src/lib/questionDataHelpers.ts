@@ -117,15 +117,16 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
  * Parse Match Pairs question data from JSONB columns
  */
 export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
-  const questionData = question.question_data || {};
+  // Support both gamified_exercises format (exercise_data) and question_bank format (question_data/answer_data)
+  const questionData = question.exercise_data || question.question_data || {};
   const answerData = question.answer_data || {};
 
   return {
     question: questionData.question || questionData.text || question.question_text || '',
     leftColumn: questionData.leftColumn || question.left_column || [],
     rightColumn: questionData.rightColumn || question.right_column || [],
-    correctPairs: answerData.pairs || question.correct_answer?.pairs || [],
-    explanation: answerData.explanation || question.explanation
+    correctPairs: questionData.correctPairs || answerData.pairs || question.correct_answer?.pairs || [],
+    explanation: questionData.explanation || answerData.explanation || question.explanation
   };
 };
 

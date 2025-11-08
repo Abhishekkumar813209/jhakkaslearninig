@@ -628,7 +628,7 @@ const GamePlayerPage = () => {
         // Ensure distractors is always an array (never undefined)
         const fillBlankData = {
           question: parsedFB.text,
-          blanks: parsedFB.blanks,
+          blanks: parsedFB.blanks || [],
           sub_questions: Array.isArray(parsedFB.sub_questions) 
             ? parsedFB.sub_questions.map(sq => ({
                 text: sq.text,
@@ -643,13 +643,17 @@ const GamePlayerPage = () => {
         };
         
         console.log('[GamePlayerPage] Fill Blank Data (parsed):', {
-          hasBlanks: fillBlankData.blanks.length > 0,
-          hasSubQuestions: fillBlankData.sub_questions?.length > 0,
-          gameId: gameData.id
+          hasBlanks: Array.isArray(fillBlankData.blanks) && fillBlankData.blanks.length > 0,
+          hasSubQuestions: Array.isArray(fillBlankData.sub_questions) && fillBlankData.sub_questions.length > 0,
+          gameId: gameData.id,
+          rawData: fillBlankData
         });
         
         // Validate: Must have either blanks or sub_questions
-        if (fillBlankData.blanks.length === 0 && (!fillBlankData.sub_questions || fillBlankData.sub_questions.length === 0)) {
+        const hasBlanks = Array.isArray(fillBlankData.blanks) && fillBlankData.blanks.length > 0;
+        const hasSubQuestions = Array.isArray(fillBlankData.sub_questions) && fillBlankData.sub_questions.length > 0;
+        
+        if (!hasBlanks && !hasSubQuestions) {
           console.error('[GamePlayerPage] Fill blank has no valid data:', gameData);
           return (
             <div className="text-center p-8">

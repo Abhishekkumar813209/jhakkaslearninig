@@ -133,20 +133,34 @@ export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
  * Parse True/False question data from JSONB columns
  */
 export const parseTrueFalseData = (question: any): ParsedTrueFalseData => {
-  const questionData = question.question_data || {};
+  // Check both exercise_data (for gamified_exercises) and question_data (for questions)
+  const questionData = question.exercise_data || question.question_data || {};
   const answerData = question.answer_data || {};
 
   // Multi-part statements format
   if (questionData.statements && Array.isArray(questionData.statements)) {
-    return {
-      statement: '', // No header text for multi-part
-      correctValue: true, // Not used in multi-part
-      statements: questionData.statements.map((text: string, idx: number) => ({
-        text,
+    // For gamified_exercises: statements already have {text, answer} format
+    const statements = questionData.statements.map((stmt: any, idx: number) => {
+      // If statement already has answer property (gamified_exercises format)
+      if (stmt.answer !== undefined) {
+        return {
+          text: stmt.text || '',
+          answer: stmt.answer
+        };
+      }
+      // If statement is just a string (questions table format)
+      return {
+        text: typeof stmt === 'string' ? stmt : stmt.text || '',
         answer: answerData.values?.[idx] ?? answerData.answers?.[idx] ?? true
-      })),
+      };
+    });
+    
+    return {
+      statement: '', 
+      correctValue: true,
+      statements,
       numbering_style: questionData.numbering_style || 'i,ii,iii',
-      explanation: answerData.explanation || question.explanation
+      explanation: questionData.explanation || answerData.explanation || question.explanation
     };
   }
 

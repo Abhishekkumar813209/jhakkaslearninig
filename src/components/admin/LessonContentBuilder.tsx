@@ -1869,38 +1869,48 @@ function LessonContentBuilderInner() {
       return true;
     }
 
-    // Baaki question types ke liye generic checks
-    // Fill blank uses 'text' field, others use 'question' field
-    const questionText = questionType === 'fill_blank' 
-      ? gameData.text 
-      : gameData.question;
-      
-    if (!questionText || questionText.trim() === '') {
-      toast({
-        title: "Validation Error",
-        description: `Question ${questionNumber}: Question text is empty!`,
-        variant: "destructive",
-      });
-      return false;
-    }
-
     // Fill blank specific validation for answer data
     if (questionType === 'fill_blank') {
       console.log('🔍 Fill blank validation check:', { 
         hasBlanks: !!gameData.blanks, 
-        isArray: Array.isArray(gameData.blanks),
-        blanksLength: gameData.blanks?.length,
+        hasSubQuestions: !!gameData.sub_questions,
+        hasText: !!gameData.text,
         blanksData: gameData.blanks
       });
       
+      // Check for either traditional format (text) OR sub-questions format
+      const isTraditionalFormat = gameData.text && gameData.text.trim() !== '';
+      const isSubQuestionsFormat = Array.isArray(gameData.sub_questions) && gameData.sub_questions.length > 0;
+      
+      if (!isTraditionalFormat && !isSubQuestionsFormat) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${questionNumber}: Fill blank needs either 'text' field or 'sub_questions' array!`,
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      // Validate blanks array exists
       if (!gameData.blanks || !Array.isArray(gameData.blanks) || gameData.blanks.length === 0) {
-        console.log('❌ Fill blank validation FAILED: Missing blanks array');
         toast({
           title: "Validation Error",
           description: `Question ${questionNumber}: Fill blank ko answer data chahiye (blanks array)!`,
           variant: "destructive",
         });
         return false;
+      }
+      
+      // For sub-questions format, validate blanks count matches sub-questions count
+      if (isSubQuestionsFormat) {
+        if (gameData.blanks.length !== gameData.sub_questions.length) {
+          toast({
+            title: "Validation Error",
+            description: `Question ${questionNumber}: Blanks count (${gameData.blanks.length}) should match sub-questions count (${gameData.sub_questions.length})!`,
+            variant: "destructive",
+          });
+          return false;
+        }
       }
       
       // Validate each blank has correctAnswer and 3 distractors
@@ -1919,6 +1929,20 @@ function LessonContentBuilderInner() {
         });
         return false;
       }
+      
+      return true; // Passed validation
+    }
+
+    // Baaki question types ke liye generic checks
+    const questionText = gameData.question;
+      
+    if (!questionText || questionText.trim() === '') {
+      toast({
+        title: "Validation Error",
+        description: `Question ${questionNumber}: Question text is empty!`,
+        variant: "destructive",
+      });
+      return false;
     }
 
     // MCQ-type options check

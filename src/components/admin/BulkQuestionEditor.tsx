@@ -325,6 +325,29 @@ export const BulkQuestionEditor = ({ questions, onUpdate, onPersist, pdfFile, pd
     setSelectedQuestionForCrop(null);
   };
 
+  const handleSaveQuestion = async (question: ExtractedQuestion) => {
+    if (!onPersist) {
+      toast.error('Save functionality not available');
+      return;
+    }
+
+    setIsSavingToDB(true);
+    try {
+      await onPersist([question]);
+      
+      // Mark as saved
+      setEditableQuestions(prev => prev.map(q => 
+        q.id === question.id ? { ...q, edited: false } : q
+      ));
+      
+      toast.success(`✅ Question ${question.question_number} saved!`);
+    } catch (error: any) {
+      toast.error('Failed to save: ' + error.message);
+    } finally {
+      setIsSavingToDB(false);
+    }
+  };
+
   const handleSaveAllToDB = async () => {
     if (!onPersist) {
       toast.error('Save functionality not available');
@@ -501,6 +524,8 @@ export const BulkQuestionEditor = ({ questions, onUpdate, onPersist, pdfFile, pd
                 newQuestions[idx] = updated;
                 setEditableQuestions(newQuestions);
               }}
+              onSave={handleSaveQuestion}
+              isSaving={isSavingToDB}
               hasPdf={!!localPdfFile}
               onFixWithCrop={() => handleFixWithCrop(q)}
             />
@@ -516,11 +541,13 @@ export const BulkQuestionEditor = ({ questions, onUpdate, onPersist, pdfFile, pd
 interface InlineQuestionCardProps {
   question: ExtractedQuestion;
   onUpdate: (question: ExtractedQuestion) => void;
+  onSave: (question: ExtractedQuestion) => Promise<void>;
+  isSaving: boolean;
   hasPdf?: boolean;
   onFixWithCrop?: () => void;
 }
 
-const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: InlineQuestionCardProps) => {
+const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFixWithCrop }: InlineQuestionCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   const handleChange = (field: string, value: any) => {
@@ -1206,6 +1233,40 @@ const InlineQuestionCard = ({ question, onUpdate, hasPdf, onFixWithCrop }: Inlin
                     This question contains complex math/symbols. Please verify the text is correct.
                   </p>
                 </div>
+              </div>
+            )}
+            
+            {/* Individual Save Button */}
+            {question.edited && (
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                  Unsaved Changes
+                </Badge>
+                <Button
+                  onClick={() => onSave(question)}
+                  disabled={isSaving}
+                  size="sm"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="h-3 w-3 mr-1.5" />
+                      Save Question
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {!question.edited && question.correct_answer && (
+              <div className="flex justify-end pt-2">
+                <Badge variant="secondary" className="text-green-600">
+                  ✓ Saved
+                </Badge>
               </div>
             )}
           </div>

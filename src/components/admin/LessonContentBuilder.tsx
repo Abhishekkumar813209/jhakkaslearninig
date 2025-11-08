@@ -1145,6 +1145,8 @@ function LessonContentBuilderInner() {
     let published = 0;
     let skippedDuplicates = 0;
     const errors: string[] = [];
+    // Track duplicates within the same publish run per mapping and type
+    const seenWithinBatch = new Map<string, Set<string>>();
     
     try {
       for (const lesson of approvedGames) {
@@ -1284,6 +1286,31 @@ function LessonContentBuilderInner() {
           uniqueIdentifier = lesson.game_data?.question || lesson.game_data?.text || '';
           questionText = uniqueIdentifier;
         }
+
+        // In-batch duplicate check (prevents same-question inserts within this publish run)
+        const batchKey = `${mapping.id}:${normalizedType}`;
+        let dedupKey = '';
+        if (lesson.game_type === 'true_false' && Array.isArray((lesson.game_data as any)?.statements)) {
+          const key = (lesson.game_data as any).statements.map((s: any) => String(s?.text || '').trim()).join('|');
+          let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+          dedupKey = `tf:${Math.abs(h).toString(36)}`;
+        } else if (lesson.game_type === 'assertion_reason') {
+          const assertion = String((lesson.game_data as any)?.assertion || '').trim();
+          const reason = String((lesson.game_data as any)?.reason || '').trim();
+          const key = `${assertion}|${reason}`;
+          let h = 0; for (let i = 0; i < key.length; i++) { h = (h << 5) - h + key.charCodeAt(i); h |= 0; }
+          dedupKey = `ar:${Math.abs(h).toString(36)}`;
+        } else {
+          dedupKey = `qt:${String(questionText || '').trim()}`;
+        }
+        const seenSet = seenWithinBatch.get(batchKey) || new Set<string>();
+        if (seenSet.has(dedupKey)) {
+          console.log('⏭️ Skipping in-batch duplicate before DB check', { batchKey, dedupKey });
+          skippedDuplicates++;
+          continue;
+        }
+        seenSet.add(dedupKey);
+        seenWithinBatch.set(batchKey, seenSet);
 
         // Check if this exact game already exists to avoid duplicates
         // Fetch ALL games of this type for this topic

@@ -46,6 +46,8 @@ interface ExtractedQuestion {
   admin_reviewed?: boolean;
   question_data?: any; // JSONB column from database
   answer_data?: any; // JSONB column from database
+  statements?: Array<{ text: string; answer: boolean }>; // For true_false multi-statement
+  numberingStyle?: string; // For true_false numbering
 }
 
 interface SmartQuestionExtractorNewProps {
@@ -411,11 +413,30 @@ export const SmartQuestionExtractorNew = ({
       answerPreview: JSON.stringify(answer).substring(0, 150)
     });
     
+    const question = questions.find(q => q.id === questionId);
+    
     // Track the edit locally instead of saving immediately
     setEditedQuestions(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(questionId) || {};
-      newMap.set(questionId, { ...existing, correct_answer: answer, explanation });
+      
+      // 🔧 CRITICAL FIX: For true_false, preserve statements and numberingStyle
+      if (question?.question_type === 'true_false') {
+        if (answer.statements) {
+          newMap.set(questionId, { 
+            ...existing, 
+            correct_answer: answer, 
+            explanation,
+            statements: answer.statements,
+            numberingStyle: question.correct_answer?.numbering_style || 'i,ii,iii'
+          });
+        } else {
+          newMap.set(questionId, { ...existing, correct_answer: answer, explanation });
+        }
+      } else {
+        newMap.set(questionId, { ...existing, correct_answer: answer, explanation });
+      }
+      
       console.log('✅ [SmartExtractor] editedQuestions updated. Map size:', newMap.size, 'Has this ID?', newMap.has(questionId));
       return newMap;
     });
@@ -443,21 +464,42 @@ export const SmartQuestionExtractorNew = ({
 
     setSavingQuestionId(questionId);
     try {
+      // 🔧 CRITICAL FIX: For true_false, include statements and numberingStyle
+      const requestBody: any = {
+        action: 'update_full_question',
+        question_id: questionId,
+        question_text: edits.question_text ?? question.question_text,
+        question_type: edits.question_type ?? question.question_type,
+        options: edits.options ?? question.options,
+        left_column: edits.left_column ?? question.left_column,
+        right_column: edits.right_column ?? question.right_column,
+        marks: edits.marks ?? question.marks,
+        difficulty: edits.difficulty ?? question.difficulty,
+        correct_answer: edits.correct_answer ?? question.correct_answer,
+        explanation: edits.explanation ?? question.explanation,
+      };
+
+      // 🔧 CRITICAL FIX: For true_false, include statements and numberingStyle
+      if (question.question_type === 'true_false') {
+        const finalStatements = 
+          edits.statements || 
+          edits.correct_answer?.statements || 
+          question.correct_answer?.statements || 
+          [];
+        const finalNumbering = 
+          edits.numberingStyle || 
+          question.correct_answer?.numbering_style || 
+          'i,ii,iii';
+        
+        if (finalStatements.length > 0) {
+          requestBody.statements = finalStatements;
+          requestBody.numberingStyle = finalNumbering;
+        }
+      }
+
       const data = await invokeWithAuth<any, { success: boolean }>({
         name: 'topic-questions-api',
-        body: {
-          action: 'update_full_question',
-          question_id: questionId,
-          question_text: edits.question_text ?? question.question_text,
-          question_type: edits.question_type ?? question.question_type,
-          options: edits.options ?? question.options,
-          left_column: edits.left_column ?? question.left_column,
-          right_column: edits.right_column ?? question.right_column,
-          marks: edits.marks ?? question.marks,
-          difficulty: edits.difficulty ?? question.difficulty,
-          correct_answer: edits.correct_answer ?? question.correct_answer,
-          explanation: edits.explanation ?? question.explanation,
-        }
+        body: requestBody
       });
 
       if (data.success) {

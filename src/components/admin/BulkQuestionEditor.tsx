@@ -1236,39 +1236,36 @@ const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFi
               </div>
             )}
             
-            {/* Individual Save Button */}
-            {question.edited && (
-              <div className="flex justify-end gap-2 pt-3 border-t">
+            {/* Individual Save Button - Always Visible */}
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              {question.edited && (
                 <Badge variant="outline" className="text-yellow-600 border-yellow-600">
                   Unsaved Changes
                 </Badge>
-                <Button
-                  onClick={() => onSave(question)}
-                  disabled={isSaving}
-                  size="sm"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Database className="h-3 w-3 mr-1.5" />
-                      Save Question
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {!question.edited && question.correct_answer && (
-              <div className="flex justify-end pt-2">
+              )}
+              {!question.edited && question.correct_answer && (
                 <Badge variant="secondary" className="text-green-600">
                   ✓ Saved
                 </Badge>
-              </div>
-            )}
+              )}
+              <Button
+                onClick={() => onSave(question)}
+                disabled={isSaving || !question.edited}
+                size="sm"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-3 w-3 mr-1.5" />
+                    Save Question
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CollapsibleContent>
       </div>

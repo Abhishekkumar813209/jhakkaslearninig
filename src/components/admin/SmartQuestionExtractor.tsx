@@ -1597,7 +1597,7 @@ export const SmartQuestionExtractor = ({
   const cleanQuestionForSave = (q: any) => {
     const cleaned = { ...q };
     
-    // Fix true_false multi-statement data structure
+    // 🔧 CRITICAL FIX: For true_false multi-statement, ensure statements and numberingStyle are included
     if (q.question_type === 'true_false' && 
         q.correct_answer?.statements?.length > 0) {
       // Ensure question_text doesn't duplicate statements
@@ -1614,6 +1614,10 @@ export const SmartQuestionExtractor = ({
             answer: typeof s.answer === 'boolean' ? s.answer : true
           }))
       };
+      
+      // 🔧 CRITICAL: Always include statements array and numberingStyle
+      cleaned.statements = cleaned.correct_answer.statements;
+      cleaned.numberingStyle = q.correct_answer?.numbering_style || q.numberingStyle || 'i,ii,iii';
     }
     
     if (q.question_type === 'fill_blank' || q.question_type === 'true_false') {

@@ -212,11 +212,22 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
 
     case 'true_false':
     case 'True_False':
+      // 🔧 CRITICAL FIX: Check multiple sources for statements (question.statements OR correct_answer.statements)
       if (question.statements && Array.isArray(question.statements)) {
-        question_data.statements = question.statements.map((s: any) => s.text || '');
-        question_data.numbering_style = question.numberingStyle || 'i,ii,iii';
-        answer_data.values = question.statements.map((s: any) => s.answer ?? true);
+        question_data.statements = question.statements.map((s: any) => 
+          typeof s === 'string' ? s : (s.text || '')
+        );
+        question_data.numbering_style = question.numberingStyle || question.numbering_style || 'i,ii,iii';
+        answer_data.values = question.statements.map((s: any) => 
+          typeof s === 'object' ? (s.answer ?? true) : true
+        );
+      } else if (question.correct_answer?.statements && Array.isArray(question.correct_answer.statements)) {
+        // Fallback: statements in correct_answer (Grid View edit case)
+        question_data.statements = question.correct_answer.statements.map((s: any) => s.text || '');
+        question_data.numbering_style = question.correct_answer.numbering_style || question.numberingStyle || 'i,ii,iii';
+        answer_data.values = question.correct_answer.statements.map((s: any) => s.answer ?? true);
       } else {
+        // Single-statement mode
         answer_data.value = typeof question.correct_answer === 'boolean'
           ? question.correct_answer
           : (question.correct_answer?.value ?? (String(question.correct_answer).toLowerCase() === 'true'));
@@ -1343,11 +1354,54 @@ serve(async (req) => {
       // Convert to JSONB format
       const { question_data, answer_data } = convertQuestionToJSONB(questionForConversion);
 
-      // Build update object with JSONB-only write
+      // 🔧 CRITICAL FIX: Merge with existing data to prevent data loss
+      const mergedQuestionData = {
+        ...existingQuestion.question_data,
+        ...question_data
+      };
+      
+      // If question_data.statements is undefined, keep existing
+      if (question_data.statements === undefined && existingQuestion.question_data?.statements) {
+        mergedQuestionData.statements = existingQuestion.question_data.statements;
+      }
+      if (question_data.numbering_style === undefined && existingQuestion.question_data?.numbering_style) {
+        mergedQuestionData.numbering_style = existingQuestion.question_data.numbering_style;
+      }
+      // Preserve other arrays
+      if (question_data.options === undefined && existingQuestion.question_data?.options) {
+        mergedQuestionData.options = existingQuestion.question_data.options;
+      }
+      if (question_data.leftColumn === undefined && existingQuestion.question_data?.leftColumn) {
+        mergedQuestionData.leftColumn = existingQuestion.question_data.leftColumn;
+      }
+      if (question_data.rightColumn === undefined && existingQuestion.question_data?.rightColumn) {
+        mergedQuestionData.rightColumn = existingQuestion.question_data.rightColumn;
+      }
+      if (question_data.sub_questions === undefined && existingQuestion.question_data?.sub_questions) {
+        mergedQuestionData.sub_questions = existingQuestion.question_data.sub_questions;
+      }
+
+      const mergedAnswerData = {
+        ...existingQuestion.answer_data,
+        ...answer_data
+      };
+      
+      // Preserve answer arrays if not provided
+      if (answer_data.values === undefined && existingQuestion.answer_data?.values) {
+        mergedAnswerData.values = existingQuestion.answer_data.values;
+      }
+      if (answer_data.blanks === undefined && existingQuestion.answer_data?.blanks) {
+        mergedAnswerData.blanks = existingQuestion.answer_data.blanks;
+      }
+      if (answer_data.pairs === undefined && existingQuestion.answer_data?.pairs) {
+        mergedAnswerData.pairs = existingQuestion.answer_data.pairs;
+      }
+
+      // Build update object with merged JSONB data
       const updateData: any = {
         question_type: qType,
-        question_data,
-        answer_data,
+        question_data: mergedQuestionData,
+        answer_data: mergedAnswerData,
         updated_at: new Date().toISOString()
       };
 

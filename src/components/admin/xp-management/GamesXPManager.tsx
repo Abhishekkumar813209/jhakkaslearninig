@@ -14,6 +14,8 @@ interface Topic {
   topic_name: string;
   day_number: number;
   game_count: number;
+  approved_games_count?: number;
+  sync_status?: 'synced' | 'pending' | 'issue';
 }
 
 export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
@@ -41,17 +43,36 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
 
       if (error) throw error;
 
-      // Get game counts for each topic
+      // Get game counts and sync status for each topic
       const topicsWithCounts = await Promise.all(
         (topicsData || []).map(async (topic) => {
-          const { count } = await supabase
+          // Count published games
+          const { count: publishedCount } = await supabase
             .from('gamified_exercises')
             .select('*, topic_content_mapping!inner(topic_id)', { count: 'exact', head: true })
             .eq('topic_content_mapping.topic_id', topic.id);
 
+          // Count approved games in topic_learning_content
+          const { count: approvedCount } = await supabase
+            .from('topic_learning_content')
+            .select('*', { count: 'exact', head: true })
+            .eq('topic_id', topic.id)
+            .eq('lesson_type', 'game')
+            .eq('human_reviewed', true);
+
+          // Determine sync status
+          let syncStatus: 'synced' | 'pending' | 'issue' = 'synced';
+          if ((approvedCount || 0) > (publishedCount || 0)) {
+            syncStatus = 'pending'; // Approved but not yet synced
+          } else if ((approvedCount || 0) < (publishedCount || 0)) {
+            syncStatus = 'issue'; // More published than approved (shouldn't happen)
+          }
+
           return {
             ...topic,
-            game_count: count || 0,
+            game_count: publishedCount || 0,
+            approved_games_count: approvedCount || 0,
+            sync_status: syncStatus
           };
         })
       );
@@ -180,17 +201,45 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                     ) : (
                       <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     )}
-                    <span>Day {topic.day_number}: {topic.topic_name}</span>
+                    <div className="flex items-center gap-2">
+                      <span>Day {topic.day_number}: {topic.topic_name}</span>
+                      {topic.sync_status === 'pending' && (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 text-xs">
+                          ⚠️ {topic.approved_games_count! - topic.game_count} pending
+                        </Badge>
+                      )}
+                      {topic.sync_status === 'issue' && (
+                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300 text-xs">
+                          ⚠️ Sync issue
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant={topic.game_count > 0 ? "default" : "secondary"}>
-                    {topic.game_count} game{topic.game_count !== 1 ? 's' : ''}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={topic.game_count > 0 ? "default" : "secondary"}>
+                      {topic.game_count} published
+                    </Badge>
+                    {topic.approved_games_count !== undefined && topic.approved_games_count !== topic.game_count && (
+                      <Badge variant="outline" className="text-xs">
+                        {topic.approved_games_count} approved
+                      </Badge>
+                    )}
+                  </div>
                 </CardTitle>
               </CardHeader>
             </CollapsibleTrigger>
             
             <CollapsibleContent>
               <CardContent className="pt-0 space-y-3">
+                {topic.sync_status === 'pending' && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+                    <p className="text-yellow-800 font-medium">⚠️ Sync Pending</p>
+                    <p className="text-yellow-700 text-xs mt-1">
+                      {topic.approved_games_count! - topic.game_count} approved game(s) are waiting to be published. 
+                      The database trigger should sync them automatically. If this persists, check the logs.
+                    </p>
+                  </div>
+                )}
                 {topic.game_count > 0 ? (
                   <>
                     <div className="flex justify-end">
@@ -216,7 +265,11 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                     <GameXPTable topicId={topic.id} />
                   </>
                 ) : (
-                  <p className="text-muted-foreground text-sm py-4">No games in this topic</p>
+                  <p className="text-muted-foreground text-sm py-4">
+                    {topic.approved_games_count && topic.approved_games_count > 0 
+                      ? `${topic.approved_games_count} game(s) approved but not yet published to gamified_exercises table`
+                      : 'No games in this topic'}
+                  </p>
                 )}
               </CardContent>
             </CollapsibleContent>

@@ -2057,6 +2057,7 @@ function LessonContentBuilderInner() {
               gameType = 'true_false';
               gameData = {
                 question: q.question_text?.trim() || '',
+                statements: q.correct_answer?.statements || q.statements || [],
                 options: ['True', 'False'],
                 correct_answer: mapCorrectAnswerToGameIndex(q) ?? 0,
                 explanation: q.explanation || "Review the concept to understand why",
@@ -2070,6 +2071,8 @@ function LessonContentBuilderInner() {
               gameType = 'assertion_reason';
               gameData = {
                 question: `Assertion (A): ${q.assertion?.trim() || ''}\n\nReason (R): ${q.reason?.trim() || ''}`,
+                assertion: q.assertion?.trim() || '',
+                reason: q.reason?.trim() || '',
                 options: [
                   'Both A and R are true, R is correct explanation of A',
                   'Both A and R are true, R is not correct explanation of A',

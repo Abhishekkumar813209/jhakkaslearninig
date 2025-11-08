@@ -454,6 +454,9 @@ const GamePlayerPage = () => {
       'fill_blanks': 'fill_blank',
       'interactive_label': 'interactive_blanks',
       
+      // Match column variants
+      'match_columns': 'match_column',
+      
       // Drag drop variants
       'drag_drop_sequence': 'drag_drop_sort',
       'sequence_order': 'drag_drop_sort',

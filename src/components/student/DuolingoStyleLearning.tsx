@@ -19,6 +19,7 @@ import { DragDropBlanks } from "./games/DragDropBlanks";
 import { ConceptPuzzle } from "./games/ConceptPuzzle";
 import { PhysicsSimulator } from "./games/PhysicsSimulator";
 import { MCQGame } from "./games/MCQGame";
+import { TrueFalseGame } from "./games/TrueFalseGame";
 import { MathGraphAnimation } from "./svg-animations/MathGraphAnimation";
 import { PhysicsMotionAnimation } from "./svg-animations/PhysicsMotionAnimation";
 import { ChemistryMoleculeAnimation } from "./svg-animations/ChemistryMoleculeAnimation";
@@ -333,7 +334,18 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         
       case 'true_false': {
         parsed = parseTrueFalseData(rawGameData);
-        // Always map to MCQGame shape
+        
+        // If we have multi-statements, pass them directly to TrueFalseGame
+        if (Array.isArray(parsed?.statements) && parsed.statements.length > 0) {
+          return {
+            statements: parsed.statements,
+            explanation: parsed?.explanation,
+            marks: rawGameData.question_data?.marks || rawGameData.marks || 1,
+            difficulty: rawGameData.question_data?.difficulty || rawGameData.difficulty,
+          };
+        }
+
+        // Fallback: legacy single-statement treated as simple True/False (MCQ-like)
         const statementText = parsed?.statement
           ?? parsed?.statements?.[0]?.text
           ?? rawGameData?.question_data?.text
@@ -416,6 +428,22 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const renderGameContent = () => {
+    // Special handling for True/False to support multi-statement preview
+    if (lesson.game_type === 'true_false' && lesson.game_data) {
+      const parsedTF = parseGameData(lesson.game_type, lesson.game_data);
+      if (parsedTF && Array.isArray((parsedTF as any).statements) && (parsedTF as any).statements.length > 0) {
+        return (
+          <TrueFalseGame
+            gameData={parsedTF as any}
+            onCorrect={handleCorrectAnswer}
+            onWrong={handleWrongAnswer}
+            onComplete={completeLesson}
+          />
+        );
+      }
+      // else: fall through to default renderer for single-statement legacy TF
+    }
+
     const GameComponent = getGameComponent(lesson.game_type);
     
     if (!GameComponent || !lesson.game_data) {

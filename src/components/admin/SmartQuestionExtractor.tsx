@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -716,14 +717,26 @@ export const SmartQuestionExtractor = ({
         break;
         
       case 'true_false':
-        gameType = 'mcq';
-        gameData = {
-          question: q.question_text,
-          options: ['True', 'False'],
-          correct_answer: 0,
-          explanation: "Review the concept in your textbook",
-          difficulty: q.difficulty || 'easy'
-        };
+        gameType = 'true_false';
+        if (typeof q.correct_answer === 'object' && q.correct_answer?.statements && Array.isArray(q.correct_answer.statements) && q.correct_answer.statements.length > 0) {
+          gameData = {
+            statements: q.correct_answer.statements,
+            explanation: q.explanation,
+            difficulty: q.difficulty || 'easy',
+            marks: q.marks
+          };
+        } else {
+          const boolVal = typeof (q as any)?.correct_answer?.value === 'boolean'
+            ? (q as any).correct_answer.value
+            : true;
+          gameData = {
+            question: q.question_text,
+            correct_answer: boolVal,
+            explanation: q.explanation || "Review the concept in your textbook",
+            difficulty: q.difficulty || 'easy',
+            marks: q.marks
+          };
+        }
         break;
         
       case 'assertion_reason':
@@ -3005,7 +3018,31 @@ export const SmartQuestionExtractor = ({
                     dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
                   />
                   
-                  {/* Correct Answer Input */}
+                  {/* Show all True/False statements with toggles in Grid view */}
+                  {question.question_type === 'true_false' &&
+                   typeof question.correct_answer === 'object' &&
+                   question.correct_answer?.statements &&
+                   Array.isArray(question.correct_answer.statements) &&
+                   question.correct_answer.statements.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {question.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
+                        <div key={stmtIdx} className="flex items-center gap-3 p-2 rounded-md border bg-muted/30">
+                          <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono">
+                            {stmtIdx + 1}
+                          </Badge>
+                          <div className="flex-1 text-sm" dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} />
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-green-500" />
+                            <span className="text-xs font-medium text-muted-foreground w-12">
+                              {stmt.answer ? 'True' : 'False'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Correct Answer Input */
                   <div className="mb-4 border-t pt-3">
                     <QuestionAnswerInput
                       questionType={question.question_type}

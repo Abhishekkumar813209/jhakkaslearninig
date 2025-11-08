@@ -1597,6 +1597,25 @@ export const SmartQuestionExtractor = ({
   const cleanQuestionForSave = (q: any) => {
     const cleaned = { ...q };
     
+    // Fix true_false multi-statement data structure
+    if (q.question_type === 'true_false' && 
+        q.correct_answer?.statements?.length > 0) {
+      // Ensure question_text doesn't duplicate statements
+      if (!cleaned.question_text || cleaned.question_text.trim().length < 10) {
+        cleaned.question_text = 'Select True or False for each statement:';
+      }
+      // Validate and clean statements
+      cleaned.correct_answer = {
+        ...cleaned.correct_answer,
+        statements: cleaned.correct_answer.statements
+          .filter((s: any) => s.text?.trim())
+          .map((s: any) => ({
+            text: s.text.trim(),
+            answer: typeof s.answer === 'boolean' ? s.answer : true
+          }))
+      };
+    }
+    
     if (q.question_type === 'fill_blank' || q.question_type === 'true_false') {
       delete cleaned.left_column;
       delete cleaned.right_column;

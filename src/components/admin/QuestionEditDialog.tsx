@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Copy, Image as ImageIcon, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { QuestionAnswerInput } from './QuestionAnswerInput';
@@ -74,6 +75,18 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
     if (editedQuestion.question_type === 'mcq' && (!editedQuestion.options || editedQuestion.options.length < 2)) {
       toast.error("MCQ questions must have at least 2 options");
       return;
+    }
+
+    // Validate true_false statements
+    if (editedQuestion.question_type === 'true_false' && 
+        editedQuestion.correct_answer?.statements?.length > 0) {
+      const hasEmptyStatements = editedQuestion.correct_answer.statements.some(
+        (s: any) => !s.text?.trim()
+      );
+      if (hasEmptyStatements) {
+        toast.error("All True/False statements must have text");
+        return;
+      }
     }
 
     onSave({ ...editedQuestion, edited: true });
@@ -520,6 +533,97 @@ export default function QuestionEditDialog({ question, open, onOpenChange, onSav
                   value={editedQuestion.blanks_count || 1}
                   onChange={(e) => setEditedQuestion({ ...editedQuestion, blanks_count: parseInt(e.target.value) || 1 })}
                 />
+              </div>
+            )}
+
+            {/* True/False Statements Editor */}
+            {editedQuestion.question_type === 'true_false' && 
+             editedQuestion.correct_answer?.statements && 
+             Array.isArray(editedQuestion.correct_answer.statements) && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>True/False Statements *</Label>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      const newStatements = [
+                        ...(editedQuestion.correct_answer?.statements || []),
+                        { text: '', answer: true }
+                      ];
+                      setEditedQuestion({
+                        ...editedQuestion,
+                        correct_answer: { ...editedQuestion.correct_answer, statements: newStatements }
+                      });
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Statement
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {editedQuestion.correct_answer.statements.map((stmt: any, idx: number) => (
+                    <Card key={idx} className="p-3">
+                      <div className="flex items-start gap-3">
+                        <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono mt-1">
+                          {idx + 1}
+                        </Badge>
+                        
+                        <div className="flex-1 space-y-2">
+                          <RichQuestionEditor
+                            content={stmt.text || ''}
+                            onChange={(content) => {
+                              const newStatements = [...editedQuestion.correct_answer.statements];
+                              newStatements[idx] = { ...newStatements[idx], text: content };
+                              setEditedQuestion({
+                                ...editedQuestion,
+                                correct_answer: { ...editedQuestion.correct_answer, statements: newStatements }
+                              });
+                            }}
+                            placeholder={`Statement ${idx + 1} text...`}
+                            compact
+                            forcePlainPaste={true}
+                            smartMathPaste={false}
+                          />
+                          
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={stmt.answer === true}
+                              onCheckedChange={(checked) => {
+                                const newStatements = [...editedQuestion.correct_answer.statements];
+                                newStatements[idx] = { ...newStatements[idx], answer: checked };
+                                setEditedQuestion({
+                                  ...editedQuestion,
+                                  correct_answer: { ...editedQuestion.correct_answer, statements: newStatements }
+                                });
+                              }}
+                              className="data-[state=checked]:bg-blue-700"
+                            />
+                            <span className="text-sm font-medium w-12">
+                              {stmt.answer ? 'True' : 'False'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const newStatements = editedQuestion.correct_answer.statements.filter((_: any, i: number) => i !== idx);
+                            setEditedQuestion({
+                              ...editedQuestion,
+                              correct_answer: { ...editedQuestion.correct_answer, statements: newStatements }
+                            });
+                          }}
+                          disabled={editedQuestion.correct_answer.statements.length <= 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
 

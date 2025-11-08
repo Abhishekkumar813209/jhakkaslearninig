@@ -1483,6 +1483,19 @@ function LessonContentBuilderInner() {
           insertData.correct_answer_index = lesson.game_data?.correct_answer ?? null;
         }
 
+        // Check if exercise already exists for this topic_content_id
+        const { data: existingExercise } = await supabase
+          .from('gamified_exercises')
+          .select('id')
+          .eq('topic_content_id', mapping.id)
+          .maybeSingle();
+
+        if (existingExercise) {
+          console.log(`✅ Exercise already published for lesson ${lesson.id} (mapping ${mapping.id})`);
+          skippedDuplicates++;
+          continue;
+        }
+
         // Insert new game
         console.log('🔄 Attempting exercise insert:', insertData);
         

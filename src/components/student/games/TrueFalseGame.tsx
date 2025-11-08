@@ -140,75 +140,55 @@ export function TrueFalseGame({
 
         {/* Multi-Part Statements OR Single True/False */}
         {isMultiPart ? (
-          <div className="space-y-6">
-            <ol className="list-[lower-roman] pl-6 space-y-4">
+          <div className="space-y-4">
+            <p className="text-lg font-medium mb-4">{gameData.question || 'Select True or False for each statement:'}</p>
+            
+            <div className="space-y-3">
               {gameData.statements!.map((stmt, idx) => (
-                <li key={idx} className="space-y-2">
-                  <p className="text-lg font-medium leading-relaxed">{stmt.text}</p>
-                  
-                  {!hasSubmitted ? (
-                    <div className="grid grid-cols-2 gap-3 ml-4">
-                      <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setMultiAnswers({ ...multiAnswers, [idx]: true })}
-                        className={cn(
-                          "p-4 rounded-lg border-2 cursor-pointer transition-all",
-                          multiAnswers[idx] === true
-                            ? "border-green-500 bg-green-500/10"
-                            : "border-border hover:border-green-500/50"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Check className="w-5 h-5 text-green-600" />
-                          <span className="font-semibold">True</span>
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setMultiAnswers({ ...multiAnswers, [idx]: false })}
-                        className={cn(
-                          "p-4 rounded-lg border-2 cursor-pointer transition-all",
-                          multiAnswers[idx] === false
-                            ? "border-destructive bg-destructive/10"
-                            : "border-border hover:border-destructive/50"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <X className="w-5 h-5 text-destructive" />
-                          <span className="font-semibold">False</span>
-                        </div>
-                      </motion.div>
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      "ml-4 p-3 rounded-lg border-2 flex items-center gap-2",
-                      multiAnswers[idx] === stmt.answer 
-                        ? "border-green-500 bg-green-500/10" 
-                        : "border-destructive bg-destructive/10"
-                    )}>
-                      {multiAnswers[idx] === stmt.answer ? (
-                        <>
-                          <Check className="w-5 h-5 text-green-600" />
-                          <span className="font-semibold text-green-700">
-                            Correct: {stmt.answer ? 'True' : 'False'}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <X className="w-5 h-5 text-destructive" />
-                          <span className="font-semibold text-destructive">
-                            Your answer: {multiAnswers[idx] ? 'True' : 'False'} | Correct: {stmt.answer ? 'True' : 'False'}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </li>
+                <div key={idx} className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                  <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono">
+                    {idx + 1}
+                  </Badge>
+                  <p className="flex-1 text-base leading-relaxed">{stmt.text}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Switch
+                      checked={multiAnswers[idx] === true}
+                      onCheckedChange={(checked) => setMultiAnswers({ ...multiAnswers, [idx]: !!checked })}
+                      className="data-[state=checked]:bg-blue-700"
+                      disabled={hasSubmitted}
+                    />
+                    <span className="text-sm font-medium text-muted-foreground w-12">
+                      {multiAnswers[idx] ? 'True' : 'False'}
+                    </span>
+                  </div>
+                </div>
               ))}
-            </ol>
+            </div>
+            
+            {hasSubmitted && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  "p-4 rounded-lg border-2",
+                  isCorrect ? "border-green-500 bg-green-500/10" : "border-destructive bg-destructive/10"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  {isCorrect ? (
+                    <>
+                      <Check className="w-6 h-6 text-green-600" />
+                      <span className="font-semibold text-green-700">All Correct!</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-6 h-6 text-destructive" />
+                      <span className="font-semibold text-destructive">Some answers are incorrect</span>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </div>
         ) : gameData.question ? (
           // Single True/False with question text - using box-style buttons for consistency

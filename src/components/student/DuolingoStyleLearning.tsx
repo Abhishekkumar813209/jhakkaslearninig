@@ -249,8 +249,23 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         }
         
         case 'true_false': {
+          // RAW multi-statement as objects or strings + answers
+          if (Array.isArray(rawGameData?.statements) && rawGameData.statements.length > 0) {
+            const answers = rawGameData.answers || rawGameData.values || [];
+            const mapped = rawGameData.statements.map((s: any, i: number) => ({
+              text: typeof s === 'string' ? s : (s?.text ?? String(s)),
+              answer: typeof s?.answer === 'boolean' ? s.answer : (typeof answers[i] === 'boolean' ? answers[i] : true),
+            }));
+            console.log('[TF Preview] Using RAW multi-statement route', { count: mapped.length });
+            return {
+              statements: mapped,
+              explanation: rawGameData?.explanation || '',
+              marks: rawGameData?.marks || 1,
+              difficulty: rawGameData?.difficulty,
+            };
+          }
+
           const statementText = rawGameData?.question
-            ?? (Array.isArray(rawGameData?.statements) ? rawGameData.statements[0] : undefined)
             ?? rawGameData?.text
             ?? 'True or False?';
 

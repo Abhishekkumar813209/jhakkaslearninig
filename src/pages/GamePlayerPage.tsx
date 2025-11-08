@@ -629,11 +629,13 @@ const GamePlayerPage = () => {
         const fillBlankData = {
           question: parsedFB.text,
           blanks: parsedFB.blanks,
-          sub_questions: parsedFB.sub_questions.map(sq => ({
-            text: sq.text,
-            correctAnswer: sq.correctAnswer,
-            distractors: sq.distractors || []
-          })),
+          sub_questions: Array.isArray(parsedFB.sub_questions) 
+            ? parsedFB.sub_questions.map(sq => ({
+                text: sq.text,
+                correctAnswer: sq.correctAnswer,
+                distractors: sq.distractors || []
+              }))
+            : undefined,
           numbering_style: parsedFB.numbering_style,
           explanation: parsedFB.explanation,
           marks: gameData.question_data?.marks || gameData.marks || 1,

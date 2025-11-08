@@ -80,6 +80,16 @@ serve(async (req) => {
 
       const budget = topic.xp_reward || 30;
 
+      // Validate budget
+      if (!topic.xp_reward || topic.xp_reward <= 0) {
+        results.push({
+          topic_id: tid,
+          topic_name: topic.topic_name,
+          error: 'Topic has no XP budget set (xp_reward is null or 0)',
+        });
+        continue;
+      }
+
       // Get content mapping for topic
       const { data: mapping } = await supabase
         .from('topic_content_mapping')
@@ -118,6 +128,25 @@ serve(async (req) => {
       const baseXP = Math.floor(budget / totalGames);
       const remainder = budget % totalGames;
 
+      // Validate distribution
+      if (baseXP === 0 && totalGames > budget) {
+        results.push({
+          topic_id: tid,
+          topic_name: topic.topic_name,
+          error: `Budget (${budget} XP) is too small for ${totalGames} games`,
+        });
+        continue;
+      }
+
+      console.log('Distribution preview:', {
+        topic_id: tid,
+        topic_name: topic.topic_name,
+        total_games: totalGames,
+        budget,
+        baseXP,
+        remainder
+      });
+
       // Build distribution array: first 'remainder' games get +1 XP
       const distribution = (games || []).map((game, index) => ({
         id: game.id,
@@ -143,8 +172,10 @@ serve(async (req) => {
         topic_name: topic.topic_name,
         total_games: totalGames,
         xp_budget: budget,
+        xp_per_game: baseXP,
         total_allocated: totalAllocated,
         distribution,
+        changes: distribution, // Alias for backward compatibility
         applied: !dry_run
       });
     }

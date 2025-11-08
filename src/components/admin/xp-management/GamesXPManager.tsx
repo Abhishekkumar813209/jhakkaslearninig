@@ -83,11 +83,15 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
       setCurrentTopicId(topicId);
       
       // First, do a dry run to preview changes
-      const { data, error } = await supabase.functions.invoke('auto-distribute-xp', {
-        body: { topic_id: topicId, dry_run: true }
-      });
+    const { data, error } = await supabase.functions.invoke('auto-distribute-xp', {
+      body: { topic_id: topicId, dry_run: true }
+    });
 
-      if (error) throw error;
+    if (error) {
+      console.error('Edge function error:', error);
+      toast.error(`Failed to preview XP distribution: ${error.message}`);
+      throw error;
+    }
 
       if (data?.results && data.results.length > 0) {
         setDistributionPreview(data.results[0]); // Only one topic now
@@ -240,21 +244,21 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                   <div className="flex gap-4 text-xs text-muted-foreground">
                     <span>Budget: {distributionPreview.xp_budget} XP</span>
                     <span>Games: {distributionPreview.total_games}</span>
-                    <span>Per Game: {distributionPreview.xp_per_game} XP</span>
+                    <span>Per Game: {distributionPreview.xp_per_game || Math.floor(distributionPreview.xp_budget / distributionPreview.total_games)} XP</span>
                   </div>
                 </CardHeader>
-                {distributionPreview.changes && distributionPreview.changes.length > 0 && (
+                {distributionPreview.distribution && distributionPreview.distribution.length > 0 && (
                   <CardContent className="pt-0">
                     <div className="text-xs space-y-1">
                       <p className="font-medium">Sample changes (first 5):</p>
-                      {distributionPreview.changes.slice(0, 5).map((change: any, i: number) => (
+                      {distributionPreview.distribution.slice(0, 5).map((change: any, i: number) => (
                         <p key={i} className="text-muted-foreground">
-                          Game {i + 1}: {change.old_xp} XP → {change.new_xp} XP
+                          Game {change.game_order}: {change.old_xp} XP → {change.new_xp} XP
                         </p>
                       ))}
-                      {distributionPreview.changes.length > 5 && (
+                      {distributionPreview.distribution.length > 5 && (
                         <p className="text-muted-foreground italic">
-                          ...and {distributionPreview.changes.length - 5} more games
+                          ...and {distributionPreview.distribution.length - 5} more games
                         </p>
                       )}
                     </div>

@@ -46,11 +46,24 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
       // Get game counts and sync status for each topic
       const topicsWithCounts = await Promise.all(
         (topicsData || []).map(async (topic) => {
-          // Count published games
-          const { count: publishedCount } = await supabase
+          // Count published games - Two-step query for reliability
+          // Step 1: Get mapping IDs for this topic
+          const { data: mappings } = await supabase
+            .from('topic_content_mapping')
+            .select('id')
+            .eq('topic_id', topic.id);
+
+          const mappingIds = (mappings || []).map(m => m.id);
+
+          // Step 2: Count games with these mapping IDs
+          const { count: publishedCount, error: publishedError } = await supabase
             .from('gamified_exercises')
-            .select('*, topic_content_mapping!inner(topic_id)', { count: 'exact', head: true })
-            .eq('topic_content_mapping.topic_id', topic.id);
+            .select('*', { count: 'exact', head: true })
+            .in('topic_content_id', mappingIds);
+
+          if (publishedError) {
+            console.error('Error counting published games for topic', topic.id, ':', publishedError);
+          }
 
           // Count approved games in topic_learning_content
           const { count: approvedCount } = await supabase

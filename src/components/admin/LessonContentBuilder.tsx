@@ -2030,18 +2030,39 @@ function LessonContentBuilderInner() {
               };
               break;
             
-            case 'fill_blank':
-              gameType = 'fill_blanks';
-              gameData = {
-                original_type: 'fill_blank',
-                text: q.question_text?.trim() || '',
-                blanks: q.correct_answer?.blanks || [],
-                blanks_count: q.blanks_count || 1,
-                difficulty: q.difficulty || 'medium',
-                marks: q.marks || 1,
-                question_number: q.question_number
-              };
-              break;
+              case 'fill_blank':
+                gameType = 'fill_blanks';
+                {
+                  const subQs = Array.isArray((q as any).correct_answer?.sub_questions)
+                    ? (q as any).correct_answer.sub_questions
+                    : null;
+                  const blanksFromCA = Array.isArray((q as any).correct_answer?.blanks)
+                    ? (q as any).correct_answer.blanks
+                    : null;
+
+                  const blanks = blanksFromCA || (subQs
+                    ? subQs.map((sq: any) => ({
+                        correctAnswer: (sq?.correctAnswer || '').toString().trim(),
+                        distractors: Array.isArray(sq?.distractors) ? sq.distractors : []
+                      }))
+                    : []);
+
+                  const text = (q as any).question_text?.trim() || (subQs && subQs.length
+                    ? `Fill Blanks (${subQs.length} sub-questions)`
+                    : '');
+
+                  gameData = {
+                    original_type: 'fill_blank',
+                    text,
+                    sub_questions: subQs || undefined,
+                    blanks,
+                    blanks_count: (q as any).blanks_count || blanks.length || (subQs ? subQs.length : 1),
+                    difficulty: (q as any).difficulty || 'medium',
+                    marks: (q as any).marks || 1,
+                    question_number: (q as any).question_number
+                  };
+                }
+                break;
             
             case 'match_column':
               gameType = 'match_column';

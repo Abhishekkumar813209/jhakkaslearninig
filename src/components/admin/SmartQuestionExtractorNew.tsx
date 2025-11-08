@@ -539,7 +539,12 @@ export const SmartQuestionExtractorNew = ({
                (typeof ans?.index === 'number' && ans.index >= 0);
       
       case 'true_false':
-        // Accept both legacy (boolean) and new (object with value) formats
+        // Multi-statement format (new)
+        if (ans?.statements && Array.isArray(ans.statements)) {
+          return ans.statements.length > 0 && 
+                 ans.statements.every((stmt: any) => typeof stmt.answer === 'boolean');
+        }
+        // Single boolean format (legacy)
         return typeof ans === 'boolean' || typeof ans?.value === 'boolean';
       
       case 'fill_blank':

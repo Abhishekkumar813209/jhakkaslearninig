@@ -233,7 +233,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
                   </Badge>
                   <div 
                     className="flex-1 text-sm" 
-                    dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} 
+                    dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text || '') }} 
                   />
                   <div className="flex items-center gap-2 shrink-0">
                     <Switch 

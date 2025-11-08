@@ -49,6 +49,9 @@ export function TrueFalseGame({
   // Multi-part states
   const [multiAnswers, setMultiAnswers] = useState<{ [key: number]: boolean }>({});
   const isMultiPart = gameData.statements && gameData.statements.length > 0;
+  
+  console.log('[TrueFalseGame Debug] gameData:', gameData);
+  console.log('[TrueFalseGame Debug] isMultiPart:', isMultiPart);
 
   useEffect(() => {
     setSelectedAnswer(null);
@@ -208,67 +211,75 @@ export function TrueFalseGame({
             </ol>
           </div>
         ) : gameData.question ? (
-          // Single True/False with question text
+          // Single True/False with question text - using box-style buttons for consistency
           <div className="space-y-6">
             <div className="text-lg font-medium p-6 bg-muted/30 rounded-lg text-center">
               {gameData.question}
             </div>
-            {/* Single True/False Toggle Switches */}
-            <div className="flex gap-4">
-              <motion.div
-                onClick={() => !hasSubmitted && handleSelect(true)}
-                className={cn(
-                  "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
-                  !hasSubmitted && selectedAnswer === true && "border-primary bg-primary/10",
-                  !hasSubmitted && selectedAnswer !== true && "border-border hover:border-primary/50",
-                  !hasSubmitted && "cursor-pointer",
-                  hasSubmitted && selectedAnswer === true && isCorrect && "border-green-500 bg-green-500/10",
-                  hasSubmitted && selectedAnswer === true && !isCorrect && "border-red-500 bg-red-500/10",
-                  hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "border-green-500/40 bg-green-500/5",
-                  hasSubmitted && "cursor-default"
-                )}
-                whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
-                whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
-              >
-                <Switch 
-                  checked={selectedAnswer === true}
-                  disabled={hasSubmitted}
+            
+            {/* Box-style True/False buttons (consistent with multi-statement) */}
+            {!hasSubmitted ? (
+              <div className="grid grid-cols-2 gap-4">
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSelect(true)}
                   className={cn(
-                    hasSubmitted && selectedAnswer === true && isCorrect && "data-[state=checked]:bg-green-500",
-                    hasSubmitted && selectedAnswer === true && !isCorrect && "data-[state=checked]:bg-red-500",
-                    hasSubmitted && selectedAnswer !== true && parseBoolean(gameData.correctAnswer) === true && "data-[state=checked]:bg-green-500"
+                    "p-6 rounded-lg border-2 cursor-pointer transition-all",
+                    selectedAnswer === true
+                      ? "border-green-500 bg-green-500/10"
+                      : "border-border hover:border-green-500/50"
                   )}
-                />
-                <span className="text-lg font-medium">True</span>
-              </motion.div>
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <Check className="w-6 h-6 text-green-600" />
+                    <span className="text-xl font-semibold">True</span>
+                  </div>
+                </motion.div>
 
-              <motion.div
-                onClick={() => !hasSubmitted && handleSelect(false)}
-                className={cn(
-                  "flex-1 flex items-center gap-3 p-4 border-2 rounded-lg transition-all",
-                  !hasSubmitted && selectedAnswer === false && "border-primary bg-primary/10",
-                  !hasSubmitted && selectedAnswer !== false && "border-border hover:border-primary/50",
-                  !hasSubmitted && "cursor-pointer",
-                  hasSubmitted && selectedAnswer === false && isCorrect && "border-green-500 bg-green-500/10",
-                  hasSubmitted && selectedAnswer === false && !isCorrect && "border-red-500 bg-red-500/10",
-                  hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "border-green-500/40 bg-green-500/5",
-                  hasSubmitted && "cursor-default"
-                )}
-                whileHover={!hasSubmitted ? { scale: 1.02 } : {}}
-                whileTap={!hasSubmitted ? { scale: 0.98 } : {}}
-              >
-                <Switch 
-                  checked={selectedAnswer === false}
-                  disabled={hasSubmitted}
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSelect(false)}
                   className={cn(
-                    hasSubmitted && selectedAnswer === false && isCorrect && "data-[state=checked]:bg-green-500",
-                    hasSubmitted && selectedAnswer === false && !isCorrect && "data-[state=checked]:bg-red-500",
-                    hasSubmitted && selectedAnswer !== false && parseBoolean(gameData.correctAnswer) === false && "data-[state=checked]:bg-green-500"
+                    "p-6 rounded-lg border-2 cursor-pointer transition-all",
+                    selectedAnswer === false
+                      ? "border-destructive bg-destructive/10"
+                      : "border-border hover:border-destructive/50"
                   )}
-                />
-                <span className="text-lg font-medium">False</span>
-              </motion.div>
-            </div>
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <X className="w-6 h-6 text-destructive" />
+                    <span className="text-xl font-semibold">False</span>
+                  </div>
+                </motion.div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className={cn(
+                  "p-4 rounded-lg border-2 flex items-center gap-3",
+                  isCorrect 
+                    ? "border-green-500 bg-green-500/10" 
+                    : "border-destructive bg-destructive/10"
+                )}>
+                  {isCorrect ? (
+                    <>
+                      <Check className="w-5 h-5 text-green-600" />
+                      <span className="font-semibold text-green-700">
+                        Correct: {parseBoolean(gameData.correctAnswer) ? 'True' : 'False'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-5 h-5 text-destructive" />
+                      <span className="font-semibold text-destructive">
+                        Your answer: {selectedAnswer ? 'True' : 'False'} | Correct: {parseBoolean(gameData.correctAnswer) ? 'True' : 'False'}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 

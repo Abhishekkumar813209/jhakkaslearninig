@@ -334,9 +334,12 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         
       case 'true_false': {
         parsed = parseTrueFalseData(rawGameData);
+        console.log('[TrueFalse Debug] parsed:', parsed);
+        console.log('[TrueFalse Debug] statements:', parsed?.statements);
         
         // If we have multi-statements, pass them directly to TrueFalseGame
         if (Array.isArray(parsed?.statements) && parsed.statements.length > 0) {
+          console.log('[TrueFalse Debug] Multi-statement mode activated');
           return {
             statements: parsed.statements,
             explanation: parsed?.explanation,

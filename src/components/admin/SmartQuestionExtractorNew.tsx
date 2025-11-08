@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -1047,6 +1048,36 @@ export const SmartQuestionExtractorNew = ({
                           </Badge>
                         )}
                       </div>
+
+                      {/* Multi-Statement True/False Preview */}
+                      {q.question_type === 'true_false' && q.correct_answer?.statements?.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Statements:</div>
+                          <div className="space-y-2">
+                            {q.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
+                              <div key={stmtIdx} className="flex items-start gap-3 bg-muted/20 p-2 rounded">
+                                <Badge variant="outline" className="shrink-0 h-5 w-5 flex items-center justify-center p-0 text-xs font-mono">
+                                  {stmtIdx + 1}
+                                </Badge>
+                                <div 
+                                  className="flex-1 text-xs prose prose-xs max-w-none"
+                                  dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text || '') }}
+                                />
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Switch
+                                    checked={stmt.answer === true}
+                                    disabled
+                                    className="data-[state=checked]:bg-blue-700 disabled:opacity-100"
+                                  />
+                                  <span className="text-xs font-medium w-10">
+                                    {stmt.answer ? 'True' : 'False'}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Options */}
                       {q.options && q.options.length > 0 && (

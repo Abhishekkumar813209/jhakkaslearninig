@@ -239,10 +239,10 @@ export const QuestionAnswerInput = ({
 
   // True/False Answer
   if (questionType === 'true_false') {
-    // Multi-statement mode: show info only
+    // Multi-statement mode: show editable toggles per statement
     if (Array.isArray(localAnswer?.statements)) {
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium">True/False Statements</Label>
             <Badge variant={isValid ? 'default' : 'destructive'} className="gap-1">
@@ -259,9 +259,33 @@ export const QuestionAnswerInput = ({
               )}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Answers are set per statement above. No single correct answer is needed.
-          </p>
+          <div className="space-y-2">
+            {localAnswer.statements.map((stmt: any, idx: number) => (
+              <div key={idx} className="flex items-start gap-3 border rounded-lg p-3 bg-muted/10">
+                <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono mt-0.5">
+                  {idx + 1}
+                </Badge>
+                <div 
+                  className="flex-1 text-sm prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text || '') }}
+                />
+                <div className="flex items-center gap-2 shrink-0">
+                  <Switch
+                    checked={stmt.answer === true}
+                    onCheckedChange={(checked) => {
+                      const updatedStatements = [...localAnswer.statements];
+                      updatedStatements[idx] = { ...updatedStatements[idx], answer: checked };
+                      handleChange({ statements: updatedStatements });
+                    }}
+                    className="data-[state=checked]:bg-blue-700"
+                  />
+                  <span className="text-sm font-medium w-12">
+                    {stmt.answer ? 'True' : 'False'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }

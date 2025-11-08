@@ -278,17 +278,25 @@ export const normalizeTrigInverse = (text: string): string => {
  * @param input - Raw text with math/chemistry notation
  * @returns HTML string with formatted mathematical expressions
  */
-export const renderMath = (input: string): string => {
-  if (!input) return '';
+export const renderMath = (input: unknown): string => {
+  // Global hardening: accept any type and coerce to string
+  if (input == null) return '';
+  let textInput: string;
+  if (typeof input !== 'string') {
+    textInput = String(input);
+  } else {
+    textInput = input;
+  }
+  if (!textInput) return '';
   
   const DEBUG = false; // Set to true for debugging
   if (DEBUG) {
     console.group('🔍 Math Rendering Debug');
-    console.log('📥 Input:', input.substring(0, 300));
+    console.log('📥 Input:', textInput.substring(0, 300));
   }
   
   // Normalize HTML-encoded breaks/images and nbsp before further processing
-  const normalizedInput = input
+  const normalizedInput = textInput
     .replace(/&lt;br\s*\/?&gt;/gi, '<br />')
     .replace(/&nbsp;|&amp;nbsp;/gi, ' ')
     .replace(/&lt;img\b[^>]*&gt;/gi, (m) => m.replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
@@ -450,11 +458,19 @@ function expandImageTokens(text: string): string {
  * Also handles [img:URL] tokens for plain text storage compatibility
  * Strips all other HTML tags for security
  */
-export const renderWithImages = (html: string): string => {
-  if (!html) return '';
+export const renderWithImages = (html: unknown): string => {
+  // Global hardening: accept any type and coerce to string
+  if (html == null) return '';
+  let textHtml: string;
+  if (typeof html !== 'string') {
+    textHtml = String(html);
+  } else {
+    textHtml = html;
+  }
+  if (!textHtml) return '';
   
   // First expand any image tokens
-  let text = expandImageTokens(html);
+  let text = expandImageTokens(textHtml);
   
   // Normalize encoded <br>, <img> and nbsp entities before tokenization
   text = text

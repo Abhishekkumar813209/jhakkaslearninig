@@ -239,7 +239,7 @@ export const QuestionCard = ({ question, onEdit, onDelete, showActions = true }:
                     <Switch 
                       checked={stmt.answer} 
                       disabled 
-                      className="data-[state=checked]:bg-green-500"
+                      className="data-[state=checked]:bg-blue-700"
                     />
                     <span className="text-xs font-medium text-muted-foreground w-12">
                       {stmt.answer ? 'True' : 'False'}

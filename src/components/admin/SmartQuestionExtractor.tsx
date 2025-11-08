@@ -3033,7 +3033,7 @@ export const SmartQuestionExtractor = ({
                             </Badge>
                             <div className="flex-1 text-sm" dangerouslySetInnerHTML={{ __html: renderWithImages(typeof stmt?.text === 'string' ? stmt.text : '') }} />
                             <div className="flex items-center gap-2 shrink-0">
-                              <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-blue-500" />
+                              <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-blue-700" />
                               <span className="text-xs font-medium text-muted-foreground w-12">
                                 {stmt.answer ? 'True' : 'False'}
                               </span>

@@ -435,6 +435,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     if (lesson.game_type === 'true_false' && lesson.game_data) {
       const parsedTF = parseGameData(lesson.game_type, lesson.game_data);
       if (parsedTF && Array.isArray((parsedTF as any).statements) && (parsedTF as any).statements.length > 0) {
+        console.log('[TF Preview] Using multi-statement route');
         return (
           <TrueFalseGame
             gameData={parsedTF as any}

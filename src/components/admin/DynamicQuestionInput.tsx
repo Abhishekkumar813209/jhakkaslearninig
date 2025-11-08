@@ -36,6 +36,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
   // Fill Blanks states (multi-part for fill_blank game type)
   const [subQuestions, setSubQuestions] = useState<Array<{ text: string; correctAnswer: string; distractors: string[] }>>([]);
   const [fillBlankNumbering, setFillBlankNumbering] = useState('1,2,3');
+  const [useWordBank, setUseWordBank] = useState(true); // Controls word bank display
   
   // Interactive Blanks states (for interactive_blanks game type)
   const [blanks, setBlanks] = useState([{ correctAnswer: '', distractors: ['', '', ''] }]);
@@ -97,6 +98,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
             distractors: sq.distractors
           })),
           numbering_style: fillBlankNumbering,
+          use_word_bank: useWordBank, // Include flag
           marks,
           difficulty
         };
@@ -202,6 +204,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
       setStatements([{ text: '', answer: true }]);
     } else if (gameType === 'fill_blank') {
       setSubQuestions([{ text: '', correctAnswer: '', distractors: ['', '', ''] }]);
+      setUseWordBank(true); // Reset to default
     } else if (gameType === 'match_column') {
       setLeftColumn(['', '']);
       setRightColumn(['', '']);
@@ -217,6 +220,17 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
     // Trigger data change only once after reset
     setTimeout(() => handleDataChange(), 0);
   }, [gameType]);
+
+  // Smart default: Auto-suggest disabling word bank for >3 sub-questions (fill_blank only)
+  useEffect(() => {
+    if (gameType === 'fill_blank') {
+      const validSubQuestionsCount = subQuestions.filter(sq => sq.text.trim()).length;
+      // Log recommendation when we have many sub-questions and word bank is enabled
+      if (useWordBank && validSubQuestionsCount > 3) {
+        console.log(`💡 UX Recommendation: ${validSubQuestionsCount} sub-questions - consider disabling word bank to avoid UI clutter`);
+      }
+    }
+  }, [gameType, subQuestions, useWordBank]);
 
   // MCQ Input
   if (gameType === 'mcq') {
@@ -484,6 +498,32 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
           </Select>
         </div>
 
+        {/* Word Bank Toggle */}
+        <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/20">
+          <div className="flex-1">
+            <Label className="font-medium">Enable Word Bank (Distractors)</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              {useWordBank 
+                ? "Students will see a word bank with correct answers + distractors to drag from"
+                : "Students will only see correct answers in a minimal word bank (no distractors)"}
+            </p>
+          </div>
+          <Switch 
+            checked={useWordBank} 
+            onCheckedChange={(checked) => {
+              setUseWordBank(checked);
+              setTimeout(() => handleDataChange(), 0);
+            }}
+          />
+        </div>
+
+        {/* Smart recommendation badge */}
+        {subQuestions.filter(sq => sq.text.trim()).length > 3 && useWordBank && (
+          <Badge variant="outline" className="text-yellow-600 border-yellow-400">
+            💡 Recommendation: For {subQuestions.filter(sq => sq.text.trim()).length} sub-questions, consider disabling word bank for better UX
+          </Badge>
+        )}
+
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <Label className="font-semibold">Sub-Questions ({subQuestions.filter(sq => sq.text.trim()).length})</Label>
@@ -552,7 +592,10 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                 </div>
 
                 <div>
-                  <Label className="text-xs">Distractors (wrong options - 3 required)</Label>
+                  <Label className="text-xs">Distractors (wrong options - {useWordBank ? '3 required' : 'optional'})</Label>
+                  {!useWordBank && (
+                    <p className="text-xs text-muted-foreground mb-2">Word bank is disabled - distractors won't be shown to students</p>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     {sq.distractors.map((dist, dIdx) => (
                       <Input
@@ -565,6 +608,7 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                           setTimeout(() => handleDataChange(), 0);
                         }}
                         placeholder={`Wrong ${dIdx + 1}`}
+                        disabled={!useWordBank}
                       />
                     ))}
                   </div>

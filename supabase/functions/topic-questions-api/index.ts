@@ -193,12 +193,14 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
           text: sq.text || '',
         }));
         question_data.numbering_style = question.numberingStyle || '1,2,3';
+        question_data.use_word_bank = question.use_word_bank !== undefined ? question.use_word_bank : true; // Preserve flag
         answer_data.blanks = question.sub_questions.map((sq: any) => ({
           correctAnswer: sq.correctAnswer || '',
           distractors: sq.distractors || []
         }));
       } else {
         const ca = question.correct_answer;
+        question_data.use_word_bank = question.use_word_bank !== undefined ? question.use_word_bank : true; // Preserve flag
         if (ca?.blanks && Array.isArray(ca.blanks)) {
           answer_data.blanks = ca.blanks;
         } else {

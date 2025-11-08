@@ -20,6 +20,7 @@ export interface ParsedFillBlankData {
   sub_questions?: Array<{ text: string; correctAnswer: string; distractors?: string[] }>;
   numbering_style?: string;
   explanation?: string;
+  use_word_bank?: boolean; // Controls whether distractors are shown
 }
 
 export interface ParsedMatchPairsData {
@@ -109,7 +110,8 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
         distractors: blanks[idx]?.distractors || []
       })),
       numbering_style: qd.numbering_style || '1,2,3',
-      explanation: qd.explanation || ad.explanation || question.explanation
+      explanation: qd.explanation || ad.explanation || question.explanation,
+      use_word_bank: qd.use_word_bank !== undefined ? qd.use_word_bank : true // Default to true for backward compatibility
     };
   }
 
@@ -117,7 +119,8 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
   return {
     text: qd.text || qd.question || question.question_text || '',
     blanks,
-    explanation: qd.explanation || ad.explanation || question.explanation
+    explanation: qd.explanation || ad.explanation || question.explanation,
+    use_word_bank: qd.use_word_bank !== undefined ? qd.use_word_bank : true // Default to true for backward compatibility
   };
 };
 

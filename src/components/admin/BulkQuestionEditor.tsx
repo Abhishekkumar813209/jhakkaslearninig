@@ -699,6 +699,16 @@ const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFi
             </Badge>
             <span className="text-xs text-muted-foreground">{question.marks || 1} marks</span>
             
+            {/* Word Bank Badge for fill_blank */}
+            {question.question_type === 'fill_blank' && (
+              <Badge 
+                variant={question.correct_answer?.use_word_bank !== false ? "default" : "outline"} 
+                className="text-xs"
+              >
+                Word Bank: {question.correct_answer?.use_word_bank !== false ? "ON" : "OFF"}
+              </Badge>
+            )}
+            
             {onFixWithCrop && (
               <Button
                 variant="outline"

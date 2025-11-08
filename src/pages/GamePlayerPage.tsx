@@ -637,6 +637,7 @@ const GamePlayerPage = () => {
               }))
             : undefined,
           numbering_style: parsedFB.numbering_style,
+          use_word_bank: parsedFB.use_word_bank !== undefined ? parsedFB.use_word_bank : true, // Pass flag to component
           explanation: parsedFB.explanation,
           marks: gameData.question_data?.marks || gameData.marks || 1,
           difficulty: gameData.question_data?.difficulty || gameData.difficulty

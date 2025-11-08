@@ -277,9 +277,11 @@ export const ManualQuestionEntry = ({
           if (gameData.sub_questions?.length >= 1) {
             questionDataJSON.sub_questions = gameData.sub_questions;
             questionDataJSON.numbering_style = gameData.numbering_style || '1,2,3';
+            questionDataJSON.use_word_bank = gameData.use_word_bank !== undefined ? gameData.use_word_bank : true; // Store flag
             answerDataJSON.blanks = gameData.blanks || [];
           } else {
             answerDataJSON.blanks = gameData.blanks || [];
+            questionDataJSON.use_word_bank = gameData.use_word_bank !== undefined ? gameData.use_word_bank : true; // Store flag
           }
           
           // Legacy

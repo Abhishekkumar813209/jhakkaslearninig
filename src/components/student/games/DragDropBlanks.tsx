@@ -24,6 +24,8 @@ interface DragDropBlanksGameData {
   question?: string; // Legacy single blank (deprecated)
   blanks?: BlankAnswer[];
   sub_questions?: SubQuestion[]; // Multi-part with numbering (preferred)
+  numbering_style?: string;
+  use_word_bank?: boolean; // Controls whether distractors are shown
   explanation?: string;
   marks?: number;
   difficulty?: string;
@@ -150,24 +152,38 @@ export function DragDropBlanks({
     setShowExplanation(false);
 
     // Create shuffled word bank from sub_questions or blanks
+    // Check use_word_bank flag to determine if distractors should be included
+    const useFullWordBank = gameData.use_word_bank !== false; // Default to true for backward compatibility
     const allWords: string[] = [];
     
     // Defensive: Check both arrays exist and have length
     if (gameData.sub_questions && gameData.sub_questions.length > 0) {
       gameData.sub_questions.forEach((subQ) => {
         allWords.push(subQ.correctAnswer);
-        allWords.push(...(subQ.distractors || []));
+        // Only add distractors if word bank is enabled
+        if (useFullWordBank) {
+          allWords.push(...(subQ.distractors || []));
+        }
       });
     } else if (gameData.blanks && gameData.blanks.length > 0) {
       gameData.blanks.forEach((blank) => {
         allWords.push(blank.correctAnswer);
-        allWords.push(...(blank.distractors || []));
+        // Only add distractors if word bank is enabled
+        if (useFullWordBank) {
+          allWords.push(...(blank.distractors || []));
+        }
       });
     } else {
       console.error('[DragDropBlanks] No valid blanks or sub_questions data:', gameData);
     }
     
     setWordBank(allWords.sort(() => Math.random() - 0.5));
+    
+    console.log('[DragDropBlanks] Word bank initialized:', {
+      useFullWordBank,
+      totalWords: allWords.length,
+      hasDistractors: useFullWordBank
+    });
   }, [gameData]);
 
   const handleDragStart = (event: any) => {

@@ -109,7 +109,14 @@ export const QuestionAnswerInput = ({
         valid = typeof localAnswer?.index === 'number' && localAnswer.index >= 0 && localAnswer.index < safeOptions.length;
         break;
       case 'true_false':
-        valid = typeof localAnswer?.value === 'boolean';
+        // Multi-statement mode
+        if (Array.isArray(localAnswer?.statements)) {
+          valid = localAnswer.statements.length > 0 &&
+                  localAnswer.statements.every((s: any) => typeof s?.answer === 'boolean');
+        } else {
+          // Single statement mode
+          valid = typeof localAnswer?.value === 'boolean';
+        }
         break;
       case 'fill_blank':
         // New drag-drop format with blanks array - Accept >=1 distractor per blank
@@ -232,6 +239,34 @@ export const QuestionAnswerInput = ({
 
   // True/False Answer
   if (questionType === 'true_false') {
+    // Multi-statement mode: show info only
+    if (Array.isArray(localAnswer?.statements)) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">True/False Statements</Label>
+            <Badge variant={isValid ? 'default' : 'destructive'} className="gap-1">
+              {isValid ? (
+                <>
+                  <CheckCircle2 className="h-3 w-3" />
+                  Valid
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-3 w-3" />
+                  Required
+                </>
+              )}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Answers are set per statement above. No single correct answer is needed.
+          </p>
+        </div>
+      );
+    }
+
+    // Single statement mode: show True/False toggles
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">

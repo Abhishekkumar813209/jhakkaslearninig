@@ -3016,7 +3016,7 @@ export const SmartQuestionExtractor = ({
                   <>
                     <div 
                       className="text-sm line-clamp-3 mb-3 prose prose-sm max-w-none question-content"
-                      dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text) }}
+                      dangerouslySetInnerHTML={{ __html: renderWithImages(typeof question.question_text === 'string' ? question.question_text : '') }}
                     />
                     
                     {/* Show all True/False statements with toggles in Grid view */}
@@ -3031,9 +3031,9 @@ export const SmartQuestionExtractor = ({
                             <Badge variant="outline" className="shrink-0 h-6 w-6 flex items-center justify-center p-0 text-xs font-mono">
                               {stmtIdx + 1}
                             </Badge>
-                            <div className="flex-1 text-sm" dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} />
+                            <div className="flex-1 text-sm" dangerouslySetInnerHTML={{ __html: renderWithImages(typeof stmt?.text === 'string' ? stmt.text : '') }} />
                             <div className="flex items-center gap-2 shrink-0">
-                              <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-green-500" />
+                              <Switch checked={!!stmt.answer} disabled className="data-[state=checked]:bg-blue-500" />
                               <span className="text-xs font-medium text-muted-foreground w-12">
                                 {stmt.answer ? 'True' : 'False'}
                               </span>
@@ -3150,7 +3150,7 @@ export const SmartQuestionExtractor = ({
                           </div>
                           <div 
                             className="prose prose-sm max-w-none question-content mt-2"
-                            dangerouslySetInnerHTML={{ __html: renderWithImages(q.question_text) }}
+                            dangerouslySetInnerHTML={{ __html: renderWithImages(typeof q.question_text === 'string' ? q.question_text : '') }}
                           />
                           
                           {/* Sub-questions for Fill-in-the-Blanks */}
@@ -3165,7 +3165,7 @@ export const SmartQuestionExtractor = ({
                                   <span className="font-semibold min-w-[24px]">
                                     {getNumberingLabel(subIdx, q.correct_answer?.numbering_style || '1,2,3')}.
                                   </span>
-                                  <span dangerouslySetInnerHTML={{ __html: renderWithImages(subQ.text) }} />
+                                  <span dangerouslySetInnerHTML={{ __html: renderWithImages(typeof subQ?.text === 'string' ? subQ.text : '') }} />
                                 </div>
                               ))}
                             </div>
@@ -3183,7 +3183,7 @@ export const SmartQuestionExtractor = ({
                                   <span className="font-semibold min-w-[24px]">
                                     {getNumberingLabel(stmtIdx, q.correct_answer?.numbering_style || 'i,ii,iii')}.
                                   </span>
-                                  <span dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text) }} />
+                                  <span dangerouslySetInnerHTML={{ __html: renderWithImages(typeof stmt?.text === 'string' ? stmt.text : '') }} />
                                   <Badge variant={stmt.answer ? "default" : "secondary"} className="ml-2">
                                     {stmt.answer ? "True" : "False"}
                                   </Badge>
@@ -3199,7 +3199,7 @@ export const SmartQuestionExtractor = ({
                                   <span className="font-medium">{String.fromCharCode(65 + i)})</span>{' '}
                                   <span 
                                     className="prose prose-sm max-w-none question-content inline"
-                                    dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }} 
+                                    dangerouslySetInnerHTML={{ __html: renderWithImages(typeof opt === 'string' ? opt : '') }} 
                                   />
                                 </li>
                               ))}

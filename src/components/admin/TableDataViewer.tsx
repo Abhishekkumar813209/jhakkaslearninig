@@ -314,7 +314,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                 <Badge variant="default">{filters.length} filter{filters.length > 1 ? 's' : ''}</Badge>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mr-4">
               <Button 
                 variant={showFilters ? "default" : "outline"} 
                 size="sm" 

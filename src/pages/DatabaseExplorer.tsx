@@ -436,7 +436,7 @@ const DatabaseExplorer = () => {
       <main className="flex-1 overflow-hidden min-h-0">
         <div className="h-full max-w-7xl mx-auto p-3 md:p-6">
           <Tabs defaultValue="data" className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-4 md:mb-6 shrink-0">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-4 md:mb-6 shrink-0 mr-4">
             <TabsTrigger value="data" className="text-xs md:text-sm">
               <span className="hidden sm:inline">Live Data</span>
               <span className="sm:hidden">Data</span>

@@ -39,9 +39,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
-  const headerThRefs = useRef<(HTMLTableCellElement | null)[]>([]);
   const isSyncingRef = useRef(false);
-  const [colWidths, setColWidths] = useState<number[]>([]);
 
   // Clear selection when table changes
   useState(() => {
@@ -222,13 +220,6 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
   const hasIdColumn = columns.some(col => col.name === 'id');
 
-  const measureColWidths = () => {
-    const ths = headerThRefs.current;
-    if (!ths || ths.length === 0) return;
-    const widths = ths.map((th) => (th ? th.offsetWidth : 0));
-    setColWidths(widths);
-  };
-
   // Scroll sync - immediate sync without RAF for better responsiveness
   useEffect(() => {
     const headerEl = headerScrollRef.current;
@@ -239,14 +230,18 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
       headerEl.scrollLeft = bodyEl.scrollLeft;
-      isSyncingRef.current = false;
+      setTimeout(() => {
+        isSyncingRef.current = false;
+      }, 0);
     };
     
     const onHeaderScroll = () => {
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
       bodyEl.scrollLeft = headerEl.scrollLeft;
-      isSyncingRef.current = false;
+      setTimeout(() => {
+        isSyncingRef.current = false;
+      }, 0);
     };
 
     bodyEl.addEventListener('scroll', onBodyScroll, { passive: true } as any);
@@ -256,35 +251,13 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
       bodyEl.removeEventListener('scroll', onBodyScroll);
       headerEl.removeEventListener('scroll', onHeaderScroll);
     };
-  }, [columns.length]);
+  }, [columns.length, data.length]);
 
-  // Reset scroll position and re-measure on data change
+  // Reset scroll position on data change
   useEffect(() => {
-    if (data.length > 0) {
-      // Reset scroll to left
-      if (headerScrollRef.current) headerScrollRef.current.scrollLeft = 0;
-      if (bodyScrollRef.current) bodyScrollRef.current.scrollLeft = 0;
-      
-      // Force re-measure column widths
-      setTimeout(() => measureColWidths(), 100);
-    }
-  }, [data]);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(measureColWidths);
-    return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns, data.length, hasIdColumn]);
-
-  useEffect(() => {
-    if (!bodyScrollRef.current) return;
-    const ro = new ResizeObserver(() => {
-      measureColWidths();
-    });
-    ro.observe(bodyScrollRef.current);
-    return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns.length]);
+    if (headerScrollRef.current) headerScrollRef.current.scrollLeft = 0;
+    if (bodyScrollRef.current) bodyScrollRef.current.scrollLeft = 0;
+  }, [tableName, data.length]);
 
 
   if (!tableName) {
@@ -458,10 +431,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                 <thead className="bg-background">
                   <tr className="hover:bg-transparent">
                     {hasIdColumn && (
-                      <th
-                        ref={el => (headerThRefs.current[0] = el)}
-                        className="w-14 px-4 text-left align-middle border-r"
-                      >
+                      <th className="w-14 px-4 text-left align-middle border-r">
                         <Checkbox
                           checked={selectedRows.size === data.length && data.length > 0}
                           onCheckedChange={toggleSelectAll}
@@ -469,12 +439,11 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                         />
                       </th>
                     )}
-                    {columns.map((col, i) => {
+                    {columns.map((col) => {
                       const isUUIDType = col.type.toLowerCase().includes('uuid');
                       return (
                         <th
                           key={col.name}
-                          ref={el => (headerThRefs.current[(hasIdColumn ? 1 : 0) + i] = el)}
                           className="h-12 px-3 text-left align-middle font-medium text-muted-foreground border-r"
                         >
                           <div className="flex items-center gap-2 overflow-hidden">

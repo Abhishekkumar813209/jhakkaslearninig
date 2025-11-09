@@ -700,32 +700,6 @@ const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFi
             </Badge>
             <span className="text-xs text-muted-foreground">{question.marks || 1} marks</span>
             
-            {/* Word Bank Toggle for fill_blank */}
-            {question.question_type === 'fill_blank' && (
-              <Toggle
-                pressed={question.correct_answer?.use_word_bank !== false}
-                onPressedChange={(pressed) => {
-                  const updated = {
-                    ...question,
-                    correct_answer: {
-                      ...question.correct_answer,
-                      use_word_bank: pressed
-                    }
-                  };
-                  onUpdate(updated);
-                }}
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "text-xs h-7 px-2",
-                  question.correct_answer?.use_word_bank !== false 
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                Word Bank: {question.correct_answer?.use_word_bank !== false ? "ON" : "OFF"}
-              </Toggle>
-            )}
             
             {onFixWithCrop && (
               <Button
@@ -1016,19 +990,47 @@ const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFi
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">Fill-in-the-Blanks Sub-Questions</label>
-                  <Select
-                    value={question.numberingStyle || '1,2,3'}
-                    onValueChange={(val) => handleChange('numberingStyle', val)}
-                  >
-                    <SelectTrigger className="w-32 h-8">
-                      <SelectValue placeholder="Numbering" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1,2,3">1, 2, 3...</SelectItem>
-                      <SelectItem value="a,b,c">a, b, c...</SelectItem>
-                      <SelectItem value="i,ii,iii">i, ii, iii...</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    {/* Word Bank Toggle */}
+                    <Toggle
+                      pressed={question.correct_answer?.use_word_bank !== false}
+                      onPressedChange={(pressed) => {
+                        const updated = {
+                          ...question,
+                          correct_answer: {
+                            ...question.correct_answer,
+                            use_word_bank: pressed
+                          }
+                        };
+                        onUpdate(updated);
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "text-xs h-8 px-3",
+                        question.correct_answer?.use_word_bank !== false 
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
+                    >
+                      Word Bank: {question.correct_answer?.use_word_bank !== false ? "ON" : "OFF"}
+                    </Toggle>
+                    
+                    {/* Numbering Format Dropdown */}
+                    <Select
+                      value={question.numberingStyle || '1,2,3'}
+                      onValueChange={(val) => handleChange('numberingStyle', val)}
+                    >
+                      <SelectTrigger className="w-32 h-8">
+                        <SelectValue placeholder="Numbering" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1,2,3">1, 2, 3...</SelectItem>
+                        <SelectItem value="a,b,c">a, b, c...</SelectItem>
+                        <SelectItem value="i,ii,iii">i, ii, iii...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {/* Sub-questions list */}
@@ -1080,20 +1082,49 @@ const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFi
                         />
                       </div>
 
-                      <div>
-                        <label className="text-xs font-medium mb-1 block">Distractors (comma-separated)</label>
-                        <Input
-                          value={(subQ.distractors || []).join(', ')}
-                          onChange={(e) => {
-                            const newSubQuestions = [...(question.sub_questions || [])];
-                            newSubQuestions[idx] = { 
-                              ...subQ, 
-                              distractors: e.target.value.split(',').map(d => d.trim()).filter(Boolean)
-                            };
-                            handleChange('sub_questions', newSubQuestions);
-                          }}
-                          placeholder="distractor1, distractor2, distractor3"
-                        />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-medium">Distractors (Wrong Options)</label>
+                          {question.correct_answer?.use_word_bank === false && (
+                            <Badge variant="secondary" className="text-xs">
+                              Disabled (Word Bank OFF)
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {question.correct_answer?.use_word_bank === false && (
+                          <p className="text-xs text-muted-foreground">
+                            💡 Distractors are not needed when Word Bank is disabled
+                          </p>
+                        )}
+                        
+                        <div className="grid grid-cols-3 gap-2">
+                          {[0, 1, 2].map((distIdx) => (
+                            <div key={distIdx}>
+                              <label className="text-xs text-muted-foreground mb-1 block">
+                                Wrong {distIdx + 1}
+                              </label>
+                              <Input
+                                value={(subQ.distractors || [])[distIdx] || ''}
+                                onChange={(e) => {
+                                  const newSubQuestions = [...(question.sub_questions || [])];
+                                  const newDistractors = [...(subQ.distractors || [])];
+                                  newDistractors[distIdx] = e.target.value;
+                                  newSubQuestions[idx] = { 
+                                    ...subQ, 
+                                    distractors: newDistractors.filter((d, i) => i === distIdx ? true : d) // Keep non-empty or current index
+                                  };
+                                  handleChange('sub_questions', newSubQuestions);
+                                }}
+                                placeholder={`Wrong option ${distIdx + 1}`}
+                                disabled={question.correct_answer?.use_word_bank === false}
+                                className={cn(
+                                  question.correct_answer?.use_word_bank === false && "opacity-50 cursor-not-allowed"
+                                )}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ))}

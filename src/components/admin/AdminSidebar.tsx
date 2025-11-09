@@ -116,13 +116,13 @@ const menuGroups: MenuGroup[] = [
     items: [
       { value: "settings", label: "Settings", icon: Settings },
       { value: "ai-assistant", label: "AI Assistant", icon: Bot },
+      { value: "database-explorer", label: "Database Explorer", icon: Database },
     ],
   },
 ];
 
 // Separate navigation items (not tabs)
 const navigationItems = [
-  { path: "/database-explorer", label: "Database Explorer", icon: Database },
   { path: "/edge-function-explorer", label: "Edge Function Explorer", icon: FunctionSquare },
   { path: "/pipeline-validator", label: "Pipeline Validator", icon: GitBranch },
   { path: "/admin/solution-management", label: "Solution Management", icon: CheckCircle },

@@ -218,7 +218,7 @@ const App = () => (
             } />
             <Route path="/database-explorer" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
-                <DatabaseExplorer />
+                <Navigate to="/admin?tab=database-explorer" replace />
               </ProtectedRoute>
             } />
             <Route path="/edge-function-explorer" element={

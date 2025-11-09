@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,6 @@ import { TableSelector } from '@/components/admin/TableSelector';
 import { TableDataViewer } from '@/components/admin/TableDataViewer';
 import { IDResolver } from '@/components/admin/IDResolver';
 import { WorkflowDiagrams } from '@/components/admin/WorkflowDiagrams';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 const databaseSchema = {
   profiles: {
@@ -397,7 +394,6 @@ const columnDocumentation = {
 };
 
 const DatabaseExplorer = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -420,23 +416,11 @@ const DatabaseExplorer = () => {
 
   return (
     <div className="h-screen w-full bg-background flex flex-col">
-      {/* Header with back button */}
+      {/* Header - simplified, no back button */}
       <header className="border-b border-border bg-card px-3 md:px-6 py-3 md:py-0 md:h-14 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-0 md:justify-between sticky top-0 z-10 shrink-0">
-        <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/admin')}
-            className="gap-1 md:gap-2 px-2 md:px-4"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back to Admin</span>
-            <span className="sm:hidden">Back</span>
-          </Button>
-          <div className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-primary" />
-            <h1 className="text-base md:text-lg font-semibold text-foreground">Data Explorer</h1>
-          </div>
+        <div className="flex items-center gap-2">
+          <Database className="h-5 w-5 text-primary" />
+          <h1 className="text-base md:text-lg font-semibold text-foreground">Data Explorer</h1>
         </div>
         
         <div className="w-full md:w-64">

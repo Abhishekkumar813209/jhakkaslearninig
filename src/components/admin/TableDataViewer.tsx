@@ -217,6 +217,7 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
     setColWidths(widths);
   };
 
+  // Scroll sync - immediate sync without RAF for better responsiveness
   useEffect(() => {
     const headerEl = headerScrollRef.current;
     const bodyEl = bodyScrollRef.current;
@@ -226,17 +227,14 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
       headerEl.scrollLeft = bodyEl.scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncingRef.current = false;
-      });
+      isSyncingRef.current = false;
     };
+    
     const onHeaderScroll = () => {
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
       bodyEl.scrollLeft = headerEl.scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncingRef.current = false;
-      });
+      isSyncingRef.current = false;
     };
 
     bodyEl.addEventListener('scroll', onBodyScroll, { passive: true } as any);
@@ -247,6 +245,18 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
       headerEl.removeEventListener('scroll', onHeaderScroll);
     };
   }, [columns.length]);
+
+  // Reset scroll position and re-measure on data change
+  useEffect(() => {
+    if (data.length > 0) {
+      // Reset scroll to left
+      if (headerScrollRef.current) headerScrollRef.current.scrollLeft = 0;
+      if (bodyScrollRef.current) bodyScrollRef.current.scrollLeft = 0;
+      
+      // Force re-measure column widths
+      setTimeout(() => measureColWidths(), 100);
+    }
+  }, [data]);
 
   useEffect(() => {
     const id = requestAnimationFrame(measureColWidths);

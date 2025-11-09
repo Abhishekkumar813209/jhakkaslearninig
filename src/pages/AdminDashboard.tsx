@@ -35,6 +35,7 @@ import SubscriptionManagement from "@/components/admin/SubscriptionManagement";
 import { EnhancedXPManagement } from "@/components/admin/EnhancedXPManagement";
 import { MigrationStatus } from "@/components/admin/MigrationStatus";
 import { QuestionBankReview } from "@/components/admin/QuestionBankReview";
+import DatabaseExplorer from "@/pages/DatabaseExplorer";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -87,6 +88,7 @@ const AdminDashboard = () => {
     { value: "parents", label: "Parents", component: ParentManagement },
     { value: "settings", label: "Settings", component: AdminSettings },
     { value: "ai-assistant", label: "AI Assistant", component: AdminAIChat },
+    { value: "database-explorer", label: "Database Explorer", component: DatabaseExplorer },
   ];
 
   const activeTabItem = tabItems.find(item => item.value === activeTab);

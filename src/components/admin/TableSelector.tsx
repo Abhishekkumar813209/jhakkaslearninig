@@ -11,6 +11,7 @@ const AVAILABLE_TABLES = [
   { value: 'roadmap_topics', label: 'Roadmap Topics', category: 'Batch & Roadmap' },
   { value: 'question_bank', label: 'Question Bank', category: 'Content & Learning' },
   { value: 'topic_content_mapping', label: 'Topic Content Mapping', category: 'Content & Learning' },
+  { value: 'topic_learning_content', label: 'Lesson Library (Topic Learning Content)', category: 'Content & Learning' },
   { value: 'gamified_exercises', label: 'Gamified Exercises', category: 'Content & Learning' },
   { value: 'student_topic_game_progress', label: 'Student Game Progress', category: 'Progress & Analytics' },
   { value: 'student_analytics', label: 'Student Analytics', category: 'Progress & Analytics' },

@@ -58,11 +58,15 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
   // Persist search in URL
   useEffect(() => {
+    const params = new URLSearchParams(searchParams);
     if (searchTerm) {
-      setSearchParams({ search: searchTerm, mode: searchMode });
+      params.set('search', searchTerm);
+      params.set('mode', searchMode);
     } else {
-      setSearchParams({});
+      params.delete('search');
+      params.delete('mode');
     }
+    setSearchParams(params);
   }, [searchTerm, searchMode]);
 
   const handleSearch = () => {
@@ -79,7 +83,10 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
 
   const clearSearch = () => {
     setSearchTerm('');
-    setSearchParams({});
+    const params = new URLSearchParams(searchParams);
+    params.delete('search');
+    params.delete('mode');
+    setSearchParams(params);
     refresh();
   };
 
@@ -100,7 +107,12 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
       // Set the search term
       setSearchTerm(value);
       // Trigger the search
-      setSearchParams({ mode: 'id', search: value });
+      setSearchParams(() => {
+        const params = new URLSearchParams(searchParams);
+        params.set('mode', 'id');
+        params.set('search', value);
+        return params;
+      });
       resolveID(value);
       // Scroll to top to show the result
       window.scrollTo({ top: 0, behavior: 'smooth' });

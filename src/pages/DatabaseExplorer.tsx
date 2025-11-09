@@ -404,14 +404,16 @@ const DatabaseExplorer = () => {
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
 
-  // Update URL when table changes
+  // Update URL when table changes (preserve existing params like `tab`)
   const handleTableChange = (table: string | null) => {
     setSelectedTable(table);
+    const params = new URLSearchParams(searchParams);
     if (table) {
-      setSearchParams({ table });
+      params.set('table', table);
     } else {
-      setSearchParams({});
+      params.delete('table');
     }
+    setSearchParams(params);
   };
 
   return (

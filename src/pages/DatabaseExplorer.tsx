@@ -418,21 +418,25 @@ const DatabaseExplorer = () => {
 
   return (
     <div className="h-screen w-full bg-background flex flex-col">
-      {/* Header - simplified, no back button */}
-      <header className="border-b border-border bg-card px-3 md:px-6 py-3 md:py-0 md:h-14 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-0 md:justify-between sticky top-0 z-10 shrink-0">
-        <div className="flex items-center gap-2">
-          <Database className="h-5 w-5 text-primary" />
-          <h1 className="text-base md:text-lg font-semibold text-foreground">Data Explorer</h1>
-        </div>
-        
-        <div className="w-full md:w-64">
-          <TableSelector value={selectedTable} onChange={handleTableChange} />
+      {/* Header with constrained content */}
+      <header className="border-b border-border bg-card px-3 md:px-6 py-3 md:py-0 md:h-14 flex shrink-0 sticky top-0 z-10">
+        <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-0 md:justify-between">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-primary" />
+            <h1 className="text-base md:text-lg font-semibold text-foreground">Data Explorer</h1>
+          </div>
+          
+          <div className="w-full md:w-64">
+            <TableSelector value={selectedTable} onChange={handleTableChange} />
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 p-3 md:p-6 overflow-hidden min-h-0">
-        <Tabs defaultValue="data" className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-4 md:mb-6 shrink-0">
+      {/* Main content with constrained width */}
+      <main className="flex-1 overflow-hidden min-h-0">
+        <div className="h-full max-w-7xl mx-auto p-3 md:p-6">
+          <Tabs defaultValue="data" className="h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-4 md:mb-6 shrink-0">
             <TabsTrigger value="data" className="text-xs md:text-sm">
               <span className="hidden sm:inline">Live Data</span>
               <span className="sm:hidden">Data</span>
@@ -546,9 +550,10 @@ const DatabaseExplorer = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
         </div>
-    );
+      </main>
+    </div>
+  );
 };
 
 export default DatabaseExplorer;

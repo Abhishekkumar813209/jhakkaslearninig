@@ -446,14 +446,13 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
         {/* Header Table (static, horizontal scroll only) */}
         {!loading && data.length > 0 && (
           <div ref={headerScrollRef} className="overflow-x-auto border-b bg-background shadow-sm">
-            <div className="min-w-full inline-block">
-              <table className="w-auto caption-bottom text-sm border-collapse">
+            <div className="w-full">
+              <table className="w-full caption-bottom text-sm border-collapse table-fixed">
                 <colgroup>
-                  {hasIdColumn && <col style={{ width: '56px', minWidth: '56px' }} />}
+                  {hasIdColumn && <col className="w-14" />}
                   {columns.map((col) => {
                     const isUUIDType = col.type.toLowerCase().includes('uuid');
-                    const width = isUUIDType ? '320px' : '220px';
-                    return <col key={col.name} style={{ width, minWidth: width }} />;
+                    return <col key={col.name} className={isUUIDType ? 'w-[20%] min-w-[200px]' : 'w-auto min-w-[120px]'} />;
                   })}
                 </colgroup>
                 <thead className="bg-background">
@@ -476,12 +475,10 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                         <th
                           key={col.name}
                           ref={el => (headerThRefs.current[(hasIdColumn ? 1 : 0) + i] = el)}
-                          className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground border-r ${
-                            isUUIDType ? 'min-w-[320px]' : 'min-w-[220px]'
-                          }`}
+                          className="h-12 px-3 text-left align-middle font-medium text-muted-foreground border-r"
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{col.name}</span>
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="font-semibold truncate">{col.name}</span>
                             <Badge variant="outline" className="text-xs shrink-0">
                               {col.type}
                             </Badge>
@@ -507,14 +504,13 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
               <p>No data found</p>
             </div>
           ) : (
-            <div className="min-w-full inline-block">
-              <table className="w-auto caption-bottom text-sm border-collapse">
+            <div className="w-full">
+              <table className="w-full caption-bottom text-sm border-collapse table-fixed">
                 <colgroup>
-                  {hasIdColumn && <col style={{ width: '56px', minWidth: '56px' }} />}
+                  {hasIdColumn && <col className="w-14" />}
                   {columns.map((col) => {
                     const isUUIDType = col.type.toLowerCase().includes('uuid');
-                    const width = isUUIDType ? '320px' : '220px';
-                    return <col key={col.name} style={{ width, minWidth: width }} />;
+                    return <col key={col.name} className={isUUIDType ? 'w-[20%] min-w-[200px]' : 'w-auto min-w-[120px]'} />;
                   })}
                 </colgroup>
                 <tbody>
@@ -537,9 +533,9 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                         return (
                           <td
                             key={col.name}
-                            className={`p-4 align-middle font-mono text-xs group hover:bg-accent border-r ${
+                            className={`p-3 align-middle font-mono text-xs group hover:bg-accent border-r ${
                               isUUIDValue ? 'cursor-alias' : 'cursor-pointer'
-                            } ${isUUIDType ? 'min-w-[320px]' : 'min-w-[220px]'}`}
+                            }`}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!isUUIDValue) {
@@ -552,8 +548,8 @@ export function TableDataViewer({ tableName, onRowSelect }: TableDataViewerProps
                             }}
                             title={isUUIDValue ? 'Double-click to resolve ID' : 'Click to edit'}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="break-all">{formatValue(cellValue)}</span>
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <span className="truncate flex-1">{formatValue(cellValue)}</span>
                               {isUUIDValue ? (
                                 <Link2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 shrink-0" />
                               ) : (

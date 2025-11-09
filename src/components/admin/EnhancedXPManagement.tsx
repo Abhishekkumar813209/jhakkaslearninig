@@ -245,7 +245,7 @@ export const EnhancedXPManagement = () => {
       )}
 
       {/* Step 3: Roadmap Selection */}
-      {((selectedDomain === 'school' && hierarchy.selectedClass) || (selectedDomain !== 'school' && selectedDomain)) && !selectedRoadmap && (
+      {((selectedDomain === 'school' && hierarchy.selectedClass) || (selectedDomain !== 'school' && selectedDomain)) && !selectedRoadmapId && (
         <div>
           <Button onClick={handleBackToDomain} variant="outline" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -261,28 +261,28 @@ export const EnhancedXPManagement = () => {
       )}
 
       {/* Step 4: Subject Selection */}
-      {selectedRoadmap && !selectedSubject && (
+      {selectedRoadmapId && !selectedSubject && (
         <div>
           <Button onClick={handleBackToRoadmap} variant="outline" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Roadmap
           </Button>
           <SubjectSelector
-            roadmapId={selectedRoadmap.id}
+            roadmapId={selectedRoadmapId}
             onSubjectSelect={handleSubjectSelect}
           />
         </div>
       )}
 
       {/* Step 5: Chapter Selection */}
-      {selectedSubject && !selectedChapter && (
+      {selectedSubject && !selectedChapterId && selectedRoadmapId && (
         <div>
           <Button onClick={handleBackToSubject} variant="outline" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Subjects
           </Button>
           <ChapterSelector
-            roadmapId={selectedRoadmap!.id}
+            roadmapId={selectedRoadmapId}
             subject={selectedSubject}
             onChapterSelect={handleChapterSelect}
           />
@@ -290,7 +290,7 @@ export const EnhancedXPManagement = () => {
       )}
 
       {/* Step 6: XP Type Selection (Games vs Tests) + Duplicate Detector */}
-      {selectedChapter && selectedRoadmap && selectedSubject && !isHydrating && (
+      {selectedChapter && selectedRoadmapId && selectedSubject && !isHydrating && (
         <div className="space-y-6">
           <div>
             <Button onClick={handleBackToChapter} variant="outline" className="mb-4">
@@ -298,7 +298,7 @@ export const EnhancedXPManagement = () => {
               Back to Chapters
             </Button>
             <XPTypeSelector
-              roadmapId={selectedRoadmap.id}
+              roadmapId={selectedRoadmapId}
               subject={selectedSubject}
               chapter={selectedChapter}
             />

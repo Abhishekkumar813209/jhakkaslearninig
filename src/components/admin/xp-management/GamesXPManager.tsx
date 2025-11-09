@@ -126,7 +126,17 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
         body: { topic_id: topicId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Sync error:', error);
+        // Check if error message indicates duplicate
+        if (error.message?.includes('Duplicate question detected')) {
+          toast.info('Games already synced (duplicates detected)');
+        } else {
+          toast.error(`Sync failed: ${error.message}`);
+        }
+        setSyncing(null);
+        return;
+      }
 
       toast.success(data?.message || 'Games resynced successfully');
       
@@ -156,11 +166,26 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
         body: { topic_id: topicId }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Publish error:', error);
+        toast.error(`Failed to publish: ${error.message}`);
+        setPublishing(null);
+        return;
+      }
 
-      toast.success(data?.message || 'Games published successfully');
+      // Handle response based on counts
+      if (data?.inserted > 0) {
+        toast.success(data.message);
+      } else if (data?.skipped > 0 && (!data.errors || data.errors.length === 0)) {
+        toast.info(data.message);
+      } else if (data?.errors && data.errors.length > 0) {
+        console.error('Publish errors:', data.errors);
+        toast.error(`${data.message}\nFirst error: ${data.errors[0].error}`);
+      } else {
+        toast.info(data?.message || 'Nothing to publish');
+      }
       
-      // Refresh after a short delay
+      // Refresh to show updated counts
       setTimeout(() => {
         fetchTopics();
         setPublishing(null);

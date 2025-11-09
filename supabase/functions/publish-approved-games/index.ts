@@ -97,6 +97,29 @@ Deno.serve(async (req) => {
 
     console.log(`[publish-approved-games] Found ${approvedGames.length} approved games with data`);
 
+    // Game type normalization map
+    const typeNormalizationMap: Record<string, string> = {
+      'fill_blank': 'fill_blanks',
+      'match_columns': 'match_column',
+      'drag_drop': 'drag_drop_sequence',
+      'mcq': 'mcq',
+      'true_false': 'true_false',
+      'match_pairs': 'match_pairs',
+      'line_matching': 'line_matching',
+      'card_memory': 'card_memory',
+      'typing_race': 'typing_race',
+      'drag_drop_blanks': 'drag_drop_blanks',
+      'drag_drop_sequence': 'drag_drop_sequence',
+      'interactive_blanks': 'interactive_blanks',
+    };
+
+    // Valid exercise types (from enum)
+    const validExerciseTypes = [
+      'mcq', 'true_false', 'fill_blanks', 'match_pairs', 'match_column',
+      'drag_drop_sequence', 'line_matching', 'card_memory', 'typing_race',
+      'drag_drop_blanks', 'interactive_blanks'
+    ];
+
     // Step 3: Get current max game_order
     const { data: maxOrderResult } = await supabase
       .from('gamified_exercises')
@@ -116,8 +139,21 @@ Deno.serve(async (req) => {
       try {
         const gameData = game.game_data;
         
-        // Validate game_type can be cast to exercise_type
-        const exerciseType = game.game_type;
+        // Normalize game_type
+        const normalizedType = typeNormalizationMap[game.game_type] || game.game_type;
+        
+        // Validate normalized type is supported
+        if (!validExerciseTypes.includes(normalizedType)) {
+          console.error(`[publish-approved-games] Unsupported game_type: ${game.game_type} (normalized: ${normalizedType})`);
+          errors.push({ 
+            lesson_id: game.id, 
+            error: `Unsupported game_type: ${game.game_type}. Must be one of: ${validExerciseTypes.join(', ')}` 
+          });
+          continue;
+        }
+        
+        console.log(`[publish-approved-games] Normalized ${game.game_type} -> ${normalizedType}`);
+        const exerciseType = normalizedType;
         
         const exerciseData = {
           ...gameData,
@@ -160,15 +196,30 @@ Deno.serve(async (req) => {
 
     console.log(`[publish-approved-games] Complete: ${inserted} inserted, ${skipped} skipped, ${errors.length} errors`);
 
+    // Determine response status and message
+    let statusCode = 200;
+    let message = '';
+    
+    if (inserted > 0) {
+      message = `Published ${inserted} game(s)${skipped > 0 ? `, skipped ${skipped} duplicate(s)` : ''}${errors.length > 0 ? `, ${errors.length} error(s)` : ''}`;
+    } else if (skipped > 0 && errors.length === 0) {
+      message = `All ${skipped} game(s) already published (duplicates)`;
+    } else if (errors.length > 0 && inserted === 0) {
+      statusCode = 400;
+      message = `0 published; ${errors.length} error(s) - see details`;
+    } else {
+      message = 'Nothing to publish';
+    }
+
     return new Response(
       JSON.stringify({
-        success: true,
+        success: statusCode === 200,
         inserted,
         skipped,
         errors: errors.length > 0 ? errors : undefined,
-        message: `Published ${inserted} game(s) successfully${skipped > 0 ? `, skipped ${skipped} duplicate(s)` : ''}${errors.length > 0 ? `, ${errors.length} error(s)` : ''}`
+        message
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {

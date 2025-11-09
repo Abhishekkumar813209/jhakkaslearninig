@@ -14,6 +14,7 @@ import { RichQuestionEditor } from './RichQuestionEditor';
 import { PDFQuestionExtractor } from './PDFQuestionExtractor';
 import { getNumberingLabel } from '@/lib/questionParsing';
 import { Textarea } from '@/components/ui/textarea';
+import { Toggle } from '@/components/ui/toggle';
 
 // Helper to render math while preserving images and breaks
 const renderWithImages = (html: string): string => {
@@ -699,14 +700,31 @@ const InlineQuestionCard = ({ question, onUpdate, onSave, isSaving, hasPdf, onFi
             </Badge>
             <span className="text-xs text-muted-foreground">{question.marks || 1} marks</span>
             
-            {/* Word Bank Badge for fill_blank */}
+            {/* Word Bank Toggle for fill_blank */}
             {question.question_type === 'fill_blank' && (
-              <Badge 
-                variant={question.correct_answer?.use_word_bank !== false ? "default" : "outline"} 
-                className="text-xs"
+              <Toggle
+                pressed={question.correct_answer?.use_word_bank !== false}
+                onPressedChange={(pressed) => {
+                  const updated = {
+                    ...question,
+                    correct_answer: {
+                      ...question.correct_answer,
+                      use_word_bank: pressed
+                    }
+                  };
+                  onUpdate(updated);
+                }}
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "text-xs h-7 px-2",
+                  question.correct_answer?.use_word_bank !== false 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
               >
                 Word Bank: {question.correct_answer?.use_word_bank !== false ? "ON" : "OFF"}
-              </Badge>
+              </Toggle>
             )}
             
             {onFixWithCrop && (

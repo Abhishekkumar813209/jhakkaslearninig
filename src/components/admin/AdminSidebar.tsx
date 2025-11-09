@@ -76,6 +76,7 @@ const menuGroups: MenuGroup[] = [
       { value: "lessons", label: "Lesson Builder", icon: BookOpen },
       { value: "question-bank", label: "Question Bank", icon: FileText },
       { value: "exam-types", label: "Exam Types", icon: Target },
+      { value: "database-explorer", label: "Database Explorer", icon: Database },
     ],
   },
   {
@@ -116,7 +117,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { value: "settings", label: "Settings", icon: Settings },
       { value: "ai-assistant", label: "AI Assistant", icon: Bot },
-      { value: "database-explorer", label: "Database Explorer", icon: Database },
     ],
   },
 ];

@@ -42,10 +42,7 @@ const AdminDashboard = () => {
   const activeTab = searchParams.get('tab') || 'overview';
 
   const handleTabChange = (tab: string) => {
-    // Clear all params and set only tab - forces clean state reset
-    const newParams = new URLSearchParams();
-    newParams.set('tab', tab);
-    setSearchParams(newParams, { replace: true });
+    setSearchParams({ tab });
   };
 
   if (loading) {
@@ -122,7 +119,7 @@ const AdminDashboard = () => {
           
           {/* Main Content Area */}
           <div className="flex-1 p-6 overflow-auto">
-            <ActiveComponent key={activeTab} />
+            <ActiveComponent />
           </div>
         </main>
       </div>

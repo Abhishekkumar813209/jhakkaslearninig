@@ -5235,6 +5235,15 @@ export type Database = {
         }
         Returns: string
       }
+      get_chapter_stats: {
+        Args: { roadmap_uuid: string; subject_text: string }
+        Returns: {
+          chapter_name: string
+          game_count: number
+          id: string
+          topic_count: number
+        }[]
+      }
       get_subscription_status: {
         Args: { student_id_param: string }
         Returns: {
@@ -5242,6 +5251,18 @@ export type Database = {
           premium_active: boolean
           status: string
           subscription_type: string
+        }[]
+      }
+      get_topic_game_stats: {
+        Args: { chapter_uuid: string }
+        Returns: {
+          day_number: number
+          id: string
+          incomplete_count: number
+          live_count: number
+          ready_to_publish_count: number
+          sync_status: string
+          topic_name: string
         }[]
       }
       get_user_role: {

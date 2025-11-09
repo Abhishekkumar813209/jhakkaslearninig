@@ -40,74 +40,22 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
     try {
       setLoading(true);
       
-      const { data: topicsData, error } = await supabase
-        .from('roadmap_topics')
-        .select('id, topic_name, day_number')
-        .eq('chapter_id', chapterId)
-        .order('day_number');
+      // Use optimized database function for single-query fetch
+      const { data, error } = await supabase.rpc('get_topic_game_stats', {
+        chapter_uuid: chapterId,
+      });
 
       if (error) throw error;
 
-      // Get game counts and sync status for each topic
-      const topicsWithCounts = await Promise.all(
-        (topicsData || []).map(async (topic) => {
-          // Step 1: Get mapping IDs for this topic
-          const { data: mappings } = await supabase
-            .from('topic_content_mapping')
-            .select('id')
-            .eq('topic_id', topic.id);
-
-          const mappingIds = (mappings || []).map(m => m.id);
-          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: mappingIds.length=${mappingIds.length}`);
-
-          // Step 2: Count PUBLISHED games (live games students can play)
-          const { count: publishedCount, error: publishedError } = await supabase
-            .from('gamified_exercises')
-            .select('*', { count: 'exact', head: true })
-            .in('topic_content_id', mappingIds);
-
-          if (publishedError) {
-            console.error('Error counting published games for topic', topic.id, ':', publishedError);
-          }
-          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: PUBLISHED=${publishedCount}`);
-
-          // Step 3: Count READY-TO-PUBLISH games (approved in lesson library with data)
-          const { count: readyToPublishCount } = await supabase
-            .from('topic_learning_content')
-            .select('*', { count: 'exact', head: true })
-            .eq('topic_id', topic.id)
-            .eq('lesson_type', 'game')
-            .eq('human_reviewed', true)
-            .not('game_data', 'is', null);
-          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: READY=${readyToPublishCount}`);
-
-          // Step 4: Count INCOMPLETE games (approved but missing game_data)
-          const { count: missingDataCount } = await supabase
-            .from('topic_learning_content')
-            .select('*', { count: 'exact', head: true })
-            .eq('topic_id', topic.id)
-            .eq('lesson_type', 'game')
-            .eq('human_reviewed', true)
-            .is('game_data', null);
-          console.debug(`[GamesXPManager] Topic ${topic.topic_name}: INCOMPLETE=${missingDataCount}`);
-
-          // Determine sync status
-          let syncStatus: 'synced' | 'pending' | 'incomplete' = 'synced';
-          if ((readyToPublishCount || 0) > (publishedCount || 0)) {
-            syncStatus = 'pending'; // Has approved games ready to publish
-          } else if ((missingDataCount || 0) > 0) {
-            syncStatus = 'incomplete'; // Has approved games missing data
-          }
-
-          return {
-            ...topic,
-            published_count: publishedCount || 0,
-            ready_to_publish_count: readyToPublishCount || 0,
-            missing_data_count: missingDataCount || 0,
-            sync_status: syncStatus
-          };
-        })
-      );
+      const topicsWithCounts = (data || []).map((topic: any) => ({
+        id: topic.id,
+        topic_name: topic.topic_name,
+        day_number: topic.day_number,
+        published_count: Number(topic.live_count) || 0,
+        ready_to_publish_count: Number(topic.ready_to_publish_count) || 0,
+        missing_data_count: Number(topic.incomplete_count) || 0,
+        sync_status: topic.sync_status as 'synced' | 'pending' | 'incomplete',
+      }));
 
       setTopics(topicsWithCounts);
     } catch (error: any) {

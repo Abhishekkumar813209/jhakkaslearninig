@@ -52,37 +52,20 @@ export const useRoadmapChapters = (roadmapId: string | null, subject: string | n
   return useQuery({
     queryKey: ['roadmap-chapters', roadmapId, subject],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('roadmap_chapters')
-        .select('id, chapter_name')
-        .eq('roadmap_id', roadmapId!)
-        .eq('subject', subject!);
+      // Use optimized database function for single-query fetch
+      const { data, error } = await supabase.rpc('get_chapter_stats', {
+        roadmap_uuid: roadmapId!,
+        subject_text: subject!,
+      });
 
       if (error) throw error;
 
-      // Get topic and game counts for each chapter
-      const chaptersWithCounts = await Promise.all(
-        (data || []).map(async (chapter) => {
-          const { count: topicCount } = await supabase
-            .from('roadmap_topics')
-            .select('*', { count: 'exact', head: true })
-            .eq('chapter_id', chapter.id);
-
-          const { count: gameCount } = await supabase
-            .from('gamified_exercises')
-            .select('*, topic_content_mapping!inner(topic_id, roadmap_topics!inner(chapter_id))', { count: 'exact', head: true })
-            .eq('topic_content_mapping.roadmap_topics.chapter_id', chapter.id);
-
-          return {
-            id: chapter.id,
-            chapter_name: chapter.chapter_name,
-            topic_count: topicCount || 0,
-            game_count: gameCount || 0,
-          };
-        })
-      );
-
-      return chaptersWithCounts;
+      return (data || []).map((chapter: any) => ({
+        id: chapter.id,
+        chapter_name: chapter.chapter_name,
+        topic_count: Number(chapter.topic_count) || 0,
+        game_count: Number(chapter.game_count) || 0,
+      }));
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: !!roadmapId && !!subject,

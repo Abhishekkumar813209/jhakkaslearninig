@@ -1046,58 +1046,10 @@ function LessonContentBuilderInner() {
       return;
     }
 
-    // Step 3: Publish approved games to gamified_exercises
-    console.log('🚀 About to call publish-approved-games with topic_id:', lessonData.topic_id);
+    // Step 3: Database trigger will auto-publish approved games
+    console.log('✅ Game approved - database trigger will auto-publish to gamified_exercises');
     
     try {
-      const { data: publishData, error: publishError } = await supabase.functions.invoke('publish-approved-games', {
-        body: { topic_id: lessonData.topic_id }
-      });
-
-      console.log('📦 Full publish response:', { publishData, publishError });
-
-      if (publishError) {
-        console.error('❌ Publish error details:', JSON.stringify(publishError, null, 2));
-        toast({ 
-          title: "Publishing Failed", 
-          description: `Error: ${publishError.message || 'Unknown error'}. Check browser console for full details.`,
-          variant: "destructive"
-        });
-      } else if (publishData) {
-        console.log('✅ Publish successful:', publishData);
-        
-        // Show detailed response
-        if (publishData.inserted > 0) {
-          toast({ 
-            title: "Success", 
-            description: `${publishData.inserted} game(s) published to students!${publishData.skipped > 0 ? ` (${publishData.skipped} already published)` : ''}`
-          });
-        } else if (publishData.skipped > 0) {
-          toast({ 
-            title: "Already Published", 
-            description: `All ${publishData.skipped} games were already published`,
-            variant: "default"
-          });
-        } else {
-          console.warn('⚠️ No games inserted or skipped. Full response:', publishData);
-          toast({ 
-            title: "Warning", 
-            description: publishData.message || 'No games were published. Check if game_data is populated.',
-            variant: "destructive"
-          });
-        }
-        
-        // Show errors if any
-        if (publishData.errors && publishData.errors.length > 0) {
-          console.error('🚨 Publishing errors:', publishData.errors);
-          toast({
-            title: "Publishing Errors",
-            description: `${publishData.errors.length} game(s) failed. See console for details.`,
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (publishErr: any) {
       console.error('💥 Unexpected publish error:', publishErr);
       toast({ 
         title: "Critical Error", 
@@ -1189,55 +1141,9 @@ function LessonContentBuilderInner() {
       .in('id', selectedLessonIds);
 
     if (!fetchError && lessonsData) {
-      const uniqueTopicIds = [...new Set(lessonsData.map(l => l.topic_id).filter(Boolean))];
-      console.log('🔄 Bulk publishing for topics:', uniqueTopicIds);
+      console.log('✅ Bulk approval complete - database trigger will auto-publish games');
       
-      // Step 3: Publish all affected topics
-      let publishedCount = 0;
-      let totalInserted = 0;
-      let totalSkipped = 0;
-      const publishErrors: any[] = [];
-      
-      for (const topicId of uniqueTopicIds) {
-        try {
-          console.log('🚀 Publishing topic:', topicId);
-          const { data: publishData, error: publishError } = await supabase.functions.invoke('publish-approved-games', {
-            body: { topic_id: topicId }
-          });
-          
-          console.log('📦 Publish response for topic', topicId, ':', { publishData, publishError });
-          
-          if (!publishError && publishData) {
-            publishedCount++;
-            totalInserted += (publishData.inserted || 0);
-            totalSkipped += (publishData.skipped || 0);
-            if (publishData.errors && publishData.errors.length > 0) {
-              publishErrors.push(...publishData.errors);
-            }
-          } else if (publishError) {
-            console.error('❌ Publish error for topic', topicId, ':', publishError);
-            publishErrors.push({ topic_id: topicId, error: publishError.message });
-          }
-        } catch (err) {
-          console.error('💥 Bulk publish error for topic:', topicId, err);
-          publishErrors.push({ topic_id: topicId, error: String(err) });
-        }
-      }
-      
-      console.log('✅ Bulk publish complete:', { publishedCount, totalInserted, totalSkipped, publishErrors });
-      
-      if (totalInserted > 0) {
-        toast({ 
-          title: "Success", 
-          description: `${selectedLessonIds.length} lessons approved, ${totalInserted} games published!${totalSkipped > 0 ? ` (${totalSkipped} already published)` : ''}`
-        });
-      } else if (totalSkipped > 0) {
-        toast({ 
-          title: "Already Published", 
-          description: `${selectedLessonIds.length} lessons approved. All ${totalSkipped} games were already published.`
-        });
-      } else {
-        toast({ 
+      toast({
           title: "Warning", 
           description: `${selectedLessonIds.length} lessons approved but no games were published. Check console for details.`,
           variant: "destructive"

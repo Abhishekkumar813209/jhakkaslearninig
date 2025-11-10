@@ -462,7 +462,7 @@ function LessonContentBuilderInner() {
         setSelectedTopic("");
       }
     }
-  }, [selectedDomain, selectedBoard, selectedClass]);
+  }, [selectedDomain]);
 
   useEffect(() => {
     // Wait for batches to load before fetching subjects

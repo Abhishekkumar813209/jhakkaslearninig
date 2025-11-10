@@ -17,6 +17,7 @@ interface QuestionAnswerInputProps {
   currentAnswer?: any;
   onChange: (answer: any) => void;
   blanksCount?: number;
+  useWordBank?: boolean;
 }
 
 export const QuestionAnswerInput = ({
@@ -26,7 +27,8 @@ export const QuestionAnswerInput = ({
   rightColumn = [],
   currentAnswer,
   onChange,
-  blanksCount = 1
+  blanksCount = 1,
+  useWordBank = true
 }: QuestionAnswerInputProps) => {
   const [localAnswer, setLocalAnswer] = useState<any>(currentAnswer);
   const [isValid, setIsValid] = useState(false);
@@ -119,17 +121,26 @@ export const QuestionAnswerInput = ({
         }
         break;
       case 'fill_blank':
-        // New drag-drop format with blanks array - Accept >=1 distractor per blank
+        // New drag-drop format with blanks array
         if (localAnswer?.blanks && Array.isArray(localAnswer.blanks)) {
-          valid = localAnswer.blanks.length > 0 && localAnswer.blanks.every((b: any) => 
-            b.correctAnswer?.trim().length > 0 && 
-            Array.isArray(b.distractors) && 
-            b.distractors.filter((d: string) => typeof d === 'string' && d.trim().length > 0).length >= 1
-          );
+          // If word bank is OFF, distractors are optional
+          if (useWordBank === false) {
+            valid = localAnswer.blanks.length > 0 && localAnswer.blanks.every((b: any) => 
+              b.correctAnswer?.trim().length > 0
+            );
+          } else {
+            // Word bank ON: require at least 1 distractor per blank
+            valid = localAnswer.blanks.length > 0 && localAnswer.blanks.every((b: any) => 
+              b.correctAnswer?.trim().length > 0 && 
+              Array.isArray(b.distractors) && 
+              b.distractors.filter((d: string) => typeof d === 'string' && d.trim().length > 0).length >= 1
+            );
+          }
           
           // Log specific blank issues for debugging
           if (!valid) {
             console.warn('[fill_blank] Validation failed:', {
+              useWordBank,
               blanks: localAnswer?.blanks,
               issues: localAnswer.blanks.map((b: any, idx: number) => ({
                 blankIdx: idx,
@@ -408,25 +419,30 @@ export const QuestionAnswerInput = ({
             {/* Distractors */}
             <div className="space-y-1.5">
               <Label className="text-sm text-muted-foreground font-medium">
-                × Distractor Options (minimum 1, recommended 3)
+                × Distractor Options {useWordBank ? '(minimum 1, recommended 3)' : '(optional - Word Bank disabled)'}
               </Label>
+              {!useWordBank && (
+                <p className="text-xs text-muted-foreground mb-2">
+                  💡 Word bank is disabled - distractors won't be shown to students
+                </p>
+              )}
               <div className="grid gap-2">
                 {[0, 1, 2].map((distractorIdx) => {
                   const distractorValue = blanks[idx]?.distractors?.[distractorIdx] || '';
-                  const validDistractorsCount = blanks[idx]?.distractors?.filter((d: string) => d && d.trim().length > 0).length || 0;
                   return (
                     <div key={distractorIdx} className="relative">
                       <Input
                         value={distractorValue}
                         onChange={(e) => handleDistractorChange(idx, distractorIdx, e.target.value)}
-                        placeholder={`Distractor ${distractorIdx + 1} ${distractorIdx === 0 ? '(required)' : '(optional)'}`}
-                        className={distractorIdx === 0 && !distractorValue ? 'border-orange-500/50' : ''}
+                        placeholder={`Distractor ${distractorIdx + 1} ${!useWordBank ? '(not needed)' : distractorIdx === 0 ? '(required)' : '(optional)'}`}
+                        className={distractorIdx === 0 && !distractorValue && useWordBank ? 'border-orange-500/50' : ''}
+                        disabled={!useWordBank}
                       />
                     </div>
                   );
                 })}
               </div>
-              {blanks[idx]?.distractors?.filter((d: string) => d && d.trim().length > 0).length < 3 && (
+              {useWordBank && blanks[idx]?.distractors?.filter((d: string) => d && d.trim().length > 0).length < 3 && (
                 <p className="text-xs text-orange-600">
                   ⚠️ At least 1 distractor required. Add 3 for best gameplay.
                 </p>

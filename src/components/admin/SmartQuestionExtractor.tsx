@@ -61,6 +61,7 @@ interface ExtractedQuestion {
   edited?: boolean;
   correct_answer?: any;
   explanation?: string;
+  use_word_bank?: boolean;
   ocr_status?: {
     method: 'pix2text' | 'tesseract' | 'failed' | 'error';
     confidence: number;
@@ -315,7 +316,8 @@ export const SmartQuestionExtractor = ({
                       correctAnswer: blanks[i]?.correctAnswer || '',
                       distractors: blanks[i]?.distractors || []
                     })),
-                    numbering_style: qd.numbering_style || '1,2,3'
+                    numbering_style: qd.numbering_style || '1,2,3',
+                    use_word_bank: qd.use_word_bank !== false
                   };
                   blanksCount = correctAnswer.sub_questions.length;
                   // For grid display, use first sub-question as preview
@@ -323,7 +325,10 @@ export const SmartQuestionExtractor = ({
                 } else if (Array.isArray(ad.blanks)) {
                   // Single blank with multiple distractor options
                   questionText = qd.text || '';
-                  correctAnswer = { blanks: ad.blanks };
+                  correctAnswer = { 
+                    blanks: ad.blanks,
+                    use_word_bank: qd.use_word_bank !== false
+                  };
                   blanksCount = ad.blanks.length || 1;
                 }
                 break;
@@ -376,6 +381,7 @@ export const SmartQuestionExtractor = ({
               difficulty,
               correct_answer: correctAnswer,
               explanation,
+              use_word_bank: qd.use_word_bank !== false,
               auto_corrected: q.admin_reviewed || false,
               confidence: q.admin_reviewed ? 'high' : 'medium'
             };
@@ -3076,6 +3082,7 @@ export const SmartQuestionExtractor = ({
                         currentAnswer={question.correct_answer}
                         onChange={(answer) => handleUpdateAnswer(question.id, answer)}
                         blanksCount={question.blanks_count}
+                        useWordBank={question.use_word_bank !== false}
                       />
                     </div>
 

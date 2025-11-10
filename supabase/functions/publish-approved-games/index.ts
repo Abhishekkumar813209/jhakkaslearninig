@@ -60,21 +60,24 @@ Deno.serve(async (req) => {
       mappingId = existingMapping.id;
       console.log(`[publish-approved-games] ✅ Found existing mapping: ${mappingId}`);
     } else {
-      console.log('[publish-approved-games] No mapping found, creating new one...');
-      // Create mapping if it doesn't exist
+      console.log('[publish-approved-games] No mapping found, upserting...');
+      // Upsert mapping to handle race conditions with trigger
       const { data: newMapping, error: mappingError } = await supabase
         .from('topic_content_mapping')
-        .insert({ topic_id, content_type: 'theory', order_num: 1 })
+        .upsert(
+          { topic_id, content_type: 'theory', order_num: 1 },
+          { onConflict: 'topic_id', ignoreDuplicates: false }
+        )
         .select('id')
         .single();
 
       if (mappingError) {
-        console.error('[publish-approved-games] ❌ Failed to create mapping:', mappingError);
+        console.error('[publish-approved-games] ❌ Failed to upsert mapping:', mappingError);
         throw mappingError;
       }
 
       mappingId = newMapping.id;
-      console.log(`[publish-approved-games] ✅ Created new mapping: ${mappingId}`);
+      console.log(`[publish-approved-games] ✅ Upserted mapping: ${mappingId}`);
     }
 
     // Step 2: Fetch approved games with data

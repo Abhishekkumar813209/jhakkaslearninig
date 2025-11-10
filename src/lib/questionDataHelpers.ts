@@ -68,19 +68,22 @@ export interface ParsedSubQuestionData {
  * Parse MCQ question data from JSONB columns
  */
 export const parseMCQData = (question: any): ParsedMCQData => {
-  const questionData = question.question_data || {};
+  // PRIORITY: exercise_data (gamified_exercises) → question_data (questions table)
+  const questionData = question.exercise_data || question.question_data || {};
   const answerData = question.answer_data || {};
 
   return {
-    text: questionData.text || question.question_text || '',
+    // Read question from exercise_data.question first
+    text: questionData.question || questionData.text || question.question_text || '',
     options: questionData.options || question.options || [],
     imageUrl: questionData.imageUrl || questionData.image_url,
-    correctIndex: answerData.correctIndex ?? answerData.index ?? (
+    // Read correct_answer from exercise_data first
+    correctIndex: questionData.correct_answer ?? answerData.correctIndex ?? answerData.index ?? (
       typeof question.correct_answer === 'object' 
         ? question.correct_answer?.index 
         : parseInt(question.correct_answer)
     ) ?? 0,
-    explanation: answerData.explanation || question.explanation
+    explanation: questionData.explanation || answerData.explanation || question.explanation
   };
 };
 

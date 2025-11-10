@@ -47,7 +47,7 @@ export function LessonPreviewDialog({ lesson, open, onOpenChange }: LessonPrevie
 
     if (lesson.lesson_type === 'game' || lesson.lesson_type === 'interactive_svg' || lesson.lesson_type === 'quiz') {
       return (
-        <div className="h-[70vh] overflow-hidden rounded-lg border bg-background">
+        <div className="max-h-[70vh] overflow-y-auto rounded-lg border bg-background">
           <DuolingoStyleLearning
             lesson={{
               ...lesson,

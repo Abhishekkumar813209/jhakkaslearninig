@@ -465,7 +465,7 @@ function LessonContentBuilderInner() {
       fetchRoadmapCounts();
       const prev = prevDomainRef.current;
       const domainChanged = prev !== null && prev !== selectedDomain;
-      if (domainChanged) {
+      if (domainChanged && !isHydrating.current) {
         setSelectedBatch("");
         setSelectedSubject("");
         setSelectedChapter("");
@@ -473,7 +473,7 @@ function LessonContentBuilderInner() {
       }
       prevDomainRef.current = selectedDomain;
     }
-  }, [selectedDomain]);
+  }, [selectedDomain, selectedBoard, selectedClass]);
 
   useEffect(() => {
     // Wait for batches to load before fetching subjects
@@ -1866,13 +1866,13 @@ function LessonContentBuilderInner() {
             </Button>
             
             {selectedDomain === 'school' && selectedBoard && (
-              <Button variant="outline" onClick={resetFromBoard}>
+              <Button variant="outline" onClick={resetFromBoardURL}>
                 Change Board
               </Button>
             )}
             
             {selectedDomain === 'school' && selectedBoard && selectedClass && (
-              <Button variant="outline" onClick={resetToBoard}>
+              <Button variant="outline" onClick={resetToBoardURL}>
                 Change Class
               </Button>
             )}

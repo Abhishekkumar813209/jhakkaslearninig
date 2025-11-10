@@ -840,6 +840,11 @@ export const SmartQuestionExtractorNew = ({
                   </Badge>
                 )}
                 <Badge variant="outline">{totalCount} Total</Badge>
+                {publishedQuestionIds.size > 0 && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    {publishedQuestionIds.size} Published
+                  </Badge>
+                )}
                 {selectedCount > 0 && (
                   <Badge variant="default">{selectedCount} Selected</Badge>
                 )}
@@ -937,7 +942,7 @@ export const SmartQuestionExtractorNew = ({
                 {filteredQuestions.filter(q => q.id).length > 0 && (
                   <>
                     <Button variant="outline" size="sm" onClick={selectAll}>
-                      Select All ({filteredQuestions.filter(q => q.id).length})
+                      Select All ({filteredQuestions.filter(q => q.id && !publishedQuestionIds.has(q.id)).length})
                     </Button>
                     {selectedCount > 0 && (
                       <Button variant="outline" size="sm" onClick={clearSelection}>
@@ -996,10 +1001,17 @@ export const SmartQuestionExtractorNew = ({
                   <Card 
                     key={q.id || idx}
                     className={cn(
-                      "relative cursor-pointer transition-all hover:shadow-md",
+                      "relative transition-all",
+                      q.id && publishedQuestionIds.has(q.id) 
+                        ? "opacity-60 cursor-not-allowed bg-muted/50" 
+                        : "cursor-pointer hover:shadow-md",
                       q.id && selectedIds.has(q.id) && "ring-2 ring-primary"
                     )}
-                    onClick={() => q.id && toggleSelection(q.id)}
+                    onClick={() => {
+                      if (q.id && !publishedQuestionIds.has(q.id)) {
+                        toggleSelection(q.id);
+                      }
+                    }}
                   >
                     <CardHeader className="p-4 pb-2">
                       <div className="flex items-start justify-between gap-2">
@@ -1020,8 +1032,8 @@ export const SmartQuestionExtractorNew = ({
                               {q.question_type}
                             </Badge>
                             {q.id && publishedQuestionIds.has(q.id) && (
-                              <Badge className="text-xs bg-green-500 hover:bg-green-600">
-                                ✓ Published
+                              <Badge className="text-xs bg-green-600 hover:bg-green-600 text-white shadow-md">
+                                ✓ Already Added
                               </Badge>
                             )}
                             {q.difficulty && (

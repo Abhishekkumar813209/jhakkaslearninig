@@ -1946,13 +1946,13 @@ function LessonContentBuilderInner() {
 
           {/* Tabs for different builder modes */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-6">
-              <TabsTrigger value="lesson-library">📚 Lesson Library</TabsTrigger>
-              <TabsTrigger value="ai-workflow">🤖 AI Workflow</TabsTrigger>
-              <TabsTrigger value="game-builder">🎮 Game Builder</TabsTrigger>
-              <TabsTrigger value="question-extractor">📄 Question Extractor</TabsTrigger>
-              <TabsTrigger value="analytics">📊 Analytics</TabsTrigger>
-            </TabsList>
+        <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsTrigger value="lesson-library">📚 Lesson Library</TabsTrigger>
+          <TabsTrigger value="question-extractor">📄 Question Extractor</TabsTrigger>
+          <TabsTrigger value="ai-workflow">🤖 AI Workflow</TabsTrigger>
+          <TabsTrigger value="game-builder">🎮 Game Builder</TabsTrigger>
+          <TabsTrigger value="analytics">📊 Analytics</TabsTrigger>
+        </TabsList>
 
             {/* Lesson Library Tab */}
             <TabsContent value="lesson-library" className="space-y-4">

@@ -1014,6 +1014,7 @@ function LessonContentBuilderInner() {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
 
+    // Step 1: Mark as approved in topic_learning_content
     const { error } = await supabase
       .from('topic_learning_content')
       .update({
@@ -1025,13 +1026,53 @@ function LessonContentBuilderInner() {
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+      return;
+    }
+
+    // Step 2: Get topic_id for this lesson to publish it
+    const { data: lessonData, error: fetchError } = await supabase
+      .from('topic_learning_content')
+      .select('topic_id')
+      .eq('id', lessonId)
+      .single();
+
+    if (fetchError || !lessonData?.topic_id) {
+      console.error('Failed to get topic_id for lesson:', fetchError);
       toast({ 
-        title: "Success", 
-        description: "Game approved and published to students! They can now see and play it." 
+        title: "Warning", 
+        description: "Game approved but may not be visible to students yet. Try refreshing." 
       });
       fetchLessons();
+      return;
     }
+
+    // Step 3: Publish approved games to gamified_exercises
+    try {
+      const { data: publishData, error: publishError } = await supabase.functions.invoke('publish-approved-games', {
+        body: { topic_id: lessonData.topic_id }
+      });
+
+      if (publishError) {
+        console.error('Publish error:', publishError);
+        toast({ 
+          title: "Warning", 
+          description: "Game approved but publishing failed. Students may not see it yet." 
+        });
+      } else {
+        toast({ 
+          title: "Success", 
+          description: `Game approved and published! ${publishData?.summary || 'Students can now see it.'}` 
+        });
+      }
+    } catch (publishErr: any) {
+      console.error('Unexpected publish error:', publishErr);
+      toast({ 
+        title: "Warning", 
+        description: "Game approved but auto-publish failed. Use XP Management to publish manually." 
+      });
+    }
+
+    fetchLessons();
   };
 
   // Bulk operations functions
@@ -1091,6 +1132,7 @@ function LessonContentBuilderInner() {
     
     setLoading(true);
     
+    // Step 1: Approve lessons
     const { error } = await supabase
       .from('topic_learning_content')
       .update({
@@ -1102,15 +1144,46 @@ function LessonContentBuilderInner() {
     
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: Get unique topic IDs for bulk publishing
+    const { data: lessonsData, error: fetchError } = await supabase
+      .from('topic_learning_content')
+      .select('topic_id')
+      .in('id', selectedLessonIds);
+
+    if (!fetchError && lessonsData) {
+      const uniqueTopicIds = [...new Set(lessonsData.map(l => l.topic_id).filter(Boolean))];
+      
+      // Step 3: Publish all affected topics
+      let publishedCount = 0;
+      for (const topicId of uniqueTopicIds) {
+        try {
+          const { error: publishError } = await supabase.functions.invoke('publish-approved-games', {
+            body: { topic_id: topicId }
+          });
+          
+          if (!publishError) publishedCount++;
+        } catch (err) {
+          console.error('Bulk publish error for topic:', topicId, err);
+        }
+      }
+      
       toast({ 
         title: "Success", 
-        description: `Approved and published ${selectedLessonIds.length} game(s)! Students can now play them.` 
+        description: `${selectedLessonIds.length} lessons approved and ${publishedCount} topics published!` 
       });
-      clearSelection();
-      fetchLessons();
+    } else {
+      toast({ 
+        title: "Partial Success", 
+        description: `${selectedLessonIds.length} lessons approved but auto-publish may have failed` 
+      });
     }
     
+    clearSelection();
+    fetchLessons();
     setLoading(false);
   };
 

@@ -976,12 +976,36 @@ function LessonContentBuilderInner() {
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    const { error } = await supabase.from('topic_learning_content').delete().eq('id', lessonId);
+    // Delete from gamified_exercises first (child table)
+    const { error: gameError } = await supabase
+      .from('gamified_exercises')
+      .delete()
+      .eq('topic_content_id', lessonId);
+
+    if (gameError) {
+      console.error('Error deleting gamified_exercises:', gameError);
+    }
+
+    // Delete from topic_content_mapping
+    const { error: mappingError } = await supabase
+      .from('topic_content_mapping')
+      .delete()
+      .eq('content_id', lessonId);
+
+    if (mappingError) {
+      console.error('Error deleting topic_content_mapping:', mappingError);
+    }
+
+    // Finally delete from topic_learning_content (parent table)
+    const { error } = await supabase
+      .from('topic_learning_content')
+      .delete()
+      .eq('id', lessonId);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Success", description: "Lesson deleted" });
+      toast({ title: "Success", description: "Lesson and associated game data deleted" });
       fetchLessons();
     }
   };

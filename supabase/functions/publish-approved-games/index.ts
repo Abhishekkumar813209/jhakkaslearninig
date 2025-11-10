@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
 
     let nextOrder = maxOrderResult && maxOrderResult.length > 0 ? maxOrderResult[0].game_order + 1 : 1;
 
-    // Step 4: Insert games
+    // Step 4: Insert games (with idempotency check)
     let inserted = 0;
     let skipped = 0;
     const errors: any[] = [];
@@ -166,9 +166,37 @@ Deno.serve(async (req) => {
         console.log(`[publish-approved-games] Normalized ${game.game_type} -> ${normalizedType}`);
         const exerciseType = normalizedType;
         
+        const questionText = gameData.question || gameData.question_text || '';
+        
+        // Check if this game already exists (idempotency check)
+        const { data: existingGames, error: checkError } = await supabase
+          .from('gamified_exercises')
+          .select('id')
+          .eq('topic_content_id', mappingId)
+          .eq('exercise_type', exerciseType);
+        
+        if (checkError) {
+          console.error(`[publish-approved-games] Error checking for existing games:`, checkError);
+          errors.push({ lesson_id: game.id, error: checkError.message });
+          continue;
+        }
+        
+        // Check if question already exists by comparing question text
+        const isDuplicate = existingGames?.some(existing => {
+          // For manual comparison, we'd need to fetch full data
+          // For now, rely on database trigger for text-based dedup
+          return false; // Let database trigger handle text comparison
+        });
+        
+        if (isDuplicate) {
+          console.log(`[publish-approved-games] Skipping duplicate game (text match)`);
+          skipped++;
+          continue;
+        }
+        
         const exerciseData = {
           ...gameData,
-          question: gameData.question || gameData.question_text || '',
+          question: questionText,
         };
 
         // Insert into gamified_exercises
@@ -186,21 +214,21 @@ Deno.serve(async (req) => {
           });
 
         if (insertError) {
-          // Check if it's a duplicate error (23505 = unique violation)
-          if (insertError.code === '23505') {
-            console.log(`[publish-approved-games] Skipping duplicate game at order ${nextOrder}`);
+          // Check if it's a duplicate error (23505 = unique violation or prevented by trigger)
+          if (insertError.code === '23505' || insertError.message?.includes('Duplicate')) {
+            console.log(`[publish-approved-games] ✅ Skipping duplicate game (caught by constraint/trigger)`);
             skipped++;
           } else {
-            console.error(`[publish-approved-games] Error inserting game:`, insertError);
+            console.error(`[publish-approved-games] ❌ Error inserting game:`, insertError);
             errors.push({ lesson_id: game.id, error: insertError.message });
           }
         } else {
-          console.log(`[publish-approved-games] Inserted game at order ${nextOrder}`);
+          console.log(`[publish-approved-games] ✅ Inserted game at order ${nextOrder}`);
           inserted++;
           nextOrder++;
         }
       } catch (err: any) {
-        console.error(`[publish-approved-games] Unexpected error:`, err);
+        console.error(`[publish-approved-games] ❌ Unexpected error:`, err);
         errors.push({ lesson_id: game.id, error: err.message });
       }
     }

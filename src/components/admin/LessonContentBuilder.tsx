@@ -1049,14 +1049,10 @@ function LessonContentBuilderInner() {
     // Step 3: Database trigger will auto-publish approved games
     console.log('✅ Game approved - database trigger will auto-publish to gamified_exercises');
     
-    try {
-      console.error('💥 Unexpected publish error:', publishErr);
-      toast({ 
-        title: "Critical Error", 
-        description: `Failed to publish: ${publishErr.message}. Check browser console for full stack trace.`,
-        variant: "destructive"
-      });
-    }
+    toast({ 
+      title: "Success", 
+      description: "Lesson approved! Database trigger will publish it automatically."
+    });
 
     fetchLessons();
   };
@@ -1140,28 +1136,19 @@ function LessonContentBuilderInner() {
       .select('topic_id')
       .in('id', selectedLessonIds);
 
+
     if (!fetchError && lessonsData) {
       console.log('✅ Bulk approval complete - database trigger will auto-publish games');
       
       toast({
-          title: "Warning", 
-          description: `${selectedLessonIds.length} lessons approved but no games were published. Check console for details.`,
-          variant: "destructive"
-        });
-      }
-      
-      if (publishErrors.length > 0) {
-        console.error('🚨 Bulk publish errors:', publishErrors);
-        toast({
-          title: "Publishing Errors",
-          description: `${publishErrors.length} error(s) occurred. See console for details.`,
-          variant: "destructive"
-        });
-      }
+        title: "Success", 
+        description: `${selectedLessonIds.length} lesson(s) approved! Database trigger will publish them automatically.`
+      });
     } else {
       toast({ 
-        title: "Partial Success", 
-        description: `${selectedLessonIds.length} lessons approved but auto-publish may have failed` 
+        title: "Error", 
+        description: "Failed to approve lessons. Please try again.",
+        variant: "destructive"
       });
     }
     

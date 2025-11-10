@@ -66,7 +66,7 @@ function DraggableWord({ word, id, isPlaced }: DraggableWordProps) {
       {...attributes}
       className={cn(
         "px-4 py-2 rounded-lg font-medium text-sm cursor-grab active:cursor-grabbing transition-all",
-        isPlaced && "opacity-30 cursor-not-allowed",
+        isPlaced && "hidden",
         isDragging && "opacity-50 shadow-lg scale-110 z-50",
         !isPlaced && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
       )}
@@ -162,7 +162,11 @@ export function DragDropBlanks({
         allWords.push(subQ.correctAnswer);
         // Only add distractors if word bank is enabled
         if (useFullWordBank) {
-          allWords.push(...(subQ.distractors || []));
+          // Filter out empty, whitespace-only, and placeholder values
+          const validDistractors = (subQ.distractors || []).filter(
+            d => d && d.trim().length > 0 && d.trim() !== '___' && d.trim() !== '...'
+          );
+          allWords.push(...validDistractors);
         }
       });
     } else if (gameData.blanks && gameData.blanks.length > 0) {
@@ -170,7 +174,11 @@ export function DragDropBlanks({
         allWords.push(blank.correctAnswer);
         // Only add distractors if word bank is enabled
         if (useFullWordBank) {
-          allWords.push(...(blank.distractors || []));
+          // Filter out empty, whitespace-only, and placeholder values
+          const validDistractors = (blank.distractors || []).filter(
+            d => d && d.trim().length > 0 && d.trim() !== '___' && d.trim() !== '...'
+          );
+          allWords.push(...validDistractors);
         }
       });
     } else {

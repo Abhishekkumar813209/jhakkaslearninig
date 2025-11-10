@@ -42,17 +42,25 @@ Deno.serve(async (req) => {
 
     // Step 1: Ensure topic_content_mapping exists
     let mappingId: string | null = null;
-    const { data: existingMapping } = await supabase
+    console.log(`[publish-approved-games] Checking for existing mapping...`);
+    
+    const { data: existingMapping, error: mappingCheckError } = await supabase
       .from('topic_content_mapping')
       .select('id')
       .eq('topic_id', topic_id)
       .eq('content_type', 'theory')
-      .single();
+      .maybeSingle();
+
+    if (mappingCheckError) {
+      console.error('[publish-approved-games] Error checking mapping:', mappingCheckError);
+      throw mappingCheckError;
+    }
 
     if (existingMapping) {
       mappingId = existingMapping.id;
-      console.log(`[publish-approved-games] Found existing mapping: ${mappingId}`);
+      console.log(`[publish-approved-games] ✅ Found existing mapping: ${mappingId}`);
     } else {
+      console.log('[publish-approved-games] No mapping found, creating new one...');
       // Create mapping if it doesn't exist
       const { data: newMapping, error: mappingError } = await supabase
         .from('topic_content_mapping')
@@ -61,12 +69,12 @@ Deno.serve(async (req) => {
         .single();
 
       if (mappingError) {
-        console.error('[publish-approved-games] Failed to create mapping:', mappingError);
+        console.error('[publish-approved-games] ❌ Failed to create mapping:', mappingError);
         throw mappingError;
       }
 
       mappingId = newMapping.id;
-      console.log(`[publish-approved-games] Created new mapping: ${mappingId}`);
+      console.log(`[publish-approved-games] ✅ Created new mapping: ${mappingId}`);
     }
 
     // Step 2: Fetch approved games with data

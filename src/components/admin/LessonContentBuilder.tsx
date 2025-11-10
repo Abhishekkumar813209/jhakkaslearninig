@@ -410,9 +410,12 @@ function LessonContentBuilderInner() {
     Pencil: LucideIcons.Pencil,
   };
 
-  // Turn off hydration guard after initial render
+  // Turn off hydration guard after initial render (delayed to next frame)
   useEffect(() => {
-    isHydrating.current = false;
+    const id = requestAnimationFrame(() => {
+      isHydrating.current = false;
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   // Hydrate board/class from URL continuously
@@ -450,17 +453,25 @@ function LessonContentBuilderInner() {
     setContextTopic(selectedTopic);
   }, [selectedTopic]);
 
+  // Refs to track previous values for cascade guards
+  const prevDomainRef = useRef<string | null>(selectedDomain);
+  const prevBatchRef = useRef<string>(selectedBatch);
+  const prevSubjectRef = useRef<string>(selectedSubject);
+  const prevChapterRef = useRef<string>(selectedChapter);
+
   useEffect(() => {
     if (selectedDomain) {
       fetchBatches();
       fetchRoadmapCounts();
-      // Only clear child selections if not hydrating from URL
-      if (!isHydrating.current) {
+      const prev = prevDomainRef.current;
+      const domainChanged = prev !== null && prev !== selectedDomain;
+      if (domainChanged) {
         setSelectedBatch("");
         setSelectedSubject("");
         setSelectedChapter("");
         setSelectedTopic("");
       }
+      prevDomainRef.current = selectedDomain;
     }
   }, [selectedDomain]);
 
@@ -469,12 +480,14 @@ function LessonContentBuilderInner() {
     if (!selectedBatch || !batches.length) return;
     
     fetchSubjects();
-    // Only clear child selections if not hydrating from URL
-    if (!isHydrating.current) {
+    const prev = prevBatchRef.current;
+    const batchChanged = prev !== "" && prev !== selectedBatch;
+    if (batchChanged) {
       setSelectedSubject("");
       setSelectedChapter("");
       setSelectedTopic("");
     }
+    prevBatchRef.current = selectedBatch;
   }, [selectedBatch, batches]);
 
   useEffect(() => {
@@ -482,22 +495,38 @@ function LessonContentBuilderInner() {
     if (!selectedSubject || !batches.length) return;
     
     fetchChapters();
-    // Only clear child selections if not hydrating from URL
-    if (!isHydrating.current) {
+    const prev = prevSubjectRef.current;
+    const subjectChanged = prev !== "" && prev !== selectedSubject;
+    if (subjectChanged) {
       setSelectedChapter("");
       setSelectedTopic("");
     }
+    prevSubjectRef.current = selectedSubject;
   }, [selectedSubject, batches]);
 
   useEffect(() => {
     if (!selectedChapter) return;
     
     fetchTopics(selectedChapter);
-    // Only clear topic if not hydrating from URL
-    if (!isHydrating.current) {
+    const prev = prevChapterRef.current;
+    const chapterChanged = prev !== "" && prev !== selectedChapter;
+    if (chapterChanged) {
       setSelectedTopic("");
     }
+    prevChapterRef.current = selectedChapter;
   }, [selectedChapter]);
+
+  // Validate URL topic after topics load
+  useEffect(() => {
+    const urlTopic = searchParams.get('topic');
+    if (!urlTopic) return;
+    if (topics.length > 0) {
+      const exists = topics.some(t => t.id === urlTopic);
+      if (!exists) {
+        setSelectedTopic("");
+      }
+    }
+  }, [topics, searchParams]);
 
   useEffect(() => {
     if (selectedTopic) {

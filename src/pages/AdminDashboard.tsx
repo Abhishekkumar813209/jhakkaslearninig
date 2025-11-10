@@ -43,7 +43,9 @@ const AdminDashboard = () => {
   const activeTab = searchParams.get('tab') || 'overview';
 
   const handleTabChange = (tab: string) => {
-    setSearchParams({ tab });
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', tab);
+    setSearchParams(params);
   };
 
   if (loading) {

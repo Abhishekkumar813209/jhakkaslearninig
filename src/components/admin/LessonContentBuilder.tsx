@@ -1047,28 +1047,62 @@ function LessonContentBuilderInner() {
     }
 
     // Step 3: Publish approved games to gamified_exercises
+    console.log('🚀 About to call publish-approved-games with topic_id:', lessonData.topic_id);
+    
     try {
       const { data: publishData, error: publishError } = await supabase.functions.invoke('publish-approved-games', {
         body: { topic_id: lessonData.topic_id }
       });
 
+      console.log('📦 Full publish response:', { publishData, publishError });
+
       if (publishError) {
-        console.error('Publish error:', publishError);
+        console.error('❌ Publish error details:', JSON.stringify(publishError, null, 2));
         toast({ 
-          title: "Warning", 
-          description: "Game approved but publishing failed. Students may not see it yet." 
+          title: "Publishing Failed", 
+          description: `Error: ${publishError.message || 'Unknown error'}. Check browser console for full details.`,
+          variant: "destructive"
         });
-      } else {
-        toast({ 
-          title: "Success", 
-          description: `Game approved and published! ${publishData?.summary || 'Students can now see it.'}` 
-        });
+      } else if (publishData) {
+        console.log('✅ Publish successful:', publishData);
+        
+        // Show detailed response
+        if (publishData.inserted > 0) {
+          toast({ 
+            title: "Success", 
+            description: `${publishData.inserted} game(s) published to students!${publishData.skipped > 0 ? ` (${publishData.skipped} already published)` : ''}`
+          });
+        } else if (publishData.skipped > 0) {
+          toast({ 
+            title: "Already Published", 
+            description: `All ${publishData.skipped} games were already published`,
+            variant: "default"
+          });
+        } else {
+          console.warn('⚠️ No games inserted or skipped. Full response:', publishData);
+          toast({ 
+            title: "Warning", 
+            description: publishData.message || 'No games were published. Check if game_data is populated.',
+            variant: "destructive"
+          });
+        }
+        
+        // Show errors if any
+        if (publishData.errors && publishData.errors.length > 0) {
+          console.error('🚨 Publishing errors:', publishData.errors);
+          toast({
+            title: "Publishing Errors",
+            description: `${publishData.errors.length} game(s) failed. See console for details.`,
+            variant: "destructive"
+          });
+        }
       }
     } catch (publishErr: any) {
-      console.error('Unexpected publish error:', publishErr);
+      console.error('💥 Unexpected publish error:', publishErr);
       toast({ 
-        title: "Warning", 
-        description: "Game approved but auto-publish failed. Use XP Management to publish manually." 
+        title: "Critical Error", 
+        description: `Failed to publish: ${publishErr.message}. Check browser console for full stack trace.`,
+        variant: "destructive"
       });
     }
 
@@ -1156,25 +1190,68 @@ function LessonContentBuilderInner() {
 
     if (!fetchError && lessonsData) {
       const uniqueTopicIds = [...new Set(lessonsData.map(l => l.topic_id).filter(Boolean))];
+      console.log('🔄 Bulk publishing for topics:', uniqueTopicIds);
       
       // Step 3: Publish all affected topics
       let publishedCount = 0;
+      let totalInserted = 0;
+      let totalSkipped = 0;
+      const publishErrors: any[] = [];
+      
       for (const topicId of uniqueTopicIds) {
         try {
-          const { error: publishError } = await supabase.functions.invoke('publish-approved-games', {
+          console.log('🚀 Publishing topic:', topicId);
+          const { data: publishData, error: publishError } = await supabase.functions.invoke('publish-approved-games', {
             body: { topic_id: topicId }
           });
           
-          if (!publishError) publishedCount++;
+          console.log('📦 Publish response for topic', topicId, ':', { publishData, publishError });
+          
+          if (!publishError && publishData) {
+            publishedCount++;
+            totalInserted += (publishData.inserted || 0);
+            totalSkipped += (publishData.skipped || 0);
+            if (publishData.errors && publishData.errors.length > 0) {
+              publishErrors.push(...publishData.errors);
+            }
+          } else if (publishError) {
+            console.error('❌ Publish error for topic', topicId, ':', publishError);
+            publishErrors.push({ topic_id: topicId, error: publishError.message });
+          }
         } catch (err) {
-          console.error('Bulk publish error for topic:', topicId, err);
+          console.error('💥 Bulk publish error for topic:', topicId, err);
+          publishErrors.push({ topic_id: topicId, error: String(err) });
         }
       }
       
-      toast({ 
-        title: "Success", 
-        description: `${selectedLessonIds.length} lessons approved and ${publishedCount} topics published!` 
-      });
+      console.log('✅ Bulk publish complete:', { publishedCount, totalInserted, totalSkipped, publishErrors });
+      
+      if (totalInserted > 0) {
+        toast({ 
+          title: "Success", 
+          description: `${selectedLessonIds.length} lessons approved, ${totalInserted} games published!${totalSkipped > 0 ? ` (${totalSkipped} already published)` : ''}`
+        });
+      } else if (totalSkipped > 0) {
+        toast({ 
+          title: "Already Published", 
+          description: `${selectedLessonIds.length} lessons approved. All ${totalSkipped} games were already published.`
+        });
+      } else {
+        toast({ 
+          title: "Warning", 
+          description: `${selectedLessonIds.length} lessons approved but no games were published. Check console for details.`,
+          variant: "destructive"
+        });
+      }
+      
+      if (publishErrors.length > 0) {
+        console.error('🚨 Bulk publish errors:', publishErrors);
+        toast({
+          title: "Publishing Errors",
+          description: `${publishErrors.length} error(s) occurred. See console for details.`,
+          variant: "destructive"
+        });
+      }
     } else {
       toast({ 
         title: "Partial Success", 

@@ -45,9 +45,9 @@ const SortableItem = ({ id, text, index, isCorrect, isWrong, checked }: Sortable
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card
-        className={`p-4 transition-all ${
+        className={`p-4 transition-all cursor-grab active:cursor-grabbing ${
           isDragging ? 'opacity-50 shadow-lg' : ''
         } ${
           checked && isCorrect ? 'bg-green-500/20 border-green-500' : ''
@@ -58,8 +58,17 @@ const SortableItem = ({ id, text, index, isCorrect, isWrong, checked }: Sortable
         }`}
       >
         <div className="flex items-center gap-3">
-          <div {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
-            <GripVertical className="w-5 h-5 text-muted-foreground" />
+          <div className="touch-none flex gap-0.5">
+            <div className="flex flex-col gap-0.5">
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+            </div>
           </div>
           <div className="flex-1 flex items-center justify-between">
             <span className="font-medium">{text}</span>
@@ -199,7 +208,7 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       </div>
 
       {/* Game Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-6 min-w-0 min-w-[600px]">
         {/* Left Column (Fixed) */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground mb-3">Match These</h3>

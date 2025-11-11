@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizeGameTypeForDisplay } from "@/lib/gameTypeMapping";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1054,9 +1055,9 @@ export const SmartQuestionExtractorNew = ({
                             <Badge variant="secondary" className="text-xs">
                               Q{idx + 1}
                             </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              {q.question_type}
-                            </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {normalizeGameTypeForDisplay(q.question_type)}
+                    </Badge>
                             {q.id && publishedQuestionIds.has(q.id) && (
                               <Badge className="text-xs bg-green-600 hover:bg-green-600 text-white shadow-md">
                                 ✓ Already Added

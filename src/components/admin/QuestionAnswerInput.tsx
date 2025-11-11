@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { renderWithImages } from '@/lib/mathRendering';
 import { normalizeMatchColumnAnswer, formatMatchColumnDisplay } from '@/lib/answers';
+import { normalizeGameTypeForDisplay } from '@/lib/gameTypeMapping';
 
 interface QuestionAnswerInputProps {
   questionType: string;
@@ -561,7 +562,7 @@ export const QuestionAnswerInput = ({
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Match Pairs Preview (Two-Column Layout)</Label>
+          <Label className="text-sm font-medium">{normalizeGameTypeForDisplay('match_pair')} Preview (Two-Column Layout)</Label>
           {isValid ? (
             <Badge variant="default" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -576,11 +577,11 @@ export const QuestionAnswerInput = ({
         </div>
 
         {pairs.length > 0 ? (
-          <div className="space-y-3 border rounded-lg p-4 bg-muted/20">
+          <div className="space-y-3 border rounded-lg p-4 bg-muted/20 min-w-[600px]">
             <p className="text-xs text-muted-foreground">
               Students will drag items from the right column to match the left column
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 min-w-0">
               {/* Left Column - Fixed Items */}
               <div className="space-y-2">
                 <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
@@ -610,10 +611,17 @@ export const QuestionAnswerInput = ({
                     key={`right-${pair.id || index}`} 
                     className="flex items-center gap-2 p-3 bg-background rounded-lg border cursor-move"
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
-                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
-                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                    <div className="flex gap-0.5">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                        <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                        <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                        <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                        <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                      </div>
                     </div>
                     <span className="text-sm flex-1">{pair.right}</span>
                   </div>

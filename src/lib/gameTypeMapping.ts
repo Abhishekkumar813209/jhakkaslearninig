@@ -109,6 +109,37 @@ export function validateGameTypeForMapping(gameType: string): boolean {
 }
 
 /**
+ * Normalize game type for UI display (singular, human-readable)
+ */
+export function normalizeGameTypeForDisplay(gameType: string | undefined | null): string {
+  if (!gameType) return 'Unknown';
+  
+  const normalized = gameType.toLowerCase().trim();
+  
+  // Convert all variations to singular, human-readable forms
+  const displayMap: Record<string, string> = {
+    'match_pairs': 'Match Pair',
+    'match_pair': 'Match Pair',
+    'match_columns': 'Match Column',
+    'match_column': 'Match Column',
+    'fill_blanks': 'Fill Blank',
+    'fill_blank': 'Fill Blank',
+    'drag_drop_sort': 'Drag Drop Sort',
+    'drag_drop': 'Drag Drop Sort',
+    'drag_drop_sequence': 'Drag Drop Sequence',
+    'sequence_order': 'Drag Drop Sequence',
+    'crossword': 'Crossword',
+    'word_puzzle': 'Crossword',
+    'typing_race': 'Typing Race',
+    'mcq': 'MCQ',
+    'true_false': 'True False',
+    'assertion_reason': 'Assertion Reason'
+  };
+  
+  return displayMap[normalized] || gameType;
+}
+
+/**
  * Get human-readable error message for invalid game type
  */
 export function getGameTypeErrorMessage(gameType: string, forMapping: boolean = false): string {

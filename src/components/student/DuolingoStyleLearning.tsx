@@ -224,10 +224,32 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     }, 3000);
   };
 
+  // Helper: Detect actual game type from data structure (handles legacy mismatches)
+  const detectGameTypeFromData = (declaredType: string | undefined, data: any): string => {
+    // If data has pairs array, it's match_pair regardless of declared type
+    if (Array.isArray(data?.pairs) && data.pairs.length > 0) {
+      console.log(`🔍 [Game Type Detection] Declared: "${declaredType}" → Detected: "match_pair" (has pairs array)`);
+      return 'match_pair';
+    }
+    
+    // If data has leftColumn/rightColumn, it's match_column
+    if (data?.leftColumn && data?.rightColumn) {
+      return 'match_column';
+    }
+    
+    // Otherwise, trust the declared type
+    return declaredType || 'mcq';
+  };
+
   const parseGameData = (gameType: string | undefined, rawGameData: any) => {
+    // Detect effective game type from data structure
+    const effectiveType = detectGameTypeFromData(gameType, rawGameData);
+    
+    console.log(`🎮 [Parse Game Data] Declared: "${gameType}" | Effective: "${effectiveType}"`);
+    
     // If game_data doesn't have question_data/answer_data, it's plain API format
     if (!rawGameData?.question_data && !rawGameData?.answer_data) {
-      switch (gameType) {
+      switch (effectiveType) {
         case 'mcq': {
           // Extract correct answer index from various possible formats
           let correctIndex = 0;
@@ -305,11 +327,24 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         case 'match_pair':
         case 'match_pairs': {
           // MatchPairsGame format: pairs array with id, left, right
+          // PRIORITY 1: Direct pairs array (new format from lesson builder)
+          if (Array.isArray(rawGameData?.pairs) && rawGameData.pairs.length > 0) {
+            console.log(`✅ [Match Pair RAW] Using direct pairs array (${rawGameData.pairs.length} pairs)`);
+            return {
+              question: rawGameData?.question || rawGameData?.text || 'Match the Pairs',
+              pairs: rawGameData.pairs,
+              explanation: rawGameData?.explanation || '',
+              marks: rawGameData?.marks || 1,
+            };
+          }
+          
+          // FALLBACK: Reconstruct from leftColumn/rightColumn (legacy format)
           const leftCol = rawGameData?.leftColumn || [];
           const rightCol = rawGameData?.rightColumn || [];
+          console.log(`⚠️ [Match Pair RAW] Reconstructing from leftColumn/rightColumn (${leftCol.length} items)`);
           
           return {
-            question: rawGameData?.text || '',
+            question: rawGameData?.text || 'Match the Pairs',
             pairs: leftCol.map((left: string, i: number) => ({
               id: String(i + 1),
               left,
@@ -352,7 +387,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     // Parse JSONB format
     let parsed: any = {};
     
-    switch (gameType) {
+    switch (effectiveType) {
       case 'mcq':
       case 'assertion_reason':
         parsed = parseMCQData(rawGameData);
@@ -432,12 +467,26 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       case 'match_pair':
       case 'match_pairs': {
         // MatchPairsGame: parse to pairs array format
+        // PRIORITY 1: Direct pairs array from game_data (new format)
+        if (Array.isArray(rawGameData?.pairs) && rawGameData.pairs.length > 0) {
+          console.log(`✅ [Match Pair JSONB] Using direct pairs from game_data (${rawGameData.pairs.length} pairs)`);
+          return {
+            question: rawGameData?.question || rawGameData?.question_data?.text || 'Match the Pairs',
+            pairs: rawGameData.pairs,
+            explanation: rawGameData?.explanation || rawGameData?.answer_data?.explanation || '',
+            marks: rawGameData.question_data?.marks || rawGameData.marks || 1
+          };
+        }
+        
+        // FALLBACK: Parse from JSONB question_data/answer_data (legacy format)
+        console.log(`⚠️ [Match Pair JSONB] Parsing from question_data/answer_data (legacy)`);
         parsed = parseMatchPairsData(rawGameData);
         const pairs = parsed.leftColumn.map((left: string, idx: number) => ({
           id: String(idx + 1),
           left,
           right: parsed.rightColumn[parsed.correctPairs.find((p: any) => p.left === idx)?.right || idx]
         }));
+        console.log(`📦 [Match Pair JSONB] Reconstructed ${pairs.length} pairs from parsed data`);
         return {
           question: parsed.question,
           pairs,
@@ -446,8 +495,8 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         };
       }
         
-      default:
-        console.warn('Unknown game type for parsing:', gameType);
+        default:
+        console.warn('Unknown game type for parsing:', effectiveType);
         return rawGameData;
     }
   };
@@ -480,8 +529,12 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   };
 
   const renderGameContent = () => {
+    // Detect effective game type from data structure (handles legacy mismatches)
+    const effectiveGameType = detectGameTypeFromData(lesson.game_type, lesson.game_data);
+    console.log(`🎯 [Render Game] Declared: "${lesson.game_type}" | Effective: "${effectiveGameType}"`);
+    
     // Special handling for True/False to support multi-statement preview
-    if (lesson.game_type === 'true_false' && lesson.game_data) {
+    if (effectiveGameType === 'true_false' && lesson.game_data) {
       const parsedTF = parseGameData(lesson.game_type, lesson.game_data);
       if (parsedTF && Array.isArray((parsedTF as any).statements) && (parsedTF as any).statements.length > 0) {
         console.log('[TF Preview] Using multi-statement route');
@@ -497,13 +550,13 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       // else: fall through to default renderer for single-statement legacy TF
     }
 
-    const GameComponent = getGameComponent(lesson.game_type);
+    const GameComponent = getGameComponent(effectiveGameType);
     
     if (!GameComponent || !lesson.game_data) {
       return (
         <Card className="p-8 bg-accent/30">
           <p className="text-center text-muted-foreground">
-            Game configuration missing or invalid game type: {lesson.game_type}
+            Game configuration missing or invalid game type: {effectiveGameType}
           </p>
         </Card>
       );
@@ -513,10 +566,17 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     const parsedGameData = parseGameData(lesson.game_type, lesson.game_data);
     
     console.log('[DuolingoStyleLearning] Parsed game data:', {
-      gameType: lesson.game_type,
+      declaredType: lesson.game_type,
+      effectiveType: effectiveGameType,
       raw: lesson.game_data,
       parsed: parsedGameData
     });
+
+    // Special logging for match_pair to debug pairs array
+    if (effectiveGameType === 'match_pair') {
+      console.log(`🎲 [Match Pair Render] Pairs array size: ${Array.isArray(parsedGameData?.pairs) ? parsedGameData.pairs.length : 0}`);
+      console.log(`🎲 [Match Pair Render] First pair:`, parsedGameData?.pairs?.[0]);
+    }
 
     return (
       <GameComponent

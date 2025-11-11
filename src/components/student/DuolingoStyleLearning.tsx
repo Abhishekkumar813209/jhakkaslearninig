@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
 import { MatchPairsGame } from "./games/MatchPairsGame";
+import { LineMatchingGame } from "./games/LineMatchingGame";
 import { DragDropSequence } from "./games/DragDropSequence";
 import { TypingRaceGame } from "./games/TypingRaceGame";
 import { InteractiveBlanks } from "./games/InteractiveBlanks";
@@ -285,8 +286,25 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           };
         }
         
-        case 'match_pairs':
         case 'match_column': {
+          // LineMatchingGame format: leftColumn, rightColumn, correctPairs
+          const leftCol = rawGameData?.leftColumn || [];
+          const rightCol = rawGameData?.rightColumn || [];
+          const correctPairs = rawGameData?.correctPairs || leftCol.map((_: any, i: number) => ({ left: i, right: i }));
+          
+          return {
+            question: rawGameData?.text || rawGameData?.question || '',
+            leftColumn: leftCol,
+            rightColumn: rightCol,
+            correctPairs: correctPairs,
+            explanation: rawGameData?.explanation || '',
+            marks: rawGameData?.marks || 1,
+          };
+        }
+        
+        case 'match_pair':
+        case 'match_pairs': {
+          // MatchPairsGame format: pairs array with id, left, right
           const leftCol = rawGameData?.leftColumn || [];
           const rightCol = rawGameData?.rightColumn || [];
           
@@ -398,11 +416,23 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           marks: rawGameData.question_data?.marks || rawGameData.marks || 1
         };
         
-    case 'match_pairs':
-    case 'match_column':
-    case 'match_columns':  // Backward compatibility
-      parsed = parseMatchPairsData(rawGameData);
-        // Transform to pairs array format for MatchPairsGame
+      case 'match_column': {
+        // LineMatchingGame: parse to leftColumn, rightColumn, correctPairs
+        parsed = parseMatchPairsData(rawGameData);
+        return {
+          question: parsed.question,
+          leftColumn: parsed.leftColumn,
+          rightColumn: parsed.rightColumn,
+          correctPairs: parsed.correctPairs,
+          explanation: parsed.explanation,
+          marks: rawGameData.question_data?.marks || rawGameData.marks || 1
+        };
+      }
+      
+      case 'match_pair':
+      case 'match_pairs': {
+        // MatchPairsGame: parse to pairs array format
+        parsed = parseMatchPairsData(rawGameData);
         const pairs = parsed.leftColumn.map((left: string, idx: number) => ({
           id: String(idx + 1),
           left,
@@ -414,6 +444,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           explanation: parsed.explanation,
           marks: rawGameData.question_data?.marks || rawGameData.marks || 1
         };
+      }
         
       default:
         console.warn('Unknown game type for parsing:', gameType);
@@ -427,9 +458,10 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       case 'true_false':
       case 'assertion_reason':
         return MCQGame;
-      case 'match_pairs':
       case 'match_column':
-      case 'match_columns':  // Backward compatibility
+        return LineMatchingGame;
+      case 'match_pair':
+      case 'match_pairs':
         return MatchPairsGame;
       case 'drag_drop':
         return DragDropSequence;

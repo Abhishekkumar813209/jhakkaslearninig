@@ -51,7 +51,7 @@ const gameTypeTests: GameTypeTest[] = [
     uiName: "Match Pairs",
     description: "Memory card matching",
     rawInput: "match_pairs",
-    expectedContent: "match_pairs",
+    expectedContent: "match_pair",
     expectedMapping: "match_pairs"
   },
   {

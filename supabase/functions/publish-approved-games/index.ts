@@ -113,10 +113,11 @@ Deno.serve(async (req) => {
       'fill_blank': 'fill_blanks',
       'match_column': 'match_column',      // Singular form
       'match_columns': 'match_column',     // Backward compatibility
+      'match_pair': 'match_pairs',         // DB uses match_pairs enum
+      'match_pairs': 'match_pairs',        // Already correct
       'drag_drop': 'drag_drop_sequence',
       'mcq': 'mcq',
       'true_false': 'true_false',
-      'match_pairs': 'match_pairs',
       'line_matching': 'line_matching',
       'card_memory': 'card_memory',
       'typing_race': 'typing_race',

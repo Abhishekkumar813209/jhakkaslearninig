@@ -1811,7 +1811,7 @@ function LessonContentBuilderInner() {
       });
 
       // CRITICAL: Pre-insert validation to prevent database errors
-      const validGameTypes = ['match_column', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pairs', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
+      const validGameTypes = ['match_column', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pair', 'match_pairs', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
       
       console.log('🔍 Starting pre-insert validation for', lessonsToInsert.length, 'lessons');
       

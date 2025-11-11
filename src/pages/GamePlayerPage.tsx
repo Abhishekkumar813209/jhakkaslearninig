@@ -454,15 +454,16 @@ const GamePlayerPage = () => {
       'fill_blanks': 'fill_blank',
       'interactive_label': 'interactive_blanks',
       
-      // Match column variants
+      // Match column variants (singular)
       'match_columns': 'match_column',
+      
+      // Match pairs variants (singular)
+      'match_pairs': 'match_pair',
+      'matching': 'match_pair',
       
       // Drag drop variants
       'drag_drop_sequence': 'drag_drop_sort',
       'sequence_order': 'drag_drop_sort',
-      
-      // Match pairs variants
-      'matching': 'match_pairs',
       
       // True/False variants
       'boolean': 'true_false',

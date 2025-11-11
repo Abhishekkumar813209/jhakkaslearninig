@@ -17,7 +17,8 @@ export const GAME_TYPE_FOR_CONTENT: Record<string, string> = {
   'crossword': 'word_puzzle',
   'fill_blanks': 'fill_blanks',
   'fill_blank': 'fill_blanks',
-  'match_pairs': 'match_pairs',
+  'match_pair': 'match_pair',           // singular!
+  'match_pairs': 'match_pair',          // backward compatibility
   'typing_race': 'typing_race',
   'mcq': 'mcq',
   'true_false': 'true_false',
@@ -36,7 +37,8 @@ export const GAME_TYPE_FOR_MAPPING: Record<string, string> = {
   'crossword': 'crossword',
   'fill_blanks': 'fill_blanks',
   'fill_blank': 'fill_blanks',
-  'match_pairs': 'match_pairs',
+  'match_pair': 'match_pairs',          // DB uses match_pairs enum
+  'match_pairs': 'match_pairs',         // backward compatibility
   'typing_race': 'typing_race',
   'mcq': 'mcq',
   'true_false': 'true_false',

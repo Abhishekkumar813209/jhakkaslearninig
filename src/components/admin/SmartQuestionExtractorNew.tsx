@@ -1425,14 +1425,16 @@ export const SmartQuestionExtractorNew = ({
                         
                         return (
                           <div onClick={(e) => e.stopPropagation()}>
-                            <QuestionAnswerInput
-                              questionType={q.question_type}
-                              options={q.options}
-                              leftColumn={q.left_column}
-                              rightColumn={q.right_column}
-                              currentAnswer={q.correct_answer}
-                              onChange={(answer) => handleAnswerUpdate(q.id!, answer)}
-                            />
+              <QuestionAnswerInput
+                questionType={q.question_type}
+                options={q.options}
+                leftColumn={q.left_column}
+                rightColumn={q.right_column}
+                currentAnswer={q.correct_answer}
+                onChange={(answer) => handleAnswerUpdate(q.id!, answer)}
+                useWordBank={q.use_word_bank}
+                blanksCount={q.correct_answer?.blanks?.length || q.correct_answer?.sub_questions?.length || 1}
+              />
                           </div>
                         );
                       })()}

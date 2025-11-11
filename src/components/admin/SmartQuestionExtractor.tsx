@@ -334,11 +334,16 @@ export const SmartQuestionExtractor = ({
                 break;
                 
               case 'match_column':
-              case 'match_pairs':
                 questionText = qd.text || '';
                 leftColumn = qd.leftColumn || [];
                 rightColumn = qd.rightColumn || [];
-                correctAnswer = { pairs: ad.pairs || [] };
+                correctAnswer = { pairs: qd.pairs || ad.pairs || [] };
+                break;
+              
+              case 'match_pair':
+              case 'match_pairs':
+                questionText = qd.text || '';
+                correctAnswer = { pairs: qd.pairs || [] };
                 break;
                 
               case 'assertion_reason':
@@ -381,7 +386,10 @@ export const SmartQuestionExtractor = ({
               difficulty,
               correct_answer: correctAnswer,
               explanation,
-              use_word_bank: qd.use_word_bank !== false,
+              // Only set use_word_bank for fill_blank questions
+              ...(type === 'fill_blank' || type === 'fill_blanks' || type === 'interactive_blanks' 
+                ? { use_word_bank: qd.use_word_bank !== false } 
+                : {}),
               auto_corrected: q.admin_reviewed || false,
               confidence: q.admin_reviewed ? 'high' : 'medium'
             };
@@ -758,6 +766,16 @@ export const SmartQuestionExtractor = ({
           correct_answer: 0,
           explanation: "Analyze both statements carefully",
           difficulty: q.difficulty || 'medium'
+        };
+        break;
+      
+      case 'match_pair' as any:
+      case 'match_pairs' as any:
+        gameType = 'match_pair';
+        gameData = {
+          pairs: q.correct_answer?.pairs || [],
+          difficulty: q.difficulty || 'medium',
+          explanation: q.explanation
         };
         break;
         
@@ -2861,12 +2879,21 @@ export const SmartQuestionExtractor = ({
                           const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
                           console.log(`  Deleting chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(idsToDelete.length/CHUNK_SIZE)}:`, chunk.length);
                           
-                          const { error } = await supabase
-                            .from('question_bank')
-                            .delete()
-                            .in('id', chunk);
+                          // Use edge function for proper deletion with cleanup
+                          const deletePromises = chunk.map(id =>
+                            invokeWithAuth({
+                              name: 'topic-questions-api',
+                              body: { 
+                                action: 'delete_question', 
+                                question_id: id 
+                              }
+                            }).catch(err => {
+                              console.error(`Failed to delete question ${id}:`, err);
+                              return null;
+                            })
+                          );
                           
-                          if (error) throw error;
+                          await Promise.all(deletePromises);
                         }
                         
                         console.log('✅ Database deletion successful');

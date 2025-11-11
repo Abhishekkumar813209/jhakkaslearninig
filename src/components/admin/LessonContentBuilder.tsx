@@ -40,7 +40,7 @@ import {
 } from '@/lib/gameTypeMapping';
 
 type LessonType = 'theory' | 'interactive_svg' | 'game' | 'quiz';
-type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pairs' | 'match_column' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
+type GameType = 'mcq' | 'true_false' | 'assertion_reason' | 'match_pair' | 'match_column' | 'drag_drop' | 'typing_race' | 'word_puzzle' | 'fill_blanks' | 'sequence_order' | 'subjective';
 type SvgType = 'math_graph' | 'physics_motion' | 'chemistry_molecule' | 'algorithm_viz' | 'concept_diagram';
 
 interface Lesson {
@@ -1731,6 +1731,36 @@ function LessonContentBuilderInner() {
                 marks: q.marks || 1,
                 question_number: q.question_number
               };
+              break;
+
+            case 'match_pair':
+            case 'match_pairs':
+              gameType = 'match_pair'; // Singular standardized form
+              {
+                // Extract pairs from correct_answer
+                const ans = (q as any).correct_answer as any;
+                const pairs = Array.isArray(ans?.pairs) ? ans.pairs : [];
+                
+                // Ensure each pair has id, left, right structure
+                const formattedPairs = pairs.map((pair: any, idx: number) => ({
+                  id: pair.id || String(idx + 1),
+                  left: (pair.left ?? '').toString().trim(),
+                  right: (pair.right ?? '').toString().trim()
+                }));
+
+                gameData = {
+                  question: q.question_text?.trim() || 'Match the Pairs',
+                  pairs: formattedPairs,
+                  time_limit: 120, // 2 minutes default
+                  max_attempts: 3,
+                  explanation: q.explanation || '',
+                  difficulty: q.difficulty || 'medium',
+                  marks: q.marks || 1,
+                  question_number: q.question_number
+                };
+
+                console.log(`📝 [Match Pair Q${q.question_number}] Converted with ${formattedPairs.length} pairs`);
+              }
               break;
 
             case 'short_answer':

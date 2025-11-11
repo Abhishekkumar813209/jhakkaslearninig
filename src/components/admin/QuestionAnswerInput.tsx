@@ -165,6 +165,10 @@ export const QuestionAnswerInput = ({
       case 'match_column':
         valid = Array.isArray(localAnswer?.pairs) && localAnswer.pairs.length > 0;
         break;
+      case 'match_pair':
+      case 'match_pairs':
+        valid = Array.isArray(localAnswer?.pairs) && localAnswer.pairs.length > 0;
+        break;
       case 'assertion_reason':
         valid = typeof localAnswer?.index === 'number' && localAnswer.index >= 0 && localAnswer.index <= 3;
         break;
@@ -545,6 +549,54 @@ export const QuestionAnswerInput = ({
               </select>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Match Pairs Answer (drag-drop pairs game)
+  if (questionType === 'match_pair' || questionType === 'match_pairs') {
+    const pairs = localAnswer?.pairs || [];
+    
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Match Pairs (Drag & Drop)</Label>
+          {isValid ? (
+            <Badge variant="default" className="gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              Valid
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Required
+            </Badge>
+          )}
+        </div>
+
+        <div className="space-y-2 border rounded-lg p-4 bg-muted/20">
+          <p className="text-xs text-muted-foreground mb-3">
+            Pairs are stored in question_data.pairs as [{'{'}id, left, right{'}'}] format
+          </p>
+          {pairs.length > 0 ? (
+            <div className="space-y-2">
+              {pairs.map((pair: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 p-2 border rounded bg-card">
+                  <Badge variant="outline">{idx + 1}</Badge>
+                  <div className="flex-1 flex items-center gap-2">
+                    <span className="text-sm">{pair.left}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-sm">{pair.right}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              No pairs data found
+            </div>
+          )}
         </div>
       </div>
     );

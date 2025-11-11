@@ -263,7 +263,6 @@ export const SmartQuestionExtractorNew = ({
               };
               
             case 'match_column':
-            case 'match_pairs':
               parsed = parseMatchPairsData(q);
               return {
                 ...q,
@@ -271,6 +270,18 @@ export const SmartQuestionExtractorNew = ({
                 left_column: parsed.leftColumn,
                 right_column: parsed.rightColumn,
                 correct_answer: parsed.correctPairs?.length > 0 ? { pairs: parsed.correctPairs } : null,
+                explanation: parsed.explanation,
+                marks: q.question_data?.marks || q.marks || 1,
+                difficulty: q.question_data?.difficulty || q.difficulty
+              };
+              
+            case 'match_pair':
+            case 'match_pairs':
+              parsed = parseMatchPairsData(q);
+              return {
+                ...q,
+                question_text: parsed.question,
+                correct_answer: parsed.pairs?.length > 0 ? { pairs: parsed.pairs } : null,
                 explanation: parsed.explanation,
                 marks: q.question_data?.marks || q.marks || 1,
                 difficulty: q.question_data?.difficulty || q.difficulty
@@ -1106,6 +1117,8 @@ export const SmartQuestionExtractorNew = ({
                         <div className="text-xs font-medium text-muted-foreground">
                           {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 0 
                             ? `Sub-Question (1 of ${q.correct_answer.sub_questions.length})` 
+                            : q.question_type === 'match_pair' && q.correct_answer?.pairs?.length > 0
+                            ? `First Pair (1 of ${q.correct_answer.pairs.length})`
                             : 'Question:'}
                         </div>
                         <div 
@@ -1114,14 +1127,21 @@ export const SmartQuestionExtractorNew = ({
                             __html: renderWithImages(
                               q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.text
                                 ? q.correct_answer.sub_questions[0].text
+                                : q.question_type === 'match_pair' && q.correct_answer?.pairs?.[0]
+                                ? `${q.correct_answer.pairs[0].left} → ${q.correct_answer.pairs[0].right}`
                                 : q.question_text || 'No question text'
                             ) 
                           }}
                         />
-                        {/* Multi-part badge */}
+                        {/* Multi-part badges */}
                         {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 1 && (
                           <Badge variant="secondary" className="text-xs">
                             {q.correct_answer.sub_questions.length} Sub-Questions
+                          </Badge>
+                        )}
+                        {q.question_type === 'match_pair' && q.correct_answer?.pairs?.length > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {q.correct_answer.pairs.length} Pairs
                           </Badge>
                         )}
                       </div>

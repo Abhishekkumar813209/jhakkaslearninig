@@ -25,6 +25,7 @@ export interface ParsedFillBlankData {
 
 export interface ParsedMatchPairsData {
   question: string;
+  pairs?: Array<{ id: string; left: string; right: string }>; // For match_pair
   leftColumn: string[];
   rightColumn: string[];
   correctPairs: Array<{ left: number; right: number }>;
@@ -128,19 +129,37 @@ export const parseFillBlankData = (question: any): ParsedFillBlankData => {
 };
 
 /**
- * Parse Match Pairs question data from JSONB columns
+ * Parse Match Pairs/Column question data from JSONB columns
+ * Handles both match_pair (pairs array) and match_column (leftColumn/rightColumn)
  */
 export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
-  // Support both gamified_exercises format (exercise_data) and question_bank format (question_data/answer_data)
   const questionData = question.exercise_data || question.question_data || {};
   const answerData = question.answer_data || {};
-
+  
+  // Detect if this is match_pair (pairs array) or match_column (leftColumn/rightColumn)
+  const hasPairs = questionData.pairs || answerData.pairs;
+  const hasColumns = questionData.leftColumn || questionData.left_column || question.left_column;
+  
+  // For match_pair: use pairs array format [{id, left, right}]
+  if (hasPairs && !hasColumns) {
+    const pairs = questionData.pairs || answerData.pairs || [];
+    return {
+      question: questionData.question || questionData.text || question.question_text || '',
+      pairs: pairs,
+      leftColumn: [],
+      rightColumn: [],
+      correctPairs: [],
+      explanation: questionData.explanation || question.explanation || ''
+    };
+  }
+  
+  // For match_column: use leftColumn/rightColumn/correctPairs format
   return {
     question: questionData.question || questionData.text || question.question_text || '',
-    leftColumn: questionData.leftColumn || question.left_column || [],
-    rightColumn: questionData.rightColumn || question.right_column || [],
-    correctPairs: questionData.correctPairs || answerData.pairs || question.correct_answer?.pairs || [],
-    explanation: questionData.explanation || answerData.explanation || question.explanation
+    leftColumn: questionData.leftColumn || questionData.left_column || question.left_column || [],
+    rightColumn: questionData.rightColumn || questionData.right_column || question.right_column || [],
+    correctPairs: answerData.pairs || questionData.correctPairs || question.correct_answer?.pairs || [],
+    explanation: questionData.explanation || answerData.explanation || question.explanation || ''
   };
 };
 

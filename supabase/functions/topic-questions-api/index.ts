@@ -261,24 +261,30 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
       }
       break;
 
-    case 'match_pairs':
+    case 'match_pair':      // ✅ SINGULAR standardized
+    case 'match_pairs':     // Backward compat
     case 'Match_Pairs':
-      // 🆕 STEP 2B: Handle match_pairs distinctly
+      // 🔥 CRITICAL FIX: Store pairs in BOTH question_data and answer_data
       const ca_pairs = question.correct_answer;
+      let pairsArray = [];
+      
       if (ca_pairs?.pairs && Array.isArray(ca_pairs.pairs)) {
-        answer_data.pairs = ca_pairs.pairs;
+        pairsArray = ca_pairs.pairs;
       } else if (typeof ca_pairs === 'string') {
         try {
           const parsed = JSON.parse(ca_pairs);
-          answer_data.pairs = Array.isArray(parsed) ? parsed : [];
+          pairsArray = Array.isArray(parsed) ? parsed : [];
         } catch {
-          answer_data.pairs = [];
+          pairsArray = [];
         }
       } else if (Array.isArray(ca_pairs)) {
-        answer_data.pairs = ca_pairs;
-      } else {
-        answer_data.pairs = [];
+        pairsArray = ca_pairs;
       }
+      
+      // ✅ Dual-write: pairs go to BOTH locations
+      question_data.pairs = pairsArray;  // For preview/display
+      answer_data.pairs = pairsArray;    // For grading/validation
+      console.log(`✅ match_pair dual-write: ${pairsArray.length} pairs stored in question_data + answer_data`);
       break;
 
     case 'short_answer':
@@ -1054,7 +1060,7 @@ serve(async (req) => {
           (qType === 'fill_blank' && (answer_data.blanks || question_data.sub_questions)) ||
           (qType === 'true_false' && (answer_data.value !== undefined || answer_data.values)) ||
           (qType === 'match_column' && question_data.leftColumn && question_data.rightColumn) ||
-          (qType === 'match_pairs' && answer_data.pairs) ||
+          (qType === 'match_pair' && question_data.pairs) ||  // ✅ Check question_data now
           (qType === 'assertion_reason' && question_data.assertion);
         
         if (!hasTypeSpecificData) {
@@ -1068,7 +1074,8 @@ serve(async (req) => {
             }
           }
           
-          if ((qType === 'match_column' || qType === 'match_pairs') && q.left_column && q.right_column) {
+          // ✅ Separate match_column and match_pair logic
+          if (qType === 'match_column' && q.left_column && q.right_column) {
             question_data.leftColumn = q.left_column;
             question_data.rightColumn = q.right_column;
             if (q.correct_answer) {
@@ -1078,6 +1085,18 @@ serve(async (req) => {
               } catch {
                 answer_data.pairs = [];
               }
+            }
+          }
+          
+          if (qType === 'match_pair' && q.correct_answer) {
+            try {
+              const parsed = typeof q.correct_answer === 'string' ? JSON.parse(q.correct_answer) : q.correct_answer;
+              const pairsArray = parsed?.pairs || (Array.isArray(parsed) ? parsed : []);
+              question_data.pairs = pairsArray;  // ✅ Store in question_data
+              answer_data.pairs = pairsArray;    // ✅ AND answer_data
+            } catch {
+              question_data.pairs = [];
+              answer_data.pairs = [];
             }
           }
           
@@ -1117,8 +1136,9 @@ serve(async (req) => {
           legacyFields.left_column = q.left_column || question_data.leftColumn || null;
           legacyFields.right_column = q.right_column || question_data.rightColumn || null;
           legacyFields.correct_answer = q.correct_answer || (answer_data.pairs ? JSON.stringify(answer_data.pairs) : null);
-        } else if (q.question_type === 'match_pairs' || q.question_type === 'Match_Pairs') {
-          legacyFields.correct_answer = q.correct_answer || (answer_data.pairs ? JSON.stringify(answer_data.pairs) : null);
+        } else if (q.question_type === 'match_pair' || q.question_type === 'match_pairs' || q.question_type === 'Match_Pairs') {
+          // ✅ Use question_data.pairs as source of truth (now that we store it there)
+          legacyFields.correct_answer = q.correct_answer || (question_data.pairs ? JSON.stringify(question_data.pairs) : null);
         } else if (q.question_type === 'true_false' || q.question_type === 'True_False') {
           legacyFields.correct_answer = q.correct_answer || (answer_data.value !== undefined ? answer_data.value.toString() : null);
         } else if (q.question_type === 'fill_blank' || q.question_type === 'Fill_Blank') {

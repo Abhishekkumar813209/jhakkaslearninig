@@ -1134,18 +1134,23 @@ export const SmartQuestionExtractorNew = ({
                             ? `First Pair (1 of ${q.correct_answer.pairs.length})`
                             : 'Question:'}
                         </div>
-                        <div 
-                          className="text-sm prose prose-sm max-w-none question-content bg-muted/30 p-3 rounded-md"
-                          dangerouslySetInnerHTML={{ 
-                            __html: renderWithImages(
-                              q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.text
-                                ? q.correct_answer.sub_questions[0].text
-                                : q.question_type === 'match_pair' && q.correct_answer?.pairs?.[0]
-                                ? `${q.correct_answer.pairs[0].left} → ${q.correct_answer.pairs[0].right}`
-                                : q.question_text || 'No question text'
-                            ) 
-                          }}
-                        />
+                        {/* ✅ Match Pair: Plain text arrow (no renderWithImages to avoid "vector" artifacts) */}
+                        {q.question_type === 'match_pair' && q.correct_answer?.pairs?.[0] ? (
+                          <div className="text-sm bg-muted/30 p-3 rounded-md">
+                            {q.correct_answer.pairs[0].left} → {q.correct_answer.pairs[0].right}
+                          </div>
+                        ) : (
+                          <div 
+                            className="text-sm prose prose-sm max-w-none question-content bg-muted/30 p-3 rounded-md"
+                            dangerouslySetInnerHTML={{ 
+                              __html: renderWithImages(
+                                q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.text
+                                  ? q.correct_answer.sub_questions[0].text
+                                  : q.question_text || 'No question text'
+                              ) 
+                            }}
+                          />
+                        )}
                         {/* Multi-part badges */}
                         {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 1 && (
                           <Badge variant="secondary" className="text-xs">

@@ -577,16 +577,10 @@ export const QuestionAnswerInput = ({
         </div>
 
         {pairs.length > 0 ? (
-          <div className="space-y-3 border rounded-lg p-4 bg-muted/20 min-w-[600px] w-full">
-            <p className="text-xs text-muted-foreground">
-              Students will drag items from the right column to match the left column
-            </p>
+          <div className="space-y-3 border rounded-lg p-4 bg-muted/20 w-full">
             <div className="grid grid-cols-2 gap-4 min-w-0" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              {/* Left Column - Fixed Items */}
+              {/* Left Column - Fixed Items (NO HEADER) */}
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                  Match These (Fixed)
-                </div>
                 {pairs.map((pair: any, index: number) => (
                   <div 
                     key={`left-${pair.id || index}`} 
@@ -600,12 +594,8 @@ export const QuestionAnswerInput = ({
                 ))}
               </div>
               
-              {/* Right Column - Draggable Items */}
+              {/* Right Column - Draggable Items (NO HEADER) */}
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
-                  Items to Match (Draggable)
-                  <span className="text-xs font-normal">(will be shuffled)</span>
-                </div>
                 {pairs.map((pair: any, index: number) => (
                   <div 
                     key={`right-${pair.id || index}`} 

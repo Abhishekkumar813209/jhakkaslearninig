@@ -179,8 +179,8 @@ function SortableLesson({
                 }
               }
               
-              // Match Pairs: Show first pair
-              if (gameType === 'match_pairs' && data.pairs?.[0]) {
+              // Match Pair: Show first pair (SINGULAR form)
+              if (gameType === 'match_pair' && data.pairs?.[0]) {
                 return <span className="font-medium">{data.pairs[0].left} → {data.pairs[0].right}</span>;
               }
               

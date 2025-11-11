@@ -258,6 +258,7 @@ export const SmartQuestionExtractorNew = ({
                   blanks: parsed.blanks || [],
                   sub_questions: parsed.sub_questions || []
                 },
+                use_word_bank: parsed.use_word_bank,
                 explanation: parsed.explanation,
                 marks: q.question_data?.marks || q.marks || 1,
                 difficulty: q.question_data?.difficulty || q.difficulty

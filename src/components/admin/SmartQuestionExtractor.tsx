@@ -343,7 +343,7 @@ export const SmartQuestionExtractor = ({
               case 'match_pair':
               case 'match_pairs':
                 questionText = qd.text || '';
-                correctAnswer = { pairs: qd.pairs || [] };
+                correctAnswer = { pairs: qd.pairs || ad.pairs || [] };
                 break;
                 
               case 'assertion_reason':

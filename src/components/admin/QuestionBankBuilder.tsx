@@ -9,7 +9,7 @@ import { ChevronRight, ArrowLeft } from "lucide-react";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
-import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
+import { SmartQuestionExtractorNew } from "./SmartQuestionExtractorNew";
 import { ManualQuestionEntry } from "./ManualQuestionEntry";
 import * as LucideIcons from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -671,19 +671,16 @@ export const QuestionBankBuilder = () => {
               </TabsList>
 
               <TabsContent value="view">
-                <SmartQuestionExtractor
+                <SmartQuestionExtractorNew
                   key={refetchKey}
-                  mode="question-bank"
-                  topicId={selectedTopic.id}
-                  topicName={selectedTopic.topic_name}
-                  chapterId={selectedChapter.id}
-                  chapterName={selectedChapter.chapter_name}
-                  subjectName={selectedSubject}
-                  batchId={selectedBatch}
-                  examDomain={selectedDomain || ''}
-                  examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+                  selectedTopic={selectedTopic.id}
+                  selectedTopicName={selectedTopic.topic_name}
+                  selectedChapter={selectedChapter.id}
+                  selectedSubject={selectedSubject}
+                  selectedBatch={selectedBatch}
+                  selectedExamDomain={selectedDomain || ''}
+                  selectedExamName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
                   onQuestionsAdded={handleQuestionsComplete}
-                  onBackClick={() => setCurrentStep(6)}
                 />
               </TabsContent>
 
@@ -700,19 +697,16 @@ export const QuestionBankBuilder = () => {
               </TabsContent>
 
               <TabsContent value="upload">
-                <SmartQuestionExtractor
+                <SmartQuestionExtractorNew
                   key={refetchKey}
-                  mode="question-bank"
-                  topicId={selectedTopic.id}
-                  topicName={selectedTopic.topic_name}
-                  chapterId={selectedChapter.id}
-                  chapterName={selectedChapter.chapter_name}
-                  subjectName={selectedSubject}
-                  batchId={selectedBatch}
-                  examDomain={selectedDomain || ''}
-                  examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+                  selectedTopic={selectedTopic.id}
+                  selectedTopicName={selectedTopic.topic_name}
+                  selectedChapter={selectedChapter.id}
+                  selectedSubject={selectedSubject}
+                  selectedBatch={selectedBatch}
+                  selectedExamDomain={selectedDomain || ''}
+                  selectedExamName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
                   onQuestionsAdded={handleQuestionsComplete}
-                  onBackClick={() => setCurrentStep(6)}
                 />
               </TabsContent>
             </Tabs>

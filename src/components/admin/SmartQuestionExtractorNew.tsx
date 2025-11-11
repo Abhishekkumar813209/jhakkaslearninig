@@ -1112,9 +1112,9 @@ export const SmartQuestionExtractorNew = ({
                           className="text-sm prose prose-sm max-w-none question-content bg-muted/30 p-3 rounded-md"
                           dangerouslySetInnerHTML={{ 
                             __html: renderWithImages(
-                              q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.question
-                                ? q.correct_answer.sub_questions[0].question
-                                : q.question_text
+                              q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.text
+                                ? q.correct_answer.sub_questions[0].text
+                                : q.question_text || 'No question text'
                             ) 
                           }}
                         />

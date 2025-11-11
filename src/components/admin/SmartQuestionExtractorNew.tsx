@@ -48,6 +48,7 @@ interface ExtractedQuestion {
   answer_data?: any; // JSONB column from database
   statements?: Array<{ text: string; answer: boolean }>; // For true_false multi-statement
   numberingStyle?: string; // For true_false numbering
+  use_word_bank?: boolean; // For fill_blank word bank toggle
 }
 
 interface SmartQuestionExtractorNewProps {
@@ -548,8 +549,16 @@ export const SmartQuestionExtractorNew = ({
         return typeof ans === 'boolean' || typeof ans?.value === 'boolean';
       
       case 'fill_blank':
-        // New drag-drop format with blanks array - Accept >=1 distractor per blank
+        // New drag-drop format with blanks array
         if (ans?.blanks && Array.isArray(ans.blanks)) {
+          // If Word Bank is OFF, distractors are optional
+          if (q?.use_word_bank === false) {
+            return ans.blanks.length > 0 && ans.blanks.every((b: any) => 
+              b.correctAnswer?.trim().length > 0
+            );
+          }
+          
+          // Word Bank ON: require at least 1 distractor per blank
           const isValid = ans.blanks.length > 0 && ans.blanks.every((b: any) => 
             b.correctAnswer?.trim().length > 0 && 
             Array.isArray(b.distractors) && 
@@ -625,9 +634,15 @@ export const SmartQuestionExtractorNew = ({
       return;
     }
 
-    // Auto-complete missing distractors for fill_blank questions
+    // Auto-complete missing distractors for fill_blank questions (only when Word Bank ON)
     const processedQuestions = selectedQuestions.map(q => {
       if (q.question_type === 'fill_blank' && q.correct_answer?.blanks) {
+        // Skip auto-complete when Word Bank is OFF
+        if (q.use_word_bank === false) {
+          console.log('[Auto-complete] Skipping - Word Bank OFF for question:', q.id);
+          return q;
+        }
+        
         const updatedBlanks = q.correct_answer.blanks.map((blank: any, idx: number) => {
           const validDistractors = blank.distractors?.filter((d: string) => d && d.trim().length > 0) || [];
           if (validDistractors.length < 3) {

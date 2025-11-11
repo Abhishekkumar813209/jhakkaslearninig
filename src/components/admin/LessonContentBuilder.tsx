@@ -146,6 +146,55 @@ function SortableLesson({
           {lesson.svg_type && <Badge variant="secondary">{lesson.svg_type}</Badge>}
         </div>
 
+        {/* Question Preview Text */}
+        {lesson.lesson_type === 'game' && lesson.game_data && (
+          <div className="text-sm text-muted-foreground line-clamp-2 border-l-2 border-primary/30 pl-3 py-1">
+            {(() => {
+              const data = lesson.game_data;
+              const gameType = lesson.game_type as string;
+              
+              // MCQ: Show question text
+              if (gameType === 'mcq' && data.question) {
+                return <span className="font-medium">{data.question}</span>;
+              }
+              
+              // Fill Blank: Show text with blanks (handles both fill_blank and fill_blanks)
+              if ((gameType === 'fill_blanks' || gameType === 'fill_blank')) {
+                if (data.text) {
+                  return <span className="font-medium">{data.text}</span>;
+                }
+                // Multi-part fill blanks
+                if (data.sub_questions?.[0]?.text) {
+                  return <span className="font-medium">Sub-Q (1 of {data.sub_questions.length}): {data.sub_questions[0].text}</span>;
+                }
+              }
+              
+              // True/False: Show first statement
+              if (gameType === 'true_false') {
+                if (data.question) {
+                  return <span className="font-medium">{data.question}</span>;
+                }
+                if (data.statements?.[0]?.text) {
+                  return <span className="font-medium">Statement 1: {data.statements[0].text}</span>;
+                }
+              }
+              
+              // Match Pairs: Show first pair
+              if (gameType === 'match_pairs' && data.pairs?.[0]) {
+                return <span className="font-medium">{data.pairs[0].left} → {data.pairs[0].right}</span>;
+              }
+              
+              // Match Column: Show title or first item
+              if (gameType === 'match_column') {
+                if (data.question) return <span className="font-medium">{data.question}</span>;
+                if (data.leftColumn?.[0]) return <span className="font-medium">{data.leftColumn[0]} → ...</span>;
+              }
+              
+              return <span className="italic text-muted-foreground/70">Game content</span>;
+            })()}
+          </div>
+        )}
+
         {/* Stats */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span className="flex items-center gap-1">

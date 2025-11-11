@@ -7,8 +7,8 @@
 
 // UI Type → topic_learning_content.game_type (database column)
 export const GAME_TYPE_FOR_CONTENT: Record<string, string> = {
-  'match_column': 'match_columns',      // plural!
-  'match_columns': 'match_columns',
+  'match_column': 'match_column',       // singular!
+  'match_columns': 'match_column',      // backward compatibility
   'drag_drop': 'drag_drop',
   'drag_drop_sort': 'drag_drop',
   'sequence_order': 'sequence_order',

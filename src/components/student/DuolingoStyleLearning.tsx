@@ -398,9 +398,10 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           marks: rawGameData.question_data?.marks || rawGameData.marks || 1
         };
         
-      case 'match_pairs':
-      case 'match_column':
-        parsed = parseMatchPairsData(rawGameData);
+    case 'match_pairs':
+    case 'match_column':
+    case 'match_columns':  // Backward compatibility
+      parsed = parseMatchPairsData(rawGameData);
         // Transform to pairs array format for MatchPairsGame
         const pairs = parsed.leftColumn.map((left: string, idx: number) => ({
           id: String(idx + 1),
@@ -428,6 +429,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         return MCQGame;
       case 'match_pairs':
       case 'match_column':
+      case 'match_columns':  // Backward compatibility
         return MatchPairsGame;
       case 'drag_drop':
         return DragDropSequence;

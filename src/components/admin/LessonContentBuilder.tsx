@@ -185,7 +185,7 @@ function SortableLesson({
               }
               
               // Match Column: Show title or first item
-              if (gameType === 'match_column') {
+              if (gameType === 'match_column' || gameType === 'match_columns') {
                 if (data.question) return <span className="font-medium">{data.question}</span>;
                 if (data.leftColumn?.[0]) return <span className="font-medium">{data.leftColumn[0]} → ...</span>;
               }
@@ -1811,7 +1811,7 @@ function LessonContentBuilderInner() {
       });
 
       // CRITICAL: Pre-insert validation to prevent database errors
-      const validGameTypes = ['match_columns', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pairs', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
+      const validGameTypes = ['match_column', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pairs', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
       
       console.log('🔍 Starting pre-insert validation for', lessonsToInsert.length, 'lessons');
       

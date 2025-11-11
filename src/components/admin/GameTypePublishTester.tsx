@@ -16,7 +16,7 @@ const gameTypeTests: GameTypeTest[] = [
     uiName: "Match Column",
     description: "Line drawing to match items",
     rawInput: "match_column",
-    expectedContent: "match_columns",
+    expectedContent: "match_column",
     expectedMapping: "match_column"
   },
   {

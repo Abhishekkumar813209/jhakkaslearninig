@@ -111,7 +111,8 @@ Deno.serve(async (req) => {
     // Game type normalization map
     const typeNormalizationMap: Record<string, string> = {
       'fill_blank': 'fill_blanks',
-      'match_columns': 'match_column',
+      'match_column': 'match_column',      // Singular form
+      'match_columns': 'match_column',     // Backward compatibility
       'drag_drop': 'drag_drop_sequence',
       'mcq': 'mcq',
       'true_false': 'true_false',

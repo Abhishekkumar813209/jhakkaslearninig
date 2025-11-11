@@ -606,6 +606,18 @@ export const SmartQuestionExtractorNew = ({
         if (Array.isArray(ans)) return ans.length > 0;
         return Array.isArray(ans?.pairs) && ans.pairs.length > 0;
       
+      case 'match_pair':
+      case 'match_pairs':
+        // Validate pairs array format: [{id, left, right}]
+        if (ans?.pairs && Array.isArray(ans.pairs)) {
+          return ans.pairs.length > 0 && 
+                 ans.pairs.every((pair: any) => 
+                   pair.left?.trim().length > 0 && 
+                   pair.right?.trim().length > 0
+                 );
+        }
+        return false;
+      
       case 'short_answer':
         return true; // No strict validation for subjective
       

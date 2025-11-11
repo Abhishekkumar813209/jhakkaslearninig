@@ -208,7 +208,7 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       </div>
 
       {/* Game Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-6 min-w-0 min-w-[600px]">
+      <div className="grid grid-cols-2 gap-6 md:gap-8 mb-6 min-w-[600px] w-full" style={{ gridTemplateColumns: '1fr 1fr' }}>
         {/* Left Column (Fixed) */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground mb-3">Match These</h3>

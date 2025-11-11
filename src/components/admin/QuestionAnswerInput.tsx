@@ -577,11 +577,11 @@ export const QuestionAnswerInput = ({
         </div>
 
         {pairs.length > 0 ? (
-          <div className="space-y-3 border rounded-lg p-4 bg-muted/20 min-w-[600px]">
+          <div className="space-y-3 border rounded-lg p-4 bg-muted/20 min-w-[600px] w-full">
             <p className="text-xs text-muted-foreground">
               Students will drag items from the right column to match the left column
             </p>
-            <div className="grid grid-cols-2 gap-4 min-w-0">
+            <div className="grid grid-cols-2 gap-4 min-w-0" style={{ gridTemplateColumns: '1fr 1fr' }}>
               {/* Left Column - Fixed Items */}
               <div className="space-y-2">
                 <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">

@@ -561,7 +561,7 @@ export const QuestionAnswerInput = ({
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Match Pairs (Drag & Drop)</Label>
+          <Label className="text-sm font-medium">Match Pairs Preview (Two-Column Layout)</Label>
           {isValid ? (
             <Badge variant="default" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -575,29 +575,57 @@ export const QuestionAnswerInput = ({
           )}
         </div>
 
-        <div className="space-y-2 border rounded-lg p-4 bg-muted/20">
-          <p className="text-xs text-muted-foreground mb-3">
-            Pairs are stored in question_data.pairs as [{'{'}id, left, right{'}'}] format
-          </p>
-          {pairs.length > 0 ? (
-            <div className="space-y-2">
-              {pairs.map((pair: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 p-2 border rounded bg-card">
-                  <Badge variant="outline">{idx + 1}</Badge>
-                  <div className="flex-1 flex items-center gap-2">
-                    <span className="text-sm">{pair.left}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="text-sm">{pair.right}</span>
-                  </div>
+        {pairs.length > 0 ? (
+          <div className="space-y-3 border rounded-lg p-4 bg-muted/20">
+            <p className="text-xs text-muted-foreground">
+              Students will drag items from the right column to match the left column
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left Column - Fixed Items */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                  Match These (Fixed)
                 </div>
-              ))}
+                {pairs.map((pair: any, index: number) => (
+                  <div 
+                    key={`left-${pair.id || index}`} 
+                    className="flex items-center gap-2 p-3 bg-background rounded-lg border"
+                  >
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-medium flex-1">{pair.left}</span>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Right Column - Draggable Items */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1">
+                  Items to Match (Draggable)
+                  <span className="text-xs font-normal">(will be shuffled)</span>
+                </div>
+                {pairs.map((pair: any, index: number) => (
+                  <div 
+                    key={`right-${pair.id || index}`} 
+                    className="flex items-center gap-2 p-3 bg-background rounded-lg border cursor-move"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40"></div>
+                    </div>
+                    <span className="text-sm flex-1">{pair.right}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              No pairs data found
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
+            No pairs data found
+          </div>
+        )}
       </div>
     );
   }

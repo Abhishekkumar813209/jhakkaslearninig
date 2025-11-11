@@ -1840,8 +1840,8 @@ function LessonContentBuilderInner() {
         description: `${lessonsToInsert.length} of ${questions.length} questions are valid and ready to insert`
       });
 
-      // CRITICAL: Pre-insert validation to prevent database errors
-      const validGameTypes = ['match_column', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pair', 'match_pairs', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
+      // CRITICAL: Pre-insert validation to prevent database errors (SINGULAR FORMS ONLY)
+      const validGameTypes = ['match_column', 'drag_drop', 'sequence_order', 'word_puzzle', 'fill_blanks', 'match_pair', 'typing_race', 'mcq', 'true_false', 'assertion_reason'];
       
       console.log('🔍 Starting pre-insert validation for', lessonsToInsert.length, 'lessons');
       

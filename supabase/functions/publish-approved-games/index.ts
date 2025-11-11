@@ -108,13 +108,13 @@ Deno.serve(async (req) => {
 
     console.log(`[publish-approved-games] Found ${approvedGames.length} approved games with data`);
 
-    // Game type normalization map
+    // Game type normalization map (SINGULAR FORMS)
     const typeNormalizationMap: Record<string, string> = {
       'fill_blank': 'fill_blanks',
       'match_column': 'match_column',      // Singular form
       'match_columns': 'match_column',     // Backward compatibility
-      'match_pair': 'match_pairs',         // DB uses match_pairs enum
-      'match_pairs': 'match_pairs',        // Already correct
+      'match_pair': 'match_pair',          // SINGULAR (standardized)
+      'match_pairs': 'match_pair',         // Backward compatibility -> normalize to singular
       'drag_drop': 'drag_drop_sequence',
       'mcq': 'mcq',
       'true_false': 'true_false',
@@ -126,9 +126,9 @@ Deno.serve(async (req) => {
       'interactive_blanks': 'interactive_blanks',
     };
 
-    // Valid exercise types (from enum)
+    // Valid exercise types (from enum) - SINGULAR FORMS ONLY
     const validExerciseTypes = [
-      'mcq', 'true_false', 'fill_blanks', 'match_pairs', 'match_column',
+      'mcq', 'true_false', 'fill_blanks', 'match_pair', 'match_column',
       'drag_drop_sequence', 'line_matching', 'card_memory', 'typing_race',
       'drag_drop_blanks', 'interactive_blanks'
     ];

@@ -698,14 +698,29 @@ export const SmartQuestionExtractorNew = ({
     }
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
-    setQuestions(prev => prev.filter(q => q.id !== questionId));
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(questionId);
-      return newSet;
-    });
-    toast.success('Question removed');
+  const handleDeleteQuestion = async (questionId: string) => {
+    try {
+      await invokeWithAuth({
+        name: 'topic-questions-api',
+        body: { 
+          action: 'delete_question', 
+          question_id: questionId 
+        }
+      });
+      
+      // Remove from UI after successful deletion
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(questionId);
+        return newSet;
+      });
+      
+      toast.success('Question deleted from database');
+    } catch (error: any) {
+      console.error('Failed to delete question:', error);
+      toast.error(`Delete failed: ${error.message || 'Unknown error'}`);
+    }
   };
 
   const toggleSelection = (id?: string) => {
@@ -759,33 +774,52 @@ export const SmartQuestionExtractorNew = ({
 
     setLoading(true);
     try {
-      console.log('🗑️ Deleting selected questions from database:', selectedQuestions.map(q => q.id));
+      console.log('🗑️ Deleting selected questions:', selectedQuestions.map(q => q.id));
       
-      // Delete from database
-      const { error } = await supabase
-        .from('generated_questions')
-        .delete()
-        .in('id', selectedQuestions.map(q => q.id!));
+      // Use edge function to delete from question_bank
+      const deletePromises = selectedQuestions.map(q =>
+        invokeWithAuth({
+          name: 'topic-questions-api',
+          body: { 
+            action: 'delete_question', 
+            question_id: q.id 
+          }
+        })
+      );
+      
+      const results = await Promise.allSettled(deletePromises);
+      
+      // Count successes and failures
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      
+      console.log(`✅ Deleted ${successful} questions, ${failed} failed`);
 
-      if (error) {
-        throw error;
-      }
-
-      console.log('✅ Database deletion successful');
-
-      // Remove from UI state only after successful database deletion
-      setQuestions(prev => prev.filter(q => !q.id || !selectedIds.has(q.id)));
-      setSelectedIds(new Set());
+      // Remove successfully deleted questions from UI
+      const failedIds = results
+        .map((r, i) => r.status === 'rejected' ? selectedQuestions[i].id : null)
+        .filter(Boolean);
+      
+      setQuestions(prev => prev.filter(q => 
+        !q.id || !selectedIds.has(q.id) || failedIds.includes(q.id)
+      ));
+      setSelectedIds(new Set(failedIds as string[]));
       
       // Clear localStorage
-      if (selectedTopic) {
+      if (selectedTopic && failedIds.length === 0) {
         localStorage.removeItem(`question-selections-${selectedTopic}`);
       }
 
-      toast.success(`Successfully deleted ${selectedQuestions.length} question(s) from database`);
+      // Show result toast
+      if (failed === 0) {
+        toast.success(`Successfully deleted ${successful} question(s)`);
+      } else {
+        toast.warning(`Deleted ${successful} question(s), ${failed} failed`);
+      }
+      
     } catch (error: any) {
-      console.error('Failed to delete questions from database:', error);
-      toast.error(`Failed to delete: ${error.message || 'Unknown error'}`);
+      console.error('Failed to delete questions:', error);
+      toast.error(`Deletion failed: ${error.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

@@ -409,14 +409,14 @@ const GamePlayerPage = () => {
         console.error('Error tracking wrong answer:', error);
       }
 
-      // Auto-advance to next game after 900ms
+      // Auto-advance to next game after 200ms
       setTimeout(() => {
         if (navInfo?.nextGameId) {
           handleNext();
         } else {
           handleExit();
         }
-      }, 900);
+      }, 200);
 
     } catch (error) {
       console.error("Error tracking wrong answer:", error);
@@ -438,7 +438,7 @@ const GamePlayerPage = () => {
 
       const timeout = setTimeout(() => {
         navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
-      }, 900);
+      }, 200);
       
       setAutoAdvanceTimeout(timeout);
       
@@ -460,7 +460,7 @@ const GamePlayerPage = () => {
       
       setTimeout(() => {
         navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
-      }, 2000);
+      }, 200);
     }
   };
 

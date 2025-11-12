@@ -135,10 +135,12 @@ Deno.serve(async (req) => {
           
           if (sub_question_result && sub_question_result.totalSubQuestions > 1) {
             // Partial credit for multi-part questions
-            xpAmount = baseXP * sub_question_result.percentage * attemptMultiplier;
+            const rawXP = baseXP * sub_question_result.percentage * attemptMultiplier;
+            xpAmount = Math.round(rawXP * 100) / 100; // Round immediately to 2 decimal places
           } else {
             // Full XP for single questions
-            xpAmount = baseXP * attemptMultiplier;
+            const rawXP = baseXP * attemptMultiplier;
+            xpAmount = Math.round(rawXP * 100) / 100; // Round immediately to 2 decimal places
           }
           
           shouldAwardXP = true;

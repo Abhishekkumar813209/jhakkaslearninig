@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
+import { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { NodeViewProps } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Table } from '@tiptap/extension-table';
@@ -9,21 +11,107 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import Image from '@tiptap/extension-image';
 import { Mathematics } from '@tiptap/extension-mathematics';
 
-// Custom Image extension with responsive styling
+// Resizable Image Component
+const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
+  const [isResizing, setIsResizing] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const isResizingRef = useRef(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    isResizingRef.current = true;
+    setStartX(e.clientX);
+    
+    if (imgRef.current) {
+      setStartWidth(imgRef.current.offsetWidth);
+    }
+  };
+
+  React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      
+      const diff = e.clientX - startX;
+      const newWidth = Math.max(100, Math.min(800, startWidth + diff));
+      
+      // Parse current style to preserve other attributes
+      const currentStyle = node.attrs.style || '';
+      const styleObj: Record<string, string> = {};
+      
+      currentStyle.split(';').forEach(rule => {
+        const [key, value] = rule.split(':').map(s => s.trim());
+        if (key && value) styleObj[key] = value;
+      });
+      
+      // Update width
+      styleObj['width'] = `${newWidth}px`;
+      
+      const newStyle = Object.entries(styleObj)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('; ');
+      
+      updateAttributes({ style: newStyle });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      isResizingRef.current = false;
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, startX, startWidth, node.attrs.style, updateAttributes]);
+
+  return (
+    <NodeViewWrapper className="relative inline-block group my-2">
+      <img
+        ref={imgRef}
+        src={node.attrs.src}
+        alt={node.attrs.alt || 'Image'}
+        style={node.attrs.style}
+        className="max-w-full h-auto"
+      />
+      <div
+        className="absolute bottom-0 right-0 w-4 h-4 bg-primary cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity border-2 border-white shadow-md rounded-sm"
+        onMouseDown={handleMouseDown}
+        style={{ transform: 'translate(50%, 50%)' }}
+        title="Drag to resize"
+      />
+      {isResizing && (
+        <div className="absolute top-0 left-0 w-full h-full border-2 border-primary pointer-events-none rounded" />
+      )}
+    </NodeViewWrapper>
+  );
+};
+
+// Custom Image extension with resize handles
 const CustomImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
       style: {
-        default: 'max-width: 100%; height: auto; display: block; margin: 0.5rem 0;',
+        default: 'width: 100%; height: auto; display: block; margin: 0.5rem 0;',
         parseHTML: element => element.style.cssText,
         renderHTML: attributes => {
           return {
-            style: attributes.style || 'max-width: 100%; height: auto; display: block; margin: 0.5rem 0;'
+            style: attributes.style || 'width: 100%; height: auto; display: block; margin: 0.5rem 0;'
           };
         }
       }
     };
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageComponent);
   }
 });
 import 'katex/dist/katex.min.css';

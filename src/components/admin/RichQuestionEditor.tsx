@@ -29,58 +29,174 @@ const parseStyleString = (styleString: string): React.CSSProperties => {
   return styleObj as React.CSSProperties;
 };
 
-// Resizable Image Component
+// Resize Handle Component for 8-point resizing
+const ResizeHandle = ({ position, onMouseDown }: { position: string; onMouseDown: (e: React.MouseEvent, pos: string) => void }) => {
+  const positionStyles: Record<string, React.CSSProperties> = {
+    'tl': { top: 0, left: 0, cursor: 'nwse-resize', transform: 'translate(-50%, -50%)' },
+    'tr': { top: 0, right: 0, cursor: 'nesw-resize', transform: 'translate(50%, -50%)' },
+    'bl': { bottom: 0, left: 0, cursor: 'nesw-resize', transform: 'translate(-50%, 50%)' },
+    'br': { bottom: 0, right: 0, cursor: 'nwse-resize', transform: 'translate(50%, 50%)' },
+    'tc': { top: 0, left: '50%', cursor: 'ns-resize', transform: 'translate(-50%, -50%)' },
+    'bc': { bottom: 0, left: '50%', cursor: 'ns-resize', transform: 'translate(-50%, 50%)' },
+    'lc': { top: '50%', left: 0, cursor: 'ew-resize', transform: 'translate(-50%, -50%)' },
+    'rc': { top: '50%', right: 0, cursor: 'ew-resize', transform: 'translate(50%, -50%)' },
+  };
+
+  return (
+    <div
+      className="absolute w-3 h-3 bg-primary border-2 border-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
+      style={positionStyles[position]}
+      onMouseDown={(e) => onMouseDown(e, position)}
+    />
+  );
+};
+
+// Resizable and Draggable Image Component
 const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
   const [isResizing, setIsResizing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeHandle, setActiveHandle] = useState<string>('');
   const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
+  const [startHeight, setStartHeight] = useState(0);
+  const [startTop, setStartTop] = useState(0);
+  const [startLeft, setStartLeft] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
   const isResizingRef = useRef(false);
+  const isDraggingRef = useRef(false);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Parse style to get current position/size
+  const parseCurrentStyle = () => {
+    const styleObj: Record<string, string> = {};
+    const currentStyle = node.attrs.style || '';
+    currentStyle.split(';').forEach(rule => {
+      const [key, value] = rule.split(':').map(s => s.trim());
+      if (key && value) styleObj[key] = value;
+    });
+    return styleObj;
+  };
+
+  const handleResizeStart = (e: React.MouseEvent, handle: string) => {
     e.preventDefault();
     e.stopPropagation();
     setIsResizing(true);
     isResizingRef.current = true;
+    setActiveHandle(handle);
     setStartX(e.clientX);
+    setStartY(e.clientY);
     
     if (imgRef.current) {
       setStartWidth(imgRef.current.offsetWidth);
+      setStartHeight(imgRef.current.offsetHeight);
+      const styleObj = parseCurrentStyle();
+      setStartTop(parseFloat(styleObj['top']) || 0);
+      setStartLeft(parseFloat(styleObj['left']) || 0);
     }
+  };
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (e.target !== imgRef.current) return; // Only drag on image, not handles
+    e.preventDefault();
+    setIsDragging(true);
+    isDraggingRef.current = true;
+    setStartX(e.clientX);
+    setStartY(e.clientY);
+    
+    const styleObj = parseCurrentStyle();
+    setStartTop(parseFloat(styleObj['top']) || 0);
+    setStartLeft(parseFloat(styleObj['left']) || 0);
   };
 
   React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      
-      const diff = e.clientX - startX;
-      const newWidth = Math.max(100, Math.min(800, startWidth + diff));
-      
-      // Parse current style to preserve other attributes
-      const currentStyle = node.attrs.style || '';
-      const styleObj: Record<string, string> = {};
-      
-      currentStyle.split(';').forEach(rule => {
-        const [key, value] = rule.split(':').map(s => s.trim());
-        if (key && value) styleObj[key] = value;
-      });
-      
-      // Update width
-      styleObj['width'] = `${newWidth}px`;
-      
-      const newStyle = Object.entries(styleObj)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join('; ');
-      
-      updateAttributes({ style: newStyle });
+      if (isResizingRef.current) {
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+        let newTop = startTop;
+        let newLeft = startLeft;
+        
+        switch(activeHandle) {
+          case 'br': // Bottom-right
+            newWidth = Math.max(100, startWidth + deltaX);
+            newHeight = Math.max(100, startHeight + deltaY);
+            break;
+          case 'bl': // Bottom-left
+            newWidth = Math.max(100, startWidth - deltaX);
+            newHeight = Math.max(100, startHeight + deltaY);
+            newLeft = startLeft + deltaX;
+            break;
+          case 'tr': // Top-right
+            newWidth = Math.max(100, startWidth + deltaX);
+            newHeight = Math.max(100, startHeight - deltaY);
+            newTop = startTop + deltaY;
+            break;
+          case 'tl': // Top-left
+            newWidth = Math.max(100, startWidth - deltaX);
+            newHeight = Math.max(100, startHeight - deltaY);
+            newTop = startTop + deltaY;
+            newLeft = startLeft + deltaX;
+            break;
+          case 'tc': // Top-center
+            newHeight = Math.max(100, startHeight - deltaY);
+            newTop = startTop + deltaY;
+            break;
+          case 'bc': // Bottom-center
+            newHeight = Math.max(100, startHeight + deltaY);
+            break;
+          case 'lc': // Left-center
+            newWidth = Math.max(100, startWidth - deltaX);
+            newLeft = startLeft + deltaX;
+            break;
+          case 'rc': // Right-center
+            newWidth = Math.max(100, startWidth + deltaX);
+            break;
+        }
+        
+        const styleObj = parseCurrentStyle();
+        styleObj['width'] = `${newWidth}px`;
+        styleObj['height'] = `${newHeight}px`;
+        styleObj['position'] = 'absolute';
+        styleObj['top'] = `${newTop}px`;
+        styleObj['left'] = `${newLeft}px`;
+        
+        const newStyle = Object.entries(styleObj)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('; ');
+        
+        updateAttributes({ style: newStyle });
+      } else if (isDraggingRef.current) {
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        const newTop = startTop + deltaY;
+        const newLeft = startLeft + deltaX;
+        
+        const styleObj = parseCurrentStyle();
+        styleObj['position'] = 'absolute';
+        styleObj['top'] = `${newTop}px`;
+        styleObj['left'] = `${newLeft}px`;
+        
+        const newStyle = Object.entries(styleObj)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('; ');
+        
+        updateAttributes({ style: newStyle });
+      }
     };
 
     const handleMouseUp = () => {
       setIsResizing(false);
+      setIsDragging(false);
       isResizingRef.current = false;
+      isDraggingRef.current = false;
+      setActiveHandle('');
     };
 
-    if (isResizing) {
+    if (isResizing || isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -88,7 +204,7 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isResizing, startX, startWidth, node.attrs.style, updateAttributes]);
+  }, [isResizing, isDragging, activeHandle, startX, startY, startWidth, startHeight, startTop, startLeft, node.attrs.style, updateAttributes]);
 
   const imgStyle = parseStyleString(node.attrs.style || '');
 
@@ -99,15 +215,20 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
         src={node.attrs.src}
         alt={node.attrs.alt || 'Image'}
         style={imgStyle}
-        className="max-w-full h-auto"
+        className="max-w-full h-auto cursor-move"
+        onMouseDown={handleDragStart}
       />
-      <div
-        className="absolute bottom-0 right-0 w-4 h-4 bg-primary cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity border-2 border-white shadow-md rounded-sm"
-        onMouseDown={handleMouseDown}
-        style={{ transform: 'translate(50%, 50%)' }}
-        title="Drag to resize"
-      />
-      {isResizing && (
+      {/* 8 Resize Handles */}
+      <ResizeHandle position="tl" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="tc" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="tr" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="lc" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="rc" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="bl" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="bc" onMouseDown={handleResizeStart} />
+      <ResizeHandle position="br" onMouseDown={handleResizeStart} />
+      
+      {(isResizing || isDragging) && (
         <div className="absolute top-0 left-0 w-full h-full border-2 border-primary pointer-events-none rounded" />
       )}
     </NodeViewWrapper>
@@ -338,23 +459,38 @@ const cleanWordPlainText = (text: string): string => {
 };
 
 // Helper to convert [img:...] tokens to <img> HTML tags
+// Extended format: [img:URL:width:height:top:left:align:padding]
 const convertImageTokensToHTML = (text: string): string => {
   if (!text) return text;
   
   return text.replace(/\[img:([^\]]+)\]/g, (_, params) => {
     const parts = params.split(':').map(p => p.trim());
+    
     // Pop from end to handle URLs with colons (https://)
-    const padding = (parts.length > 3 ? parts.pop() : '0')!;
-    const align = (parts.length > 2 ? parts.pop() : 'center')!;
-    const width = (parts.length > 1 ? parts.pop() : '100%')!;
+    const padding = (parts.length > 7 ? parts.pop() : '0') || '0';
+    const align = (parts.length > 6 ? parts.pop() : 'center') || 'center';
+    const left = (parts.length > 5 ? parts.pop() : null);
+    const top = (parts.length > 4 ? parts.pop() : null);
+    const height = (parts.length > 3 ? parts.pop() : 'auto') || 'auto';
+    const width = (parts.length > 2 ? parts.pop() : '100%') || '100%';
     const url = parts.join(':'); // Rejoin URL
-
-    const alignmentStyle =
-      align === 'center' ? 'margin-left: auto; margin-right: auto;' :
-      align === 'right'  ? 'margin-left: auto; margin-right: 0;'    :
-                          'margin-left: 0; margin-right: auto;';
-
-    const style = `width: ${width}; height: auto; display: block; ${alignmentStyle} padding-left: ${Number(padding)||0}px; padding-right: ${Number(padding)||0}px; margin: 0.5rem 0;`;
+    
+    let style = `width: ${width}; height: ${height};`;
+    
+    // Absolute positioning if top/left provided
+    if (top && left) {
+      style += ` position: absolute; top: ${top}; left: ${left};`;
+    } else {
+      // Static positioning with alignment (backward compatibility)
+      const alignmentStyle =
+        align === 'center' ? 'margin-left: auto; margin-right: auto;' :
+        align === 'right'  ? 'margin-left: auto; margin-right: 0;'    :
+                            'margin-left: 0; margin-right: auto;';
+      style += ` display: block; ${alignmentStyle}`;
+    }
+    
+    const paddingValue = parseInt(padding) || 0;
+    style += ` padding-left: ${paddingValue}px; padding-right: ${paddingValue}px; margin: 0.5rem 0;`;
     
     return `<img src="${url}" alt="Question image" style="${style}" />`;
   });
@@ -1008,8 +1144,11 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
         />
       </div>
 
-      {/* Editor */}
-      <EditorContent editor={editor} className="min-h-[80px]" />
+      {/* Editor - with positioning context for absolute positioning */}
+      <EditorContent 
+        editor={editor} 
+        className="min-h-[80px] [&_.ProseMirror]:relative [&_.ProseMirror]:min-h-[500px] [&_.ProseMirror]:p-4"
+      />
       
       {/* Helper text */}
       <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/20 border-t space-y-1">

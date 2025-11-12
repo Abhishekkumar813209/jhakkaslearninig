@@ -197,36 +197,21 @@ export function MCQGame({
       {/* Question Card */}
       <Card className="border-2 border-primary/20">
         <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex-1 max-h-[400px] overflow-y-auto pr-4">
-              <h3 
-                className="text-xl font-semibold text-foreground whitespace-pre-wrap break-words"
-                dangerouslySetInnerHTML={{ __html: renderWithImages(gameData.question) }}
-              />
+          {/* XP Badge - Top Left */}
+          {gameData.marks && (
+            <div className="mb-3">
+              <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-700 border-yellow-500/30">
+                {gameData.marks} XP
+              </Badge>
             </div>
-            <div className="flex gap-2 ml-4 flex-shrink-0">
-              {gameData.marks && (
-                <>
-                  <Badge variant="outline" className="bg-primary/10">
-                    {gameData.marks} {gameData.marks === 1 ? 'Mark' : 'Marks'}
-                  </Badge>
-                  <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-700">
-                    {gameData.marks} XP
-                  </Badge>
-                </>
-              )}
-              {gameData.difficulty && (
-                <Badge 
-                  variant={
-                    gameData.difficulty === 'easy' ? 'default' : 
-                    gameData.difficulty === 'medium' ? 'secondary' : 
-                    'destructive'
-                  }
-                >
-                  {gameData.difficulty}
-                </Badge>
-              )}
-            </div>
+          )}
+          
+          {/* Question Text - Full Width Below */}
+          <div className="w-full max-h-[400px] overflow-y-auto mb-6">
+            <h3 
+              className="text-xl font-semibold text-foreground whitespace-pre-wrap break-words"
+              dangerouslySetInnerHTML={{ __html: renderWithImages(gameData.question) }}
+            />
           </div>
 
           {/* Options */}

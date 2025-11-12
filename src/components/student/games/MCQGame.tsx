@@ -175,10 +175,10 @@ export function MCQGame({
                 Question {currentQuestionNum || 1} of {totalQuestions}
               </span>
               <span className="text-primary font-semibold">
-                {Math.round(((currentQuestionNum || 1) / totalQuestions) * 100)}% Complete
+                {Math.round((((currentQuestionNum || 1) - 1) / totalQuestions) * 100)}% Complete
               </span>
             </div>
-            <Progress value={((currentQuestionNum || 1) / totalQuestions) * 100} className="h-2" />
+            <Progress value={(((currentQuestionNum || 1) - 1) / totalQuestions) * 100} className="h-2" />
           </div>
         )}
         

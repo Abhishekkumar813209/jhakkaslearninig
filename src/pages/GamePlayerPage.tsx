@@ -29,6 +29,23 @@ import {
   parseMatchPairsData
 } from "@/lib/questionDataHelpers";
 
+interface GameXPAwardResponse {
+  xp_awarded: number;
+  attempt_number: number;
+  is_practice_mode: boolean;
+  should_advance: boolean;
+  sub_question_info?: {
+    totalSubQuestions: number;
+    correctCount: number;
+    percentage: number;
+  };
+}
+
+interface GetAttemptsResponse {
+  attempt_count: number;
+  has_correct_attempt: boolean;
+}
+
 const GamePlayerPage = () => {
   const { roadmapId, topicId, gameId } = useParams();
   const navigate = useNavigate();
@@ -39,6 +56,8 @@ const GamePlayerPage = () => {
   const [loading, setLoading] = useState(true);
   const [autoAdvanceTimeout, setAutoAdvanceTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showDebugData, setShowDebugData] = useState(false);
+  const [initialAttemptCount, setInitialAttemptCount] = useState<number>(0);
+  const [progressPercentage, setProgressPercentage] = useState<number>(0);
 
   useEffect(() => {
     // Guard against invalid params
@@ -93,6 +112,8 @@ const GamePlayerPage = () => {
 
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       let game = await loadGameById(gameId);
       
       // Fallback: If gameId is actually a topic_content_mapping.id, try to find the game
@@ -120,6 +141,51 @@ const GamePlayerPage = () => {
         });
         setLoading(false);
         return;
+      }
+
+      // Fetch initial attempt count from backend
+      if (user) {
+        try {
+          const attemptData = await invokeWithAuth<any, GetAttemptsResponse>({
+            name: 'game-xp-award',
+            body: {
+              action: 'get_attempts',
+              game_id: game.id
+            }
+          });
+          
+          if (attemptData) {
+            setInitialAttemptCount(attemptData.attempt_count || 0);
+          }
+        } catch (error) {
+          console.error('Error fetching attempt count:', error);
+          setInitialAttemptCount(0);
+        }
+
+        // Fetch progress percentage based on completed games
+        const { data: mapping } = await supabase
+          .from('topic_content_mapping')
+          .select('id')
+          .eq('topic_id', topicId)
+          .maybeSingle();
+        
+        if (mapping) {
+          const { count: totalGames } = await supabase
+            .from('gamified_exercises')
+            .select('id', { count: 'exact' })
+            .eq('topic_content_id', mapping.id);
+
+          const { data: progress } = await supabase
+            .from('student_topic_game_progress')
+            .select('completed_game_ids')
+            .eq('student_id', user.id)
+            .eq('topic_id', topicId)
+            .maybeSingle();
+
+          const completedCount = progress?.completed_game_ids?.length || 0;
+          const percentage = totalGames && totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
+          setProgressPercentage(Math.round(percentage));
+        }
       }
 
       const navigation = await getAdjacentGames(topicId, game.id);
@@ -245,111 +311,35 @@ const GamePlayerPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      // Fetch game's XP reward from database
-      const { data: gameInfo } = await supabase
-        .from('gamified_exercises')
-        .select('xp_reward')
-        .eq('id', gameData.id)
-        .single();
-
-      const baseXP = gameInfo?.xp_reward || 10;
-
-      // Check existing attempts
-      const { data: existingAttempts } = await supabase
-        .from('student_question_attempts')
-        .select('is_correct, attempt_number')
-        .eq('student_id', user.id)
-        .eq('question_id', gameData.id)
-        .order('attempt_number', { ascending: true });
-
-      const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct);
-      const attemptNumber = (existingAttempts?.length || 0) + 1;
-      
-      // Block if already completed
-      if (hasCorrectAttempt) {
-        return;
-      }
-
-      // Block if exceeded max attempts - but still redirect
-      if (attemptNumber > XP_MULTIPLIERS.max_attempts) {
-        setTimeout(() => {
-          if (navInfo?.nextGameId) {
-            handleNext();
-          } else {
-            handleExit();
-          }
-        }, 1500);
-        return;
-      }
-
-      // Calculate XP with partial credit and attempt multiplier
-      let xpAmount = 0; // Default to 0 (practice mode)
-      
-      if (result && result.totalSubQuestions > 1) {
-        // Only award XP for first 2 attempts
-        if (result.attemptNumber && result.attemptNumber <= 2) {
-          const attemptMultiplier = result.attemptNumber === 1 
-            ? XP_MULTIPLIERS.first_correct 
-            : XP_MULTIPLIERS.second_correct;
-          
-          xpAmount = baseXP * result.percentage * attemptMultiplier;
-          console.log(`[XP Award] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpAmount.toFixed(2)} XP`);
-        } else {
-          console.log(`[Practice Mode] Attempt ${result.attemptNumber} - No XP awarded`);
+      // Call backend to handle XP award and attempt tracking
+      const awardResult = await invokeWithAuth<any, GameXPAwardResponse>({
+        name: 'game-xp-award',
+        body: {
+          action: 'award_xp',
+          game_id: gameData.id,
+          topic_id: topicId!,
+          is_correct: true,
+          sub_question_result: result && result.totalSubQuestions > 1 ? {
+            totalSubQuestions: result.totalSubQuestions,
+            correctCount: result.correctCount,
+            percentage: result.percentage
+          } : undefined
         }
-      } else {
-        // Single question - award full XP
-        const attemptMultiplier = attemptNumber === 1 
-          ? XP_MULTIPLIERS.first_correct 
-          : XP_MULTIPLIERS.second_correct;
-        xpAmount = baseXP * attemptMultiplier;
-      }
-      
-      // Insert attempt record
-      await supabase.from('student_question_attempts').insert({
-        student_id: user.id,
-        question_id: gameData.id,
-        topic_id: topicId!,
-        is_correct: true,
-        status: 'completed',
-        time_spent_seconds: 0,
-        xp_awarded: xpAmount > 0,
-        attempt_number: attemptNumber
       });
-
-      // Award XP via jhakkas-points-system edge function (only if > 0)
-      if (xpAmount > 0) {
-        const { data: { session } } = await supabase.auth.getSession();
-        await supabase.functions.invoke("jhakkas-points-system", {
-          body: { 
-            action: "add",
-            xp_amount: xpAmount,
-            activity_type: "game_completed",
-            metadata: { 
-              game_id: gameData.id, 
-              topic_id: topicId,
-              attempt_number: attemptNumber,
-              multiplier: result?.attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct,
-              partial_credit: result ? `${result.correctCount}/${result.totalSubQuestions}` : undefined
-            }
-          },
-          headers: { Authorization: `Bearer ${session?.access_token}` }
-        });
-
-        // Show XP toast with partial credit info
-        const attemptText = result?.attemptNumber ? ` (${result.attemptNumber === 1 ? '1st' : '2nd'} attempt)` : '';
+      // Show appropriate toast
+      if (awardResult.xp_awarded > 0) {
+        const attemptText = result?.attemptNumber ? ` (${result.attemptNumber === 1 ? '1st' : result.attemptNumber === 2 ? '2nd' : `${result.attemptNumber}th`} attempt)` : '';
         toast({
           title: "Correct Answer! 🎉",
-          description: result && result.totalSubQuestions > 1 
-            ? `+${xpAmount.toFixed(2)} XP (${result.correctCount}/${result.totalSubQuestions} correct${attemptText})`
-            : `+${xpAmount.toFixed(2)} XP earned`,
+          description: result && result.totalSubQuestions > 1
+            ? `+${awardResult.xp_awarded.toFixed(2)} XP (${result.correctCount}/${result.totalSubQuestions} correct${attemptText})`
+            : `+${awardResult.xp_awarded.toFixed(2)} XP earned`,
           duration: 3000
         });
 
         // Trigger XP refresh
         window.dispatchEvent(new Event('xp-updated'));
-      } else {
-        // Practice mode toast
+      } else if (awardResult.is_practice_mode) {
         toast({
           title: "✓ Correct!",
           description: "Practice Mode - Keep practicing! 💪",
@@ -359,6 +349,31 @@ const GamePlayerPage = () => {
 
       // Mark game as completed in progress table
       await markGameCompleted(user.id, topicId!, gameData.id);
+
+      // Update progress percentage
+      const { data: mapping } = await supabase
+        .from('topic_content_mapping')
+        .select('id')
+        .eq('topic_id', topicId)
+        .maybeSingle();
+      
+      if (mapping) {
+        const { count: totalGames } = await supabase
+          .from('gamified_exercises')
+          .select('id', { count: 'exact' })
+          .eq('topic_content_id', mapping.id);
+
+        const { data: progress } = await supabase
+          .from('student_topic_game_progress')
+          .select('completed_game_ids')
+          .eq('student_id', user.id)
+          .eq('topic_id', topicId)
+          .maybeSingle();
+
+        const completedCount = progress?.completed_game_ids?.length || 0;
+        const percentage = totalGames && totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
+        setProgressPercentage(Math.round(percentage));
+      }
 
     } catch (error) {
       console.error("Error saving progress:", error);
@@ -375,33 +390,20 @@ const GamePlayerPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
 
-      // Check existing attempts
-      const { data: existingAttempts } = await supabase
-        .from('student_question_attempts')
-        .select('is_correct, attempt_number')
-        .eq('student_id', user.id)
-        .eq('question_id', gameData.id)
-        .order('attempt_number', { ascending: true });
-
-      const attemptNumber = (existingAttempts?.length || 0) + 1;
-      const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct);
-
-      // Block if already completed correctly
-      if (hasCorrectAttempt) {
-        return;
+      // Call backend to track wrong attempt
+      try {
+        await invokeWithAuth<any, GameXPAwardResponse>({
+          name: 'game-xp-award',
+          body: {
+            action: 'award_xp',
+            game_id: gameData.id,
+            topic_id: topicId!,
+            is_correct: false
+          }
+        });
+      } catch (error) {
+        console.error('Error tracking wrong answer:', error);
       }
-
-      // Insert wrong attempt record (no XP awarded)
-      await supabase.from('student_question_attempts').insert({
-        student_id: user.id,
-        question_id: gameData.id,
-        topic_id: topicId!,
-        is_correct: false,
-        status: 'attempted',
-        time_spent_seconds: 0,
-        xp_awarded: false,
-        attempt_number: attemptNumber
-      });
 
       // Auto-advance to next game after 2 seconds
       setTimeout(() => {
@@ -660,6 +662,7 @@ const GamePlayerPage = () => {
             onCorrect={handleCorrectAnswer}
             onWrong={handleWrongAnswer}
             onComplete={handleGameComplete}
+            initialAttemptCount={initialAttemptCount}
           />
         );
       

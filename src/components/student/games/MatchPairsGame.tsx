@@ -26,6 +26,7 @@ interface MatchPairsGameProps {
   onCorrect: (result?: SubQuestionResult) => void;
   onWrong: () => void;
   onComplete: () => void;
+  initialAttemptCount?: number;
 }
 
 interface SortableItemProps {
@@ -83,7 +84,7 @@ const SortableItem = ({ id, text, index, isCorrect, isWrong, checked }: Sortable
   );
 };
 
-export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: MatchPairsGameProps) => {
+export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete, initialAttemptCount = 0 }: MatchPairsGameProps) => {
   const [leftItems, setLeftItems] = useState<{ id: string; text: string }[]>([]);
   const [rightItems, setRightItems] = useState<{ id: string; text: string }[]>([]);
   const [initialShuffle, setInitialShuffle] = useState<{ id: string; text: string }[]>([]);
@@ -92,7 +93,7 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
   const [gameStatus, setGameStatus] = useState<'playing' | 'checked' | 'won' | 'lost'>('playing');
   const [correctPairs, setCorrectPairs] = useState<Set<number>>(new Set());
   const [wrongPairs, setWrongPairs] = useState<Set<number>>(new Set());
-  const [attemptCount, setAttemptCount] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(initialAttemptCount);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -214,8 +215,8 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
           variant={attemptCount < 2 ? "default" : "secondary"}
           className="text-sm px-4 py-2"
         >
-          {attemptCount === 0 
-            ? "Ready to Start"
+          {attemptCount === 0
+            ? "First Attempt - Full XP"
             : attemptCount === 1
               ? "Attempt 1 of 2 - Full XP"
               : attemptCount === 2

@@ -3,6 +3,9 @@ project_id = "qajmtfcphpncqwcrzphm"
 [functions.auto-distribute-xp]
 verify_jwt = true
 
+[functions.game-xp-award]
+verify_jwt = true
+
 [functions.topic-questions-api]
 verify_jwt = true
 

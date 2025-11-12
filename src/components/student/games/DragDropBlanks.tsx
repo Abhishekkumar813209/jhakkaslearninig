@@ -402,7 +402,7 @@ export function DragDropBlanks({
               className="text-sm px-4 py-2"
             >
               {attemptCount === 0 
-                ? "Ready to Start"
+                ? "First Attempt - Full XP"
                 : attemptCount === 1
                   ? "Attempt 1 of 2 - Full XP"
                   : attemptCount === 2

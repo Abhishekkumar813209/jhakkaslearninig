@@ -280,9 +280,9 @@ const GamePlayerPage = () => {
         return;
       }
 
-      // Calculate XP: 100% on 1st correct, 30% on 2nd correct
+      // Calculate XP: 100% on 1st correct, 30% on 2nd correct (decimal precision)
       const multiplier = attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct;
-      const xpAmount = Math.round(baseXP * multiplier);
+      const xpAmount = baseXP * multiplier;
       
       // Insert attempt record
       await supabase.from('student_question_attempts').insert({

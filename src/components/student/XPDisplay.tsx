@@ -81,7 +81,7 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
         )}
         <div className="flex items-center gap-1 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-3 py-1.5 rounded-lg border border-yellow-500/20">
           <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-          <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">🪙 {xpData.xp}</span>
+          <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">🪙 {Number(xpData.xp).toFixed(2)}</span>
         </div>
       </div>
     );
@@ -98,7 +98,7 @@ export const XPDisplay = ({ studentId, compact = false }: { studentId?: string; 
         )}
         <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-3 py-1 rounded-lg border border-yellow-500/20">
           <Coins className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-          <span className="font-semibold text-yellow-700 dark:text-yellow-300">🪙 {xpData.xp} Jhakkas Points</span>
+          <span className="font-semibold text-yellow-700 dark:text-yellow-300">🪙 {Number(xpData.xp).toFixed(2)} Jhakkas Points</span>
         </div>
       </div>
 

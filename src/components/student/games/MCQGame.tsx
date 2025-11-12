@@ -33,6 +33,7 @@ interface MCQGameProps {
   currentQuestionNum?: number; // For progress display
   totalQuestions?: number; // For progress display
   autoAdvanceDelay?: number; // Default 3000ms - time to wait before auto-advancing
+  initialAttemptCount?: number; // Backend-known attempts so far for badge display
 }
 
 export function MCQGame({ 
@@ -46,7 +47,8 @@ export function MCQGame({
   hasMoreQuestions = false,
   currentQuestionNum,
   totalQuestions,
-  autoAdvanceDelay = 3000
+  autoAdvanceDelay = 3000,
+  initialAttemptCount = 0
 }: MCQGameProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -180,18 +182,26 @@ export function MCQGame({
           </div>
         )}
         
-        {/* Exit Button */}
-        {onExit && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExitClick}
-            className="gap-2 flex-shrink-0"
-          >
-            <LogOut className="h-4 w-4" />
-            Exit
-          </Button>
-        )}
+        {/* Attempt Badge */}
+        <div className="flex items-center gap-3">
+          {typeof initialAttemptCount === 'number' && (
+            <Badge variant={initialAttemptCount >= 2 ? 'secondary' : 'default'}>
+              {initialAttemptCount >= 2 ? 'Practice Mode - No XP' : `Attempt ${Math.min(initialAttemptCount + 1, 2)} of 2`}
+            </Badge>
+          )}
+          {/* Exit Button */}
+          {onExit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExitClick}
+              className="gap-2 flex-shrink-0"
+            >
+              <LogOut className="h-4 w-4" />
+              Exit
+            </Button>
+          )}
+        </div>
       </div>
       
       {/* Question Card */}

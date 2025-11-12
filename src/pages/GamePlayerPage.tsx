@@ -337,7 +337,8 @@ const GamePlayerPage = () => {
           duration: 3000
         });
 
-        // Trigger XP refresh
+        // Trigger visual XP fly animation towards navbar and refresh XP counter
+        window.dispatchEvent(new CustomEvent('xp-fly', { detail: { amount: awardResult.xp_awarded } }));
         window.dispatchEvent(new Event('xp-updated'));
       } else if (awardResult.is_practice_mode) {
         toast({
@@ -374,6 +375,9 @@ const GamePlayerPage = () => {
         const percentage = totalGames && totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
         setProgressPercentage(Math.round(percentage));
       }
+
+      // After successful correct answer handling, move to next game automatically
+      handleGameComplete();
 
     } catch (error) {
       console.error("Error saving progress:", error);
@@ -568,6 +572,7 @@ const GamePlayerPage = () => {
           hasMoreQuestions={!!navInfo?.nextGameId}
           currentQuestionNum={navInfo?.currentGameNum || 1}
           totalQuestions={navInfo?.totalGames || 1}
+          initialAttemptCount={initialAttemptCount}
         />
       );
     }

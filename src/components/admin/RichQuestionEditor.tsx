@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MathFormulaHelper } from './MathFormulaHelper';
+import { ImageInsertDialog } from './ImageInsertDialog';
 
 // Unicode to notation converter
 const UNICODE_SUBSCRIPTS: Record<string, string> = {
@@ -249,6 +250,7 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [showMathHelper, setShowMathHelper] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -580,7 +582,14 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
   };
 
   const handleImageButtonClick = () => {
-    fileInputRef.current?.click();
+    setShowImageDialog(true);
+  };
+
+  const handleImageInsert = (imageToken: string) => {
+    if (editor) {
+      editor.chain().focus().insertContent(imageToken + ' ').run();
+      toast.success('Image token inserted!');
+    }
   };
 
   const handleMathInsert = (formula: string) => {
@@ -622,6 +631,12 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
 
   return (
     <div className={cn("border rounded-md bg-background", className)}>
+      <ImageInsertDialog
+        open={showImageDialog}
+        onClose={() => setShowImageDialog(false)}
+        onInsert={handleImageInsert}
+      />
+      
       <input
         ref={fileInputRef}
         type="file"
@@ -670,15 +685,10 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           variant="ghost"
           size={compact ? "sm" : "default"}
           onClick={handleImageButtonClick}
-          disabled={uploading}
           className="h-8 px-2 text-xs"
-          title="Insert Image"
+          title="Insert Image with Controls"
         >
-          {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <ImageIcon className="h-4 w-4 mr-1" />
-          )}
+          <ImageIcon className="h-4 w-4 mr-1" />
           Image
         </Button>
         

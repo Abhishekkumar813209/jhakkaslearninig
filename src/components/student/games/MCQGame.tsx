@@ -162,7 +162,7 @@ export function MCQGame({
   const canGoNext = (currentQuestionNum ?? 1) < (totalQuestions ?? 1);
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6">
+    <div className="w-full max-w-3xl mx-auto space-y-3 md:space-y-6">
       {/* Header with Progress & Exit */}
       <div className="flex items-center justify-between gap-4">
         {/* Progress Bar */}
@@ -196,10 +196,10 @@ export function MCQGame({
       
       {/* Question Card */}
       <Card className="border-2 border-primary/20">
-        <CardContent className="p-6">
+        <CardContent className="p-3 md:p-6">
           {/* XP Badge - Top Left */}
           {gameData.marks && (
-            <div className="mb-3">
+            <div className="mb-2">
               <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-700 border-yellow-500/30">
                 {gameData.marks} XP
               </Badge>
@@ -207,7 +207,7 @@ export function MCQGame({
           )}
           
           {/* Question Text - Full Width Below */}
-          <div className="w-full max-h-[400px] overflow-y-auto mb-6">
+          <div className="w-full max-h-[400px] overflow-y-auto mb-4 md:mb-6">
             <h3 
               className="text-xl font-semibold text-foreground whitespace-pre-wrap break-words"
               dangerouslySetInnerHTML={{ __html: renderWithImages(gameData.question) }}
@@ -218,7 +218,7 @@ export function MCQGame({
           <RadioGroup
             value={selectedAnswer?.toString()}
             onValueChange={(value) => !hasSubmitted && setSelectedAnswer(parseInt(value))}
-            className="space-y-3"
+            className="space-y-2 md:space-y-3"
             disabled={hasSubmitted}
           >
             {gameData.options.map((option, index) => {
@@ -237,7 +237,7 @@ export function MCQGame({
                   <Label
                     htmlFor={`option-${index}`}
                     className={cn(
-                      "flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                      "flex items-center gap-2 md:gap-4 p-3 md:p-4 rounded-lg border-2 cursor-pointer transition-all",
                       "hover:bg-accent/50",
                       isSelected && !hasSubmitted && "border-primary bg-primary/10",
                       showAsCorrect && "border-green-500 bg-green-50 dark:bg-green-950/30",
@@ -288,7 +288,7 @@ export function MCQGame({
           </RadioGroup>
 
           {/* Submit/Continue Button */}
-          <div className="mt-6 flex justify-end">
+          <div className="mt-4 md:mt-6 flex justify-end">
             {!hasSubmitted ? (
               <Button
                 size="lg"
@@ -324,7 +324,7 @@ export function MCQGame({
               "border-2",
               isCorrect ? "border-green-500 bg-green-50/50 dark:bg-green-950/20" : "border-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
             )}>
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-3 md:p-6 space-y-4">
                 <div className="flex items-start gap-3">
                   <div className={cn(
                     "p-2 rounded-full mt-1",

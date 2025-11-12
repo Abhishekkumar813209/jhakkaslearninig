@@ -3473,6 +3473,7 @@ export type Database = {
         Row: {
           attempt_number: number | null
           created_at: string | null
+          game_id: string | null
           id: string
           is_correct: boolean | null
           question_id: string
@@ -3487,6 +3488,7 @@ export type Database = {
         Insert: {
           attempt_number?: number | null
           created_at?: string | null
+          game_id?: string | null
           id?: string
           is_correct?: boolean | null
           question_id: string
@@ -3501,6 +3503,7 @@ export type Database = {
         Update: {
           attempt_number?: number | null
           created_at?: string | null
+          game_id?: string | null
           id?: string
           is_correct?: boolean | null
           question_id?: string
@@ -3513,6 +3516,13 @@ export type Database = {
           xp_awarded?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_game_id"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamified_exercises"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_question_attempts_question_id_fkey"
             columns: ["question_id"]

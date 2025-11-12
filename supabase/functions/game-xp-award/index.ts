@@ -142,7 +142,16 @@ Deno.serve(async (req) => {
           }
           
           shouldAwardXP = true;
-          console.log(`[XP Award] Game: ${game_id}, Attempt: ${attemptNumber}, XP: ${xpAmount.toFixed(2)}`);
+          
+          // Detailed precision logging
+          console.log(`[XP Award] Detailed Calculation:`);
+          console.log(`  Game ID: ${game_id}`);
+          console.log(`  Attempt Number: ${attemptNumber}`);
+          console.log(`  Base XP: ${baseXP}`);
+          console.log(`  Percentage: ${sub_question_result?.percentage || 1} (${sub_question_result?.correctCount || 'N/A'}/${sub_question_result?.totalSubQuestions || 'N/A'})`);
+          console.log(`  Attempt Multiplier: ${attemptMultiplier}`);
+          console.log(`  Calculated XP: ${xpAmount.toFixed(4)} (rounded to ${xpAmount.toFixed(2)})`);
+          console.log(`  Formula: ${baseXP} × ${sub_question_result?.percentage || 1} × ${attemptMultiplier} = ${xpAmount.toFixed(2)}`);
         } else {
           console.log(`[Practice Mode] Game: ${game_id}, Attempt: ${attemptNumber} - No XP`);
         }

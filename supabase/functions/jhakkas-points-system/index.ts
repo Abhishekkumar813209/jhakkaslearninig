@@ -158,7 +158,8 @@ serve(async (req) => {
       let streakDays = existingData?.current_streak_days || 0;
       let lastActiveDate = existingData?.last_activity_date;
 
-      const newXP = currentXP + xp_amount;
+      // Round to 2 decimal places explicitly for decimal precision
+      const newXP = Math.round((currentXP + xp_amount) * 100) / 100;
 
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -180,20 +181,21 @@ serve(async (req) => {
         last_activity_date: today,
       };
 
+      // Round each category XP to 2 decimal places
       if (activity_type === 'attendance') {
-        updateData.daily_attendance_xp = (existingData?.daily_attendance_xp || 0) + xp_amount;
+        updateData.daily_attendance_xp = Math.round(((existingData?.daily_attendance_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'social_share') {
-        updateData.social_share_xp = (existingData?.social_share_xp || 0) + xp_amount;
+        updateData.social_share_xp = Math.round(((existingData?.social_share_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'referral') {
-        updateData.referral_xp = (existingData?.referral_xp || 0) + xp_amount;
+        updateData.referral_xp = Math.round(((existingData?.referral_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'game_completed') {
-        updateData.game_xp = (existingData?.game_xp || 0) + xp_amount;
+        updateData.game_xp = Math.round(((existingData?.game_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'theory_read') {
-        updateData.theory_xp = (existingData?.theory_xp || 0) + xp_amount;
+        updateData.theory_xp = Math.round(((existingData?.theory_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'exercise_completed') {
-        updateData.exercise_xp = (existingData?.exercise_xp || 0) + xp_amount;
+        updateData.exercise_xp = Math.round(((existingData?.exercise_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'quest_completion') {
-        updateData.quest_xp = (existingData?.quest_xp || 0) + xp_amount;
+        updateData.quest_xp = Math.round(((existingData?.quest_xp || 0) + xp_amount) * 100) / 100;
       }
 
       const { data: gamificationData, error: gamificationError } = await supabase

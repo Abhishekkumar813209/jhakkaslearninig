@@ -7,6 +7,7 @@ import { Check, X, Lightbulb, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
+import { SubQuestionResult } from "@/lib/xpConfig";
 
 interface MatchPair {
   left: number;
@@ -25,7 +26,7 @@ interface LineMatchingGameData {
 
 interface LineMatchingGameProps {
   gameData: LineMatchingGameData;
-  onCorrect: () => void;
+  onCorrect: (result?: SubQuestionResult) => void;
   onWrong: () => void;
   onComplete: () => void;
   onNext?: () => void;
@@ -187,29 +188,40 @@ export function LineMatchingGame({
     setHasSubmitted(true);
 
     const newResults: { [key: number]: boolean } = {};
-    let allCorrect = true;
+    let correctCount = 0;
+    const totalSubQuestions = gameData.leftColumn.length;
 
     userPairs.forEach((userPair) => {
       const isCorrect = gameData.correctPairs.some(
         (correctPair) => correctPair.left === userPair.left && correctPair.right === userPair.right
       );
       newResults[userPair.left] = isCorrect;
-      if (!isCorrect) allCorrect = false;
+      if (isCorrect) correctCount++;
     });
 
     setResults(newResults);
+    
+    const allCorrect = correctCount === totalSubQuestions;
+    const percentage = correctCount / totalSubQuestions;
+    
+    const result: SubQuestionResult = {
+      totalSubQuestions,
+      correctCount,
+      percentage
+    };
 
+    playSound(allCorrect ? "correct" : "wrong");
     if (allCorrect) {
-      playSound("correct");
       confetti({
         particleCount: 150,
         spread: 100,
         origin: { y: 0.6 },
         colors: ["#FFD700", "#FFA500", "#FF6347"],
       });
-      onCorrect();
-    } else {
-      playSound("wrong");
+    }
+    
+    onCorrect(result);
+    if (!allCorrect) {
       onWrong();
     }
 

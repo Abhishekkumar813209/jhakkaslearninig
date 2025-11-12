@@ -32,6 +32,7 @@ import {
   parseMatchPairsData,
   parseAssertionReasonData
 } from "@/lib/questionDataHelpers";
+import { SubQuestionResult } from "@/lib/xpConfig";
 
 interface Lesson {
   id: string;
@@ -118,7 +119,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
 
   // ❌ REMOVED: loseHeart and handleSkip functions (heart system removed)
 
-  const handleCorrectAnswer = async () => {
+  const handleCorrectAnswer = async (result?: SubQuestionResult) => {
     // ✅ Play success sound
     playSound('correct');
     
@@ -130,10 +131,18 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       colors: ['#FFD700', '#FFA500', '#FF6347']
     });
 
-    // ✅ AWARD XP HERE (only on correct answer)
+    // ✅ AWARD PROPORTIONAL XP based on partial credit
     const { data: user } = await supabase.auth.getUser();
     if (user.user) {
-      const xpToAward = lesson.xp_reward || 10;
+      const baseXP = lesson.xp_reward || 10;
+      
+      // Calculate proportional XP if partial credit data is provided
+      let xpToAward = baseXP;
+      if (result && result.totalSubQuestions > 1) {
+        // Proportional XP: baseXP × (correctCount / totalSubQuestions)
+        xpToAward = baseXP * result.percentage;
+        console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct = ${xpToAward.toFixed(2)} XP (${baseXP} base)`);
+      }
       
       await supabase.functions.invoke('xp-coin-reward-system', {
         body: {
@@ -144,6 +153,11 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       });
 
       setEarnedXP(xpToAward);
+      toast({
+        title: "XP Earned!",
+        description: `+${xpToAward.toFixed(2)} XP ${result && result.totalSubQuestions > 1 ? `(${result.correctCount}/${result.totalSubQuestions} correct)` : ''}`,
+        duration: 2000
+      });
       playSound('xp_gain');
     }
 
@@ -626,7 +640,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
             }}
           />
           <div className="flex justify-end">
-            <Button size="lg" onClick={handleCorrectAnswer} className="gap-2">
+            <Button size="lg" onClick={() => handleCorrectAnswer()} className="gap-2">
               I Understand <ArrowRight className="h-5 w-5" />
             </Button>
           </div>

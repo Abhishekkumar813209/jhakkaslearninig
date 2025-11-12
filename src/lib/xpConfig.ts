@@ -14,6 +14,13 @@ export const XP_MULTIPLIERS = {
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type ActivityType = 'theory' | 'exercise' | 'game';
 
+// SubQuestionResult for partial credit in multi-part questions
+export interface SubQuestionResult {
+  totalSubQuestions: number;
+  correctCount: number;
+  percentage: number; // correctCount / totalSubQuestions
+}
+
 export function calculateXP(
   activityType: ActivityType,
   difficulty: Difficulty

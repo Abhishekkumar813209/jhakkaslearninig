@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Check, X } from 'lucide-react';
+import { SubQuestionResult } from '@/lib/xpConfig';
 
 interface Blank {
   id: number;
@@ -20,7 +21,7 @@ interface InteractiveBlanksData {
 
 interface InteractiveBlanksProps {
   gameData: InteractiveBlanksData;
-  onCorrect: () => void;
+  onCorrect: (result?: SubQuestionResult) => void;
   onWrong: () => void;
   onComplete: () => void;
 }
@@ -49,10 +50,20 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
     setFeedback(newFeedback);
     setChecked(true);
 
-    if (correctCount === gameData.blanks.length) {
-      onCorrect();
+    const totalSubQuestions = gameData.blanks.length;
+    const percentage = correctCount / totalSubQuestions;
+    
+    const result: SubQuestionResult = {
+      totalSubQuestions,
+      correctCount,
+      percentage
+    };
+
+    if (correctCount === totalSubQuestions) {
+      onCorrect(result);
       setTimeout(() => onComplete(), 1500);
     } else {
+      onCorrect(result);
       onWrong();
     }
   };

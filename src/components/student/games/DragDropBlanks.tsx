@@ -8,6 +8,7 @@ import { Check, X, Lightbulb, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
+import { SubQuestionResult } from "@/lib/xpConfig";
 
 interface BlankAnswer {
   correctAnswer: string;
@@ -33,7 +34,7 @@ interface DragDropBlanksGameData {
 
 interface DragDropBlanksProps {
   gameData: DragDropBlanksGameData;
-  onCorrect: () => void;
+  onCorrect: (result?: SubQuestionResult) => void;
   onWrong: () => void;
   onComplete: () => void;
   onNext?: () => void;
@@ -235,35 +236,47 @@ export function DragDropBlanks({
     setHasSubmitted(true);
 
     const newResults: { [key: number]: boolean } = {};
-    let allCorrect = true;
+    let correctCount = 0;
+    const totalSubQuestions = expectedBlanks;
 
     if (gameData.sub_questions && gameData.sub_questions.length > 0) {
       gameData.sub_questions.forEach((subQ, index) => {
         const isCorrect = blankAnswers[index]?.toLowerCase() === subQ.correctAnswer.toLowerCase();
         newResults[index] = isCorrect;
-        if (!isCorrect) allCorrect = false;
+        if (isCorrect) correctCount++;
       });
     } else {
       gameData.blanks.forEach((blank, index) => {
         const isCorrect = blankAnswers[index]?.toLowerCase() === blank.correctAnswer.toLowerCase();
         newResults[index] = isCorrect;
-        if (!isCorrect) allCorrect = false;
+        if (isCorrect) correctCount++;
       });
     }
 
     setResults(newResults);
+    
+    const allCorrect = correctCount === totalSubQuestions;
+    const percentage = correctCount / totalSubQuestions;
+    
+    // Award partial credit XP
+    const result: SubQuestionResult = {
+      totalSubQuestions,
+      correctCount,
+      percentage
+    };
 
+    playSound(allCorrect ? "correct" : "wrong");
     if (allCorrect) {
-      playSound("correct");
       confetti({
         particleCount: 150,
         spread: 100,
         origin: { y: 0.6 },
         colors: ["#FFD700", "#FFA500", "#FF6347"],
       });
-      onCorrect();
-    } else {
-      playSound("wrong");
+    }
+    
+    onCorrect(result);
+    if (!allCorrect) {
       onWrong();
     }
 

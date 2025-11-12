@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Home } from "lucide-react";
 import confetti from "canvas-confetti";
-import { XP_MULTIPLIERS } from "@/lib/xpConfig";
+import { XP_MULTIPLIERS, SubQuestionResult } from "@/lib/xpConfig";
 import { validateGameData, parseBoolean } from "@/lib/gameValidation";
 import { Switch as DebugSwitch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -238,7 +238,7 @@ const GamePlayerPage = () => {
     }
   };
 
-  const handleCorrectAnswer = async () => {
+  const handleCorrectAnswer = async (result?: SubQuestionResult) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return;
@@ -280,9 +280,16 @@ const GamePlayerPage = () => {
         return;
       }
 
-      // Calculate XP: 100% on 1st correct, 30% on 2nd correct (decimal precision)
-      const multiplier = attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct;
-      const xpAmount = baseXP * multiplier;
+      // Calculate XP with attempt multiplier (1st: 100%, 2nd: 30%)
+      const attemptMultiplier = attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct;
+      
+      // Apply partial credit if multi-part question
+      let xpAmount = baseXP * attemptMultiplier;
+      if (result && result.totalSubQuestions > 1) {
+        // Proportional XP: baseXP × percentage × attemptMultiplier
+        xpAmount = baseXP * result.percentage * attemptMultiplier;
+        console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct × ${attemptMultiplier} multiplier = ${xpAmount.toFixed(2)} XP`);
+      }
       
       // Insert attempt record
       await supabase.from('student_question_attempts').insert({
@@ -307,10 +314,18 @@ const GamePlayerPage = () => {
             game_id: gameData.id, 
             topic_id: topicId,
             attempt_number: attemptNumber,
-            multiplier: multiplier
+            multiplier: attemptMultiplier,
+            partial_credit: result ? `${result.correctCount}/${result.totalSubQuestions}` : undefined
           }
         },
         headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
+
+      // Show XP toast with partial credit info
+      toast({
+        title: "Correct Answer! 🎉",
+        description: `+${xpAmount.toFixed(2)} XP earned ${result && result.totalSubQuestions > 1 ? `(${result.correctCount}/${result.totalSubQuestions} correct)` : ''}`,
+        duration: 3000
       });
 
       // Trigger XP refresh

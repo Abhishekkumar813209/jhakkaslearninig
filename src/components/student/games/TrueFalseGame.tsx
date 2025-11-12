@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
 import { parseBoolean } from "@/lib/gameValidation";
+import { SubQuestionResult } from "@/lib/xpConfig";
 
 interface Statement {
   text: string;
@@ -26,7 +27,7 @@ interface TrueFalseGameData {
 
 interface TrueFalseGameProps {
   gameData: TrueFalseGameData;
-  onCorrect: () => void;
+  onCorrect: (result?: SubQuestionResult) => void;
   onWrong: () => void;
   onComplete: () => void;
   onNext?: () => void;
@@ -73,23 +74,40 @@ export function TrueFalseGame({
       
       setHasSubmitted(true);
       
-      // Check all answers
-      const allCorrect = gameData.statements!.every((stmt, idx) => 
-        multiAnswers[idx] === stmt.answer
-      );
+      // Check all answers and calculate partial credit
+      const totalSubQuestions = gameData.statements!.length;
+      let correctCount = 0;
+      
+      gameData.statements!.forEach((stmt, idx) => {
+        if (multiAnswers[idx] === stmt.answer) {
+          correctCount++;
+        }
+      });
+      
+      const allCorrect = correctCount === totalSubQuestions;
+      const percentage = correctCount / totalSubQuestions;
       setIsCorrect(allCorrect);
       
+      // Award partial credit XP regardless of all correct or not
+      const result: SubQuestionResult = {
+        totalSubQuestions,
+        correctCount,
+        percentage
+      };
+      
+      playSound(allCorrect ? "correct" : "wrong");
       if (allCorrect) {
-        playSound("correct");
         confetti({
           particleCount: 150,
           spread: 100,
           origin: { y: 0.6 },
           colors: ["#FFD700", "#FFA500", "#FF6347"],
         });
-        onCorrect();
-      } else {
-        playSound("wrong");
+      }
+      
+      // Always call onCorrect with result for partial credit
+      onCorrect(result);
+      if (!allCorrect) {
         onWrong();
       }
     } else {

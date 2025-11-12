@@ -6,6 +6,7 @@ import { Check, X, GripVertical, RotateCcw } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { SubQuestionResult } from '@/lib/xpConfig';
 
 interface Pair {
   id: string;
@@ -21,7 +22,7 @@ interface MatchPairsGameData {
 
 interface MatchPairsGameProps {
   gameData: MatchPairsGameData;
-  onCorrect: () => void;
+  onCorrect: (result?: SubQuestionResult) => void;
   onWrong: () => void;
   onComplete: () => void;
 }
@@ -161,11 +162,21 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
     setWrongPairs(wrong);
     setGameStatus('checked');
 
-    if (correctCount === leftItems.length) {
+    const totalSubQuestions = leftItems.length;
+    const percentage = correctCount / totalSubQuestions;
+    
+    const result: SubQuestionResult = {
+      totalSubQuestions,
+      correctCount,
+      percentage
+    };
+
+    if (correctCount === totalSubQuestions) {
       setGameStatus('won');
-      onCorrect();
+      onCorrect(result);
       setTimeout(() => onComplete(), 1500);
     } else {
+      onCorrect(result);
       onWrong();
       if (gameData?.max_attempts && attempts + 1 >= gameData.max_attempts) {
         setGameStatus('lost');

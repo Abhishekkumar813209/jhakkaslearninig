@@ -162,7 +162,7 @@ export function MCQGame({
   const canGoNext = (currentQuestionNum ?? 1) < (totalQuestions ?? 1);
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-3 md:space-y-6">
+    <div className="w-full max-w-3xl mx-auto px-2 md:px-4 space-y-3 md:space-y-6">
       {/* Header with Progress & Exit */}
       <div className="flex items-center justify-between gap-4">
         {/* Progress Bar */}

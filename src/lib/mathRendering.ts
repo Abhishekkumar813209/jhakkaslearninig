@@ -445,11 +445,29 @@ export const stripLeadingOptionLabel = (text: string): string => {
 };
 
 /**
- * Helper: Convert [img:URL] tokens to <img> tags
+ * Helper: Convert [img:URL:width:align:padding] tokens to <img> tags
+ * Syntax: [img:URL:width:align:padding]
+ * - width: Percentage or pixel value (e.g., 50%, 300px) - defaults to 100%
+ * - align: left, center, or right - defaults to center
+ * - padding: Horizontal padding in pixels (e.g., 20, 40) - defaults to 0
  */
 function expandImageTokens(text: string): string {
-  return text.replace(/\[img:([^\]]+)\]/g, (_, url) => {
-    return `<img src="${url.trim()}" class="inline-block max-w-full h-auto" alt="Question image" />`;
+  return text.replace(/\[img:([^\]]+)\]/g, (_, params) => {
+    const parts = params.split(':').map(p => p.trim());
+    const url = parts[0];
+    const width = parts[1] || '100%';
+    const align = parts[2] || 'center';
+    const padding = parts[3] || '0';
+    
+    // Build alignment class
+    let alignClass = 'mx-auto'; // center by default
+    if (align === 'left') alignClass = 'mr-auto';
+    if (align === 'right') alignClass = 'ml-auto';
+    
+    // Build style attribute for width and padding
+    const style = `width: ${width}; padding-left: ${padding}px; padding-right: ${padding}px;`;
+    
+    return `<img src="${url}" class="block ${alignClass} h-auto" style="${style}" alt="Question image" />`;
   });
 }
 

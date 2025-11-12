@@ -337,6 +337,29 @@ const cleanWordPlainText = (text: string): string => {
   return cleaned;
 };
 
+// Helper to convert [img:...] tokens to <img> HTML tags
+const convertImageTokensToHTML = (text: string): string => {
+  if (!text) return text;
+  
+  return text.replace(/\[img:([^\]]+)\]/g, (_, params) => {
+    const parts = params.split(':').map(p => p.trim());
+    // Pop from end to handle URLs with colons (https://)
+    const padding = (parts.length > 3 ? parts.pop() : '0')!;
+    const align = (parts.length > 2 ? parts.pop() : 'center')!;
+    const width = (parts.length > 1 ? parts.pop() : '100%')!;
+    const url = parts.join(':'); // Rejoin URL
+
+    const alignmentStyle =
+      align === 'center' ? 'margin-left: auto; margin-right: auto;' :
+      align === 'right'  ? 'margin-left: auto; margin-right: 0;'    :
+                          'margin-left: 0; margin-right: auto;';
+
+    const style = `width: ${width}; height: auto; display: block; ${alignmentStyle} padding-left: ${Number(padding)||0}px; padding-right: ${Number(padding)||0}px; margin: 0.5rem 0;`;
+    
+    return `<img src="${url}" alt="Question image" style="${style}" />`;
+  });
+};
+
 interface RichQuestionEditorProps {
   content: string;
   onChange: (content: string) => void;
@@ -394,7 +417,7 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       TableHeader,
       TableCell,
     ],
-    content,
+    content: convertImageTokensToHTML(content),
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -641,6 +664,26 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
       },
     },
   });
+
+  // Watch for external content changes and preprocess tokens
+  React.useEffect(() => {
+    if (!editor) return;
+    
+    // Get current editor HTML
+    const currentHTML = editor.getHTML();
+    
+    // Preprocess incoming content: convert [img:...] tokens to <img> tags
+    const preprocessedContent = convertImageTokensToHTML(content);
+    
+    // Only update if content actually changed (avoid infinite loops)
+    // Normalize for comparison (strip extra whitespace)
+    const normalize = (html: string) => html.replace(/\s+/g, ' ').trim();
+    
+    if (normalize(currentHTML) !== normalize(preprocessedContent)) {
+      // Update editor content without triggering onChange
+      editor.commands.setContent(preprocessedContent, { emitUpdate: false });
+    }
+  }, [content, editor]);
 
   const handleImageUpload = async (file: File) => {
     if (!editor) return;

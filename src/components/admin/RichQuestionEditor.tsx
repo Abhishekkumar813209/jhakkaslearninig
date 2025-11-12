@@ -308,6 +308,15 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
           htmlPreview: html?.substring(0, 200)
         });
 
+        // Check for image tokens first and convert to real images
+        const tokenMatch = text?.match(/\[img:[^\]]+\]/);
+        if (tokenMatch) {
+          event.preventDefault();
+          const token = tokenMatch[0];
+          handleImageInsert(token);
+          return true;
+        }
+
         // FORCE PLAIN TEXT PASTE (Question Bank mode)
         if (forcePlainPaste) {
           event.preventDefault();
@@ -589,25 +598,31 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
     if (!editor) return;
     
     // Parse token: [img:URL:width:align:padding]
-    const match = imageToken.match(/\[img:([^:]+):([^:]+):([^:]+):([^\]]+)\]/);
+    // Pop from end to handle URLs with colons (https://)
+    const inner = imageToken.slice(5, -1); // Remove [img: and ]
+    const parts = inner.split(':');
     
-    if (!match) {
+    if (parts.length < 1) {
       toast.error('Invalid image token format');
       return;
     }
     
-    const [, url, width, align, padding] = match;
+    const padding = (parts.length > 3 ? parts.pop() : '0')?.trim() || '0';
+    const align = (parts.length > 2 ? parts.pop() : 'center')?.trim() || 'center';
+    const width = (parts.length > 1 ? parts.pop() : '100%')?.trim() || '100%';
+    const url = parts.join(':').trim();
     
     // Build CSS style string
     const alignmentStyle = align === 'center' ? 'margin-left: auto; margin-right: auto;' 
                          : align === 'right' ? 'margin-left: auto; margin-right: 0;'
                          : 'margin-left: 0; margin-right: auto;';
     
-    const styleString = `width: ${width}; height: auto; display: block; ${alignmentStyle} padding-left: ${padding}px; padding-right: ${padding}px; margin-top: 0.5rem; margin-bottom: 0.5rem;`;
+    const styleString = `width: ${width}; height: auto; display: block; ${alignmentStyle} padding-left: ${Number(padding) || 0}px; padding-right: ${Number(padding) || 0}px; margin: 0.5rem 0;`;
     
     // Insert HTML image with style attribute
     const imageHTML = `<img src="${url}" alt="Question image" style="${styleString}" />`;
     editor.chain().focus().insertContent(imageHTML).run();
+    setShowImageDialog(false);
     
     toast.success('Image inserted!');
   };

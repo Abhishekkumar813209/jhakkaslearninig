@@ -453,11 +453,13 @@ export const stripLeadingOptionLabel = (text: string): string => {
  */
 function expandImageTokens(text: string): string {
   return text.replace(/\[img:([^\]]+)\]/g, (_, params) => {
+    // Pop from end to handle URLs with colons (https://)
     const parts = params.split(':').map(p => p.trim());
-    const url = parts[0];
-    const width = parts[1] || '100%';
-    const align = parts[2] || 'center';
-    const padding = parts[3] || '0';
+    
+    const padding = (parts.length > 3 ? parts.pop() : '0') || '0';
+    const align = (parts.length > 2 ? parts.pop() : 'center') || 'center';
+    const width = (parts.length > 1 ? parts.pop() : '100%') || '100%';
+    const url = parts.join(':'); // Rejoin for URLs with colons
     
     // Build alignment class
     let alignClass = 'mx-auto'; // center by default
@@ -465,7 +467,8 @@ function expandImageTokens(text: string): string {
     if (align === 'right') alignClass = 'ml-auto';
     
     // Build style attribute for width and padding
-    const style = `width: ${width}; padding-left: ${padding}px; padding-right: ${padding}px;`;
+    const paddingValue = parseInt(padding) || 0;
+    const style = `width: ${width}; padding-left: ${paddingValue}px; padding-right: ${paddingValue}px;`;
     
     return `<img src="${url}" class="block ${alignClass} h-auto" style="${style}" alt="Question image" />`;
   });

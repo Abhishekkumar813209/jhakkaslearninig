@@ -218,7 +218,7 @@ export const ChapterTopicListView = ({
                             </Badge>
                           )}
                           <Badge variant="outline" className="bg-primary/5">
-                            +{topic.xp_reward} XP
+                            +{Number(topic.xp_reward).toFixed(2)} XP
                           </Badge>
                         </div>
                       )}

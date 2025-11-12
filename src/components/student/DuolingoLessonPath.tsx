@@ -428,7 +428,7 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
 
                   <div className="flex items-center justify-center gap-3 text-sm">
                     <span className="flex items-center gap-1">
-                      <Star className="h-4 w-4" /> {lesson.xp_reward} XP
+                      <Star className="h-4 w-4" /> {Number(lesson.xp_reward).toFixed(2)} XP
                     </span>
                     <span>• {lesson.estimated_time_minutes} min</span>
                   </div>

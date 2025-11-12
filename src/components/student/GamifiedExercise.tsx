@@ -61,7 +61,7 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
 
       toast({
         title: "🎉 Correct!",
-        description: `+${exercise.xp_reward} XP`,
+        description: `+${Number(exercise.xp_reward).toFixed(2)} XP`,
         duration: 3000
       });
     } else {
@@ -247,7 +247,7 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
             <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-8 py-4 shadow-2xl">
               <div className="flex items-center gap-3">
                 <Star className="w-8 h-8 text-white fill-white animate-pulse" />
-                <span className="text-3xl font-bold text-white">+{exercise.xp_reward} XP</span>
+                <span className="text-3xl font-bold text-white">+{Number(exercise.xp_reward).toFixed(2)} XP</span>
               </div>
             </div>
           </motion.div>
@@ -260,7 +260,7 @@ export const GamifiedExercise = ({ exercise, onComplete }: { exercise: Exercise;
             <CardTitle className="text-xl">Exercise</CardTitle>
             <Badge variant="secondary" className="flex items-center gap-1">
               <Trophy className="h-3 w-3" />
-              {exercise.xp_reward} XP
+              {Number(exercise.xp_reward).toFixed(2)} XP
             </Badge>
           </div>
         </CardHeader>

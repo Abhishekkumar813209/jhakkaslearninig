@@ -146,7 +146,7 @@ export function ChapterWiseAnalyticsCard({ studentId }: { studentId: string }) {
                     </span>
                     <span className="flex items-center gap-1">
                       <Trophy className="h-3 w-3 text-yellow-500" />
-                      {chapter.total_xp} XP
+                      {Number(chapter.total_xp).toFixed(2)} XP
                     </span>
                     <span>
                       {chapter.completed_games}/{chapter.total_games} Games

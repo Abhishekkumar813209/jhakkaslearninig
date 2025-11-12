@@ -855,11 +855,11 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
             {/* XP and Streak */}
             <div className="flex items-center gap-3">
               <Badge variant="secondary" className="text-xs font-semibold">
-                Earn {lesson.xp_reward || 1} XP
+                Earn {Number(lesson.xp_reward || 1).toFixed(2)} XP
               </Badge>
               <div className="flex items-center gap-1 text-sm font-semibold">
                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                <span>{currentXP} XP</span>
+                <span>{Number(currentXP).toFixed(2)} XP</span>
               </div>
               <div className="flex items-center gap-1 text-sm font-semibold">
                 <Flame className="h-5 w-5 text-orange-500 fill-orange-500" />
@@ -917,7 +917,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
             <div className="flex items-center justify-center gap-4 text-lg">
               <span className="flex items-center gap-1">
                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                +{earnedXP} XP
+                +{Number(earnedXP).toFixed(2)} XP
               </span>
               <span className="flex items-center gap-1">
                 <Zap className="h-5 w-5 text-blue-500 fill-blue-500" />

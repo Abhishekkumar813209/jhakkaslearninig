@@ -113,7 +113,7 @@ export const DailyQuests = () => {
 
       toast({
         title: "Quest Completed!",
-        description: `Earned ${quest.xp_reward} XP!`,
+        description: `Earned ${Number(quest.xp_reward).toFixed(2)} XP!`,
       });
 
       fetchProgress();
@@ -187,7 +187,7 @@ export const DailyQuests = () => {
                     </div>
                     <div className="text-right text-sm">
                       <div className="font-medium text-primary">
-                        +{quest.xp_reward} XP
+                        +{Number(quest.xp_reward).toFixed(2)} XP
                       </div>
                     </div>
                   </div>

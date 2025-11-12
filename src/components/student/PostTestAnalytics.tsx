@@ -213,7 +213,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                           <p className="text-sm text-muted-foreground">{achievement.description}</p>
                           <Badge className="mt-2 bg-yellow-500 text-white">
                             <Coins className="w-3 h-3 mr-1" />
-                            +{achievement.xpBonus} XP
+                            +{Number(achievement.xpBonus).toFixed(2)} XP
                           </Badge>
                         </div>
                       </div>
@@ -319,7 +319,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                       <span className="text-sm font-medium">Test Completion</span>
                     </div>
                     <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                      +{xpRewards.baseXP} XP
+                      +{Number(xpRewards.baseXP).toFixed(2)} XP
                     </Badge>
                   </div>
 
@@ -329,7 +329,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                       <span className="text-sm font-medium">Performance ({testInfo.percentage}%)</span>
                     </div>
                     <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      +{xpRewards.performanceBonus} XP
+                      +{Number(xpRewards.performanceBonus).toFixed(2)} XP
                     </Badge>
                   </div>
 
@@ -340,7 +340,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                         <span className="text-sm font-medium">Speed Bonus</span>
                       </div>
                       <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                        +{xpRewards.speedBonus} XP
+                        +{Number(xpRewards.speedBonus).toFixed(2)} XP
                       </Badge>
                     </div>
                   )}
@@ -352,7 +352,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                         <span className="text-sm font-medium">Perfect Score!</span>
                       </div>
                       <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                        +{xpRewards.perfectScoreBonus} XP
+                        +{Number(xpRewards.perfectScoreBonus).toFixed(2)} XP
                       </Badge>
                     </div>
                   )}

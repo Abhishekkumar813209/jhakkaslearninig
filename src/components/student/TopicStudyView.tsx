@@ -254,7 +254,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       });
       
       toast({
-        title: `✅ Correct! +${xpAmount} XP`,
+        title: `✅ Correct! +${Number(xpAmount).toFixed(2)} XP`,
         description: `${questionsCorrect + 1}/${questionQueue.totalQuestions} correct`,
       });
     } catch (error) {
@@ -321,7 +321,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       });
       
       toast({
-        title: `✅ Correct! +${xpAmount} XP`,
+        title: `✅ Correct! +${Number(xpAmount).toFixed(2)} XP`,
         description: `${actualDifficulty.toUpperCase()} exercise completed!`,
       });
     } catch (error) {
@@ -426,7 +426,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         .eq("student_id", user.id);
       
       toast({
-        title: `🎉 Theory Complete! +${xpAmount} XP`,
+        title: `🎉 Theory Complete! +${Number(xpAmount).toFixed(2)} XP`,
         description: `${theoryDifficulty.toUpperCase()} difficulty mastered!`,
       });
     } catch (error) {
@@ -498,8 +498,8 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       
       toast({ 
-        title: `🎮 Game Complete! +${xpAmount} XP`,
-        description: `You earned ${xpAmount} Jhakkas Points!`
+        title: `🎮 Game Complete! +${Number(xpAmount).toFixed(2)} XP`,
+        description: `You earned ${Number(xpAmount).toFixed(2)} Jhakkas Points!`
       });
 
       // Trigger XP refresh
@@ -752,7 +752,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
                         {(content?.difficulty || 'medium').toUpperCase()}
                       </Badge>
                       <span className="text-primary font-medium text-sm">
-                        📖 Read {scrollPercent}% to earn +{calculateXP('theory', content?.difficulty || 'medium')} XP
+                        📖 Read {scrollPercent}% to earn +{Number(calculateXP('theory', content?.difficulty || 'medium')).toFixed(2)} XP
                       </span>
                     </div>
                     <Badge variant="outline">{80 - scrollPercent}% remaining</Badge>
@@ -764,7 +764,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
               {theoryCompleted && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-green-700 font-medium flex items-center gap-2">
-                    ✅ Theory Completed! +{calculateXP('theory', content?.difficulty || 'medium')} XP Earned
+                    ✅ Theory Completed! +{Number(calculateXP('theory', content?.difficulty || 'medium')).toFixed(2)} XP Earned
                   </p>
                 </div>
               )}
@@ -820,7 +820,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
                               {game.title}
                             </CardTitle>
                             <Badge variant={getDifficultyBadgeVariant(gameDifficulty)}>
-                              {gameDifficulty.toUpperCase()} • {xpReward} XP
+                              {gameDifficulty.toUpperCase()} • {Number(xpReward).toFixed(2)} XP
                             </Badge>
                           </div>
                           <CardDescription>{game.description}</CardDescription>

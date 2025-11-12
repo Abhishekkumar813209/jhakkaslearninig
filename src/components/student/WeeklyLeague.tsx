@@ -163,7 +163,7 @@ export const WeeklyLeague = () => {
                 </div>
                 <div>
                   <p className="font-medium">Your Position</p>
-                  <p className="text-sm text-muted-foreground">{userXP} XP this week</p>
+                  <p className="text-sm text-muted-foreground">{Number(userXP).toFixed(2)} XP this week</p>
                 </div>
               </div>
               {userRank <= promotionZone && (
@@ -213,7 +213,7 @@ export const WeeklyLeague = () => {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{entry.full_name}</p>
-                <p className="text-xs text-muted-foreground">{entry.week_xp} XP</p>
+                <p className="text-xs text-muted-foreground">{Number(entry.week_xp).toFixed(2)} XP</p>
               </div>
               {index === 0 && <Trophy className="h-5 w-5 text-yellow-500" />}
             </div>

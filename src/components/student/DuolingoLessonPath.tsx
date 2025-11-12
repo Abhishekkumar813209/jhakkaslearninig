@@ -197,7 +197,7 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           lesson_type: 'game',
           content_order: game.game_order || (index + 1),
           game_type: game.exercise_type || 'mcq',
-          xp_reward: 10, // Default XP for games
+          xp_reward: game.xp_reward || 10, // From database, fallback to 10
           estimated_time_minutes: 3, // Default time estimate
         }));
 

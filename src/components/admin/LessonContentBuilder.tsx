@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveActiveRoadmapIdForBatch } from "@/lib/roadmapHelpers";
 import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { invokeWithAuth } from "@/lib/invokeWithAuth";
@@ -688,15 +689,26 @@ function LessonContentBuilderInner() {
     if (!selectedBatch) return;
 
     const batch = batches.find(b => b.id === selectedBatch);
-    if (!batch?.linked_roadmap_id) {
-      toast({ title: 'Warning', description: 'This batch has no linked roadmap', variant: 'destructive' });
+    const roadmapId = await resolveActiveRoadmapIdForBatch(
+      selectedBatch,
+      batch?.linked_roadmap_id
+    );
+
+    if (!roadmapId) {
+      console.debug('[LessonContentBuilder] No roadmap found for batch:', selectedBatch);
+      toast({
+        title: "No Roadmap Found",
+        description: "This batch has no active roadmap. Create one in the Roadmaps tab first.",
+        variant: "destructive"
+      });
+      setSubjects([]);
       return;
     }
 
     const { data, error } = await supabase
       .from('roadmap_chapters')
       .select('subject')
-      .eq('roadmap_id', batch.linked_roadmap_id);
+      .eq('roadmap_id', roadmapId);
 
     if (error) {
       toast({ title: "Error", description: "Failed to load subjects", variant: "destructive" });
@@ -712,12 +724,21 @@ function LessonContentBuilderInner() {
     if (!selectedBatch || !selectedSubject) return;
 
     const batch = batches.find(b => b.id === selectedBatch);
-    if (!batch?.linked_roadmap_id) return;
+    const roadmapId = await resolveActiveRoadmapIdForBatch(
+      selectedBatch,
+      batch?.linked_roadmap_id
+    );
+
+    if (!roadmapId) {
+      console.debug('[LessonContentBuilder] No roadmap found for batch:', selectedBatch);
+      setChapters([]);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("id, chapter_name, subject, roadmap_id")
-      .eq("roadmap_id", batch.linked_roadmap_id)
+      .eq("roadmap_id", roadmapId)
       .eq("subject", selectedSubject)
       .order("order_num");
 

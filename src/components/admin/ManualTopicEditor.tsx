@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveActiveRoadmapIdForBatch } from "@/lib/roadmapHelpers";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -149,6 +150,9 @@ export const ManualTopicEditor = () => {
 
   const handleBoardSelect = (board: string | null) => {
     setBoard(board);
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter("");
     const params = new URLSearchParams(searchParams);
     // ensure domain is set when on school flow
     if (selectedDomain === 'school' && params.get('domain') !== 'school') {
@@ -165,6 +169,9 @@ export const ManualTopicEditor = () => {
 
   const handleClassSelect = (cls: string | null) => {
     setClass(cls);
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter("");
     const params = new URLSearchParams(searchParams);
     // ensure domain is set when on school flow
     if (selectedDomain === 'school' && params.get('domain') !== 'school') {
@@ -242,9 +249,7 @@ export const ManualTopicEditor = () => {
     if (selectedDomain) {
       fetchBatches();
       fetchRoadmapCounts();
-      setSelectedBatch("");
-      setSelectedSubject("");
-      setSelectedChapter("");
+      // Don't reset during hydration - let URL params populate first
     }
   }, [selectedDomain, selectedBoard, selectedClass]);
 
@@ -342,33 +347,23 @@ export const ManualTopicEditor = () => {
   const fetchSubjects = async () => {
     if (!selectedBatch) return;
 
-    // Try to find roadmap via batches.linked_roadmap_id first
     const batch = batches.find(b => b.id === selectedBatch);
-    let roadmapId = batch?.linked_roadmap_id;
+    const roadmapId = await resolveActiveRoadmapIdForBatch(
+      selectedBatch,
+      batch?.linked_roadmap_id
+    );
 
-    // If not found, query batch_roadmaps table directly
     if (!roadmapId) {
-      const { data: roadmapData, error: roadmapError } = await supabase
-        .from('batch_roadmaps')
-        .select('id')
-        .eq('batch_id', selectedBatch)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (roadmapError || !roadmapData) {
-        toast({
-          title: "No Roadmap Found",
-          description: "This batch has no active roadmap. Create one in the Roadmaps tab first, then return here to add topics.",
-          variant: "destructive"
-        });
-        setSubjects([]);
-        return;
-      }
-      
-      roadmapId = roadmapData.id;
+      console.debug('[ManualTopicEditor] No roadmap found for batch:', selectedBatch);
+      toast({
+        title: "No Roadmap Found",
+        description: "This batch has no active roadmap. Create one in the Roadmaps tab first, then return here to add topics.",
+        variant: "destructive"
+      });
+      setSubjects([]);
+      return;
     }
 
-    // Fetch subjects using the roadmapId
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("subject")
@@ -391,25 +386,16 @@ export const ManualTopicEditor = () => {
   const fetchChapters = async () => {
     if (!selectedBatch || !selectedSubject) return;
 
-    // Try to find roadmap via batches.linked_roadmap_id first
     const batch = batches.find(b => b.id === selectedBatch);
-    let roadmapId = batch?.linked_roadmap_id;
+    const roadmapId = await resolveActiveRoadmapIdForBatch(
+      selectedBatch,
+      batch?.linked_roadmap_id
+    );
 
-    // If not found, query batch_roadmaps table directly
     if (!roadmapId) {
-      const { data: roadmapData, error: roadmapError } = await supabase
-        .from('batch_roadmaps')
-        .select('id')
-        .eq('batch_id', selectedBatch)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (roadmapError || !roadmapData) {
-        setChapters([]);
-        return;
-      }
-      
-      roadmapId = roadmapData.id;
+      console.debug('[ManualTopicEditor] No roadmap found for batch:', selectedBatch);
+      setChapters([]);
+      return;
     }
 
     const { data, error } = await supabase

@@ -1769,7 +1769,7 @@ export const SmartQuestionExtractor = ({
         });
         
         toast.success('All changes saved successfully');
-        setReloadKey((k) => k + 1);
+        // Removed setReloadKey - only update local state, no full reload
       } else {
         toast.success('Changes saved locally');
       }
@@ -1790,6 +1790,77 @@ export const SmartQuestionExtractor = ({
       toast.error('Failed to save changes: ' + (error.message || 'Unknown error'));
     } finally {
       setSavingQuestionId(null);
+    }
+  };
+
+  const handleBulkSaveChanges = async () => {
+    if (editedQuestions.size === 0) return;
+    
+    const editedIds = Array.from(editedQuestions.keys());
+    const toastId = toast.loading(`Saving ${editedIds.length} questions...`);
+    let successCount = 0;
+    let failCount = 0;
+    
+    try {
+      // Save all questions in parallel
+      const savePromises = editedIds.map(async (questionId) => {
+        try {
+          const edits = editedQuestions.get(questionId);
+          const question = extractedQuestions.find(q => q.id === questionId);
+          
+          if (!question || !edits) return;
+          
+          const updatedQuestion = { ...question, ...edits };
+          const cleanedQuestion = cleanQuestionForSave(updatedQuestion);
+          
+          // Only save to database if it's a valid UUID
+          if (isUUID(questionId)) {
+            await invokeWithAuth({
+              name: 'topic-questions-api',
+              body: {
+                action: 'update_full_question',
+                question_id: questionId,
+                question_text: cleanedQuestion.question_text,
+                question_type: cleanedQuestion.question_type,
+                options: cleanedQuestion.options,
+                left_column: cleanedQuestion.left_column,
+                right_column: cleanedQuestion.right_column,
+                assertion: cleanedQuestion.assertion,
+                reason: cleanedQuestion.reason,
+                blanks_count: cleanedQuestion.blanks_count,
+                marks: cleanedQuestion.marks,
+                difficulty: cleanedQuestion.difficulty,
+                correct_answer: cleanedQuestion.correct_answer,
+                explanation: cleanedQuestion.explanation
+              }
+            });
+          }
+          
+          // Update local state
+          setExtractedQuestions(prev => prev.map(q => 
+            q.id === questionId ? updatedQuestion : q
+          ));
+          
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to save question ${questionId}:`, error);
+          failCount++;
+        }
+      });
+      
+      await Promise.all(savePromises);
+      
+      // Clear all edit tracking
+      setEditedQuestions(new Map());
+      
+      if (failCount === 0) {
+        toast.success(`All ${successCount} questions saved successfully!`, { id: toastId });
+      } else {
+        toast.warning(`Saved ${successCount} questions, ${failCount} failed`, { id: toastId });
+      }
+    } catch (error) {
+      console.error('Bulk save error:', error);
+      toast.error('Failed to save questions', { id: toastId });
     }
   };
 
@@ -1824,7 +1895,7 @@ export const SmartQuestionExtractor = ({
       })
         .then(() => {
           toast.success('Question updated in database');
-          setReloadKey((k) => k + 1);
+          // Removed setReloadKey - no full reload needed
         })
         .catch((error) => {
           console.error('Error updating question:', error);
@@ -2820,8 +2891,24 @@ export const SmartQuestionExtractor = ({
                       💾 Auto-saved
                     </Badge>
                   )}
+                  {editedQuestions.size > 0 && (
+                    <Badge variant="outline" className="bg-orange-50 border-orange-200 text-orange-700">
+                      ⚠️ {editedQuestions.size} Unsaved Changes
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex gap-2">
+                  {editedQuestions.size > 0 && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={handleBulkSaveChanges}
+                      disabled={savingQuestionId !== null}
+                    >
+                      <Save className="h-4 w-4 mr-1" />
+                      Save All Changes ({editedQuestions.size})
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={exportToWord}>
                     <Download className="h-4 w-4 mr-1" />
                     Export to Word
@@ -2951,6 +3038,7 @@ export const SmartQuestionExtractor = ({
             {filteredQuestions.map((question) => (
               <Card 
                 key={question.id}
+                id={`question-${question.id}`}
                 className={cn(
                   "cursor-pointer transition-all hover:shadow-md border-l-4",
                   selectedIds.includes(question.id) && 'ring-2 ring-blue-500 bg-blue-50/50',
@@ -3568,6 +3656,19 @@ export const SmartQuestionExtractor = ({
                   </div>
                 )}
                 <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    if (!previewQuestion) return;
+                    setPreviewQuestion(null);
+                    setActiveTab('grid');
+                    // Scroll to the question card
+                    setTimeout(() => {
+                      const element = document.getElementById(`question-${previewQuestion.id}`);
+                      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                  }}>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit in Grid
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setPreviewQuestion(null)}>Close</Button>
                   <Button size="sm" onClick={() => {
                     if (!previewQuestion) return;

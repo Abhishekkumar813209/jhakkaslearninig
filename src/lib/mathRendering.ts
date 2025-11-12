@@ -106,15 +106,17 @@ export const applySupSub = (t: string) => {
 };
 
 /**
- * Converts vector notation to proper display with arrow above
+ * Applies vector notation styling to mathematical vectors.
  * Handles: →r, →i, →j, \vec{OP}, OP^→, (OP)^→, vector{AB}, r⃗ (Unicode combining)
+ * IMPORTANT: Pattern 1 now only matches single lowercase letters to avoid chemistry conflicts
  */
 export const applyVectorNotation = (t: string): string => {
   // Pattern 0: Unicode combining arrow (U+20D7) r⃗ → vector span
   t = t.replace(/([A-Za-z])\s*[\u20D7]/g, '<span class="vector">$1</span>');
   
-  // Pattern 1: Arrow-prefix notation →r, →i, →j, →k (PRIORITY - most common in typed equations)
-  t = t.replace(/→\s*([A-Za-z])/g, '<span class="vector">$1</span>');
+  // Pattern 1: Arrow-prefix notation →r, →i, →j, →k
+  // IMPROVED: Only match single lowercase letters (not chemical formulas like →H2O or →KCl)
+  t = t.replace(/→\s*([a-z])\b/g, '<span class="vector">$1</span>');
   
   // Pattern 2: LaTeX style \vec{OP} (MOST COMMON from Word paste)
   t = t.replace(/\\vec\{([A-Za-z]{1,3})\}/g, '<span class="vector">$1</span>');
@@ -358,6 +360,18 @@ export const renderMath = (input: unknown): string => {
     .replace(/->/g, '→')        // Simple -> to proper arrow
     .replace(/<->/g, '⇌');      // Simple <-> to equilibrium arrow
   
+  // Step 4.5: Protect chemical reactions from vector notation
+  // Match patterns like: Formula → Formula (e.g., 2KClO3 → 2KCl + 3O2)
+  const chemReactionTokens: Record<string, string> = {};
+  let chemReactionIndex = 0;
+  
+  // Detect chemistry context and protect reaction arrows
+  cleaned = cleaned.replace(/([A-Z][a-z0-9(){}₀-₉⁰-⁹\s+\-*→⇌]*)\s*([→⇌⟶])\s*([A-Z][a-z0-9(){}₀-₉⁰-⁹\s+\-*]+)/g, (match) => {
+    const token = `§§CHEMREACT§${chemReactionIndex++}§§`;
+    chemReactionTokens[token] = match;
+    return token;
+  });
+  
   // Step 5: Escape HTML for safety (CRITICAL: Do this BEFORE injecting any HTML)
   let safe = escapeHtml(cleaned);
   
@@ -377,8 +391,17 @@ export const renderMath = (input: unknown): string => {
   // Also process \frac outside $...$ (fallback for direct LaTeX paste)
   safe = replaceLatexFractions(safe);
   
-  // Step 8: Apply vector notation (AFTER escapeHtml so spans don't get escaped)
-  safe = applyVectorNotation(safe);
+  // Step 8: Apply vector notation ONLY if not chemistry context
+  // Import containsChemistry from chemistryNotation for smart detection
+  if (!safe.includes('§§CHEMREACT§')) {
+    safe = applyVectorNotation(safe);
+  }
+  
+  // Step 8.5: Restore protected chemical reactions AFTER vector notation
+  Object.keys(chemReactionTokens).forEach(token => {
+    const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    safe = safe.replace(new RegExp(escapedToken, 'g'), chemReactionTokens[token]);
+  });
   
   // Step 9: Apply hat notation for unit vectors (AFTER escapeHtml)
   safe = applyHatNotation(safe);

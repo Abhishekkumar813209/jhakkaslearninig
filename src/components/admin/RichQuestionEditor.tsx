@@ -586,10 +586,30 @@ export const RichQuestionEditor: React.FC<RichQuestionEditorProps> = ({
   };
 
   const handleImageInsert = (imageToken: string) => {
-    if (editor) {
-      editor.chain().focus().insertContent(imageToken + ' ').run();
-      toast.success('Image token inserted!');
+    if (!editor) return;
+    
+    // Parse token: [img:URL:width:align:padding]
+    const match = imageToken.match(/\[img:([^:]+):([^:]+):([^:]+):([^\]]+)\]/);
+    
+    if (!match) {
+      toast.error('Invalid image token format');
+      return;
     }
+    
+    const [, url, width, align, padding] = match;
+    
+    // Build CSS style string
+    const alignmentStyle = align === 'center' ? 'margin-left: auto; margin-right: auto;' 
+                         : align === 'right' ? 'margin-left: auto; margin-right: 0;'
+                         : 'margin-left: 0; margin-right: auto;';
+    
+    const styleString = `width: ${width}; height: auto; display: block; ${alignmentStyle} padding-left: ${padding}px; padding-right: ${padding}px; margin-top: 0.5rem; margin-bottom: 0.5rem;`;
+    
+    // Insert HTML image with style attribute
+    const imageHTML = `<img src="${url}" alt="Question image" style="${styleString}" />`;
+    editor.chain().focus().insertContent(imageHTML).run();
+    
+    toast.success('Image inserted!');
   };
 
   const handleMathInsert = (formula: string) => {

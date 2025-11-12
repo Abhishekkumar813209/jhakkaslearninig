@@ -127,6 +127,7 @@ export function DragDropBlanks({
   const [results, setResults] = useState<{ [key: number]: boolean }>({});
   const [showExplanation, setShowExplanation] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [attemptCount, setAttemptCount] = useState(0);
 
   // Create word bank with all options shuffled
   const [wordBank, setWordBank] = useState<string[]>([]);
@@ -151,6 +152,7 @@ export function DragDropBlanks({
     setHasSubmitted(false);
     setResults({});
     setShowExplanation(false);
+    setAttemptCount(0);
 
     // Create shuffled word bank from sub_questions or blanks
     // Check use_word_bank flag to determine if distractors should be included
@@ -233,6 +235,8 @@ export function DragDropBlanks({
       return; // Not all blanks filled
     }
 
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
     setHasSubmitted(true);
 
     const newResults: { [key: number]: boolean } = {};
@@ -253,30 +257,31 @@ export function DragDropBlanks({
       });
     }
 
+    const percentage = correctCount / totalSubQuestions;
+    
+    console.log('[DragDropBlanks] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
+
     setResults(newResults);
     
     const allCorrect = correctCount === totalSubQuestions;
-    const percentage = correctCount / totalSubQuestions;
-    
-    // Award partial credit XP
-    const result: SubQuestionResult = {
-      totalSubQuestions,
-      correctCount,
-      percentage
-    };
-
-    playSound(allCorrect ? "correct" : "wrong");
-    if (allCorrect) {
-      confetti({
-        particleCount: 150,
-        spread: 100,
-        origin: { y: 0.6 },
-        colors: ["#FFD700", "#FFA500", "#FF6347"],
+    if (correctCount > 0) {
+      playSound('correct');
+      if (allCorrect) {
+        confetti({
+          particleCount: 150,
+          spread: 100,
+          origin: { y: 0.6 },
+          colors: ["#FFD700", "#FFA500", "#FF6347"],
+        });
+      }
+      onCorrect({ 
+        totalSubQuestions, 
+        correctCount, 
+        percentage,
+        attemptNumber: currentAttempt
       });
-    }
-    
-    onCorrect(result);
-    if (!allCorrect) {
+    } else {
+      playSound('wrong');
       onWrong();
     }
 
@@ -483,8 +488,8 @@ export function DragDropBlanks({
           {/* Actions */}
           <div className="flex gap-3">
             {!hasSubmitted ? (
-              <Button onClick={handleSubmit} disabled={!allBlanksFilled} className="flex-1" size="lg">
-                Check Answer
+              <Button onClick={handleSubmit} disabled={!allBlanksFilled || attemptCount >= 2} className="flex-1" size="lg">
+                {attemptCount >= 2 ? 'Max Attempts Reached' : 'Check Answer'}
               </Button>
             ) : (
               <Button onClick={handleContinue} className="flex-1" size="lg">

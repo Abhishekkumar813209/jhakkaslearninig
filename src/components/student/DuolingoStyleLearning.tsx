@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
+import { XP_MULTIPLIERS } from "@/lib/xpConfig";
 import { MatchPairsGame } from "./games/MatchPairsGame";
 import { LineMatchingGame } from "./games/LineMatchingGame";
 import { DragDropSequence } from "./games/DragDropSequence";
@@ -120,46 +121,53 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   // ❌ REMOVED: loseHeart and handleSkip functions (heart system removed)
 
   const handleCorrectAnswer = async (result?: SubQuestionResult) => {
-    // ✅ Play success sound
-    playSound('correct');
+    const baseXP = lesson.xp_reward || 10;
     
-    // ✅ Trigger confetti
+    let xpToAward = baseXP;
+    
+    if (result && result.totalSubQuestions > 1) {
+      // Apply attempt multiplier
+      const attemptMultiplier = result.attemptNumber === 1 
+        ? XP_MULTIPLIERS.first_correct 
+        : XP_MULTIPLIERS.second_correct;
+      
+      xpToAward = baseXP * result.percentage * attemptMultiplier;
+      console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpToAward.toFixed(2)} XP`);
+    }
+
+    setEarnedXP(xpToAward);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.functions.invoke('xp-coin-reward-system', {
+          body: {
+            action: 'add',
+            xp_earned: xpToAward,
+            coins_earned: 0
+          }
+        });
+        
+        const attemptText = result?.attemptNumber ? `, ${result.attemptNumber === 1 ? '1st' : '2nd'} attempt` : '';
+        toast({
+          title: "🎉 Correct!",
+          description: result && result.totalSubQuestions > 1
+            ? `+${xpToAward.toFixed(2)} XP (${result.correctCount}/${result.totalSubQuestions} correct${attemptText})`
+            : `+${xpToAward.toFixed(2)} XP earned`,
+        });
+        playSound('xp_gain');
+      }
+    } catch (error) {
+      console.error('Error awarding XP:', error);
+    }
+
+    playSound('correct');
     confetti({
       particleCount: 150,
       spread: 100,
       origin: { y: 0.6 },
       colors: ['#FFD700', '#FFA500', '#FF6347']
     });
-
-    // ✅ AWARD PROPORTIONAL XP based on partial credit
-    const { data: user } = await supabase.auth.getUser();
-    if (user.user) {
-      const baseXP = lesson.xp_reward || 10;
-      
-      // Calculate proportional XP if partial credit data is provided
-      let xpToAward = baseXP;
-      if (result && result.totalSubQuestions > 1) {
-        // Proportional XP: baseXP × (correctCount / totalSubQuestions)
-        xpToAward = baseXP * result.percentage;
-        console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct = ${xpToAward.toFixed(2)} XP (${baseXP} base)`);
-      }
-      
-      await supabase.functions.invoke('xp-coin-reward-system', {
-        body: {
-          action: 'add',
-          xp_earned: xpToAward,
-          coins_earned: 0
-        }
-      });
-
-      setEarnedXP(xpToAward);
-      toast({
-        title: "XP Earned!",
-        description: `+${xpToAward.toFixed(2)} XP ${result && result.totalSubQuestions > 1 ? `(${result.correctCount}/${result.totalSubQuestions} correct)` : ''}`,
-        duration: 2000
-      });
-      playSound('xp_gain');
-    }
 
     setShowCelebration(true);
     setTimeout(() => {

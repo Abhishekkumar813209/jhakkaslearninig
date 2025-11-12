@@ -121,6 +121,7 @@ export function LineMatchingGame({
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [results, setResults] = useState<{ [key: number]: boolean }>({});
   const [showExplanation, setShowExplanation] = useState(false);
+  const [attemptCount, setAttemptCount] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
   const leftRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rightRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -185,6 +186,8 @@ export function LineMatchingGame({
       return; // Not all items matched
     }
 
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
     setHasSubmitted(true);
 
     const newResults: { [key: number]: boolean } = {};
@@ -199,29 +202,31 @@ export function LineMatchingGame({
       if (isCorrect) correctCount++;
     });
 
+    const percentage = correctCount / totalSubQuestions;
+    
+    console.log('[LineMatching] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
+
     setResults(newResults);
     
     const allCorrect = correctCount === totalSubQuestions;
-    const percentage = correctCount / totalSubQuestions;
-    
-    const result: SubQuestionResult = {
-      totalSubQuestions,
-      correctCount,
-      percentage
-    };
-
-    playSound(allCorrect ? "correct" : "wrong");
-    if (allCorrect) {
-      confetti({
-        particleCount: 150,
-        spread: 100,
-        origin: { y: 0.6 },
-        colors: ["#FFD700", "#FFA500", "#FF6347"],
+    if (correctCount > 0) {
+      playSound('correct');
+      if (allCorrect) {
+        confetti({
+          particleCount: 150,
+          spread: 100,
+          origin: { y: 0.6 },
+          colors: ["#FFD700", "#FFA500", "#FF6347"],
+        });
+      }
+      onCorrect({ 
+        totalSubQuestions, 
+        correctCount, 
+        percentage,
+        attemptNumber: currentAttempt
       });
-    }
-    
-    onCorrect(result);
-    if (!allCorrect) {
+    } else {
+      playSound('wrong');
       onWrong();
     }
 
@@ -414,8 +419,8 @@ export function LineMatchingGame({
         {/* Actions */}
         <div className="flex gap-3">
           {!hasSubmitted ? (
-            <Button onClick={handleSubmit} disabled={!allMatched} className="flex-1" size="lg">
-              Check Answer
+            <Button onClick={handleSubmit} disabled={!allMatched || attemptCount >= 2} className="flex-1" size="lg">
+              {attemptCount >= 2 ? 'Max Attempts Reached' : 'Check Answer'}
             </Button>
           ) : (
             <Button onClick={handleContinue} className="flex-1" size="lg">

@@ -91,6 +91,7 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
   const [gameStatus, setGameStatus] = useState<'playing' | 'checked' | 'won' | 'lost'>('playing');
   const [correctPairs, setCorrectPairs] = useState<Set<number>>(new Set());
   const [wrongPairs, setWrongPairs] = useState<Set<number>>(new Set());
+  const [attemptCount, setAttemptCount] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -144,7 +145,10 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
   };
 
   const handleCheckAnswer = () => {
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
     setAttempts(prev => prev + 1);
+    
     const correct = new Set<number>();
     const wrong = new Set<number>();
     let correctCount = 0;
@@ -158,29 +162,33 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       }
     });
 
+    const totalSubQuestions = leftItems.length;
+    const percentage = correctCount / totalSubQuestions;
+    
+    console.log('[MatchPairs] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
+
     setCorrectPairs(correct);
     setWrongPairs(wrong);
     setGameStatus('checked');
 
-    const totalSubQuestions = leftItems.length;
-    const percentage = correctCount / totalSubQuestions;
-    
-    const result: SubQuestionResult = {
-      totalSubQuestions,
-      correctCount,
-      percentage
-    };
-
-    if (correctCount === totalSubQuestions) {
-      setGameStatus('won');
-      onCorrect(result);
-      setTimeout(() => onComplete(), 1500);
-    } else {
-      onCorrect(result);
-      onWrong();
-      if (gameData?.max_attempts && attempts + 1 >= gameData.max_attempts) {
-        setGameStatus('lost');
+    const allCorrect = correctCount === totalSubQuestions;
+    if (correctCount > 0) {
+      if (allCorrect) {
+        setGameStatus('won');
+        setTimeout(() => onComplete(), 1500);
       }
+      onCorrect({ 
+        totalSubQuestions, 
+        correctCount, 
+        percentage,
+        attemptNumber: currentAttempt
+      });
+    } else {
+      onWrong();
+    }
+    
+    if (gameData?.max_attempts && attempts + 1 >= gameData.max_attempts) {
+      setGameStatus('lost');
     }
   };
 
@@ -284,8 +292,8 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       <div className="flex flex-wrap gap-3 justify-center">
         {gameStatus === 'playing' && (
           <>
-            <Button onClick={handleCheckAnswer} size="lg" className="min-w-[140px]">
-              Check Answer
+            <Button onClick={handleCheckAnswer} size="lg" className="min-w-[140px]" disabled={attemptCount >= 2}>
+              {attemptCount >= 2 ? 'Max Attempts Reached' : 'Check Answer'}
             </Button>
             <Button onClick={handleReset} variant="outline" size="lg">
               <RotateCcw className="w-4 h-4 mr-2" />

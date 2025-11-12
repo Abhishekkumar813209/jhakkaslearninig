@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Home } from "lucide-react";
 import confetti from "canvas-confetti";
+import { playSound } from "@/lib/soundEffects";
 import { XP_MULTIPLIERS, SubQuestionResult } from "@/lib/xpConfig";
 import { validateGameData, parseBoolean } from "@/lib/gameValidation";
+import { invokeWithAuth } from "@/lib/invokeWithAuth";
 import { Switch as DebugSwitch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { 
@@ -288,7 +290,7 @@ const GamePlayerPage = () => {
       if (result && result.totalSubQuestions > 1) {
         // Proportional XP: baseXP × percentage × attemptMultiplier
         xpAmount = baseXP * result.percentage * attemptMultiplier;
-        console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct × ${attemptMultiplier} multiplier = ${xpAmount.toFixed(2)} XP`);
+        console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpAmount.toFixed(2)} XP`);
       }
       
       // Insert attempt record

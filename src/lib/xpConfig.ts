@@ -19,6 +19,7 @@ export interface SubQuestionResult {
   totalSubQuestions: number;
   correctCount: number;
   percentage: number; // correctCount / totalSubQuestions
+  attemptNumber?: number; // 1 or 2 for attempt multiplier
 }
 
 export function calculateXP(

@@ -46,6 +46,7 @@ export function TrueFalseGame({
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [attemptCount, setAttemptCount] = useState(0);
   
   // Multi-part states
   const [multiAnswers, setMultiAnswers] = useState<{ [key: number]: boolean }>({});
@@ -60,6 +61,7 @@ export function TrueFalseGame({
     setIsCorrect(false);
     setShowExplanation(false);
     setMultiAnswers({});
+    setAttemptCount(0);
   }, [gameData]);
 
   const handleSelect = (value: boolean) => {
@@ -68,6 +70,9 @@ export function TrueFalseGame({
   };
 
   const handleSubmit = () => {
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
+    
     if (isMultiPart) {
       // Check all statements answered
       if (Object.keys(multiAnswers).length !== gameData.statements!.length) return;
@@ -88,26 +93,27 @@ export function TrueFalseGame({
       const percentage = correctCount / totalSubQuestions;
       setIsCorrect(allCorrect);
       
+      console.log('[TrueFalse Multi] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
+      
       // Award partial credit XP regardless of all correct or not
-      const result: SubQuestionResult = {
-        totalSubQuestions,
-        correctCount,
-        percentage
-      };
-      
-      playSound(allCorrect ? "correct" : "wrong");
-      if (allCorrect) {
-        confetti({
-          particleCount: 150,
-          spread: 100,
-          origin: { y: 0.6 },
-          colors: ["#FFD700", "#FFA500", "#FF6347"],
+      if (correctCount > 0) {
+        playSound('correct');
+        if (allCorrect) {
+          confetti({
+            particleCount: 150,
+            spread: 100,
+            origin: { y: 0.6 },
+            colors: ["#FFD700", "#FFA500", "#FF6347"],
+          });
+        }
+        onCorrect({ 
+          totalSubQuestions, 
+          correctCount, 
+          percentage,
+          attemptNumber: currentAttempt
         });
-      }
-      
-      // Always call onCorrect with result for partial credit
-      onCorrect(result);
-      if (!allCorrect) {
+      } else {
+        playSound('wrong');
         onWrong();
       }
     } else {
@@ -331,12 +337,12 @@ export function TrueFalseGame({
               onClick={handleSubmit} 
               disabled={isMultiPart 
                 ? Object.keys(multiAnswers).length !== gameData.statements!.length 
-                : selectedAnswer === null
+                : selectedAnswer === null || attemptCount >= 2
               } 
               className="flex-1" 
               size="lg"
             >
-              Submit Answer
+              {attemptCount >= 2 ? 'Max Attempts Reached' : 'Submit Answer'}
             </Button>
           ) : (
             <Button onClick={handleContinue} className="flex-1" size="lg">

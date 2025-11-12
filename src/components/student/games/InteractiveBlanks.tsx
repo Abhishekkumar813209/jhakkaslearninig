@@ -30,6 +30,7 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [checked, setChecked] = useState(false);
   const [feedback, setFeedback] = useState<Record<number, boolean>>({});
+  const [attemptCount, setAttemptCount] = useState(0);
 
   const handleAnswerChange = (blankId: number, value: string) => {
     setAnswers(prev => ({ ...prev, [blankId]: value }));
@@ -38,6 +39,9 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
   };
 
   const handleCheck = () => {
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
+    
     const newFeedback: Record<number, boolean> = {};
     let correctCount = 0;
 
@@ -47,23 +51,25 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
       if (isCorrect) correctCount++;
     });
 
-    setFeedback(newFeedback);
-    setChecked(true);
-
     const totalSubQuestions = gameData.blanks.length;
     const percentage = correctCount / totalSubQuestions;
     
-    const result: SubQuestionResult = {
-      totalSubQuestions,
-      correctCount,
-      percentage
-    };
+    console.log('[InteractiveBlanks] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
 
-    if (correctCount === totalSubQuestions) {
-      onCorrect(result);
-      setTimeout(() => onComplete(), 1500);
+    setFeedback(newFeedback);
+    setChecked(true);
+
+    if (correctCount > 0) {
+      onCorrect({ 
+        totalSubQuestions, 
+        correctCount, 
+        percentage,
+        attemptNumber: currentAttempt
+      });
+      if (correctCount === totalSubQuestions) {
+        setTimeout(() => onComplete(), 1500);
+      }
     } else {
-      onCorrect(result);
       onWrong();
     }
   };
@@ -173,13 +179,15 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
       <Button
         onClick={handleCheck}
         className="w-full"
-        disabled={!allAnswered || (checked && correctCount === gameData.blanks.length)}
+        disabled={!allAnswered || (checked && correctCount === gameData.blanks.length) || attemptCount >= 2}
       >
-        {checked
-          ? correctCount === gameData.blanks.length
-            ? 'Perfect! ✓'
-            : 'Try Again'
-          : 'Check Answers'
+        {attemptCount >= 2 
+          ? 'Max Attempts Reached'
+          : checked
+            ? correctCount === gameData.blanks.length
+              ? 'Perfect! ✓'
+              : 'Try Again'
+            : 'Check Answers'
         }
       </Button>
 

@@ -445,49 +445,32 @@ export const stripLeadingOptionLabel = (text: string): string => {
 };
 
 /**
- * Helper: Convert [img:URL:width:height:top:left:align:padding] tokens to <img> tags
- * Extended Syntax: [img:URL:width:height:top:left:align:padding]
+ * Helper: Convert [img:URL:width:align:padding] tokens to <img> tags
+ * Simple Syntax: [img:URL:width:align:padding]
  * - width: Percentage or pixel value (e.g., 50%, 300px) - defaults to 100%
- * - height: Explicit height (e.g., 200px, auto) - defaults to auto
- * - top: Absolute Y position (e.g., 120px) - optional for absolute positioning
- * - left: Absolute X position (e.g., 80px) - optional for absolute positioning
- * - align: left, center, or right - defaults to center (for static positioning)
+ * - align: left, center, or right - defaults to center
  * - padding: Horizontal padding in pixels (e.g., 20, 40) - defaults to 0
  * 
- * Backward compatible with old format: [img:URL:width:align:padding]
+ * Backward compatible with old extended format but only uses simple positioning
  */
 function expandImageTokens(text: string): string {
   return text.replace(/\[img:([^\]]+)\]/g, (_, params) => {
     const parts = params.split(':').map(p => p.trim());
     
-    // Pop from end to handle URLs with colons (https://)
-    const padding = (parts.length > 7 ? parts.pop() : '0') || '0';
-    const align = (parts.length > 6 ? parts.pop() : 'center') || 'center';
-    const left = (parts.length > 5 ? parts.pop() : null);
-    const top = (parts.length > 4 ? parts.pop() : null);
-    const height = (parts.length > 3 ? parts.pop() : 'auto') || 'auto';
-    const width = (parts.length > 2 ? parts.pop() : '100%') || '100%';
-    const url = parts.join(':'); // Rejoin for URLs with colons
+    // Pop from end to handle URLs with colons: padding, align, width
+    const padding = (parts.length > 3 ? parts.pop() : '0') || '0';
+    const align = (parts.length > 2 ? parts.pop() : 'center') || 'center';
+    const width = (parts.length > 1 ? parts.pop() : '100%') || '100%';
+    const url = parts.join(':');
     
-    let style = `width: ${width}; height: ${height};`;
-    let positionClass = '';
-    
-    // Absolute positioning if top/left provided
-    if (top && left) {
-      style += ` position: absolute; top: ${top}; left: ${left};`;
-      positionClass = 'absolute';
-    } else {
-      // Static positioning with alignment (backward compatibility)
-      let alignClass = 'mx-auto';
-      if (align === 'left') alignClass = 'mr-auto';
-      if (align === 'right') alignClass = 'ml-auto';
-      positionClass = `block ${alignClass}`;
-    }
+    let alignClass = 'mx-auto';
+    if (align === 'left') alignClass = 'mr-auto';
+    if (align === 'right') alignClass = 'ml-auto';
     
     const paddingValue = parseInt(padding) || 0;
-    style += ` padding-left: ${paddingValue}px; padding-right: ${paddingValue}px;`;
+    const style = `width: ${width}; padding-left: ${paddingValue}px; padding-right: ${paddingValue}px;`;
     
-    return `<img src="${url}" class="${positionClass} h-auto" style="${style}" alt="Question image" />`;
+    return `<img src="${url}" class="block ${alignClass} h-auto my-2" style="${style}" alt="Question image" />`;
   });
 }
 

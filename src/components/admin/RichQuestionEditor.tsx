@@ -51,22 +51,18 @@ const ResizeHandle = ({ position, onMouseDown }: { position: string; onMouseDown
   );
 };
 
-// Resizable and Draggable Image Component
+// Resizable Image Component with 8 resize handles (no drag)
 const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
   const [isResizing, setIsResizing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [activeHandle, setActiveHandle] = useState<string>('');
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
   const [startHeight, setStartHeight] = useState(0);
-  const [startTop, setStartTop] = useState(0);
-  const [startLeft, setStartLeft] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
   const isResizingRef = useRef(false);
-  const isDraggingRef = useRef(false);
 
-  // Parse style to get current position/size
+  // Parse style to get current size
   const parseCurrentStyle = () => {
     const styleObj: Record<string, string> = {};
     const currentStyle = node.attrs.style || '';
@@ -89,23 +85,7 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
     if (imgRef.current) {
       setStartWidth(imgRef.current.offsetWidth);
       setStartHeight(imgRef.current.offsetHeight);
-      const styleObj = parseCurrentStyle();
-      setStartTop(parseFloat(styleObj['top']) || 0);
-      setStartLeft(parseFloat(styleObj['left']) || 0);
     }
-  };
-
-  const handleDragStart = (e: React.MouseEvent) => {
-    if (e.target !== imgRef.current) return; // Only drag on image, not handles
-    e.preventDefault();
-    setIsDragging(true);
-    isDraggingRef.current = true;
-    setStartX(e.clientX);
-    setStartY(e.clientY);
-    
-    const styleObj = parseCurrentStyle();
-    setStartTop(parseFloat(styleObj['top']) || 0);
-    setStartLeft(parseFloat(styleObj['left']) || 0);
   };
 
   React.useEffect(() => {
@@ -116,8 +96,6 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
         
         let newWidth = startWidth;
         let newHeight = startHeight;
-        let newTop = startTop;
-        let newLeft = startLeft;
         
         switch(activeHandle) {
           case 'br': // Bottom-right
@@ -127,31 +105,25 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
           case 'bl': // Bottom-left
             newWidth = Math.max(100, startWidth - deltaX);
             newHeight = Math.max(100, startHeight + deltaY);
-            newLeft = startLeft + deltaX;
             break;
           case 'tr': // Top-right
             newWidth = Math.max(100, startWidth + deltaX);
             newHeight = Math.max(100, startHeight - deltaY);
-            newTop = startTop + deltaY;
             break;
           case 'tl': // Top-left
             newWidth = Math.max(100, startWidth - deltaX);
             newHeight = Math.max(100, startHeight - deltaY);
-            newTop = startTop + deltaY;
-            newLeft = startLeft + deltaX;
             break;
-          case 'tc': // Top-center
+          case 'tc': // Top-center (height only)
             newHeight = Math.max(100, startHeight - deltaY);
-            newTop = startTop + deltaY;
             break;
-          case 'bc': // Bottom-center
+          case 'bc': // Bottom-center (height only)
             newHeight = Math.max(100, startHeight + deltaY);
             break;
-          case 'lc': // Left-center
+          case 'lc': // Left-center (width only)
             newWidth = Math.max(100, startWidth - deltaX);
-            newLeft = startLeft + deltaX;
             break;
-          case 'rc': // Right-center
+          case 'rc': // Right-center (width only)
             newWidth = Math.max(100, startWidth + deltaX);
             break;
         }
@@ -159,26 +131,6 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
         const styleObj = parseCurrentStyle();
         styleObj['width'] = `${newWidth}px`;
         styleObj['height'] = `${newHeight}px`;
-        styleObj['position'] = 'absolute';
-        styleObj['top'] = `${newTop}px`;
-        styleObj['left'] = `${newLeft}px`;
-        
-        const newStyle = Object.entries(styleObj)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join('; ');
-        
-        updateAttributes({ style: newStyle });
-      } else if (isDraggingRef.current) {
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        const newTop = startTop + deltaY;
-        const newLeft = startLeft + deltaX;
-        
-        const styleObj = parseCurrentStyle();
-        styleObj['position'] = 'absolute';
-        styleObj['top'] = `${newTop}px`;
-        styleObj['left'] = `${newLeft}px`;
         
         const newStyle = Object.entries(styleObj)
           .map(([k, v]) => `${k}: ${v}`)
@@ -190,13 +142,11 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
 
     const handleMouseUp = () => {
       setIsResizing(false);
-      setIsDragging(false);
       isResizingRef.current = false;
-      isDraggingRef.current = false;
       setActiveHandle('');
     };
 
-    if (isResizing || isDragging) {
+    if (isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -204,7 +154,7 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isResizing, isDragging, activeHandle, startX, startY, startWidth, startHeight, startTop, startLeft, node.attrs.style, updateAttributes]);
+  }, [isResizing, activeHandle, startX, startY, startWidth, startHeight, node.attrs.style, updateAttributes]);
 
   const imgStyle = parseStyleString(node.attrs.style || '');
 
@@ -215,8 +165,7 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
         src={node.attrs.src}
         alt={node.attrs.alt || 'Image'}
         style={imgStyle}
-        className="max-w-full h-auto cursor-move"
-        onMouseDown={handleDragStart}
+        className="max-w-full h-auto"
       />
       {/* 8 Resize Handles */}
       <ResizeHandle position="tl" onMouseDown={handleResizeStart} />
@@ -228,7 +177,7 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
       <ResizeHandle position="bc" onMouseDown={handleResizeStart} />
       <ResizeHandle position="br" onMouseDown={handleResizeStart} />
       
-      {(isResizing || isDragging) && (
+      {isResizing && (
         <div className="absolute top-0 left-0 w-full h-full border-2 border-primary pointer-events-none rounded" />
       )}
     </NodeViewWrapper>
@@ -459,38 +408,27 @@ const cleanWordPlainText = (text: string): string => {
 };
 
 // Helper to convert [img:...] tokens to <img> HTML tags
-// Extended format: [img:URL:width:height:top:left:align:padding]
+// Format: [img:URL:width:align:padding]
 const convertImageTokensToHTML = (text: string): string => {
   if (!text) return text;
   
   return text.replace(/\[img:([^\]]+)\]/g, (_, params) => {
     const parts = params.split(':').map(p => p.trim());
     
-    // Pop from end to handle URLs with colons (https://)
-    const padding = (parts.length > 7 ? parts.pop() : '0') || '0';
-    const align = (parts.length > 6 ? parts.pop() : 'center') || 'center';
-    const left = (parts.length > 5 ? parts.pop() : null);
-    const top = (parts.length > 4 ? parts.pop() : null);
-    const height = (parts.length > 3 ? parts.pop() : 'auto') || 'auto';
-    const width = (parts.length > 2 ? parts.pop() : '100%') || '100%';
-    const url = parts.join(':'); // Rejoin URL
+    // Pop from end to handle URLs with colons: padding, align, width
+    const padding = (parts.length > 3 ? parts.pop() : '0') || '0';
+    const align = (parts.length > 2 ? parts.pop() : 'center') || 'center';
+    const width = (parts.length > 1 ? parts.pop() : '100%') || '100%';
+    const url = parts.join(':');
     
-    let style = `width: ${width}; height: ${height};`;
-    
-    // Absolute positioning if top/left provided
-    if (top && left) {
-      style += ` position: absolute; top: ${top}; left: ${left};`;
-    } else {
-      // Static positioning with alignment (backward compatibility)
-      const alignmentStyle =
-        align === 'center' ? 'margin-left: auto; margin-right: auto;' :
-        align === 'right'  ? 'margin-left: auto; margin-right: 0;'    :
-                            'margin-left: 0; margin-right: auto;';
-      style += ` display: block; ${alignmentStyle}`;
-    }
+    // Static positioning with alignment
+    const alignmentStyle =
+      align === 'center' ? 'margin-left: auto; margin-right: auto;' :
+      align === 'right'  ? 'margin-left: auto; margin-right: 0;'    :
+                          'margin-left: 0; margin-right: auto;';
     
     const paddingValue = parseInt(padding) || 0;
-    style += ` padding-left: ${paddingValue}px; padding-right: ${paddingValue}px; margin: 0.5rem 0;`;
+    const style = `width: ${width}; height: auto; display: block; ${alignmentStyle} padding-left: ${paddingValue}px; padding-right: ${paddingValue}px; margin-top: 0.5rem; margin-bottom: 0.5rem;`;
     
     return `<img src="${url}" alt="Question image" style="${style}" />`;
   });

@@ -10,6 +10,24 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import Image from '@tiptap/extension-image';
 import { Mathematics } from '@tiptap/extension-mathematics';
+import 'katex/dist/katex.min.css';
+
+// Helper to parse CSS string to React style object
+const parseStyleString = (styleString: string): React.CSSProperties => {
+  const styleObj: any = {};
+  if (!styleString) return styleObj;
+  
+  styleString.split(';').forEach(rule => {
+    const [key, value] = rule.split(':').map(s => s.trim());
+    if (key && value) {
+      // Convert CSS property names to camelCase (e.g., margin-left → marginLeft)
+      const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      styleObj[camelKey] = value;
+    }
+  });
+  
+  return styleObj as React.CSSProperties;
+};
 
 // Resizable Image Component
 const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
@@ -72,13 +90,15 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
     }
   }, [isResizing, startX, startWidth, node.attrs.style, updateAttributes]);
 
+  const imgStyle = parseStyleString(node.attrs.style || '');
+
   return (
     <NodeViewWrapper className="relative inline-block group my-2">
       <img
         ref={imgRef}
         src={node.attrs.src}
         alt={node.attrs.alt || 'Image'}
-        style={node.attrs.style}
+        style={imgStyle}
         className="max-w-full h-auto"
       />
       <div

@@ -31,6 +31,7 @@ interface LineMatchingGameProps {
   onComplete: () => void;
   onNext?: () => void;
   hasMoreQuestions?: boolean;
+  initialAttemptCount?: number;
 }
 
 export function LineMatchingGame({
@@ -40,6 +41,7 @@ export function LineMatchingGame({
   onComplete,
   onNext,
   hasMoreQuestions = false,
+  initialAttemptCount = 0,
 }: LineMatchingGameProps) {
   console.log('[LMG] 🎯 Received gameData:', {
     hasGameData: !!gameData,
@@ -121,7 +123,7 @@ export function LineMatchingGame({
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [results, setResults] = useState<{ [key: number]: boolean }>({});
   const [showExplanation, setShowExplanation] = useState(false);
-  const [attemptCount, setAttemptCount] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(initialAttemptCount);
   const svgRef = useRef<SVGSVGElement>(null);
   const leftRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rightRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -133,7 +135,8 @@ export function LineMatchingGame({
     setHasSubmitted(false);
     setResults({});
     setShowExplanation(false);
-  }, [gameData]);
+    setAttemptCount(initialAttemptCount);
+  }, [gameData, initialAttemptCount]);
 
   const handleLeftClick = (index: number) => {
     if (hasSubmitted) return;
@@ -253,20 +256,20 @@ export function LineMatchingGame({
     <Card className="w-full">
       <CardContent className="p-6 space-y-6">
         {/* Attempt Counter */}
-        <div className="flex justify-center">
-          <Badge 
-            variant={attemptCount < 2 ? "default" : "secondary"}
-            className="text-sm px-4 py-2"
-          >
-            {attemptCount === 0 
-              ? "First Attempt - Full XP"
-              : attemptCount === 1
+        {attemptCount > 0 && (
+          <div className="flex justify-center">
+            <Badge 
+              variant={attemptCount <= 2 ? "default" : "secondary"}
+              className="text-sm px-4 py-2"
+            >
+              {attemptCount === 1
                 ? "Attempt 1 of 2 - Full XP"
                 : attemptCount === 2
                   ? "Attempt 2 of 2 - 30% XP"
                   : "Practice Mode - No XP"}
-          </Badge>
-        </div>
+            </Badge>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between">

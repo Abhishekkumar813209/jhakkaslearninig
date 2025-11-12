@@ -40,12 +40,14 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
+    // Parse request body for action and game_id fallback
+    const parsed = await req.clone().json().catch(() => null);
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'award_xp';
+    const action = url.searchParams.get('action') || parsed?.action || 'award_xp';
 
     // Action: Get attempt count for a game
     if (action === 'get_attempts') {
-      const gameId = url.searchParams.get('game_id');
+      const gameId = url.searchParams.get('game_id') || parsed?.game_id;
       if (!gameId) {
         return new Response(JSON.stringify({ error: 'Missing game_id' }), {
           status: 400,
@@ -179,12 +181,19 @@ Deno.serve(async (req) => {
                 ? `${sub_question_result.correctCount}/${sub_question_result.totalSubQuestions}`
                 : undefined
             }
+          },
+          headers: {
+            Authorization: `Bearer ${token}`
           }
         });
 
         if (xpError) {
-          console.error('Error awarding XP:', xpError);
+          console.error('[XP Award Error] Failed to invoke jhakkas-points-system:', xpError);
+        } else {
+          console.log(`[XP Award Success] ✅ Awarded ${xpAmount.toFixed(2)} XP to user ${user.id} for game ${game_id} (attempt ${attemptNumber})`);
         }
+      } else if (attemptNumber > 2) {
+        console.log(`[Practice Mode] Game: ${game_id}, Attempt: ${attemptNumber} - No XP awarded (practice mode)`);
       }
 
       return new Response(JSON.stringify({

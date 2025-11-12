@@ -32,6 +32,7 @@ interface TrueFalseGameProps {
   onComplete: () => void;
   onNext?: () => void;
   hasMoreQuestions?: boolean;
+  initialAttemptCount?: number;
 }
 
 export function TrueFalseGame({
@@ -41,12 +42,13 @@ export function TrueFalseGame({
   onComplete,
   onNext,
   hasMoreQuestions = false,
+  initialAttemptCount = 0,
 }: TrueFalseGameProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [attemptCount, setAttemptCount] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(initialAttemptCount);
   
   // Multi-part states
   const [multiAnswers, setMultiAnswers] = useState<{ [key: number]: boolean }>({});
@@ -61,8 +63,8 @@ export function TrueFalseGame({
     setIsCorrect(false);
     setShowExplanation(false);
     setMultiAnswers({});
-    setAttemptCount(0);
-  }, [gameData]);
+    setAttemptCount(initialAttemptCount);
+  }, [gameData, initialAttemptCount]);
 
   const handleSelect = (value: boolean) => {
     if (hasSubmitted) return;
@@ -155,20 +157,20 @@ export function TrueFalseGame({
     <Card className="w-full">
       <CardContent className="p-8 space-y-8">
         {/* Attempt Counter */}
-        <div className="flex justify-center">
-          <Badge 
-            variant={attemptCount < 2 ? "default" : "secondary"}
-            className="text-sm px-4 py-2"
-          >
-            {attemptCount === 0 
-              ? "First Attempt - Full XP"
-              : attemptCount === 1
+        {attemptCount > 0 && (
+          <div className="flex justify-center">
+            <Badge 
+              variant={attemptCount <= 2 ? "default" : "secondary"}
+              className="text-sm px-4 py-2"
+            >
+              {attemptCount === 1
                 ? "Attempt 1 of 2 - Full XP"
                 : attemptCount === 2
                   ? "Attempt 2 of 2 - 30% XP"
                   : "Practice Mode - No XP"}
-          </Badge>
-        </div>
+            </Badge>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between">

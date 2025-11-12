@@ -409,14 +409,14 @@ const GamePlayerPage = () => {
         console.error('Error tracking wrong answer:', error);
       }
 
-      // Auto-advance to next game after 2 seconds
+      // Auto-advance to next game after 900ms
       setTimeout(() => {
         if (navInfo?.nextGameId) {
           handleNext();
         } else {
           handleExit();
         }
-      }, 2000);
+      }, 900);
 
     } catch (error) {
       console.error("Error tracking wrong answer:", error);
@@ -431,14 +431,14 @@ const GamePlayerPage = () => {
   const handleGameComplete = () => {
     if (navInfo?.nextGameId) {
       confetti({
-        particleCount: 100,
+        particleCount: 40,
         spread: 70,
         origin: { y: 0.6 }
       });
 
       const timeout = setTimeout(() => {
         navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
-      }, 2000);
+      }, 900);
       
       setAutoAdvanceTimeout(timeout);
       
@@ -448,7 +448,7 @@ const GamePlayerPage = () => {
       });
     } else {
       confetti({
-        particleCount: 150,
+        particleCount: 80,
         spread: 120,
         origin: { y: 0.6 }
       });
@@ -460,7 +460,7 @@ const GamePlayerPage = () => {
       
       setTimeout(() => {
         navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
-      }, 3000);
+      }, 2000);
     }
   };
 
@@ -626,6 +626,7 @@ const GamePlayerPage = () => {
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
             hasMoreQuestions={!!navInfo?.nextGameId}
+            initialAttemptCount={initialAttemptCount}
           />
         );
 
@@ -722,6 +723,7 @@ const GamePlayerPage = () => {
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
             hasMoreQuestions={!!navInfo?.nextGameId}
+            initialAttemptCount={initialAttemptCount}
           />
         );
 
@@ -783,6 +785,7 @@ const GamePlayerPage = () => {
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
             hasMoreQuestions={!!navInfo?.nextGameId}
+            initialAttemptCount={initialAttemptCount}
           />
         );
       

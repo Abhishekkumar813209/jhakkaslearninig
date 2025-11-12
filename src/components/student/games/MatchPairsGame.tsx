@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Check, X, GripVertical, RotateCcw } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -207,6 +208,22 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-6">
+      {/* Attempt Counter */}
+      <div className="mb-4 flex justify-center">
+        <Badge 
+          variant={attemptCount < 2 ? "default" : "secondary"}
+          className="text-sm px-4 py-2"
+        >
+          {attemptCount === 0 
+            ? "Ready to Start"
+            : attemptCount === 1
+              ? "Attempt 1 of 2 - Full XP"
+              : attemptCount === 2
+                ? "Attempt 2 of 2 - 30% XP"
+                : "Practice Mode - No XP"}
+        </Badge>
+      </div>
+
       {/* Instructions */}
       <div className="mb-6 p-4 bg-primary/10 rounded-lg border border-primary/20">
         <p className="text-center font-medium text-primary">
@@ -292,8 +309,8 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete }: Mat
       <div className="flex flex-wrap gap-3 justify-center">
         {gameStatus === 'playing' && (
           <>
-            <Button onClick={handleCheckAnswer} size="lg" className="min-w-[140px]" disabled={attemptCount >= 2}>
-              {attemptCount >= 2 ? 'Max Attempts Reached' : 'Check Answer'}
+            <Button onClick={handleCheckAnswer} size="lg" className="min-w-[140px]">
+              Check Answer
             </Button>
             <Button onClick={handleReset} variant="outline" size="lg">
               <RotateCcw className="w-4 h-4 mr-2" />

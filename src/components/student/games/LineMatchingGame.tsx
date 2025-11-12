@@ -252,6 +252,22 @@ export function LineMatchingGame({
   return (
     <Card className="w-full">
       <CardContent className="p-6 space-y-6">
+        {/* Attempt Counter */}
+        <div className="flex justify-center">
+          <Badge 
+            variant={attemptCount < 2 ? "default" : "secondary"}
+            className="text-sm px-4 py-2"
+          >
+            {attemptCount === 0 
+              ? "Ready to Start"
+              : attemptCount === 1
+                ? "Attempt 1 of 2 - Full XP"
+                : attemptCount === 2
+                  ? "Attempt 2 of 2 - 30% XP"
+                  : "Practice Mode - No XP"}
+          </Badge>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <Badge variant="outline">Match the Pairs</Badge>
@@ -419,8 +435,8 @@ export function LineMatchingGame({
         {/* Actions */}
         <div className="flex gap-3">
           {!hasSubmitted ? (
-            <Button onClick={handleSubmit} disabled={!allMatched || attemptCount >= 2} className="flex-1" size="lg">
-              {attemptCount >= 2 ? 'Max Attempts Reached' : 'Check Answer'}
+            <Button onClick={handleSubmit} disabled={!allMatched} className="flex-1" size="lg">
+              Check Answer
             </Button>
           ) : (
             <Button onClick={handleContinue} className="flex-1" size="lg">

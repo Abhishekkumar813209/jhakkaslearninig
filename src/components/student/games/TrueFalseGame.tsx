@@ -154,6 +154,22 @@ export function TrueFalseGame({
   return (
     <Card className="w-full">
       <CardContent className="p-8 space-y-8">
+        {/* Attempt Counter */}
+        <div className="flex justify-center">
+          <Badge 
+            variant={attemptCount < 2 ? "default" : "secondary"}
+            className="text-sm px-4 py-2"
+          >
+            {attemptCount === 0 
+              ? "Ready to Start"
+              : attemptCount === 1
+                ? "Attempt 1 of 2 - Full XP"
+                : attemptCount === 2
+                  ? "Attempt 2 of 2 - 30% XP"
+                  : "Practice Mode - No XP"}
+          </Badge>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <Badge variant="outline">True or False</Badge>
@@ -337,12 +353,12 @@ export function TrueFalseGame({
               onClick={handleSubmit} 
               disabled={isMultiPart 
                 ? Object.keys(multiAnswers).length !== gameData.statements!.length 
-                : selectedAnswer === null || attemptCount >= 2
+                : selectedAnswer === null
               } 
               className="flex-1" 
               size="lg"
             >
-              {attemptCount >= 2 ? 'Max Attempts Reached' : 'Submit Answer'}
+              Submit Answer
             </Button>
           ) : (
             <Button onClick={handleContinue} className="flex-1" size="lg">

@@ -123,23 +123,30 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
   const handleCorrectAnswer = async (result?: SubQuestionResult) => {
     const baseXP = lesson.xp_reward || 10;
     
-    let xpToAward = baseXP;
+    let xpToAward = 0; // Default to 0 (practice mode)
     
     if (result && result.totalSubQuestions > 1) {
-      // Apply attempt multiplier
-      const attemptMultiplier = result.attemptNumber === 1 
-        ? XP_MULTIPLIERS.first_correct 
-        : XP_MULTIPLIERS.second_correct;
-      
-      xpToAward = baseXP * result.percentage * attemptMultiplier;
-      console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpToAward.toFixed(2)} XP`);
+      // Only award XP for first 2 attempts
+      if (result.attemptNumber && result.attemptNumber <= 2) {
+        const attemptMultiplier = result.attemptNumber === 1 
+          ? XP_MULTIPLIERS.first_correct 
+          : XP_MULTIPLIERS.second_correct;
+        
+        xpToAward = baseXP * result.percentage * attemptMultiplier;
+        console.log(`[XP Award] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpToAward.toFixed(2)} XP`);
+      } else {
+        console.log(`[Practice Mode] Attempt ${result.attemptNumber} - No XP awarded`);
+      }
+    } else {
+      // Single question - award full XP
+      xpToAward = baseXP;
     }
 
     setEarnedXP(xpToAward);
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (user && xpToAward > 0) {
         await supabase.functions.invoke('xp-coin-reward-system', {
           body: {
             action: 'add',
@@ -148,7 +155,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
           }
         });
         
-        const attemptText = result?.attemptNumber ? `, ${result.attemptNumber === 1 ? '1st' : '2nd'} attempt` : '';
+        const attemptText = result?.attemptNumber ? ` (${result.attemptNumber === 1 ? '1st' : '2nd'} attempt)` : '';
         toast({
           title: "🎉 Correct!",
           description: result && result.totalSubQuestions > 1
@@ -156,6 +163,11 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
             : `+${xpToAward.toFixed(2)} XP earned`,
         });
         playSound('xp_gain');
+      } else if (xpToAward === 0) {
+        toast({
+          title: "✓ Correct!",
+          description: "Practice Mode - Keep practicing! 💪",
+        });
       }
     } catch (error) {
       console.error('Error awarding XP:', error);

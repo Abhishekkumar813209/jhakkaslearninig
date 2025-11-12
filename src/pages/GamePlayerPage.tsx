@@ -282,15 +282,27 @@ const GamePlayerPage = () => {
         return;
       }
 
-      // Calculate XP with attempt multiplier (1st: 100%, 2nd: 30%)
-      const attemptMultiplier = attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct;
+      // Calculate XP with partial credit and attempt multiplier
+      let xpAmount = 0; // Default to 0 (practice mode)
       
-      // Apply partial credit if multi-part question
-      let xpAmount = baseXP * attemptMultiplier;
       if (result && result.totalSubQuestions > 1) {
-        // Proportional XP: baseXP × percentage × attemptMultiplier
-        xpAmount = baseXP * result.percentage * attemptMultiplier;
-        console.log(`[Partial Credit] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpAmount.toFixed(2)} XP`);
+        // Only award XP for first 2 attempts
+        if (result.attemptNumber && result.attemptNumber <= 2) {
+          const attemptMultiplier = result.attemptNumber === 1 
+            ? XP_MULTIPLIERS.first_correct 
+            : XP_MULTIPLIERS.second_correct;
+          
+          xpAmount = baseXP * result.percentage * attemptMultiplier;
+          console.log(`[XP Award] ${result.correctCount}/${result.totalSubQuestions} correct, Attempt ${result.attemptNumber} = ${xpAmount.toFixed(2)} XP`);
+        } else {
+          console.log(`[Practice Mode] Attempt ${result.attemptNumber} - No XP awarded`);
+        }
+      } else {
+        // Single question - award full XP
+        const attemptMultiplier = attemptNumber === 1 
+          ? XP_MULTIPLIERS.first_correct 
+          : XP_MULTIPLIERS.second_correct;
+        xpAmount = baseXP * attemptMultiplier;
       }
       
       // Insert attempt record
@@ -301,37 +313,49 @@ const GamePlayerPage = () => {
         is_correct: true,
         status: 'completed',
         time_spent_seconds: 0,
-        xp_awarded: true,
+        xp_awarded: xpAmount > 0,
         attempt_number: attemptNumber
       });
 
-      // Award XP via jhakkas-points-system edge function
-      const { data: { session } } = await supabase.auth.getSession();
-      await supabase.functions.invoke("jhakkas-points-system", {
-        body: { 
-          action: "add",
-          xp_amount: xpAmount,
-          activity_type: "game_completed",
-          metadata: { 
-            game_id: gameData.id, 
-            topic_id: topicId,
-            attempt_number: attemptNumber,
-            multiplier: attemptMultiplier,
-            partial_credit: result ? `${result.correctCount}/${result.totalSubQuestions}` : undefined
-          }
-        },
-        headers: { Authorization: `Bearer ${session?.access_token}` }
-      });
+      // Award XP via jhakkas-points-system edge function (only if > 0)
+      if (xpAmount > 0) {
+        const { data: { session } } = await supabase.auth.getSession();
+        await supabase.functions.invoke("jhakkas-points-system", {
+          body: { 
+            action: "add",
+            xp_amount: xpAmount,
+            activity_type: "game_completed",
+            metadata: { 
+              game_id: gameData.id, 
+              topic_id: topicId,
+              attempt_number: attemptNumber,
+              multiplier: result?.attemptNumber === 1 ? XP_MULTIPLIERS.first_correct : XP_MULTIPLIERS.second_correct,
+              partial_credit: result ? `${result.correctCount}/${result.totalSubQuestions}` : undefined
+            }
+          },
+          headers: { Authorization: `Bearer ${session?.access_token}` }
+        });
 
-      // Show XP toast with partial credit info
-      toast({
-        title: "Correct Answer! 🎉",
-        description: `+${xpAmount.toFixed(2)} XP earned ${result && result.totalSubQuestions > 1 ? `(${result.correctCount}/${result.totalSubQuestions} correct)` : ''}`,
-        duration: 3000
-      });
+        // Show XP toast with partial credit info
+        const attemptText = result?.attemptNumber ? ` (${result.attemptNumber === 1 ? '1st' : '2nd'} attempt)` : '';
+        toast({
+          title: "Correct Answer! 🎉",
+          description: result && result.totalSubQuestions > 1 
+            ? `+${xpAmount.toFixed(2)} XP (${result.correctCount}/${result.totalSubQuestions} correct${attemptText})`
+            : `+${xpAmount.toFixed(2)} XP earned`,
+          duration: 3000
+        });
 
-      // Trigger XP refresh
-      window.dispatchEvent(new Event('xp-updated'));
+        // Trigger XP refresh
+        window.dispatchEvent(new Event('xp-updated'));
+      } else {
+        // Practice mode toast
+        toast({
+          title: "✓ Correct!",
+          description: "Practice Mode - Keep practicing! 💪",
+          duration: 3000
+        });
+      }
 
       // Mark game as completed in progress table
       await markGameCompleted(user.id, topicId!, gameData.id);

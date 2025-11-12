@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Check, X } from 'lucide-react';
 import { SubQuestionResult } from '@/lib/xpConfig';
@@ -148,6 +149,22 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6">
+      {/* Attempt Counter */}
+      <div className="mb-4 flex justify-center">
+        <Badge 
+          variant={attemptCount < 2 ? "default" : "secondary"}
+          className="text-sm px-4 py-2"
+        >
+          {attemptCount === 0 
+            ? "Ready to Start"
+            : attemptCount === 1
+              ? "Attempt 1 of 2 - Full XP"
+              : attemptCount === 2
+                ? "Attempt 2 of 2 - 30% XP"
+                : "Practice Mode - No XP"}
+        </Badge>
+      </div>
+
       {/* Instructions */}
       <Card className="p-4 mb-6 bg-accent/30">
         <p className="text-sm text-muted-foreground">
@@ -179,15 +196,13 @@ export const InteractiveBlanks = ({ gameData, onCorrect, onWrong, onComplete }: 
       <Button
         onClick={handleCheck}
         className="w-full"
-        disabled={!allAnswered || (checked && correctCount === gameData.blanks.length) || attemptCount >= 2}
+        disabled={!allAnswered || (checked && correctCount === gameData.blanks.length)}
       >
-        {attemptCount >= 2 
-          ? 'Max Attempts Reached'
-          : checked
-            ? correctCount === gameData.blanks.length
-              ? 'Perfect! ✓'
-              : 'Try Again'
-            : 'Check Answers'
+        {checked
+          ? correctCount === gameData.blanks.length
+            ? 'Perfect! ✓'
+            : 'Try Again'
+          : 'Check Answers'
         }
       </Button>
 

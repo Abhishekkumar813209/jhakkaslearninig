@@ -249,19 +249,21 @@ export const ManualTopicEditor = () => {
   }, [selectedDomain, selectedBoard, selectedClass]);
 
   useEffect(() => {
-    if (selectedBatch) {
-      fetchSubjects();
-      setSelectedSubject("");
-      setSelectedChapter("");
-    }
-  }, [selectedBatch]);
+    // Wait for batches to load before fetching subjects
+    if (!selectedBatch || !batches.length) return;
+    
+    fetchSubjects();
+    setSelectedSubject("");
+    setSelectedChapter("");
+  }, [selectedBatch, batches]);
 
   useEffect(() => {
-    if (selectedSubject) {
-      fetchChapters();
-      setSelectedChapter("");
-    }
-  }, [selectedSubject]);
+    // Wait for batches to load before fetching chapters
+    if (!selectedSubject || !batches.length) return;
+    
+    fetchChapters();
+    setSelectedChapter("");
+  }, [selectedSubject, batches]);
 
   useEffect(() => {
     if (selectedChapter) {
@@ -340,20 +342,37 @@ export const ManualTopicEditor = () => {
   const fetchSubjects = async () => {
     if (!selectedBatch) return;
 
+    // Try to find roadmap via batches.linked_roadmap_id first
     const batch = batches.find(b => b.id === selectedBatch);
-    if (!batch?.linked_roadmap_id) {
-      toast({
-        title: "Warning",
-        description: "This batch has no linked roadmap",
-        variant: "destructive"
-      });
-      return;
+    let roadmapId = batch?.linked_roadmap_id;
+
+    // If not found, query batch_roadmaps table directly
+    if (!roadmapId) {
+      const { data: roadmapData, error: roadmapError } = await supabase
+        .from('batch_roadmaps')
+        .select('id')
+        .eq('batch_id', selectedBatch)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (roadmapError || !roadmapData) {
+        toast({
+          title: "No Roadmap Found",
+          description: "This batch has no active roadmap. Create one in the Roadmaps tab first, then return here to add topics.",
+          variant: "destructive"
+        });
+        setSubjects([]);
+        return;
+      }
+      
+      roadmapId = roadmapData.id;
     }
 
+    // Fetch subjects using the roadmapId
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("subject")
-      .eq("roadmap_id", batch.linked_roadmap_id);
+      .eq("roadmap_id", roadmapId);
 
     if (error) {
       toast({
@@ -372,13 +391,31 @@ export const ManualTopicEditor = () => {
   const fetchChapters = async () => {
     if (!selectedBatch || !selectedSubject) return;
 
+    // Try to find roadmap via batches.linked_roadmap_id first
     const batch = batches.find(b => b.id === selectedBatch);
-    if (!batch?.linked_roadmap_id) return;
+    let roadmapId = batch?.linked_roadmap_id;
+
+    // If not found, query batch_roadmaps table directly
+    if (!roadmapId) {
+      const { data: roadmapData, error: roadmapError } = await supabase
+        .from('batch_roadmaps')
+        .select('id')
+        .eq('batch_id', selectedBatch)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (roadmapError || !roadmapData) {
+        setChapters([]);
+        return;
+      }
+      
+      roadmapId = roadmapData.id;
+    }
 
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("id, chapter_name, subject, estimated_days")
-      .eq("roadmap_id", batch.linked_roadmap_id)
+      .eq("roadmap_id", roadmapId)
       .eq("subject", selectedSubject)
       .order("order_num");
 

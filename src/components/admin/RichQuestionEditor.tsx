@@ -51,8 +51,8 @@ const ResizeHandle = ({ position, onMouseDown }: { position: string; onMouseDown
   );
 };
 
-// Resizable Image Component with 8 resize handles (no drag)
-const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
+// Resizable Image Component with 8 resize handles + drag handle + delete
+const ResizableImageComponent = ({ node, updateAttributes, deleteNode, selected }: NodeViewProps) => {
   const [isResizing, setIsResizing] = useState(false);
   const [activeHandle, setActiveHandle] = useState<string>('');
   const [startX, setStartX] = useState(0);
@@ -71,6 +71,14 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
       if (key && value) styleObj[key] = value;
     });
     return styleObj;
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm('Delete this image?')) {
+      deleteNode();
+    }
   };
 
   const handleResizeStart = (e: React.MouseEvent, handle: string) => {
@@ -158,15 +166,60 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
 
   const imgStyle = parseStyleString(node.attrs.style || '');
 
+  // Add keyboard delete support
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selected && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        if (confirm('Delete this image?')) {
+          deleteNode();
+        }
+      }
+    };
+    
+    if (selected) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [selected, deleteNode]);
+
   return (
-    <NodeViewWrapper className="relative inline-block group my-2">
+    <NodeViewWrapper 
+      className={cn(
+        "relative inline-block group my-2",
+        isResizing && "select-none",
+        selected && "ring-2 ring-primary rounded"
+      )}
+      data-drag-handle
+    >
       <img
         ref={imgRef}
         src={node.attrs.src}
         alt={node.attrs.alt || 'Image'}
         style={imgStyle}
         className="max-w-full h-auto"
+        draggable={false}
       />
+      
+      {/* Drag Handle - Top-left corner */}
+      <div
+        className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-primary-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20 flex items-center justify-center cursor-move"
+        draggable={true}
+        data-drag-handle
+        title="Drag to reorder"
+      >
+        <GripVertical className="h-3 w-3" />
+      </div>
+      
+      {/* Delete Button - Top-right corner */}
+      <button
+        onClick={handleDelete}
+        className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20 flex items-center justify-center hover:bg-destructive/90"
+        title="Delete image"
+      >
+        <X className="h-3 w-3" />
+      </button>
+      
       {/* 8 Resize Handles */}
       <ResizeHandle position="tl" onMouseDown={handleResizeStart} />
       <ResizeHandle position="tc" onMouseDown={handleResizeStart} />
@@ -184,8 +237,10 @@ const ResizableImageComponent = ({ node, updateAttributes }: NodeViewProps) => {
   );
 };
 
-// Custom Image extension with resize handles
+// Custom Image extension with resize handles and drag support
 const CustomImage = Image.extend({
+  draggable: true, // Enable drag-and-drop reordering
+  
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -221,7 +276,9 @@ import {
   FunctionSquare,
   Radical,
   Divide,
-  ArrowRight
+  ArrowRight,
+  GripVertical,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';

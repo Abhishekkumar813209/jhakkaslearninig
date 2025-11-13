@@ -219,6 +219,41 @@ serve(async (req: Request) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
+      case 'track_lecture_progress':
+        const { topic_id, lecture_id: lessonId, completed: isCompleted } = body
+        const watchTimeSeconds = body.watch_time_seconds || 0
+        
+        // Upsert progress in student_lesson_progress table for batch roadmap lectures
+        const { error: lessonProgressError } = await supabase
+          .from('student_lesson_progress')
+          .upsert({
+            student_id: userId,
+            topic_id,
+            lesson_content_id: lessonId,
+            status: isCompleted ? 'completed' : 'in_progress',
+            total_steps: 1,
+            steps_completed: isCompleted ? 1 : 0,
+            last_updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'student_id,lesson_content_id'
+          })
+
+        if (lessonProgressError) {
+          console.error('Lecture progress tracking error:', lessonProgressError)
+          return new Response(
+            JSON.stringify({ error: lessonProgressError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Lecture progress tracked successfully'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),

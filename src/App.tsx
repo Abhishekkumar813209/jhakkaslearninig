@@ -35,6 +35,7 @@ import ParentDashboard from "./pages/ParentDashboard";
 import StudentRoadmapView from "./pages/StudentRoadmapView";
 import TopicDetailPage from "./pages/TopicDetailPage";
 import GamePlayerPage from "./pages/GamePlayerPage";
+import LecturePlayerPage from "./pages/LecturePlayerPage";
 import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
 import DatabaseExplorer from "./pages/DatabaseExplorer";
 import { EdgeFunctionExplorer } from "./components/admin/EdgeFunctionExplorer";
@@ -95,6 +96,11 @@ const App = () => (
             <Route path="/student/roadmap/:roadmapId/topic/:topicId/game/:gameId" element={
               <ProtectedRoute>
                 <GamePlayerPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/roadmap/:roadmapId/topic/:topicId/lecture/:lectureId" element={
+              <ProtectedRoute>
+                <LecturePlayerPage />
               </ProtectedRoute>
             } />
         <Route path="/student/dashboard" element={

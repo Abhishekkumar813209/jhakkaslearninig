@@ -258,8 +258,7 @@ export const ManualTopicEditor = () => {
     if (!selectedBatch || !batches.length) return;
     
     fetchSubjects();
-    setSelectedSubject("");
-    setSelectedChapter("");
+    // Don't reset - let URL hydration and user handlers manage state
   }, [selectedBatch, batches]);
 
   useEffect(() => {
@@ -267,7 +266,7 @@ export const ManualTopicEditor = () => {
     if (!selectedSubject || !batches.length) return;
     
     fetchChapters();
-    setSelectedChapter("");
+    // Don't reset - let URL hydration and user handlers manage state
   }, [selectedSubject, batches]);
 
   useEffect(() => {

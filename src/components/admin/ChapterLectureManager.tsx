@@ -13,6 +13,7 @@ import { useBoards } from "@/hooks/useBoards";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { resolveActiveRoadmapIdForBatch } from "@/lib/roadmapHelpers";
 
 interface ChapterLecture {
   id: string;
@@ -29,10 +30,10 @@ interface ChapterLecture {
 export default function ChapterLectureManager() {
   const { toast } = useToast();
   const { batches } = useBatches();
-  const { boards } = useBoards();
+  const [selectedDomain, setSelectedDomain] = useState("");
+  const { boards } = useBoards(selectedDomain);
   const { examTypes } = useExamTypes();
 
-  const [selectedDomain, setSelectedDomain] = useState("");
   const [selectedBoard, setSelectedBoard] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedBatch, setSelectedBatch] = useState("");
@@ -50,19 +51,68 @@ export default function ChapterLectureManager() {
   const [description, setDescription] = useState("");
   const [xpReward, setXpReward] = useState(10);
 
+  // Cascade reset handlers
+  const handleDomainSelect = (domain: string) => {
+    setSelectedDomain(domain);
+    setSelectedBoard("");
+    setSelectedClass("");
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter("");
+    setSubjects([]);
+    setChapters([]);
+    setLectures([]);
+  };
+
+  const handleBoardSelect = (board: string) => {
+    setSelectedBoard(board);
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter("");
+    setSubjects([]);
+    setChapters([]);
+    setLectures([]);
+  };
+
+  const handleClassSelect = (classNum: string) => {
+    setSelectedClass(classNum);
+    setSelectedBatch("");
+    setSelectedSubject("");
+    setSelectedChapter("");
+    setSubjects([]);
+    setChapters([]);
+    setLectures([]);
+  };
+
+  const handleBatchSelect = (batchId: string) => {
+    setSelectedBatch(batchId);
+    setSelectedSubject("");
+    setSelectedChapter("");
+    setSubjects([]);
+    setChapters([]);
+    setLectures([]);
+  };
+
+  const handleSubjectSelect = (subject: string) => {
+    setSelectedSubject(subject);
+    setSelectedChapter("");
+    setChapters([]);
+    setLectures([]);
+  };
+
   // Fetch subjects when batch is selected
   useEffect(() => {
-    if (selectedBatch) {
+    if (selectedBatch && batches.length > 0) {
       fetchSubjects();
     }
-  }, [selectedBatch]);
+  }, [selectedBatch, batches]);
 
   // Fetch chapters when subject is selected
   useEffect(() => {
-    if (selectedBatch && selectedSubject) {
+    if (selectedBatch && selectedSubject && batches.length > 0) {
       fetchChapters();
     }
-  }, [selectedBatch, selectedSubject]);
+  }, [selectedBatch, selectedSubject, batches]);
 
   // Fetch lectures when chapter is selected
   useEffect(() => {
@@ -73,14 +123,37 @@ export default function ChapterLectureManager() {
 
   const fetchSubjects = async () => {
     const batch = batches.find((b) => b.id === selectedBatch);
-    if (!batch?.linked_roadmap_id) return;
+    if (!batch) return;
+
+    const roadmapId = await resolveActiveRoadmapIdForBatch(
+      selectedBatch,
+      batch.linked_roadmap_id
+    );
+
+    if (!roadmapId) {
+      toast({
+        title: "No roadmap found",
+        description: "This batch has no linked roadmap. Please create one in the Roadmaps tab.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("subject")
-      .eq("roadmap_id", batch.linked_roadmap_id);
+      .eq("roadmap_id", roadmapId);
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching subjects:", error);
+      toast({
+        title: "Failed to fetch subjects",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (data) {
       const uniqueSubjects = [...new Set(data.map((r) => r.subject))];
       setSubjects(uniqueSubjects);
     }
@@ -88,16 +161,39 @@ export default function ChapterLectureManager() {
 
   const fetchChapters = async () => {
     const batch = batches.find((b) => b.id === selectedBatch);
-    if (!batch?.linked_roadmap_id) return;
+    if (!batch) return;
+
+    const roadmapId = await resolveActiveRoadmapIdForBatch(
+      selectedBatch,
+      batch.linked_roadmap_id
+    );
+
+    if (!roadmapId) {
+      toast({
+        title: "No roadmap found",
+        description: "This batch has no linked roadmap. Please create one in the Roadmaps tab.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { data, error } = await supabase
       .from("roadmap_chapters")
       .select("id, chapter_name")
-      .eq("roadmap_id", batch.linked_roadmap_id)
+      .eq("roadmap_id", roadmapId)
       .eq("subject", selectedSubject)
       .order("chapter_name");
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error fetching chapters:", error);
+      toast({
+        title: "Failed to fetch chapters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (data) {
       setChapters(data);
     }
   };
@@ -242,7 +338,7 @@ export default function ChapterLectureManager() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label>Exam Domain</Label>
-            <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+            <Select value={selectedDomain} onValueChange={handleDomainSelect}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Domain" />
               </SelectTrigger>
@@ -258,7 +354,7 @@ export default function ChapterLectureManager() {
 
           <div>
             <Label>Board</Label>
-            <Select value={selectedBoard} onValueChange={setSelectedBoard}>
+            <Select value={selectedBoard} onValueChange={handleBoardSelect}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Board" />
               </SelectTrigger>
@@ -274,7 +370,7 @@ export default function ChapterLectureManager() {
 
           <div>
             <Label>Class</Label>
-            <Select value={selectedClass} onValueChange={setSelectedClass}>
+            <Select value={selectedClass} onValueChange={handleClassSelect}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Class" />
               </SelectTrigger>
@@ -290,7 +386,7 @@ export default function ChapterLectureManager() {
 
           <div>
             <Label>Batch</Label>
-            <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+            <Select value={selectedBatch} onValueChange={handleBatchSelect}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Batch" />
               </SelectTrigger>
@@ -306,7 +402,7 @@ export default function ChapterLectureManager() {
 
           <div>
             <Label>Subject</Label>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedBatch}>
+            <Select value={selectedSubject} onValueChange={handleSubjectSelect} disabled={!selectedBatch}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Subject" />
               </SelectTrigger>

@@ -539,29 +539,7 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
 
     console.log(`✅ ROADMAP GENERATION SUCCESSFUL (took ${attemptNumber - 1} attempt(s))`);
 
-    // Continue with existing rebalancing logic as fallback safety net...
-    }
-
-    const aiData = await aiResponse.json();
-    const generatedContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    // Parse AI response
-    let roadmapData;
-    try {
-      const jsonMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      const jsonString = jsonMatch ? jsonMatch[1] : generatedContent;
-      roadmapData = JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      return new Response(JSON.stringify({ error: 'Failed to parse AI response' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('Generated roadmap with', roadmapData.chapters?.length || 0, 'chapters');
-
-    // Validate time budget distribution
+    // Validate time budget distribution (final verification)
     const subjectDaysMap = new Map();
     roadmapData.chapters.forEach((chapter: any) => {
       const current = subjectDaysMap.get(chapter.subject) || 0;

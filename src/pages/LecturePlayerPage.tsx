@@ -2,33 +2,166 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import LecturePlayer from "@/components/student/LecturePlayer";
+
+interface Lecture {
+  id: string;
+  title: string;
+  youtube_video_id: string;
+  video_duration_seconds: number;
+  chapter: number;
+}
 
 const LecturePlayerPage = () => {
-  const { roadmapId, topicId, lectureId } = useParams();
+  const { roadmapId, chapterId, lectureId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  const [currentLecture, setCurrentLecture] = useState<Lecture | null>(null);
+  const [playlist, setPlaylist] = useState<Lecture[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Temporary: Show message that lecture feature needs database migration
-    toast({
-      title: "Lecture Feature Coming Soon",
-      description: "Database migration required to add YouTube lecture support to batch roadmaps",
-      variant: "default"
+    fetchLecture();
+    fetchPlaylist();
+  }, [lectureId, chapterId]);
+
+  const fetchLecture = async () => {
+    const { data, error } = await supabase
+      .from("chapter_lectures")
+      .select("*")
+      .eq("id", lectureId)
+      .single();
+
+    if (error) {
+      toast({
+        title: "Failed to load lecture",
+        description: error.message,
+        variant: "destructive"
+      });
+      navigate(-1);
+    } else if (data) {
+      setCurrentLecture({
+        id: data.id,
+        title: data.title,
+        youtube_video_id: data.youtube_video_id,
+        video_duration_seconds: data.video_duration_seconds,
+        chapter: data.lecture_order
+      });
+    }
+    setLoading(false);
+  };
+
+  const fetchPlaylist = async () => {
+    const { data, error } = await supabase
+      .from("chapter_lectures")
+      .select("*")
+      .eq("chapter_id", chapterId)
+      .eq("is_published", true)
+      .order("lecture_order");
+
+    if (!error && data) {
+      setPlaylist(data.map(l => ({
+        id: l.id,
+        title: l.title,
+        youtube_video_id: l.youtube_video_id,
+        video_duration_seconds: l.video_duration_seconds,
+        chapter: l.lecture_order
+      })));
+    }
+  };
+
+  const handleComplete = async (watchTimeSeconds: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !currentLecture) return;
+
+    // Update progress
+    await supabase.from("student_lecture_progress").upsert({
+      student_id: user.id,
+      chapter_lecture_id: currentLecture.id,
+      watch_time_seconds: watchTimeSeconds,
+      is_completed: watchTimeSeconds >= currentLecture.video_duration_seconds * 0.8,
+      last_watched_at: new Date().toISOString()
     });
-    
-    // Redirect back to topic view
-    setTimeout(() => {
-      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
-    }, 2000);
-  }, []);
+
+    // Award XP if 80% complete
+    if (watchTimeSeconds >= currentLecture.video_duration_seconds * 0.8) {
+      const { data: lectureData } = await supabase
+        .from("chapter_lectures")
+        .select("xp_reward")
+        .eq("id", currentLecture.id)
+        .single();
+
+      if (lectureData?.xp_reward) {
+        await supabase.functions.invoke("jhakkas-points-system", {
+          body: {
+            action: "add",
+            student_id: user.id,
+            amount: lectureData.xp_reward,
+            source: "lecture_completed"
+          }
+        });
+
+        toast({
+          title: `+${lectureData.xp_reward} XP`,
+          description: "Lecture completed!"
+        });
+      }
+    }
+  };
+
+  const handleNext = () => {
+    const currentIndex = playlist.findIndex(l => l.id === lectureId);
+    if (currentIndex < playlist.length - 1) {
+      navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${playlist[currentIndex + 1].id}`);
+    }
+  };
+
+  const handlePrevious = () => {
+    const currentIndex = playlist.findIndex(l => l.id === lectureId);
+    if (currentIndex > 0) {
+      navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${playlist[currentIndex - 1].id}`);
+    }
+  };
+
+  const handleBackToPlaylist = () => {
+    navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lectures`);
+  };
+
+  if (loading || !currentLecture) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading lecture...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-        <p className="text-muted-foreground">Loading lecture player...</p>
-      </div>
-    </div>
+    <LecturePlayer
+      lecture={{
+        id: currentLecture.id,
+        title: currentLecture.title,
+        youtube_video_id: currentLecture.youtube_video_id,
+        duration_seconds: currentLecture.video_duration_seconds,
+        order_num: currentLecture.chapter,
+        chapter: chapterId || ""
+      }}
+      playlistId={chapterId || ""}
+      playlistTitle="Chapter Lectures"
+      lectures={playlist.map(l => ({
+        id: l.id,
+        title: l.title,
+        youtube_video_id: l.youtube_video_id,
+        duration_seconds: l.video_duration_seconds,
+        order_num: l.chapter,
+        chapter: chapterId || ""
+      }))}
+      onClose={handleBackToPlaylist}
+      onLectureChange={(id) => navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${id}`)}
+    />
   );
 };
 

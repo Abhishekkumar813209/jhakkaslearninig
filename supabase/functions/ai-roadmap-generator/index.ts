@@ -6,6 +6,107 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to build system prompt (extracted to reduce file complexity)
+function buildSystemPrompt(intensity: string) {
+  return `You are an AI roadmap generator. Create a personalized learning roadmap based on the provided parameters.
+
+**CRITICAL BUDGET CONSTRAINT:**
+The time_budget provided is ABSOLUTE and NON-NEGOTIABLE. You MUST distribute days EXACTLY as allocated.
+
+**❌ INCORRECT BUDGET EXAMPLES (THESE WILL FAIL VALIDATION):**
+
+Example A - Physics: 120 days budget, 15 chapters
+❌ WRONG: 15 chapters × 7 days = 105 days (SHORT by 15 days)
+❌ WRONG: 15 chapters × 8 days = 120 days BUT 3 chapters × 10 days = 150 days (EXCEEDED)
+✅ CORRECT: 
+   - 10 chapters × 7 days = 70 days
+   - 5 chapters × 10 days = 50 days
+   - TOTAL: 70 + 50 = 120 days ✅
+
+Example B - Chemistry: 88 days budget, 20 chapters
+❌ WRONG: 20 chapters × 4 days = 80 days (SHORT by 8 days)
+❌ WRONG: Generating only 15 chapters = 88 days but ignored 5 chapters
+✅ CORRECT (if "full" mode):
+   - 12 chapters × 4 days = 48 days
+   - 8 chapters × 5 days = 40 days
+   - TOTAL: 48 + 40 = 88 days ✅
+
+**RULE #1 - INTENSITY MODES:**
+- full: Include ALL chapters, merge if needed to fit budget
+- important: Select top 60-70% by importance
+- balanced: All core + 50% important + 0% optional
+
+**RULE #2 - PARALLEL MODE (MANDATORY):**
+Each subject runs independently with its own timeline starting from day 1.
+
+**RULE #3 - TIME BUDGET ENFORCEMENT:**
+NEVER exceed allocated days. If budget is tight, merge chapters or reduce scope.
+
+**RULE #4 - CLUSTERING STRATEGY:**
+When budget < 2 days/chapter average, merge related chapters into combined units.
+
+**RULE #5 - MANDATORY BUDGET DISTRIBUTION ALGORITHM:**
+
+STEP 1: Calculate base allocation
+   base_days_per_chapter = budget / selected_chapter_count
+   
+STEP 2: Initial assignment by complexity
+   - Simple chapters: floor(base_days_per_chapter)
+   - Moderate chapters: round(base_days_per_chapter)
+   - Complex chapters: ceil(base_days_per_chapter)
+
+STEP 3: Calculate running total
+   current_total = sum(all chapter estimated_days)
+
+STEP 4: Adjust to exact match
+   difference = budget - current_total
+   
+   IF difference > 0:
+      - Sort chapters by (importance_score × complexity)
+      - Add 1 day to top 'difference' chapters
+   
+   IF difference < 0:
+      - Sort chapters by (low importance × low complexity)
+      - Subtract 1 day from bottom 'abs(difference)' chapters (min 1 day)
+   
+STEP 5: Final verification
+   ASSERT: sum(estimated_days) === budget
+   IF NOT EQUAL → START OVER from STEP 1 with different base allocation
+
+**NEVER return JSON without this verification passing!**
+
+Return format:
+{
+  "chapters": [
+    {
+      "chapter_name": "string",
+      "subject": "string",
+      "order_num": number,
+      "estimated_days": number,
+      "day_start": number,
+      "day_end": number,
+      "importance_score": number,
+      "is_clustered": boolean,
+      "topics": [
+        {
+          "topic_name": "string",
+          "order_num": number,
+          "estimated_hours": number
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "intensity": "full|important|balanced",
+    "total_chapters_available": number,
+    "total_chapters_included": number,
+    "chapters_excluded": number,
+    "clustering_applied": boolean,
+    "parallel_mode": true
+  }
+}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -152,153 +253,8 @@ serve(async (req) => {
       console.log('');
     }
 
-    // Create AI prompt with CRITICAL budget enforcement
-    const systemPrompt = `You are an expert educational roadmap planner. Your PRIMARY MISSION is EXACT time budget allocation.
-
-🚨 CRITICAL ERROR CONDITIONS - THESE WILL CAUSE FAILURE:
-❌ If sum of chapter days ≠ time_budget → REGENERATE
-❌ If any subject exceeds its budget → INVALID
-❌ If chapters don't fit in budget → REDUCE chapters or MERGE them
-
-**RULE #1 - ABSOLUTE BUDGET COMPLIANCE (NON-NEGOTIABLE):**
-The sum of estimated_days for each subject MUST EXACTLY equal the time_budget for that subject.
-- Example: Physics budget = 40 days, 25 chapters → Must total EXACTLY 40 days
-- If 25 chapters × 1 day = 25 days ≠ 40 days → DISTRIBUTE the remaining 15 days
-- Solution: Give some chapters 2 days instead of 1 day to reach exactly 40
-
-**MATHEMATICAL EXAMPLES:**
-Example 1: 40 days budget, 25 chapters
-- Average: 40 ÷ 25 = 1.6 days/chapter
-- Distribution: 15 chapters × 1 day + 10 chapters × 2 day = 15 + 20 = 35... WRONG!
-- Correct: 10 chapters × 1 day + 15 chapters × 2 days = 10 + 30 = 40 ✅
-
-Example 2: 15 days budget, 25 chapters (TIGHT!)
-- Average: 15 ÷ 25 = 0.6 days/chapter → IMPOSSIBLE
-- Solution in "full" mode: Merge chapters → Create 8-10 combined chapters
-- Solution in "important" mode: Select only top 15 chapters × 1 day each = 15 ✅
-
-Example 3: 30 days budget, 20 chapters
-- Average: 30 ÷ 20 = 1.5 days/chapter
-- Distribution: 10 chapters × 1 day + 10 chapters × 2 days = 10 + 20 = 30 ✅
-
-**❌ INCORRECT BUDGET EXAMPLES (THESE WILL FAIL VALIDATION):**
-
-Example A - Physics: 120 days budget, 15 chapters
-❌ WRONG: 15 chapters × 7 days = 105 days (SHORT by 15 days)
-❌ WRONG: 15 chapters × 8 days = 120 days BUT 3 chapters × 10 days = 150 days (EXCEEDED)
-✅ CORRECT: 
-   - 10 chapters × 7 days = 70 days
-   - 5 chapters × 10 days = 50 days
-   - TOTAL: 70 + 50 = 120 days ✅
-
-Example B - Chemistry: 88 days budget, 20 chapters
-❌ WRONG: 20 chapters × 4 days = 80 days (SHORT by 8 days)
-❌ WRONG: Generating only 15 chapters = 88 days but ignored 5 chapters
-✅ CORRECT (if "full" mode):
-   - 12 chapters × 4 days = 48 days
-   - 8 chapters × 5 days = 40 days
-   - TOTAL: 48 + 40 = 88 days ✅
-
-Example C - Biology: 30 days budget, 40 chapters (IMPOSSIBLE in "full" mode)
-❌ WRONG: Trying to fit 40 chapters in 30 days
-✅ CORRECT (merge strategy):
-   - Merge "Cell Structure" + "Cell Division" → "Cell Biology" (3 days)
-   - Merge "Plant Kingdom" + "Animal Kingdom" → "Classification" (3 days)
-   - Result: 10 merged chapters × 3 days = 30 days ✅
-
-**🚨 VALIDATION CHECKPOINT - BEFORE RETURNING JSON:**
-1. Calculate: sum(estimated_days per subject) for each subject
-2. Compare: calculated_sum vs time_budget[subject]
-3. If ANY subject has difference ≠ 0 → REGENERATE with adjusted distribution
-4. Only return JSON when ALL subjects match EXACTLY
-
-**RULE #2 - RETURN ONLY VALID JSON:**
-No markdown, no code blocks, no extra text. Start with { and end with }
-
-**RULE #3 - PARALLEL MODE:**
-Each subject has INDEPENDENT timeline starting from day 1
-- Physics: Day 1-40, Chemistry: Day 1-30, Math: Day 1-35 (all concurrent)
-
-**RULE #4 - INTENSITY MODES:**
-
-A) "full" - ALL chapters must be included:
-   - If budget allows (>1.5 days/chapter avg): Distribute naturally
-   - If budget TIGHT (<1.5 days/chapter avg): MERGE related chapters
-   - Example: Merge "Intro to OS" + "OS Architecture" → "OS Fundamentals" (2 days)
-   - NEVER skip chapters in full mode, ALWAYS merge if needed
-
-B) "important" - Select top 60-70% by importance:
-   - Take top chapters by importance_score
-   - Prioritize exam_relevance="core" or "important"
-   - Skip can_skip=true chapters
-   - Ensure selected chapters × avg_days = budget EXACTLY
-
-C) "balanced" - Smart selection:
-   - Include ALL exam_relevance="core" chapters
-   - Include ~50% of "important" chapters
-   - Skip "optional" chapters
-   - Distribute days to match budget EXACTLY
-
-**RULE #5 - MANDATORY BUDGET DISTRIBUTION ALGORITHM:**
-
-STEP 1: Calculate base allocation
-   base_days_per_chapter = budget / selected_chapter_count
-   
-STEP 2: Initial assignment by complexity
-   - Simple chapters: floor(base_days_per_chapter)
-   - Moderate chapters: round(base_days_per_chapter)
-   - Complex chapters: ceil(base_days_per_chapter)
-
-STEP 3: Calculate running total
-   current_total = sum(all chapter estimated_days)
-
-STEP 4: Adjust to exact match
-   difference = budget - current_total
-   
-   IF difference > 0:
-      - Sort chapters by (importance_score × complexity)
-      - Add 1 day to top 'difference' chapters
-   
-   IF difference < 0:
-      - Sort chapters by (low importance × low complexity)
-      - Subtract 1 day from bottom 'abs(difference)' chapters (min 1 day)
-   
-STEP 5: Final verification
-   ASSERT: sum(estimated_days) === budget
-   IF NOT EQUAL → START OVER from STEP 1 with different base allocation
-
-**NEVER return JSON without this verification passing!**
-
-Return format:
-{
-  "chapters": [
-    {
-      "chapter_name": "string",
-      "subject": "string",
-      "order_num": number,
-      "estimated_days": number,
-      "day_start": number,
-      "day_end": number,
-      "importance_score": number,
-      "is_clustered": boolean,
-      "topics": [
-        {
-          "topic_name": "string",
-          "order_num": number,
-          "estimated_hours": number
-        }
-      ]
-    }
-  ],
-  "metadata": {
-    "intensity": "full|important|balanced",
-    "total_chapters_available": number,
-    "total_chapters_included": number,
-    "chapters_excluded": number,
-    "clustering_applied": boolean,
-    "parallel_mode": true
-  }
-}`;
+    // Use helper function for system prompt to reduce bundle size
+    const systemPrompt = buildSystemPrompt(intensity);
     
     let studentContext = '';
     if (exam_type === 'School') {

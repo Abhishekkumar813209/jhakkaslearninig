@@ -412,11 +412,11 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
       for (const [subject, budgetDays] of Object.entries(time_budget)) {
         const assignedDays = subjectDaysMap.get(subject) || 0;
         const diff = assignedDays - (budgetDays as number);
-        const status = Math.abs(diff) <= 5 ? '✅' : '❌';
+        const status = diff === 0 ? '✅' : '❌';  // Only perfect match gets ✅
         
         console.log(`${status} ${subject}: Budget=${budgetDays}d, Assigned=${assignedDays}d, Diff=${diff}d`);
         
-        if (Math.abs(diff) > 10) {
+        if (Math.abs(diff) > 0) {  // Trigger rebalancing for ANY deviation
           hasError = true;
         }
       }
@@ -433,7 +433,7 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
         const currentTotal = subjectChapters.reduce((sum: number, ch: any) => sum + (ch.estimated_days || 0), 0);
         const diff = (budgetDays as number) - currentTotal;
 
-        if (Math.abs(diff) > 2) {
+        if (Math.abs(diff) > 0) {  // Rebalance even 1 day difference
           console.log(`  📊 ${subject}: Current=${currentTotal}d, Budget=${budgetDays}d, Diff=${diff}d`);
           
           // Calculate dynamic minimum based on budget
@@ -441,21 +441,33 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
           const minDays = Math.max(1, Math.floor(avgDaysPerChapter * 0.6));
           
           if (diff > 0) {
-            // Need to add days - distribute to complex/important chapters
+            // Need to add days - distribute proportionally to all chapters
             console.log(`  ➕ Adding ${diff} days...`);
             let remaining = diff;
             
-            // Sort by importance and add days
-            const sortedChapters = [...subjectChapters].sort((a, b) => 
-              (b.importance_score || 5) - (a.importance_score || 5)
-            );
+            // Distribute evenly across all chapters first
+            const increment = Math.floor(diff / subjectChapters.length);
             
-            for (const ch of sortedChapters) {
-              if (remaining <= 0) break;
-              const addDays = Math.min(remaining, Math.ceil(avgDaysPerChapter * 0.5));
-              ch.estimated_days += addDays;
-              remaining -= addDays;
-              console.log(`    → ${ch.chapter_name}: +${addDays} days (now ${ch.estimated_days}d)`);
+            for (const ch of subjectChapters) {
+              if (increment > 0) {
+                ch.estimated_days += increment;
+                remaining -= increment;
+                console.log(`    → ${ch.chapter_name}: +${increment} days (now ${ch.estimated_days}d)`);
+              }
+            }
+            
+            // Distribute remaining days to most important chapters
+            if (remaining > 0) {
+              const sortedByImportance = [...subjectChapters].sort((a, b) => 
+                (b.importance_score || 5) - (a.importance_score || 5)
+              );
+              
+              for (const ch of sortedByImportance) {
+                if (remaining <= 0) break;
+                ch.estimated_days += 1;
+                remaining -= 1;
+                console.log(`    → ${ch.chapter_name}: +1 day bonus (now ${ch.estimated_days}d)`);
+              }
             }
           } else {
             // Need to remove days - take from optional/less important chapters
@@ -515,6 +527,34 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
         ch.day_start = subjectTimelines[ch.subject];
         ch.day_end = ch.day_start + ch.estimated_days - 1;
         subjectTimelines[ch.subject] = ch.day_end + 1;
+      });
+    }
+
+    // Final strict validation BEFORE inserting roadmap
+    console.log('🔍 FINAL BUDGET VALIDATION:');
+    let finalValidationFailed = false;
+
+    if (time_budget) {
+      for (const [subject, budgetDays] of Object.entries(time_budget)) {
+        const subjectChapters = roadmapData.chapters.filter((ch: any) => ch.subject === subject);
+        const actualTotal = subjectChapters.reduce((sum: number, ch: any) => sum + ch.estimated_days, 0);
+        
+        if (actualTotal !== budgetDays) {
+          console.error(`❌ ${subject}: Budget=${budgetDays}d but actual=${actualTotal}d (diff: ${actualTotal - budgetDays}d)`);
+          finalValidationFailed = true;
+        } else {
+          console.log(`✅ ${subject}: Perfect match at ${budgetDays} days`);
+        }
+      }
+    }
+
+    if (finalValidationFailed) {
+      return new Response(JSON.stringify({ 
+        error: 'Budget allocation failed validation. Please try regenerating the roadmap.',
+        details: 'AI generated roadmap does not match allocated budget exactly. This is a system error, not your fault.'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 

@@ -181,6 +181,37 @@ Example 3: 30 days budget, 20 chapters
 - Average: 30 ÷ 20 = 1.5 days/chapter
 - Distribution: 10 chapters × 1 day + 10 chapters × 2 days = 10 + 20 = 30 ✅
 
+**❌ INCORRECT BUDGET EXAMPLES (THESE WILL FAIL VALIDATION):**
+
+Example A - Physics: 120 days budget, 15 chapters
+❌ WRONG: 15 chapters × 7 days = 105 days (SHORT by 15 days)
+❌ WRONG: 15 chapters × 8 days = 120 days BUT 3 chapters × 10 days = 150 days (EXCEEDED)
+✅ CORRECT: 
+   - 10 chapters × 7 days = 70 days
+   - 5 chapters × 10 days = 50 days
+   - TOTAL: 70 + 50 = 120 days ✅
+
+Example B - Chemistry: 88 days budget, 20 chapters
+❌ WRONG: 20 chapters × 4 days = 80 days (SHORT by 8 days)
+❌ WRONG: Generating only 15 chapters = 88 days but ignored 5 chapters
+✅ CORRECT (if "full" mode):
+   - 12 chapters × 4 days = 48 days
+   - 8 chapters × 5 days = 40 days
+   - TOTAL: 48 + 40 = 88 days ✅
+
+Example C - Biology: 30 days budget, 40 chapters (IMPOSSIBLE in "full" mode)
+❌ WRONG: Trying to fit 40 chapters in 30 days
+✅ CORRECT (merge strategy):
+   - Merge "Cell Structure" + "Cell Division" → "Cell Biology" (3 days)
+   - Merge "Plant Kingdom" + "Animal Kingdom" → "Classification" (3 days)
+   - Result: 10 merged chapters × 3 days = 30 days ✅
+
+**🚨 VALIDATION CHECKPOINT - BEFORE RETURNING JSON:**
+1. Calculate: sum(estimated_days per subject) for each subject
+2. Compare: calculated_sum vs time_budget[subject]
+3. If ANY subject has difference ≠ 0 → REGENERATE with adjusted distribution
+4. Only return JSON when ALL subjects match EXACTLY
+
 **RULE #2 - RETURN ONLY VALID JSON:**
 No markdown, no code blocks, no extra text. Start with { and end with }
 
@@ -208,13 +239,35 @@ C) "balanced" - Smart selection:
    - Skip "optional" chapters
    - Distribute days to match budget EXACTLY
 
-**RULE #5 - BUDGET DISTRIBUTION STRATEGY:**
-1. Calculate: available_budget ÷ selected_chapters = base_avg
-2. Assign days based on complexity:
-   - If base_avg ≥ 3: Complex (base_avg + 2), Moderate (base_avg), Simple (base_avg - 1)
-   - If base_avg < 3: Complex (base_avg + 1), Moderate (base_avg), Simple (base_avg)
-3. After initial assignment, calculate total
-4. If total ≠ budget: Add/subtract days to largest chapters until exact match
+**RULE #5 - MANDATORY BUDGET DISTRIBUTION ALGORITHM:**
+
+STEP 1: Calculate base allocation
+   base_days_per_chapter = budget / selected_chapter_count
+   
+STEP 2: Initial assignment by complexity
+   - Simple chapters: floor(base_days_per_chapter)
+   - Moderate chapters: round(base_days_per_chapter)
+   - Complex chapters: ceil(base_days_per_chapter)
+
+STEP 3: Calculate running total
+   current_total = sum(all chapter estimated_days)
+
+STEP 4: Adjust to exact match
+   difference = budget - current_total
+   
+   IF difference > 0:
+      - Sort chapters by (importance_score × complexity)
+      - Add 1 day to top 'difference' chapters
+   
+   IF difference < 0:
+      - Sort chapters by (low importance × low complexity)
+      - Subtract 1 day from bottom 'abs(difference)' chapters (min 1 day)
+   
+STEP 5: Final verification
+   ASSERT: sum(estimated_days) === budget
+   IF NOT EQUAL → START OVER from STEP 1 with different base allocation
+
+**NEVER return JSON without this verification passing!**
 
 Return format:
 {
@@ -349,35 +402,144 @@ Before returning JSON, verify:
 Return ONLY the JSON structure (no markdown, no extra text).` : ''}
 `;
 
+    // RETRY LOGIC - Try up to 3 times if budget validation fails
+    const MAX_RETRIES = 3;
+    let attemptNumber = 1;
+    let roadmapData: any = null;
+    let generationSuccess = false;
 
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 4000 }
-      }),
-    });
+    while (attemptNumber <= MAX_RETRIES && !generationSuccess) {
+      console.log(`\n🔄 GENERATION ATTEMPT ${attemptNumber}/${MAX_RETRIES}`);
+      
+      // Modify prompt strictness based on attempt number
+      let attemptSystemPrompt = systemPrompt;
+      
+      if (attemptNumber === 2) {
+        attemptSystemPrompt += `\n\n🚨 RETRY ATTEMPT #2 - PREVIOUS ATTEMPT FAILED BUDGET VALIDATION!
+    - Double-check every subject's total before returning JSON
+    - Use STEP 4 adjustment algorithm MANDATORY
+    - Penalty for mismatch: 2x importance on exact matching`;
+      } else if (attemptNumber === 3) {
+        attemptSystemPrompt += `\n\n🚨🚨 FINAL ATTEMPT #3 - THIS IS YOUR LAST CHANCE!
+    - CRITICAL: Budget mismatch will result in complete failure
+    - Verify EACH subject sum BEFORE generating JSON
+    - If unsure, distribute days evenly first, then adjust
+    - Penalty for mismatch: MAXIMUM - This attempt MUST succeed`;
+      }
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      try {
+        // Make API call to Gemini
+        const aiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: attemptSystemPrompt },
+                  { text: userPrompt }
+                ]
+              }],
+              generationConfig: {
+                temperature: attemptNumber === 1 ? 0.7 : attemptNumber === 2 ? 0.5 : 0.3, // Decrease creativity on retries
+                maxOutputTokens: 8000,
+              }
+            })
+          }
+        );
+
+        if (!aiResponse.ok) {
+          if (aiResponse.status === 429) {
+            return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          if (aiResponse.status === 402) {
+            return new Response(JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), {
+              status: 402,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          const errorText = await aiResponse.text();
+          console.error('AI Gateway error:', aiResponse.status, errorText);
+          throw new Error(`API error: ${aiResponse.status}`);
+        }
+
+        const result = await aiResponse.json();
+        const generatedText = result.candidates[0]?.content?.parts[0]?.text;
+        
+        if (!generatedText) {
+          throw new Error('No content generated from Gemini');
+        }
+
+        // Parse JSON
+        const cleanedText = generatedText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        roadmapData = JSON.parse(cleanedText);
+
+        // INLINE BUDGET VALIDATION (happens INSIDE retry loop)
+        console.log('\n📊 BUDGET VALIDATION (Attempt ' + attemptNumber + '):');
+        let hasError = false;
+        const subjectDaysMap = new Map<string, number>();
+
+        roadmapData.chapters.forEach((ch: any) => {
+          const current = subjectDaysMap.get(ch.subject) || 0;
+          subjectDaysMap.set(ch.subject, current + (ch.estimated_days || 0));
         });
+
+        if (time_budget) {
+          for (const [subject, budgetDays] of Object.entries(time_budget)) {
+            const assignedDays = subjectDaysMap.get(subject) || 0;
+            const diff = assignedDays - (budgetDays as number);
+            const status = diff === 0 ? '✅' : '❌';
+            
+            console.log(`${status} ${subject}: Budget=${budgetDays}d, Assigned=${assignedDays}d, Diff=${diff}d`);
+            
+            if (Math.abs(diff) > 0) {
+              hasError = true;
+            }
+          }
+        }
+
+        // If validation passed, we're done!
+        if (!hasError) {
+          console.log(`✅ ATTEMPT ${attemptNumber} SUCCEEDED - Budget validation passed!`);
+          generationSuccess = true;
+          break;
+        } else {
+          console.log(`❌ ATTEMPT ${attemptNumber} FAILED - Budget mismatch detected`);
+          
+          if (attemptNumber < MAX_RETRIES) {
+            console.log(`   → Will retry with stricter prompt (Attempt ${attemptNumber + 1})`);
+          } else {
+            console.log(`   → All ${MAX_RETRIES} attempts exhausted`);
+          }
+        }
+
+      } catch (parseError) {
+        console.error(`❌ ATTEMPT ${attemptNumber} ERROR:`, parseError);
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
-      return new Response(JSON.stringify({ error: 'AI generation failed' }), {
+
+      attemptNumber++;
+    }
+
+    // Final check after all retries
+    if (!generationSuccess || !roadmapData) {
+      console.error('❌ GENERATION FAILED after all retries');
+      return new Response(JSON.stringify({ 
+        error: 'Failed to generate roadmap matching budget allocation after 3 attempts.',
+        details: 'AI could not distribute the allocated days exactly. Please try: 1) Adjusting time budget, 2) Selecting fewer chapters, or 3) Using different intensity mode.',
+        suggestion: 'Try increasing budget by 10-20% or reducing chapter count by 20-30%.'
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    console.log(`✅ ROADMAP GENERATION SUCCESSFUL (took ${attemptNumber - 1} attempt(s))`);
+
+    // Continue with existing rebalancing logic as fallback safety net...
     }
 
     const aiData = await aiResponse.json();
@@ -650,10 +812,27 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
 
     console.log('✅ Roadmap created successfully with AI-assigned time budget');
 
+    // Build budget status for UI feedback
+    const budgetStatusMap: any = {};
+    if (time_budget) {
+      for (const [subject, budgetDays] of Object.entries(time_budget)) {
+        const subjectChapters = roadmapData.chapters.filter((ch: any) => ch.subject === subject);
+        const actualTotal = subjectChapters.reduce((sum: number, ch: any) => sum + ch.estimated_days, 0);
+        budgetStatusMap[subject] = {
+          allocated: budgetDays,
+          generated: actualTotal,
+          status: actualTotal === budgetDays ? 'match' : 'mismatch'
+        };
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       roadmap_id: roadmap.id,
-      roadmap: roadmapData
+      roadmap: roadmapData,
+      attempts: attemptNumber - 1,
+      message: `Roadmap generated successfully on attempt ${attemptNumber - 1}`,
+      budgetStatus: budgetStatusMap
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

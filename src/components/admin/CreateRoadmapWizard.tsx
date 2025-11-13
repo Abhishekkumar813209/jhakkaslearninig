@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
 import { SubjectDaysStep } from "./wizard-steps/SubjectDaysStep";
 import { ChapterSelectionStep } from "./wizard-steps/ChapterSelectionStep";
@@ -13,7 +15,7 @@ import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Sparkles } from "lucide-react";
 
 interface CreateRoadmapWizardProps {
   open: boolean;
@@ -118,6 +120,14 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [examName, setExamName] = useState("");
   const [conditionalClass, setConditionalClass] = useState(initialClass || "");
   const [conditionalBoard, setConditionalBoard] = useState(initialBoard || "");
+
+  // Budget tracking and progress state
+  const [generationProgress, setGenerationProgress] = useState<{
+    stage: 'idle' | 'generating' | 'validating' | 'retrying' | 'complete' | 'failed';
+    attempt: number;
+    budgetStatus: { [subject: string]: { allocated: number; generated: number; status: 'pending' | 'match' | 'mismatch' } };
+    message: string;
+  } | null>(null);
   const [batchId, setBatchId] = useState("");
   const [roadmapTitle, setRoadmapTitle] = useState("");
   const [roadmapType, setRoadmapType] = useState<'single_year' | 'combined'>('single_year');
@@ -575,14 +585,18 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       return;
     }
 
-    // Show informative loading message
-    const loadingToastId = toast.loading(
-      "AI is generating your personalized roadmap...",
-      {
-        description: "This may take 60-90 seconds. Please wait...",
-        duration: 120000, // 2 minutes timeout
-      }
-    );
+    // Initialize progress tracking
+    setGenerationProgress({
+      stage: 'generating',
+      attempt: 1,
+      budgetStatus: Object.fromEntries(
+        selectedSubjects.map(s => [
+          s.name,
+          { allocated: timeBudget[s.name] || 0, generated: 0, status: 'pending' as const }
+        ])
+      ),
+      message: 'AI is analyzing your subjects and chapters...'
+    });
 
     try {
       // Prepare selected data with importance metadata
@@ -691,13 +705,23 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
         if (error) throw error;
         if (data?.error) {
-          toast.dismiss(loadingToastId);
+          setGenerationProgress({ stage: 'failed', attempt: data?.attempts || 1, budgetStatus: {}, message: data.error });
           toast.error(data.error);
           return;
         }
 
-        toast.dismiss(loadingToastId);
-        toast.success("Roadmap updated successfully!");
+        // Update progress with completion
+        setGenerationProgress({
+          stage: 'complete',
+          attempt: data?.attempts || 1,
+          budgetStatus: data?.budgetStatus || {},
+          message: data?.message || 'Roadmap updated successfully!'
+        });
+
+        setTimeout(() => {
+          setGenerationProgress(null);
+          toast.success("Roadmap updated successfully!");
+        }, 2000);
       } else {
         // Create new roadmap
         const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
@@ -721,13 +745,23 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
         if (error) throw error;
         if (data?.error) {
-          toast.dismiss(loadingToastId);
+          setGenerationProgress({ stage: 'failed', attempt: data?.attempts || 1, budgetStatus: {}, message: data.error });
           toast.error(data.error);
           return;
         }
 
-        toast.dismiss(loadingToastId);
-        toast.success("Roadmap updated successfully!");
+        // Update progress with completion
+        setGenerationProgress({
+          stage: 'complete',
+          attempt: data?.attempts || 1,
+          budgetStatus: data?.budgetStatus || {},
+          message: data?.message || 'Roadmap generated successfully!'
+        });
+
+        setTimeout(() => {
+          setGenerationProgress(null);
+          toast.success("Roadmap updated successfully!");
+        }, 2000);
       }
 
       clearWizardProgress();
@@ -736,18 +770,26 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
-      toast.dismiss(loadingToastId);
+      setGenerationProgress({ 
+        stage: 'failed', 
+        attempt: 3, 
+        budgetStatus: {}, 
+        message: error.message || 'Generation failed' 
+      });
       console.error('Error generating roadmap:', error);
       
-      if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
-        toast.error("Generation timed out", {
-          description: "The roadmap is still being created. Please refresh in a minute.",
-        });
-      } else {
-        toast.error("Failed to generate roadmap", {
-          description: error.message || "Please try again with fewer subjects or chapters",
-        });
-      }
+      setTimeout(() => {
+        setGenerationProgress(null);
+        if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
+          toast.error("Generation timed out", {
+            description: "The roadmap is still being created. Please refresh in a minute.",
+          });
+        } else {
+          toast.error("Failed to generate roadmap", {
+            description: error.message || "Please try again with fewer subjects or chapters",
+          });
+        }
+      }, 2000);
     }
   };
 
@@ -1275,6 +1317,94 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         </>
         )}
       </DialogContent>
+
+      {/* Budget Progress Dialog */}
+      {generationProgress && generationProgress.stage !== 'idle' && (
+        <Dialog open={true} onOpenChange={() => {}}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {generationProgress.stage === 'complete' ? (
+                  <Check className="h-5 w-5 text-green-600" />
+                ) : (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                )}
+                {generationProgress.stage === 'generating' && `Generating Roadmap (Attempt ${generationProgress.attempt}/3)`}
+                {generationProgress.stage === 'validating' && 'Validating Budget Allocation'}
+                {generationProgress.stage === 'retrying' && `Retrying Generation (Attempt ${generationProgress.attempt}/3)`}
+                {generationProgress.stage === 'complete' && 'Roadmap Generated Successfully!'}
+                {generationProgress.stage === 'failed' && 'Generation Failed'}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* Status Message */}
+              <p className="text-sm text-muted-foreground">{generationProgress.message}</p>
+
+              {/* Budget Allocation Progress */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Budget Allocation Status:</h4>
+                {Object.entries(generationProgress.budgetStatus).map(([subject, status]) => (
+                  <div key={subject} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-3 w-3 rounded-full ${
+                        status.status === 'match' ? 'bg-green-600' :
+                        status.status === 'mismatch' ? 'bg-red-600' :
+                        'bg-yellow-600 animate-pulse'
+                      }`} />
+                      <span className="font-medium">{subject}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Allocated:</span>{' '}
+                        <span className="font-semibold">{status.allocated}d</span>
+                      </div>
+                      
+                      {status.generated > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Generated:</span>{' '}
+                          <span className={`font-semibold ${
+                            status.status === 'match' ? 'text-green-600' :
+                            status.status === 'mismatch' ? 'text-red-600' :
+                            ''
+                          }`}>
+                            {status.generated}d
+                          </span>
+                        </div>
+                      )}
+                      
+                      {status.status === 'match' && (
+                        <Badge className="bg-green-600">✓ Exact Match</Badge>
+                      )}
+                      {status.status === 'mismatch' && (
+                        <Badge variant="destructive">
+                          {status.generated > status.allocated ? '+' : ''}
+                          {status.generated - status.allocated}d diff
+                        </Badge>
+                      )}
+                      {status.status === 'pending' && (
+                        <Badge variant="secondary">Pending...</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Retry Information */}
+              {generationProgress.stage === 'retrying' && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Budget mismatch detected. Retrying with stricter constraints...
+                    {generationProgress.attempt === 3 && ' (Final attempt)'}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
     </>
   );

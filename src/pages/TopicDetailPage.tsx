@@ -54,25 +54,26 @@ const TopicDetailPage = () => {
   };
 
   const handleLessonClick = async (lesson: any) => {
-    // Navigate to the game player page based on lesson type
-    if (lesson.lesson_type === 'game') {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          navigate("/login");
-          return;
-        }
-
-        // Navigate directly to the specific game
-        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${lesson.id}`);
-      } catch (error) {
-        console.error("Error opening game:", error);
-        toast({
-          title: "Error",
-          description: "Failed to open game",
-          variant: "destructive"
-        });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/login");
+        return;
       }
+
+      // Navigate based on lesson type
+      if (lesson.lesson_type === 'game') {
+        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${lesson.id}`);
+      } else if (lesson.lesson_type === 'lecture') {
+        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/lecture/${lesson.id}`);
+      }
+    } catch (error) {
+      console.error("Error opening lesson:", error);
+      toast({
+        title: "Error",
+        description: "Failed to open lesson",
+        variant: "destructive"
+      });
     }
   };
 

@@ -104,13 +104,13 @@ export default function ChapterLectureManager() {
 
   const fetchLectures = async () => {
     const { data, error } = await supabase
-      .from("chapter_lectures")
+      .from("chapter_lectures" as any)
       .select("*")
       .eq("chapter_id", selectedChapter)
       .order("lecture_order");
 
     if (!error && data) {
-      setLectures(data);
+      setLectures(data as any);
     }
   };
 
@@ -175,7 +175,7 @@ export default function ChapterLectureManager() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.from("chapter_lectures").insert({
+      const { error } = await supabase.from("chapter_lectures" as any).insert({
         chapter_id: selectedChapter,
         title: videoDetails.title,
         description: description || null,
@@ -207,7 +207,7 @@ export default function ChapterLectureManager() {
   const handleDeleteLecture = async (lectureId: string) => {
     if (!confirm("Are you sure you want to delete this lecture?")) return;
 
-    const { error } = await supabase.from("chapter_lectures").delete().eq("id", lectureId);
+    const { error } = await supabase.from("chapter_lectures" as any).delete().eq("id", lectureId);
 
     if (error) {
       toast({ title: "Failed to delete lecture", variant: "destructive" });

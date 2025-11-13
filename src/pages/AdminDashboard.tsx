@@ -36,6 +36,7 @@ import { EnhancedXPManagement } from "@/components/admin/EnhancedXPManagement";
 import { MigrationStatus } from "@/components/admin/MigrationStatus";
 import { QuestionBankReview } from "@/components/admin/QuestionBankReview";
 import DatabaseExplorer from "@/pages/DatabaseExplorer";
+import ChapterLectureManager from "@/components/admin/ChapterLectureManager";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -71,6 +72,7 @@ const AdminDashboard = () => {
     { value: "roadmaps", label: "Roadmaps", component: RoadmapManagement },
     { value: "manual-topics", label: "Add Topics", component: ManualTopicEditor },
     { value: "lessons", label: "Lesson Builder", component: LessonContentBuilder },
+    { value: "chapter-lectures", label: "Chapter Lectures", component: ChapterLectureManager },
     { value: "question-bank", label: "Question Bank", component: QuestionBankBuilder },
     { value: "answer-management", label: "Answer Management", component: AnswerManagementPanel },
     { value: "zones", label: "Zones", component: ZoneManagementNew },

@@ -28,7 +28,7 @@ const LecturePlayerPage = () => {
 
   const fetchLecture = async () => {
     const { data, error } = await supabase
-      .from("chapter_lectures")
+      .from("chapter_lectures" as any)
       .select("*")
       .eq("id", lectureId)
       .single();
@@ -41,12 +41,13 @@ const LecturePlayerPage = () => {
       });
       navigate(-1);
     } else if (data) {
+      const lecture = data as any;
       setCurrentLecture({
-        id: data.id,
-        title: data.title,
-        youtube_video_id: data.youtube_video_id,
-        video_duration_seconds: data.video_duration_seconds,
-        chapter: data.lecture_order
+        id: lecture.id,
+        title: lecture.title,
+        youtube_video_id: lecture.youtube_video_id,
+        video_duration_seconds: lecture.video_duration_seconds,
+        chapter: lecture.lecture_order
       });
     }
     setLoading(false);
@@ -54,14 +55,15 @@ const LecturePlayerPage = () => {
 
   const fetchPlaylist = async () => {
     const { data, error } = await supabase
-      .from("chapter_lectures")
+      .from("chapter_lectures" as any)
       .select("*")
       .eq("chapter_id", chapterId)
       .eq("is_published", true)
       .order("lecture_order");
 
     if (!error && data) {
-      setPlaylist(data.map(l => ({
+      const lectures = data as any[];
+      setPlaylist(lectures.map(l => ({
         id: l.id,
         title: l.title,
         youtube_video_id: l.youtube_video_id,
@@ -76,7 +78,7 @@ const LecturePlayerPage = () => {
     if (!user || !currentLecture) return;
 
     // Update progress
-    await supabase.from("student_lecture_progress").upsert({
+    await supabase.from("student_lecture_progress" as any).upsert({
       student_id: user.id,
       chapter_lecture_id: currentLecture.id,
       watch_time_seconds: watchTimeSeconds,
@@ -87,23 +89,24 @@ const LecturePlayerPage = () => {
     // Award XP if 80% complete
     if (watchTimeSeconds >= currentLecture.video_duration_seconds * 0.8) {
       const { data: lectureData } = await supabase
-        .from("chapter_lectures")
+        .from("chapter_lectures" as any)
         .select("xp_reward")
         .eq("id", currentLecture.id)
         .single();
 
-      if (lectureData?.xp_reward) {
+      const xpReward = (lectureData as any)?.xp_reward;
+      if (xpReward) {
         await supabase.functions.invoke("jhakkas-points-system", {
           body: {
             action: "add",
             student_id: user.id,
-            amount: lectureData.xp_reward,
+            amount: xpReward,
             source: "lecture_completed"
           }
         });
 
         toast({
-          title: `+${lectureData.xp_reward} XP`,
+          title: `+${xpReward} XP`,
           description: "Lecture completed!"
         });
       }

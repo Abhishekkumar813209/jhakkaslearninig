@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateRoadmapWizard } from "./CreateRoadmapWizard";
 import { ManualRoadmapBuilder } from "./ManualRoadmapBuilder";
 import { AdminRoadmapViewDialog } from "./AdminRoadmapViewDialog";
+import { EditRoadmapDialog } from "./EditRoadmapDialog";
 import { RoadmapCalendarView, CalendarChapter } from "./RoadmapCalendarView";
 import { RoadmapCardView } from "../RoadmapCardView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -107,6 +108,10 @@ const RoadmapManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [adminViewMode, setAdminViewMode] = useState<'calendar' | 'cards'>('calendar');
   const [viewRoadmapId, setViewRoadmapId] = useState<string | null>(null);
+  
+  // State for EditRoadmapDialog
+  const [editManualDialogOpen, setEditManualDialogOpen] = useState(false);
+  const [editManualRoadmapId, setEditManualRoadmapId] = useState<string | null>(null);
 
   const fetchRoadmaps = async () => {
     try {
@@ -738,12 +743,25 @@ const RoadmapManagement = () => {
                   className="flex-1 gap-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setEditRoadmapId(roadmap.id);
-                    setIsCreating(true);
+                    setEditManualRoadmapId(roadmap.id);
+                    setEditManualDialogOpen(true);
                   }}
                 >
                   <Edit className="h-3 w-3" />
                   Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditRoadmapId(roadmap.id);
+                    setIsCreating(true);
+                  }}
+                >
+                  <LucideIcons.Sparkles className="h-3 w-3" />
+                  Regenerate
                 </Button>
                 {roadmap.status !== 'active' && (
                   <Button
@@ -790,7 +808,19 @@ const RoadmapManagement = () => {
         </Card>
       )}
 
-      {/* Create/Edit Roadmap Wizard */}
+      {/* Edit Roadmap Dialog (Quick Manual Adjustments) */}
+      <EditRoadmapDialog
+        open={editManualDialogOpen}
+        onOpenChange={setEditManualDialogOpen}
+        roadmapId={editManualRoadmapId}
+        onSuccess={() => {
+          setEditManualDialogOpen(false);
+          setEditManualRoadmapId(null);
+          fetchRoadmaps();
+        }}
+      />
+
+      {/* Create/Regenerate Roadmap Wizard (AI-powered) */}
       <CreateRoadmapWizard
         open={isCreating}
         onOpenChange={(open) => {

@@ -40,14 +40,14 @@ export default function ChapterLecturePlaylist() {
 
   const fetchLectures = async () => {
     const { data, error } = await supabase
-      .from("chapter_lectures")
+      .from("chapter_lectures" as any)
       .select("*")
       .eq("chapter_id", chapterId)
       .eq("is_published", true)
       .order("lecture_order");
 
     if (!error && data) {
-      setLectures(data);
+      setLectures(data as any);
     }
     setLoading(false);
   };
@@ -57,13 +57,13 @@ export default function ChapterLecturePlaylist() {
     if (!user) return;
 
     const { data, error } = await supabase
-      .from("student_lecture_progress")
+      .from("student_lecture_progress" as any)
       .select("*")
       .eq("student_id", user.id);
 
     if (!error && data) {
       const progressMap = new Map();
-      data.forEach((p) => {
+      (data as any[]).forEach((p: any) => {
         progressMap.set(p.chapter_lecture_id, p);
       });
       setProgress(progressMap);

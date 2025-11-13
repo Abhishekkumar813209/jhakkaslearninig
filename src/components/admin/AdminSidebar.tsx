@@ -24,6 +24,7 @@ import {
   CheckCircle,
   FunctionSquare,
   GitBranch,
+  Video,
 } from "lucide-react";
 import {
   Sidebar,
@@ -68,16 +69,17 @@ const menuGroups: MenuGroup[] = [
   },
   {
     label: "Academic",
-    items: [
-      { value: "batches", label: "Batches", icon: GraduationCap },
-      { value: "guided-paths", label: "Guided Paths", icon: BookOpen },
-      { value: "roadmaps", label: "Roadmaps", icon: Map },
-      { value: "manual-topics", label: "Add Topics", icon: BookText },
-      { value: "lessons", label: "Lesson Builder", icon: BookOpen },
-      { value: "question-bank", label: "Question Bank", icon: FileText },
-      { value: "exam-types", label: "Exam Types", icon: Target },
-      { value: "database-explorer", label: "Database Explorer", icon: Database },
-    ],
+      items: [
+        { value: "batches", label: "Batches", icon: GraduationCap },
+        { value: "guided-paths", label: "Guided Paths", icon: BookOpen },
+        { value: "roadmaps", label: "Roadmaps", icon: Map },
+        { value: "manual-topics", label: "Add Topics", icon: BookText },
+        { value: "lessons", label: "Lesson Builder", icon: BookOpen },
+        { value: "chapter-lectures", label: "Chapter Lectures", icon: Video },
+        { value: "question-bank", label: "Question Bank", icon: FileText },
+        { value: "exam-types", label: "Exam Types", icon: Target },
+        { value: "database-explorer", label: "Database Explorer", icon: Database },
+      ],
   },
   {
     label: "Location",

@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked, Gamepad2 } from "lucide-react";
+import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked, Gamepad2, PlayCircle } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 // Removed old lesson path imports - now using direct game navigation
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,8 @@ export const ChapterTopicListView = ({
   onTopicClick, 
   onBack 
 }: ChapterTopicListViewProps) => {
+  const navigate = useNavigate();
+  const { roadmapId } = useParams();
   const [sortedTopics, setSortedTopics] = useState<Topic[]>([]);
   const [topicUnlockStatus, setTopicUnlockStatus] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
@@ -126,15 +129,25 @@ export const ChapterTopicListView = ({
         <Card className="card-gradient shadow-medium">
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div className="space-y-1">
+              <div className="flex-1 space-y-1">
                 <CardTitle className="text-2xl">{chapterName}</CardTitle>
                 <CardDescription className="text-base">
                   {sortedTopics.length} Topics • {completedCount} Completed
                 </CardDescription>
               </div>
-              <Badge variant={totalProgress === 100 ? "default" : "secondary"} className="text-lg px-4 py-2">
-                {Math.round(totalProgress)}%
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={totalProgress === 100 ? "default" : "secondary"} className="text-lg px-4 py-2">
+                  {Math.round(totalProgress)}%
+                </Badge>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lectures`)}
+                  className="gap-2"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  View Lectures
+                </Button>
+              </div>
             </div>
             <Progress value={totalProgress} className="h-2 mt-4" />
           </CardHeader>

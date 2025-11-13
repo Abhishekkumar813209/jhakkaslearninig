@@ -36,6 +36,7 @@ import StudentRoadmapView from "./pages/StudentRoadmapView";
 import TopicDetailPage from "./pages/TopicDetailPage";
 import GamePlayerPage from "./pages/GamePlayerPage";
 import LecturePlayerPage from "./pages/LecturePlayerPage";
+import ChapterLecturePlaylist from "./components/student/ChapterLecturePlaylist";
 import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRedirect";
 import DatabaseExplorer from "./pages/DatabaseExplorer";
 import { EdgeFunctionExplorer } from "./components/admin/EdgeFunctionExplorer";
@@ -98,7 +99,12 @@ const App = () => (
                 <GamePlayerPage />
               </ProtectedRoute>
             } />
-            <Route path="/student/roadmap/:roadmapId/topic/:topicId/lecture/:lectureId" element={
+            <Route path="/student/roadmap/:roadmapId/chapter/:chapterId/lectures" element={
+              <ProtectedRoute>
+                <ChapterLecturePlaylist />
+              </ProtectedRoute>
+            } />
+            <Route path="/student/roadmap/:roadmapId/chapter/:chapterId/lecture/:lectureId" element={
               <ProtectedRoute>
                 <LecturePlayerPage />
               </ProtectedRoute>

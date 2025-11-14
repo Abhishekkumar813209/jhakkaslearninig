@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List, LayoutGrid } from "lucide-react";
+import { GripVertical, Calendar as CalendarIcon, BookOpen, Target, RotateCcw, List, LayoutGrid, PlayCircle } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -51,9 +51,11 @@ interface SortableChapterProps {
   index: number;
   onChapterClick: (chapterId: string, chapterName: string, topics: any[]) => void;
   onSerialNumberChange: (chapterId: string, newPosition: number) => void;
+  lectureCount?: number;
+  onViewLectures: (chapterId: string) => void;
 }
 
-const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange }: SortableChapterProps) => {
+const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange, lectureCount = 0, onViewLectures }: SortableChapterProps) => {
   const [serialNumber, setSerialNumber] = useState(index + 1);
   const [isEditing, setIsEditing] = useState(false);
   
@@ -153,13 +155,36 @@ const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange 
             <Badge variant="secondary" className="text-xs w-fit">
               {chapter.topics.length} topics
             </Badge>
+            {lectureCount > 0 && (
+              <Badge variant="outline" className="text-xs w-fit flex items-center gap-1">
+                <PlayCircle className="h-3 w-3" />
+                {lectureCount} {lectureCount === 1 ? 'video' : 'videos'}
+              </Badge>
+            )}
           </div>
         </div>
 
-        {/* RIGHT SIDE: Day Range */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 ml-2">
-          <CalendarIcon className="h-3 w-3" />
-          <span className="whitespace-nowrap">Day {chapter.day_start}-{chapter.day_end}</span>
+        {/* RIGHT SIDE: Day Range + Lectures Button */}
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+          {lectureCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewLectures(chapter.id);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <PlayCircle className="h-3 w-3 mr-1" />
+              Watch
+            </Button>
+          )}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+            <CalendarIcon className="h-3 w-3" />
+            <span>Day {chapter.day_start}-{chapter.day_end}</span>
+          </div>
         </div>
       </div>
       
@@ -172,9 +197,11 @@ interface SortableSubjectCardProps {
   subject: RoadmapData['subjects'][0];
   onChapterClick: (chapterId: string, chapterName: string, topics: any[]) => void;
   onChapterReorder: (subjectName: string, reorderedChapterIds: string[]) => void;
+  chapterLectureCounts: Record<string, number>;
+  onViewLectures: (chapterId: string) => void;
 }
 
-const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: SortableSubjectCardProps) => {
+const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder, chapterLectureCounts, onViewLectures }: SortableSubjectCardProps) => {
   const [localChapters, setLocalChapters] = useState(subject.chapters);
   const [isDraggingChapter, setIsDraggingChapter] = useState(false);
 
@@ -322,6 +349,8 @@ const SortableSubjectCard = ({ subject, onChapterClick, onChapterReorder }: Sort
                     index={index}
                     onChapterClick={onChapterClick}
                     onSerialNumberChange={handleSerialNumberChange}
+                    lectureCount={chapterLectureCounts[chapter.id] || 0}
+                    onViewLectures={onViewLectures}
                   />
                 ))}
               </div>
@@ -348,6 +377,7 @@ export const StudentBatchRoadmap = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string; topics: any[] } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'cards'>('list');
+  const [chapterLectureCounts, setChapterLectureCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   const sensors = useSensors(
@@ -367,6 +397,7 @@ export const StudentBatchRoadmap = () => {
 
   useEffect(() => {
     fetchRoadmap();
+    fetchLectureCounts();
   }, []);
 
   // Realtime sync for chapter reordering
@@ -449,6 +480,42 @@ export const StudentBatchRoadmap = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchLectureCounts = async () => {
+    try {
+      // Fetch all chapters to get their IDs
+      const { data: chapters, error: chaptersError } = await supabase
+        .from('roadmap_chapters')
+        .select('id');
+      
+      if (chaptersError || !chapters) return;
+      
+      const chapterIds = chapters.map((c: any) => c.id);
+      
+      // Use RPC or aggregate query to count lectures per chapter
+      const countsMap: Record<string, number> = {};
+      
+      for (const chapterId of chapterIds) {
+        const { count } = await supabase
+          .from('chapter_lectures' as any)
+          .select('*', { count: 'exact', head: true })
+          .eq('chapter_id', chapterId)
+          .eq('is_published', true);
+        
+        if (count && count > 0) {
+          countsMap[chapterId] = count;
+        }
+      }
+      
+      setChapterLectureCounts(countsMap);
+    } catch (error) {
+      console.error('Error fetching lecture counts:', error);
+    }
+  };
+
+  const handleViewLectures = (chapterId: string) => {
+    navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lectures`);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -737,6 +804,8 @@ export const StudentBatchRoadmap = () => {
                       setSelectedChapter({ id: chapterId, name: chapterName, topics });
                     }}
                     onChapterReorder={handleChapterReorder}
+                    chapterLectureCounts={chapterLectureCounts}
+                    onViewLectures={handleViewLectures}
                   />
                 ))}
               </div>

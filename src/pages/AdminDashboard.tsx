@@ -37,6 +37,7 @@ import { MigrationStatus } from "@/components/admin/MigrationStatus";
 import { QuestionBankReview } from "@/components/admin/QuestionBankReview";
 import DatabaseExplorer from "@/pages/DatabaseExplorer";
 import ChapterLectureManager from "@/components/admin/ChapterLectureManager";
+import TopicZoneAnalytics from "@/components/admin/TopicZoneAnalytics";
 
 const AdminDashboard = () => {
   const { user, isAdmin, loading } = useAuth();
@@ -87,6 +88,7 @@ const AdminDashboard = () => {
     { value: "subscriptions", label: "Subscriptions", component: SubscriptionManagement },
     { value: "withdrawals", label: "Withdrawals", component: WithdrawalManagement },
     { value: "analytics", label: "Analytics", component: AnalyticsReports },
+    { value: "topic-zones", label: "Topic Zone Analytics", component: TopicZoneAnalytics },
     { value: "leaderboard", label: "Leaderboard", component: LeaderboardManagement },
     { value: "exam-types", label: "Exam Types", component: ExamTypesManagement },
     { value: "parents", label: "Parents", component: ParentManagement },

@@ -4,6 +4,7 @@ import { Calendar } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getTopicColor } from '@/lib/progressColors';
 
@@ -69,6 +70,8 @@ const TopicCard = ({
   subject, 
   chapterName,
   gameCompletionRate,
+  gamesCompleted,
+  totalGames,
   isToday, 
   isPast,
   isEmpty
@@ -77,6 +80,8 @@ const TopicCard = ({
   subject: string;
   chapterName: string;
   gameCompletionRate: number;
+  gamesCompleted: number;
+  totalGames: number;
   isToday: boolean; 
   isPast: boolean;
   isEmpty?: boolean;
@@ -101,35 +106,49 @@ const TopicCard = ({
   const color = getTopicColor(gameCompletionRate);
 
   return (
-    <div className={`p-2 border rounded-lg ${color.bg} text-white relative mb-2 hover:shadow-md transition-all`}>
-      {/* Subject Tag */}
-      <div className="text-xs font-semibold uppercase text-white/80 tracking-wide">
-        {subject}
-      </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={`p-2 border rounded-lg ${color.bg} text-white relative mb-2 hover:shadow-md transition-all cursor-pointer`}>
+            {/* Subject Tag */}
+            <div className="text-xs font-semibold uppercase text-white/80 tracking-wide">
+              {subject}
+            </div>
 
-      {/* Topic Name */}
-      <div className="font-medium text-sm mt-1 flex items-center justify-between">
-        <span>{topic.topic_name}</span>
-        {isToday && <Badge variant="secondary" className="text-xs ml-2">Today</Badge>}
-      </div>
+            {/* Topic Name */}
+            <div className="font-medium text-sm mt-1 flex items-center justify-between">
+              <span>{topic.topic_name}</span>
+              {isToday && <Badge variant="secondary" className="text-xs ml-2">Today</Badge>}
+            </div>
 
-      {/* Chapter Reference */}
-      <div className="text-xs mt-1 text-white/80">
-        Chapter: {chapterName}
-      </div>
+            {/* Chapter Reference */}
+            <div className="text-xs mt-1 text-white/80">
+              Chapter: {chapterName}
+            </div>
 
-      {/* Progress Badge */}
-      <div className="absolute top-1 right-1">
-        <Badge className={`text-xs ${color.badgeClass} text-white`}>
-          {color.icon} {gameCompletionRate.toFixed(0)}%
-        </Badge>
-      </div>
+            {/* Progress Badge */}
+            <div className="absolute top-1 right-1">
+              <Badge className={`text-xs ${color.badgeClass} text-white`}>
+                {color.icon} {gameCompletionRate.toFixed(0)}%
+              </Badge>
+            </div>
 
-      {/* Status Text */}
-      <div className="mt-2 text-[10px] text-white/70">
-        {color.label}
-      </div>
-    </div>
+            {/* Status Text */}
+            <div className="mt-2 text-[10px] text-white/70">
+              {color.label}
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="bg-popover text-popover-foreground">
+          <div className="space-y-1 text-sm">
+            <p className="font-semibold">Progress Details</p>
+            <p>Game Completion: {gameCompletionRate.toFixed(1)}%</p>
+            <p>Games: {gamesCompleted}/{totalGames}</p>
+            <p>Status: {color.label}</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -151,6 +170,8 @@ export const ParentRoadmapCalendar = ({
     chapterName: string;
     topicName: string;
     gameCompletionRate: number;
+    gamesCompleted: number;
+    totalGames: number;
     status: string;
     isEmpty?: boolean;
   }
@@ -176,6 +197,8 @@ export const ParentRoadmapCalendar = ({
             chapterName: chapter.chapter_name,
             topicName: topic.topic_name,
             gameCompletionRate: rate,
+            gamesCompleted: topic.games_completed || 0,
+            totalGames: topic.total_games || 0,
             status: topic.status || 'not_started',
             isEmpty: false
           } as CalendarTopic;
@@ -189,6 +212,8 @@ export const ParentRoadmapCalendar = ({
           chapterName: chapter.chapter_name,
           topicName: '📚 Topics not yet added',
           gameCompletionRate: 0,
+          gamesCompleted: 0,
+          totalGames: 0,
           status: 'not_started',
           isEmpty: true
         } as CalendarTopic];
@@ -311,6 +336,8 @@ export const ParentRoadmapCalendar = ({
                                 subject={topicItem.subject}
                                 chapterName={topicItem.chapterName}
                                 gameCompletionRate={topicItem.gameCompletionRate}
+                                gamesCompleted={topicItem.gamesCompleted || 0}
+                                totalGames={topicItem.totalGames || 0}
                                 isToday={isToday}
                                 isPast={isPast}
                                 isEmpty={topicItem.isEmpty}
@@ -332,6 +359,8 @@ export const ParentRoadmapCalendar = ({
                               subject={topicItem.subject}
                               chapterName={topicItem.chapterName}
                               gameCompletionRate={topicItem.gameCompletionRate}
+                              gamesCompleted={topicItem.gamesCompleted || 0}
+                              totalGames={topicItem.totalGames || 0}
                               isToday={isToday}
                               isPast={isPast}
                               isEmpty={topicItem.isEmpty}

@@ -12,13 +12,23 @@ import {
   SkipBack, 
   SkipForward, 
   Volume2, 
+  VolumeX,
   Maximize, 
   CheckCircle,
   Clock,
   BookOpen,
   ArrowLeft,
-  Settings
+  Settings,
+  MonitorPlay,
+  Monitor,
+  Gauge,
+  Keyboard,
 } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { supabase } from '@/integrations/supabase/client';
 
 interface Lecture {
@@ -89,6 +99,10 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [player, setPlayer] = useState<any>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout>();
   const lastUpdateRef = useRef<number>(0);
+  const [currentQuality, setCurrentQuality] = useState<string>('auto');
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
   const { toast } = useToast();
 
   // Calculate progress percentage
@@ -109,6 +123,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       cc_load_policy: 0,
       iv_load_policy: 3,
       disablekb: 0,
+      vq: currentQuality === 'auto' ? undefined : currentQuality,
     },
   };
 
@@ -119,12 +134,127 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
 
   useEffect(() => {
     loadLectureProgress();
+
+    // Keyboard shortcuts
+    const handleKeyPress = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case ' ':
+        case 'k':
+          e.preventDefault();
+          togglePlay();
+          break;
+        
+        case 'arrowleft':
+          e.preventDefault();
+          if (player) {
+            const newTime = Math.max(0, currentTime - 10);
+            player.seekTo(newTime);
+            setCurrentTime(newTime);
+            toast({ title: `⏪ -10s` });
+          }
+          break;
+        
+        case 'arrowright':
+          e.preventDefault();
+          if (player) {
+            const newTime = Math.min(duration, currentTime + 10);
+            player.seekTo(newTime);
+            setCurrentTime(newTime);
+            toast({ title: `⏩ +10s` });
+          }
+          break;
+        
+        case 'arrowup':
+          e.preventDefault();
+          if (player) {
+            const newVolume = Math.min(100, player.getVolume() + 10);
+            player.setVolume(newVolume);
+            toast({ title: `🔊 Volume: ${newVolume}%` });
+          }
+          break;
+        
+        case 'arrowdown':
+          e.preventDefault();
+          if (player) {
+            const newVolume = Math.max(0, player.getVolume() - 10);
+            player.setVolume(newVolume);
+            toast({ title: `🔉 Volume: ${newVolume}%` });
+          }
+          break;
+        
+        case 'm':
+          e.preventDefault();
+          if (player) {
+            const currentVolume = player.getVolume();
+            if (currentVolume > 0) {
+              player.setVolume(0);
+              setIsMuted(true);
+              toast({ title: `🔇 Muted` });
+            } else {
+              player.setVolume(100);
+              setIsMuted(false);
+              toast({ title: `🔊 Unmuted` });
+            }
+          }
+          break;
+        
+        case 'f':
+          e.preventDefault();
+          const iframe = document.querySelector('iframe');
+          if (iframe?.requestFullscreen) {
+            iframe.requestFullscreen();
+          }
+          break;
+        
+        case 'p':
+        case 'i':
+          e.preventDefault();
+          togglePictureInPicture();
+          break;
+        
+        case ',':
+        case '<':
+          e.preventDefault();
+          goToPreviousLecture();
+          break;
+        
+        case '.':
+        case '>':
+          e.preventDefault();
+          goToNextLecture();
+          break;
+        
+        case 'escape':
+          e.preventDefault();
+          onClose();
+          break;
+        
+        case '1': case '2': case '3': case '4':
+          e.preventDefault();
+          const speed = parseInt(e.key);
+          if (player && speed >= 1 && speed <= 4) {
+            player.setPlaybackRate(speed);
+            setPlaybackSpeed(speed);
+            toast({ title: `Speed: ${speed}x` });
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+      window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [lecture.id]);
+  }, [lecture.id, player, currentTime, duration]);
 
   // YouTube player event handlers
   const onPlayerReady = (event: any) => {
@@ -244,6 +374,58 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       player.seekTo(newTime);
       setCurrentTime(newTime);
       updateProgress(newTime);
+    }
+  };
+
+  const handleQualityChange = (quality: string) => {
+    if (player) {
+      player.setPlaybackQuality(quality);
+      setCurrentQuality(quality);
+      const qualityLabel = quality === 'auto' ? 'Auto' :
+                          quality === 'hd1080' ? '1080p' :
+                          quality === 'hd720' ? '720p' :
+                          quality === 'large' ? '480p' :
+                          quality === 'medium' ? '360p' : quality;
+      toast({ title: `Quality: ${qualityLabel}` });
+    }
+  };
+
+  const togglePictureInPicture = async () => {
+    try {
+      const iframe = document.querySelector('iframe');
+      if (!iframe) return;
+
+      if (!document.pictureInPictureEnabled) {
+        toast({ 
+          title: "Not Supported", 
+          description: "Picture-in-Picture is not supported in your browser",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPiPActive(false);
+        return;
+      }
+
+      const videoElement = iframe.querySelector('video');
+      if (videoElement) {
+        await (videoElement as any).requestPictureInPicture();
+        setIsPiPActive(true);
+        
+        videoElement.addEventListener('leavepictureinpicture', () => {
+          setIsPiPActive(false);
+        });
+      }
+    } catch (error) {
+      console.error('PiP error:', error);
+      toast({ 
+        title: "PiP Failed", 
+        description: "Could not enable Picture-in-Picture mode",
+        variant: "destructive"
+      });
     }
   };
 
@@ -403,6 +585,45 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
               `${Math.round(progressPercentage)}% watched`
             )}
           </Badge>
+          
+          {/* Speed Indicator Badge */}
+          {playbackSpeed !== 1 && (
+            <Badge variant="outline" className="flex-shrink-0">
+              <Gauge className="h-3 w-3 mr-1" />
+              {playbackSpeed}x
+            </Badge>
+          )}
+          
+          {/* Keyboard Shortcuts Help */}
+          <div className="hidden md:block">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-xs h-7">
+                  <Keyboard className="h-3 w-3 mr-1" />
+                  Shortcuts
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Keyboard Shortcuts</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">Space</kbd> Play/Pause</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">M</kbd> Mute</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">←</kbd> -10s</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">→</kbd> +10s</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">↑</kbd> Volume +</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">↓</kbd> Volume -</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">F</kbd> Fullscreen</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">P</kbd> PiP Mode</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">1-4</kbd> Speed</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">Esc</kbd> Exit</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">&lt;</kbd> Prev</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">&gt;</kbd> Next</div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
 
@@ -471,52 +692,127 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 </Button>
               </div>
 
-              {/* Right Controls */}
-              <div className="flex items-center gap-1 md:gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => {
-                    if (player) {
-                      const currentVolume = player.getVolume();
-                      player.setVolume(currentVolume > 0 ? 0 : 100);
+            {/* Right Controls */}
+            <div className="flex items-center gap-1 md:gap-2">
+              {/* Volume Button */}
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => {
+                  if (player) {
+                    const currentVolume = player.getVolume();
+                    if (currentVolume > 0) {
+                      player.setVolume(0);
+                      setIsMuted(true);
+                    } else {
+                      player.setVolume(100);
+                      setIsMuted(false);
                     }
-                  }}
-                >
+                  }
+                }}
+              >
+                {isMuted ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : (
                   <Volume2 className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => {
-                    if (player) {
-                      const currentSpeed = player.getPlaybackRate();
-                      const speeds = [0.75, 1, 1.25, 1.5, 2];
-                      const currentIndex = speeds.indexOf(currentSpeed);
-                      const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
-                      player.setPlaybackRate(nextSpeed);
-                      toast({ title: `Speed: ${nextSpeed}x` });
-                    }
-                  }}
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => {
-                    const iframe = document.querySelector('iframe');
-                    if (iframe?.requestFullscreen) {
-                      iframe.requestFullscreen();
-                    }
-                  }}
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
-              </div>
+                )}
+              </Button>
+              
+              {/* Speed Control with Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-8 px-2 flex items-center gap-1"
+                  >
+                    <Gauge className="h-4 w-4" />
+                    <span className="text-xs hidden md:inline">{playbackSpeed}x</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-32 p-2" align="end">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold mb-2 text-muted-foreground">Speed</div>
+                    {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4].map((speed) => (
+                      <Button
+                        key={speed}
+                        variant={playbackSpeed === speed ? "default" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => {
+                          if (player) {
+                            player.setPlaybackRate(speed);
+                            setPlaybackSpeed(speed);
+                            toast({ title: `Speed: ${speed}x` });
+                          }
+                        }}
+                      >
+                        {speed}x
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Quality Selector */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                  >
+                    <Monitor className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-32 p-2" align="end">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold mb-2 text-muted-foreground">Quality</div>
+                    {['auto', 'hd1080', 'hd720', 'large', 'medium'].map((quality) => (
+                      <Button
+                        key={quality}
+                        variant={currentQuality === quality ? "default" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => handleQualityChange(quality)}
+                      >
+                        {quality === 'auto' ? 'Auto' :
+                         quality === 'hd1080' ? '1080p' :
+                         quality === 'hd720' ? '720p' :
+                         quality === 'large' ? '480p' :
+                         quality === 'medium' ? '360p' : quality}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Picture-in-Picture Button */}
+              <Button 
+                variant={isPiPActive ? "default" : "ghost"}
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={togglePictureInPicture}
+              >
+                <MonitorPlay className="h-4 w-4" />
+              </Button>
+              
+              {/* Fullscreen */}
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => {
+                  const iframe = document.querySelector('iframe');
+                  if (iframe?.requestFullscreen) {
+                    iframe.requestFullscreen();
+                  }
+                }}
+              >
+                <Maximize className="h-4 w-4" />
+              </Button>
+            </div>
             </div>
           </div>
         </div>

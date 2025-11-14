@@ -14,7 +14,7 @@ import { useExamTypes } from "@/hooks/useExamTypes";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveActiveRoadmapIdForBatch } from "@/lib/roadmapHelpers";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 interface ChapterLecture {
   id: string;
@@ -453,63 +453,77 @@ export default function ChapterLectureManager() {
           <DialogHeader>
             <DialogTitle>Add YouTube Lecture</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="h-[70vh] pr-4">
-                  <div className="space-y-4">
-                    <div>
-                      <Label>YouTube URL</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={youtubeUrl}
-                          onChange={(e) => setYoutubeUrl(e.target.value)}
-                          placeholder="https://www.youtube.com/watch?v=..."
-                        />
-                        <Button onClick={handleAutoFetch} disabled={isLoading}>
-                          {isLoading ? "Fetching..." : "Auto-Fetch"}
-                        </Button>
-                      </div>
-                    </div>
+          
+          {/* Scrollable content with visible native scrollbar */}
+          <div
+            className="h-[70vh] overflow-y-auto pr-3
+                       [-ms-overflow-style:auto] [scrollbar-width:auto]
+                       [&::-webkit-scrollbar]:w-3
+                       [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40
+                       [&::-webkit-scrollbar-thumb]:rounded-full
+                       [&::-webkit-scrollbar-track]:bg-muted/30"
+          >
+            <div className="space-y-4">
+              <div>
+                <Label>YouTube URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                  <Button onClick={handleAutoFetch} disabled={isLoading}>
+                    {isLoading ? "Fetching..." : "Auto-Fetch"}
+                  </Button>
+                </div>
+              </div>
 
-                    {videoDetails && (
-                      <>
-                        <div className="border rounded-lg p-4 space-y-2">
-                          <img
-                            src={videoDetails.thumbnail}
-                            alt={videoDetails.title}
-                            className="max-h-56 w-full object-cover rounded-md"
-                          />
-                          <h4 className="font-semibold">{videoDetails.title}</h4>
-                          <Badge variant="secondary">
-                            {formatDuration(videoDetails.duration_seconds)}
-                          </Badge>
-                        </div>
-
-                        <div>
-                          <Label>Description (Optional)</Label>
-                          <Textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Add a description..."
-                          />
-                        </div>
-
-                        <div>
-                          <Label>XP Reward</Label>
-                          <Input
-                            type="number"
-                            value={xpReward}
-                            onChange={(e) => setXpReward(parseInt(e.target.value))}
-                            min={0}
-                          />
-                        </div>
-
-                        <Button onClick={handleSaveLecture} disabled={isLoading} className="w-full">
-                          Save Lecture
-                        </Button>
-                      </>
-                    )}
+              {videoDetails && (
+                <>
+                  <div className="border rounded-lg p-4 space-y-2">
+                    <img
+                      src={videoDetails.thumbnail}
+                      alt={videoDetails.title}
+                      className="max-h-48 w-full object-cover rounded-md"
+                    />
+                    <h4 className="font-semibold">{videoDetails.title}</h4>
+                    <Badge variant="secondary">
+                      {formatDuration(videoDetails.duration_seconds)}
+                    </Badge>
                   </div>
-                </ScrollArea>
-              </DialogContent>
+
+                  <div>
+                    <Label>Description (Optional)</Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Add a description..."
+                    />
+                  </div>
+
+                  <div>
+                    <Label>XP Reward</Label>
+                    <Input
+                      type="number"
+                      value={xpReward}
+                      onChange={(e) => setXpReward(parseInt(e.target.value))}
+                      min={0}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Sticky footer so Save button is always reachable */}
+            {videoDetails && (
+              <div className="sticky bottom-0 left-0 right-0 bg-background pt-3 mt-4 border-t">
+                <Button onClick={handleSaveLecture} disabled={isLoading} className="w-full">
+                  Save Lecture
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
             </Dialog>
           </div>
 

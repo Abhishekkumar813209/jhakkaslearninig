@@ -23,6 +23,7 @@ import { SubjectProgressCircles } from './SubjectProgressCircles';
 import { StudyHoursChart } from './StudyHoursChart';
 import { LearningJourneySummary } from './LearningJourneySummary';
 import { StudentAnalytics } from './StudentAnalytics';
+import { ContinueWatchingCard } from './ContinueWatchingCard';
 
 const StudentDashboard: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -223,6 +224,9 @@ const StudentDashboard: React.FC = () => {
               </Card>
             </div>
           )}
+
+          {/* Continue Watching Section */}
+          <ContinueWatchingCard />
 
           {/* Subject Progress Circles */}
           <SubjectProgressCircles />

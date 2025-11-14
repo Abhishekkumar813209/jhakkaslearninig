@@ -105,6 +105,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     setPlayer(event.target);
     setDuration(event.target.getDuration());
     setLoading(false);
+
+    // Resume from saved timestamp if exists
+    if (progress.watch_time_seconds > 0 && !progress.is_completed) {
+      event.target.seekTo(progress.watch_time_seconds, true);
+      setCurrentTime(progress.watch_time_seconds);
+    }
+    
     
     // Start progress tracking
     progressIntervalRef.current = setInterval(() => {

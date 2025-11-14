@@ -92,14 +92,15 @@ const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange,
       {...attributes} 
       {...listeners}
       className={cn(
-        "border rounded-lg p-4 md:p-3 space-y-2 cursor-grab active:cursor-grabbing hover:bg-muted/30 transition-all",
+        "border rounded-lg p-2 md:p-3 space-y-2 cursor-grab active:cursor-grabbing hover:bg-muted/30 transition-all",
         isDragging && "ring-2 ring-primary shadow-lg"
       )}
     >
-      <div className="flex items-center justify-between">
-        {/* LEFT SIDE: Serial Number + Chapter Info */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Editable Serial Number */}
+      {/* Mobile: Vertical Stack, Desktop: Horizontal */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        {/* TOP ROW (Mobile) / LEFT SIDE (Desktop) */}
+        <div className="flex items-center gap-1.5 md:gap-2 flex-1 min-w-0">
+          {/* Serial Number Badge */}
           {isEditing ? (
             <Input
               type="number"
@@ -117,7 +118,7 @@ const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange,
                   setSerialNumber(index + 1);
                 }
               }}
-              className="w-12 h-8 text-center text-sm p-0"
+              className="w-10 h-7 text-center text-xs md:text-sm p-0"
               autoFocus
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
@@ -125,7 +126,7 @@ const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange,
           ) : (
             <Badge 
               variant="outline" 
-              className="w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-primary hover:text-primary-foreground flex-shrink-0"
+              className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center cursor-pointer hover:bg-primary hover:text-primary-foreground flex-shrink-0 text-xs md:text-sm"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(true);
@@ -136,55 +137,60 @@ const SortableChapter = ({ chapter, index, onChapterClick, onSerialNumberChange,
             </Badge>
           )}
           
-          {/* Visual Drag Indicator */}
-          <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          {/* Desktop-only icons */}
+          <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 hidden md:block" />
+          <BookOpen className="h-4 w-4 text-primary flex-shrink-0 hidden md:block" />
           
-          <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
-          
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-            <span 
-              className="font-medium text-sm truncate cursor-pointer hover:underline text-primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChapterClick(chapter.id, chapter.chapter_name, chapter.topics);
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {chapter.chapter_name}
-            </span>
-            <Badge variant="secondary" className="text-xs w-fit">
-              {chapter.topics.length} topics
-            </Badge>
-            {lectureCount > 0 && (
-              <Badge variant="outline" className="text-xs w-fit flex items-center gap-1">
-                <PlayCircle className="h-3 w-3" />
-                {lectureCount} {lectureCount === 1 ? 'video' : 'videos'}
-              </Badge>
-            )}
-          </div>
+          {/* Chapter Name - Full Width on Mobile */}
+          <span 
+            className="font-medium text-sm md:text-base flex-1 min-w-0 cursor-pointer hover:underline text-primary line-clamp-2 md:line-clamp-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChapterClick(chapter.id, chapter.chapter_name, chapter.topics);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {chapter.chapter_name}
+          </span>
         </div>
 
-        {/* RIGHT SIDE: Day Range + Lectures Button */}
-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+        {/* BOTTOM ROW (Mobile) / RIGHT SIDE (Desktop) */}
+        <div className="flex items-center gap-1.5 md:gap-2 flex-wrap md:flex-nowrap ml-8 md:ml-0">
+          {/* Topics Badge */}
+          <Badge variant="secondary" className="text-xs h-5 px-1.5">
+            {chapter.topics.length} topics
+          </Badge>
+          
+          {/* Lecture Badge */}
+          {lectureCount > 0 && (
+            <Badge variant="outline" className="text-xs h-5 px-1.5 flex items-center gap-1">
+              <PlayCircle className="h-3 w-3" />
+              {lectureCount}
+            </Badge>
+          )}
+          
+          {/* Day Range - Compact */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <CalendarIcon className="h-3 w-3 hidden md:inline" />
+            <span className="whitespace-nowrap">Day {chapter.day_start}-{chapter.day_end}</span>
+          </div>
+          
+          {/* Watch Button - Compact */}
           {lectureCount > 0 && (
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-xs"
+              className="h-6 px-2 text-xs ml-auto"
               onClick={(e) => {
                 e.stopPropagation();
                 onViewLectures(chapter.id);
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <PlayCircle className="h-3 w-3 mr-1" />
-              Watch
+              <PlayCircle className="h-3 w-3 md:mr-1" />
+              <span className="hidden md:inline">Watch</span>
             </Button>
           )}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-            <CalendarIcon className="h-3 w-3" />
-            <span>Day {chapter.day_start}-{chapter.day_end}</span>
-          </div>
         </div>
       </div>
       

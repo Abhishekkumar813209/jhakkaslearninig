@@ -88,6 +88,31 @@ export default function ChapterLecturePlaylist() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const parseLectureTitle = (fullTitle: string): { mainTitle: string; context: string } => {
+    const parts = fullTitle.split(/\s*[|•]\s*/);
+    let mainTitle = parts[0].trim();
+    mainTitle = mainTitle.replace(/\s*in\s+\d+\s+minutes?\s*/gi, "").trim();
+    mainTitle = mainTitle.replace(/\s*[🔥⚡️💡📚✨]+\s*$/g, "").trim();
+    
+    let context = "";
+    const contextMatches = fullTitle.match(/(?:Rapid Revision|Quick Learning|One Shot|Complete Chapter|Practice Session)/i);
+    if (contextMatches) {
+      context = contextMatches[0];
+    }
+    
+    return { mainTitle, context };
+  };
+
+  const extractMetadata = (title: string): { className?: string; subject?: string } => {
+    const classMatch = title.match(/Class\s*(\d+(?:th|st|nd|rd)?)/i);
+    const subjectMatch = title.match(/(?:Science|Math|Physics|Chemistry|Biology|English|History|Geography)/i);
+    
+    return {
+      className: classMatch ? `Class ${classMatch[1]}` : undefined,
+      subject: subjectMatch ? subjectMatch[0] : undefined
+    };
+  };
+
   const getProgressPercentage = (lectureId: string, duration: number): number => {
     const prog = progress.get(lectureId);
     if (!prog) return 0;
@@ -152,19 +177,22 @@ export default function ChapterLecturePlaylist() {
               const prog = progress.get(lecture.id);
               const progressPercent = getProgressPercentage(lecture.id, lecture.video_duration_seconds);
               const isCompleted = prog?.is_completed || false;
+              const { mainTitle, context } = parseLectureTitle(lecture.title);
+              const metadata = extractMetadata(lecture.title);
 
               return (
                 <Card
                   key={lecture.id}
-                  className="p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                  className="p-3 md:p-4 cursor-pointer hover:shadow-lg transition-shadow"
                   onClick={() => handleLectureClick(lecture.id)}
                 >
-                  <div className="flex gap-4">
-                    <div className="relative">
+                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                    {/* Thumbnail */}
+                    <div className="relative w-full md:w-48 aspect-video md:aspect-auto md:h-28 flex-shrink-0">
                       <img
                         src={lecture.thumbnail_url || ""}
-                        alt={lecture.title}
-                        className="w-48 h-28 object-cover rounded"
+                        alt={mainTitle}
+                        className="w-full h-full object-cover rounded"
                       />
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded">
                         {isCompleted ? (
@@ -174,29 +202,67 @@ export default function ChapterLecturePlaylist() {
                         )}
                       </div>
                     </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-lg">{lecture.title}</h3>
-                          {lecture.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {lecture.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge variant="outline">
-                          {formatDuration(lecture.video_duration_seconds)}
-                        </Badge>
-                        <Badge variant="secondary">{lecture.xp_reward} XP</Badge>
-                        {isCompleted && (
-                          <Badge className="bg-green-600">Completed</Badge>
+
+                    {/* Content */}
+                    <div className="flex-1 space-y-2 min-w-0">
+                      {/* Title Section */}
+                      <div>
+                        <h3 className="font-semibold text-base md:text-lg line-clamp-2">
+                          {mainTitle}
+                        </h3>
+                        
+                        {/* Contextual Info */}
+                        {(context || metadata.subject) && (
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                            {context && (
+                              <>
+                                <span>{context}</span>
+                                {metadata.subject && <span>·</span>}
+                              </>
+                            )}
+                            {metadata.subject && <span>{metadata.subject}</span>}
+                          </div>
                         )}
                       </div>
+
+                      {/* Metadata Row - Compact Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {/* Class Badge */}
+                        {metadata.className && (
+                          <Badge variant="outline" className="h-6 text-xs px-2">
+                            {metadata.className}
+                          </Badge>
+                        )}
+                        
+                        {/* Duration Badge */}
+                        <Badge variant="outline" className="h-6 text-xs px-2">
+                          {formatDuration(lecture.video_duration_seconds)}
+                        </Badge>
+                        
+                        {/* XP Badge */}
+                        <Badge variant="secondary" className="h-6 text-xs px-2">
+                          {lecture.xp_reward} XP
+                        </Badge>
+                        
+                        {/* Completion Badge */}
+                        {isCompleted && (
+                          <Badge className="bg-green-600 h-6 text-xs px-2">
+                            ✓ Completed
+                          </Badge>
+                        )}
+                        
+                        {/* Hot/Trending indicator */}
+                        {lecture.title.includes('🔥') && !isCompleted && (
+                          <Badge variant="destructive" className="h-6 text-xs px-2">
+                            🔥 Hot
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Progress Bar (if in progress) */}
                       {progressPercent > 0 && !isCompleted && (
-                        <div className="space-y-1">
-                          <Progress value={progressPercent} className="h-2" />
+                        <div className="space-y-1 pt-1">
+                          <Progress value={progressPercent} className="h-1.5" />
                           <p className="text-xs text-muted-foreground">
                             {Math.round(progressPercent)}% watched
                           </p>

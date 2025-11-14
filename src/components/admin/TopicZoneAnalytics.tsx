@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, TrendingUp, TrendingDown, BarChart3, RefreshCw, FileDown, FileText } from 'lucide-react';
+import { AlertCircle, TrendingUp, TrendingDown, BarChart3, RefreshCw, FileDown, FileText, Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { exportAnalyticsToCSV, exportAnalyticsToPDF } from '@/lib/analyticsExport';
@@ -39,6 +39,7 @@ export default function TopicZoneAnalytics() {
   const [analytics, setAnalytics] = useState<ZoneAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [sendingAlerts, setSendingAlerts] = useState(false);
   const { toast } = useToast();
 
   const fetchAnalytics = async () => {
@@ -60,6 +61,36 @@ export default function TopicZoneAnalytics() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendAlerts = async () => {
+    setSendingAlerts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('topic-zone-analytics', {
+        body: { notify: true, threshold: 0.4 }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        const flaggedCount = data.flaggedBatches?.length || 0;
+        toast({
+          title: 'Alerts Sent',
+          description: flaggedCount > 0 
+            ? `${flaggedCount} batch(es) flagged and admins notified`
+            : 'No batches exceed 40% red zone threshold',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending alerts:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send admin alerts',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingAlerts(false);
     }
   };
 
@@ -170,6 +201,15 @@ export default function TopicZoneAnalytics() {
           <Button onClick={handleExportPDF} variant="outline" size="sm">
             <FileText className="h-4 w-4 mr-2" />
             Export PDF
+          </Button>
+          <Button 
+            onClick={handleSendAlerts} 
+            variant="outline" 
+            size="sm"
+            disabled={sendingAlerts}
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            {sendingAlerts ? 'Sending...' : 'Send Alerts'}
           </Button>
           <Button onClick={fetchAnalytics} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { Resend } from 'npm:resend@2.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,7 +28,20 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    console.log('Fetching topic zone analytics...');
+    // Parse request body for notify parameter
+    let notify = false;
+    let threshold = 0.4;
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        notify = body.notify === true;
+        threshold = body.threshold || 0.4;
+      } catch {
+        // If body parsing fails, continue with defaults
+      }
+    }
+
+    console.log('Fetching topic zone analytics...', { notify, threshold });
 
     // Overall distribution
     const { data: overallData, error: overallError } = await supabaseClient
@@ -201,10 +215,128 @@ Deno.serve(async (req) => {
       problemTopicCount: topicDetails.length,
     });
 
+    // Check if we should send admin notifications
+    let flaggedBatches: Array<{ name: string; redPercent: number; red: number; total: number }> = [];
+    
+    if (notify) {
+      // Calculate red zone percentage for each batch
+      for (const [batchName, counts] of Object.entries(byBatch)) {
+        const total = counts.green + counts.grey + counts.red;
+        const redPercent = total > 0 ? counts.red / total : 0;
+        
+        if (redPercent >= threshold) {
+          flaggedBatches.push({
+            name: batchName,
+            redPercent: Math.round(redPercent * 100),
+            red: counts.red,
+            total,
+          });
+        }
+      }
+
+      console.log('Flagged batches:', flaggedBatches);
+
+      // Send email if there are flagged batches
+      if (flaggedBatches.length > 0) {
+        try {
+          // Fetch admin emails
+          const { data: adminUsers, error: adminError } = await supabaseClient
+            .from('user_roles')
+            .select('user_id, profiles!inner(email)')
+            .eq('role', 'admin');
+
+          if (adminError) throw adminError;
+
+          const adminEmails = adminUsers
+            .map((u: any) => u.profiles?.email)
+            .filter(Boolean);
+
+          console.log('Admin emails:', adminEmails.length);
+
+          if (adminEmails.length > 0) {
+            const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+
+            // Build email HTML
+            const batchTable = flaggedBatches
+              .map(b => `<tr><td style="padding:8px;border:1px solid #ddd;">${b.name}</td><td style="padding:8px;border:1px solid #ddd;">${b.red}</td><td style="padding:8px;border:1px solid #ddd;">${b.total}</td><td style="padding:8px;border:1px solid #ddd;color:#ef4444;font-weight:bold;">${b.redPercent}%</td></tr>`)
+              .join('');
+
+            const topTopics = topicDetails.slice(0, 10)
+              .map(t => `<tr><td style="padding:8px;border:1px solid #ddd;">${t.topic_name}</td><td style="padding:8px;border:1px solid #ddd;">${t.subject}</td><td style="padding:8px;border:1px solid #ddd;">${t.chapter_name}</td><td style="padding:8px;border:1px solid #ddd;">${t.avg_completion.toFixed(1)}%</td><td style="padding:8px;border:1px solid #ddd;">${t.struggling_count}</td></tr>`)
+              .join('');
+
+            const emailHtml = `
+              <html>
+                <body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;">
+                  <h1 style="color:#ef4444;">🚨 Red Zone Alert: ${flaggedBatches.length} Batch(es) Need Attention</h1>
+                  <p>The following batches have exceeded <strong>${Math.round(threshold * 100)}%</strong> red zone topics:</p>
+                  
+                  <h2>Flagged Batches</h2>
+                  <table style="border-collapse:collapse;width:100%;max-width:600px;margin:20px 0;">
+                    <thead>
+                      <tr style="background:#f3f4f6;">
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Batch Name</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Red Topics</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Total Topics</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Red %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${batchTable}
+                    </tbody>
+                  </table>
+
+                  <h2>Top Problem Topics (Lowest Completion)</h2>
+                  <table style="border-collapse:collapse;width:100%;max-width:800px;margin:20px 0;">
+                    <thead>
+                      <tr style="background:#f3f4f6;">
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Topic</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Subject</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Chapter</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Avg Completion</th>
+                        <th style="padding:8px;border:1px solid #ddd;text-align:left;">Students Struggling</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${topTopics}
+                    </tbody>
+                  </table>
+
+                  <p style="margin-top:30px;color:#6b7280;">
+                    <strong>Recommended Actions:</strong><br/>
+                    • Review and update content for problem topics<br/>
+                    • Schedule intervention sessions for struggling students<br/>
+                    • Consider adding more practice games or explanations
+                  </p>
+
+                  <p style="margin-top:20px;color:#9ca3af;font-size:12px;">
+                    This is an automated alert from the Topic Zone Analytics system.
+                  </p>
+                </body>
+              </html>
+            `;
+
+            await resend.emails.send({
+              from: 'Topic Zone Analytics <alerts@resend.dev>',
+              to: adminEmails,
+              subject: `🚨 Alert: ${flaggedBatches.length} batch(es) exceed ${Math.round(threshold * 100)}% red topics`,
+              html: emailHtml,
+            });
+
+            console.log('Alert emails sent to', adminEmails.length, 'admins');
+          }
+        } catch (emailError) {
+          console.error('Error sending admin alerts:', emailError);
+          // Don't fail the whole request if email fails
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         analytics,
+        flaggedBatches: notify ? flaggedBatches : undefined,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

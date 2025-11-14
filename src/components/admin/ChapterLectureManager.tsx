@@ -449,11 +449,11 @@ export default function ChapterLectureManager() {
                   Add Lecture
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh]">
-                <DialogHeader>
-                  <DialogTitle>Add YouTube Lecture</DialogTitle>
-                </DialogHeader>
-                <ScrollArea className="max-h-[70vh] pr-4">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Add YouTube Lecture</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[70vh] pr-4">
                   <div className="space-y-4">
                     <div>
                       <Label>YouTube URL</Label>
@@ -475,7 +475,7 @@ export default function ChapterLectureManager() {
                           <img
                             src={videoDetails.thumbnail}
                             alt={videoDetails.title}
-                            className="w-full rounded"
+                            className="max-h-56 w-full object-cover rounded-md"
                           />
                           <h4 className="font-semibold">{videoDetails.title}</h4>
                           <Badge variant="secondary">

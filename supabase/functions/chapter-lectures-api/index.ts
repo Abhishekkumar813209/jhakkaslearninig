@@ -169,6 +169,60 @@ serve(async (req) => {
         );
       }
 
+      case 'get_continue_watching': {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { data: continueData, error: continueError } = await supabaseClient
+          .from('student_lecture_progress')
+          .select(`
+            watch_time_seconds,
+            chapter_lecture_id,
+            chapter_lectures!inner (
+              id,
+              title,
+              thumbnail_url,
+              video_duration_seconds,
+              chapter_id
+            )
+          `)
+          .eq('student_id', user.id)
+          .eq('is_completed', false)
+          .gt('watch_time_seconds', 0)
+          .eq('chapter_lectures.is_published', true)
+          .order('last_watched_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (continueError || !continueData) {
+          return new Response(
+            JSON.stringify({ success: true, data: null }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: chapterData } = await supabaseClient
+          .from('roadmap_chapters')
+          .select('id, title')
+          .eq('id', continueData.chapter_lectures.chapter_id)
+          .single();
+
+        const responseData = {
+          lectureId: continueData.chapter_lectures.id,
+          lectureTitle: continueData.chapter_lectures.title,
+          thumbnailUrl: continueData.chapter_lectures.thumbnail_url,
+          videoDurationSeconds: continueData.chapter_lectures.video_duration_seconds,
+          watchTimeSeconds: continueData.watch_time_seconds,
+          chapterId: continueData.chapter_lectures.chapter_id,
+          chapterName: chapterData?.title || 'Unknown Chapter',
+        };
+
+        return new Response(
+          JSON.stringify({ success: true, data: responseData }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),

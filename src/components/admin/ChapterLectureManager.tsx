@@ -14,6 +14,7 @@ import { useExamTypes } from "@/hooks/useExamTypes";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveActiveRoadmapIdForBatch } from "@/lib/roadmapHelpers";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ChapterLecture {
   id: string;
@@ -448,64 +449,66 @@ export default function ChapterLectureManager() {
                   Add Lecture
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>Add YouTube Lecture</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>YouTube URL</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={youtubeUrl}
-                        onChange={(e) => setYoutubeUrl(e.target.value)}
-                        placeholder="https://www.youtube.com/watch?v=..."
-                      />
-                      <Button onClick={handleAutoFetch} disabled={isLoading}>
-                        {isLoading ? "Fetching..." : "Auto-Fetch"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {videoDetails && (
-                    <>
-                      <div className="border rounded-lg p-4 space-y-2">
-                        <img
-                          src={videoDetails.thumbnail}
-                          alt={videoDetails.title}
-                          className="w-full rounded"
-                        />
-                        <h4 className="font-semibold">{videoDetails.title}</h4>
-                        <Badge variant="secondary">
-                          {formatDuration(videoDetails.duration_seconds)}
-                        </Badge>
-                      </div>
-
-                      <div>
-                        <Label>Description (Optional)</Label>
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Add a description..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label>XP Reward</Label>
+                <ScrollArea className="max-h-[70vh] pr-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label>YouTube URL</Label>
+                      <div className="flex gap-2">
                         <Input
-                          type="number"
-                          value={xpReward}
-                          onChange={(e) => setXpReward(parseInt(e.target.value))}
-                          min={0}
+                          value={youtubeUrl}
+                          onChange={(e) => setYoutubeUrl(e.target.value)}
+                          placeholder="https://www.youtube.com/watch?v=..."
                         />
+                        <Button onClick={handleAutoFetch} disabled={isLoading}>
+                          {isLoading ? "Fetching..." : "Auto-Fetch"}
+                        </Button>
                       </div>
+                    </div>
 
-                      <Button onClick={handleSaveLecture} disabled={isLoading} className="w-full">
-                        Save Lecture
-                      </Button>
-                    </>
-                  )}
-                </div>
+                    {videoDetails && (
+                      <>
+                        <div className="border rounded-lg p-4 space-y-2">
+                          <img
+                            src={videoDetails.thumbnail}
+                            alt={videoDetails.title}
+                            className="w-full rounded"
+                          />
+                          <h4 className="font-semibold">{videoDetails.title}</h4>
+                          <Badge variant="secondary">
+                            {formatDuration(videoDetails.duration_seconds)}
+                          </Badge>
+                        </div>
+
+                        <div>
+                          <Label>Description (Optional)</Label>
+                          <Textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Add a description..."
+                          />
+                        </div>
+
+                        <div>
+                          <Label>XP Reward</Label>
+                          <Input
+                            type="number"
+                            value={xpReward}
+                            onChange={(e) => setXpReward(parseInt(e.target.value))}
+                            min={0}
+                          />
+                        </div>
+
+                        <Button onClick={handleSaveLecture} disabled={isLoading} className="w-full">
+                          Save Lecture
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           </div>

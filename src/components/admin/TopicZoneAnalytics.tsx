@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, TrendingUp, TrendingDown, BarChart3, RefreshCw } from 'lucide-react';
+import { AlertCircle, TrendingUp, TrendingDown, BarChart3, RefreshCw, FileDown, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { exportAnalyticsToCSV, exportAnalyticsToPDF } from '@/lib/analyticsExport';
 
 interface ZoneAnalytics {
   overall: {
@@ -59,6 +60,42 @@ export default function TopicZoneAnalytics() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!analytics) return;
+    try {
+      exportAnalyticsToCSV(analytics);
+      toast({
+        title: 'Success',
+        description: 'Analytics exported to CSV successfully',
+      });
+    } catch (error) {
+      console.error('CSV export error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to export CSV',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!analytics) return;
+    try {
+      exportAnalyticsToPDF(analytics);
+      toast({
+        title: 'Success',
+        description: 'Analytics exported to PDF successfully',
+      });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to export PDF',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -119,16 +156,26 @@ export default function TopicZoneAnalytics() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Refresh */}
+      {/* Header with Export and Refresh */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Topic Zone Analytics</h1>
           <p className="text-muted-foreground">Distribution of topics across green/grey/red zones</p>
         </div>
-        <Button onClick={fetchAnalytics} disabled={loading}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleExportCSV} variant="outline" size="sm">
+            <FileDown className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button onClick={handleExportPDF} variant="outline" size="sm">
+            <FileText className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button onClick={fetchAnalytics} disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

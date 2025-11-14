@@ -10,11 +10,13 @@ interface ZoneAnalytics {
   };
   bySubject: Record<string, { green: number; grey: number; red: number }>;
   byBatch: Record<string, { green: number; grey: number; red: number }>;
-  problemTopics: Array<{
+  topicDetails: Array<{
+    topic_id: string;
     topic_name: string;
+    chapter_name: string;
     subject: string;
-    chapter: string;
     avg_completion: number;
+    student_count: number;
     struggling_count: number;
   }>;
 }
@@ -54,8 +56,8 @@ export const exportAnalyticsToCSV = (analytics: ZoneAnalytics) => {
   // Problem Topics
   csv += `PROBLEM TOPICS (Red Zone)\n`;
   csv += `Topic,Subject,Chapter,Avg Completion %,Struggling Students\n`;
-  analytics.problemTopics.forEach(topic => {
-    csv += `"${topic.topic_name}","${topic.subject}","${topic.chapter}",${topic.avg_completion.toFixed(1)}%,${topic.struggling_count}\n`;
+  analytics.topicDetails.forEach(topic => {
+    csv += `"${topic.topic_name}","${topic.subject}","${topic.chapter_name}",${topic.avg_completion.toFixed(1)}%,${topic.struggling_count}\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -110,16 +112,16 @@ export const exportAnalyticsToPDF = (analytics: ZoneAnalytics) => {
   });
   
   // Add new page for problem topics if needed
-  if (analytics.problemTopics.length > 0) {
+  if (analytics.topicDetails.length > 0) {
     doc.addPage();
     
     doc.setFontSize(14);
     doc.text('Problem Topics (Red Zone)', 14, 20);
     
-    const problemData = analytics.problemTopics.slice(0, 20).map(topic => [
+    const problemData = analytics.topicDetails.slice(0, 20).map(topic => [
       topic.topic_name,
       topic.subject,
-      topic.chapter,
+      topic.chapter_name,
       `${topic.avg_completion.toFixed(1)}%`,
       topic.struggling_count.toString()
     ]);

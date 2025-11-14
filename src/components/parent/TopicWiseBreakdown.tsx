@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BookOpen, Star, Clock } from "lucide-react";
@@ -49,43 +50,62 @@ export const TopicWiseBreakdown = ({ topicsBySubject }: TopicWiseBreakdownProps)
               <AccordionContent>
                 <div className="space-y-4">
                   {topics.map((topic, idx) => (
-                    <Card key={idx} className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{topic.topic_name}</h4>
-                          <div className="flex gap-2 mt-2">
-                            <Badge className={getMasteryColor(topic.mastery_level)}>
-                              {topic.mastery_level}
-                            </Badge>
-                            <Badge variant="secondary">
-                              <Star className="h-3 w-3 mr-1" />
-                              {topic.total_xp_earned} XP
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-right text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {topic.time_spent_minutes} mins
-                          </div>
-                          <div className="mt-1">
-                            Last: {new Date(topic.last_practiced_at || Date.now()).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
+                    <TooltipProvider key={idx}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <h4 className="font-medium">{topic.topic_name}</h4>
+                                <div className="flex gap-2 mt-2">
+                                  <Badge className={getMasteryColor(topic.mastery_level)}>
+                                    {topic.mastery_level}
+                                  </Badge>
+                                  <Badge variant="secondary">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    {topic.total_xp_earned} XP
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="text-right text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {topic.time_spent_minutes} mins
+                                </div>
+                                <div className="mt-1">
+                                  Last: {new Date(topic.last_practiced_at || Date.now()).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
 
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Average Score</span>
-                          <span className="font-bold">{Number(topic.average_score ?? 0).toFixed(1)}%</span>
-                        </div>
-                        <Progress value={topic.average_score} className="h-2" />
-                      </div>
+                            <div>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Average Score</span>
+                                <span className="font-bold">{Number(topic.average_score ?? 0).toFixed(1)}%</span>
+                              </div>
+                              <Progress value={topic.average_score} className="h-2" />
+                            </div>
 
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Practiced {topic.times_practiced} times
-                      </div>
-                    </Card>
+                            <div className="mt-2 text-xs text-muted-foreground">
+                              Practiced {topic.times_practiced} times
+                            </div>
+                          </Card>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="bg-popover text-popover-foreground max-w-xs">
+                          <div className="space-y-1 text-sm">
+                            <p className="font-semibold">{topic.topic_name}</p>
+                            <p>Average Score: {Number(topic.average_score ?? 0).toFixed(1)}%</p>
+                            <p>XP Earned: {topic.total_xp_earned}</p>
+                            <p>Time Spent: {topic.time_spent_minutes} minutes</p>
+                            <p>Practice Count: {topic.times_practiced} times</p>
+                            <p>Mastery: {topic.mastery_level}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Last practiced: {new Date(topic.last_practiced_at || Date.now()).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   ))}
                 </div>
               </AccordionContent>

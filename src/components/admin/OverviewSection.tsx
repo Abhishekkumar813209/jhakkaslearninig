@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, GraduationCap, BookOpen, TrendingUp, Target, DollarSign } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, GraduationCap, BookOpen, TrendingUp, Target, DollarSign, RefreshCw } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data - in real app, fetch from Supabase
 const statsData = {
@@ -45,6 +49,34 @@ const testPerformanceData = [
 ];
 
 const OverviewSection = () => {
+  const [recalculating, setRecalculating] = useState(false);
+  const { toast } = useToast();
+
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('recalculate-topic-statuses');
+      
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Success",
+          description: data.message || "Topic statuses recalculated successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error recalculating statuses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to recalculate topic statuses",
+        variant: "destructive",
+      });
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   const statCards = [
     {
       title: "Total Students",
@@ -202,6 +234,25 @@ const OverviewSection = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* System Maintenance */}
+      <Card className="card-gradient shadow-soft">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-foreground">System Maintenance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Recalculate Topic Statuses</p>
+              <p className="text-sm text-muted-foreground">Update all student topic statuses using new thresholds</p>
+            </div>
+            <Button onClick={handleRecalculate} disabled={recalculating}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+              {recalculating ? 'Recalculating...' : 'Recalculate'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

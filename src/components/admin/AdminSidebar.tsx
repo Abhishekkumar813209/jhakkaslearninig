@@ -25,6 +25,7 @@ import {
   FunctionSquare,
   GitBranch,
   Video,
+  Layers,
 } from "lucide-react";
 import {
   Sidebar,
@@ -111,6 +112,7 @@ const menuGroups: MenuGroup[] = [
     label: "Analytics & Engagement",
     items: [
       { value: "analytics", label: "Analytics", icon: TrendingUp },
+      { value: "topic-zones", label: "Topic Zones", icon: Layers },
       { value: "leaderboard", label: "Leaderboard", icon: Trophy },
     ],
   },

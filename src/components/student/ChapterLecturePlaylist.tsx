@@ -145,7 +145,7 @@ export default function ChapterLecturePlaylist() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`/student/roadmap/${roadmapId}`)}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>

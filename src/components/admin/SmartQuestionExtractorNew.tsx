@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library, Upload, Crop } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library, Upload, Crop, ArrowRight } from "lucide-react";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { DocumentUploader } from "./DocumentUploader";
 import { UniversalCropModal } from "./UniversalCropModal";
@@ -154,6 +154,13 @@ export const SmartQuestionExtractorNew = ({
 
   // Column editing state for match_column questions
   const [editingColumns, setEditingColumns] = useState<Map<string, { left: string[], right: string[] }>>(new Map());
+  
+  // Move questions state
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
+  const [targetTopicId, setTargetTopicId] = useState<string>("");
+  const [availableTopics, setAvailableTopics] = useState<Array<{ id: string; topic_name: string }>>([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [movingQuestions, setMovingQuestions] = useState(false);
 
   // Auto-load draft questions when topic changes
   useEffect(() => {
@@ -826,6 +833,84 @@ export const SmartQuestionExtractorNew = ({
     }
   };
 
+  // Fetch available topics from the same chapter
+  const fetchAvailableTopics = async () => {
+    if (!selectedChapter) {
+      toast.error("No chapter selected");
+      return;
+    }
+
+    setLoadingTopics(true);
+    try {
+      const { data, error } = await supabase
+        .from('roadmap_topics')
+        .select('id, topic_name')
+        .eq('chapter_id', selectedChapter)
+        .order('order_num', { ascending: true });
+
+      if (error) throw error;
+
+      // Filter out current topic
+      const topics = (data || []).filter(t => t.id !== selectedTopic);
+      setAvailableTopics(topics);
+      
+      if (topics.length === 0) {
+        toast.warning("No other topics found in this chapter");
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch topics:', error);
+      toast.error(`Failed to load topics: ${error.message}`);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
+  // Move selected questions to another topic
+  const handleMoveQuestions = async () => {
+    if (!targetTopicId) {
+      toast.error("Please select a target topic");
+      return;
+    }
+
+    if (selectedIds.size === 0) {
+      toast.error("No questions selected");
+      return;
+    }
+
+    setMovingQuestions(true);
+    try {
+      const questionIds = Array.from(selectedIds);
+
+      // Update questions in database
+      const { error } = await supabase
+        .from('question_bank')
+        .update({ topic_id: targetTopicId })
+        .in('id', questionIds);
+
+      if (error) throw error;
+
+      // Remove moved questions from current view
+      setQuestions(prev => prev.filter(q => !q.id || !selectedIds.has(q.id)));
+      setSelectedIds(new Set());
+      
+      // Clear localStorage
+      if (selectedTopic) {
+        localStorage.removeItem(`question-selections-${selectedTopic}`);
+      }
+
+      const targetTopic = availableTopics.find(t => t.id === targetTopicId);
+      toast.success(`Successfully moved ${questionIds.length} question(s) to "${targetTopic?.topic_name}"`);
+      
+      setShowMoveDialog(false);
+      setTargetTopicId("");
+    } catch (error: any) {
+      console.error('Failed to move questions:', error);
+      toast.error(`Move failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setMovingQuestions(false);
+    }
+  };
+
   // Filter questions
   const filteredQuestions = questions.filter(q => {
     const matchesSearch = searchTerm === '' || 
@@ -941,14 +1026,28 @@ export const SmartQuestionExtractorNew = ({
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2">
               {selectedCount > 0 && (
-                <Button 
-                  onClick={handleAddToLessonLibrary} 
-                  disabled={loading}
-                  variant="default"
-                >
-                  <Library className="mr-2 h-4 w-4" />
-                  Add to Lesson Library ({selectedCount})
-                </Button>
+                <>
+                  <Button 
+                    onClick={handleAddToLessonLibrary} 
+                    disabled={loading}
+                    variant="default"
+                  >
+                    <Library className="mr-2 h-4 w-4" />
+                    Add to Lesson Library ({selectedCount})
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => {
+                      setShowMoveDialog(true);
+                      fetchAvailableTopics();
+                    }} 
+                    disabled={loading}
+                    variant="outline"
+                  >
+                    <ArrowRight className="mr-2 h-4 w-4" />
+                    Move to Topic ({selectedCount})
+                  </Button>
+                </>
               )}
 
               {totalCount > 0 && (
@@ -1526,6 +1625,109 @@ export const SmartQuestionExtractorNew = ({
         contextLabel={cropQuestion?.question_number || `Question ${questions.findIndex(q => q.id === cropQuestion?.id) + 1}`}
         pdfFile={cropPdfFile}
       />
+
+      {/* Move Questions Dialog */}
+      <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Questions to Another Topic</DialogTitle>
+            <DialogDescription>
+              Select a target topic from the same chapter to move {selectedIds.size} selected question(s)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {loadingTopics ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : availableTopics.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No other topics available in this chapter. Create more topics first.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="target-topic">Target Topic</Label>
+                  <Select value={targetTopicId} onValueChange={setTargetTopicId}>
+                    <SelectTrigger id="target-topic">
+                      <SelectValue placeholder="Select a topic..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTopics.map((topic) => (
+                        <SelectItem key={topic.id} value={topic.id}>
+                          {topic.topic_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    This will move {selectedIds.size} question(s) from the current topic to the selected topic. This action will update the database.
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMoveDialog(false);
+                setTargetTopicId("");
+              }}
+              disabled={movingQuestions}
+            >
+              Cancel
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="default"
+                  disabled={!targetTopicId || movingQuestions || availableTopics.length === 0}
+                >
+                  {movingQuestions ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Moving...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Move Questions
+                    </>
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Move</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to move {selectedIds.size} question(s) to "
+                    {availableTopics.find(t => t.id === targetTopicId)?.topic_name}"? 
+                    This will permanently change the topic association for these questions.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMoveQuestions}>
+                    Confirm Move
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+export default SmartQuestionExtractorNew;

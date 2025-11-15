@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   Play, 
   Pause, 
@@ -103,7 +104,9 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Calculate progress percentage
   const progressPercentage = duration > 0 
@@ -283,12 +286,15 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
     if (event.data === 1) {
       // Playing
+      setIsPlaying(true);
       console.log('Video playing');
     } else if (event.data === 2) {
       // Paused
+      setIsPlaying(false);
       console.log('Video paused');
     } else if (event.data === 0) {
       // Ended
+      setIsPlaying(false);
       const completedProgress = {
         ...progress,
         watch_time_seconds: duration,
@@ -444,6 +450,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     const currentIndex = lectures.findIndex(l => l.id === lecture.id);
     if (currentIndex < lectures.length - 1) {
       onLectureChange(lectures[currentIndex + 1].id);
+      toast({ title: "⏭️ Next Lecture" });
+    } else {
+      toast({ 
+        title: "Last Lecture", 
+        description: "You've completed all lectures!",
+        variant: "default"
+      });
     }
   };
 
@@ -451,6 +464,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     const currentIndex = lectures.findIndex(l => l.id === lecture.id);
     if (currentIndex > 0) {
       onLectureChange(lectures[currentIndex - 1].id);
+      toast({ title: "⏮️ Previous Lecture" });
+    } else {
+      toast({ 
+        title: "First Lecture", 
+        description: "You're already at the first lecture",
+        variant: "default"
+      });
     }
   };
 
@@ -628,11 +648,17 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className={`flex flex-1 overflow-hidden ${
+        isMobile ? 'flex-col' : 'flex-row'
+      }`}>
         {/* Video Player Area */}
-        <div className="flex-1 flex flex-col bg-black">
+        <div className={`${
+          isMobile ? 'flex-none' : 'flex-1'
+        } flex flex-col bg-black`}>
           {/* YouTube Player */}
-          <div className="flex-1 relative">
+          <div className={`${
+            isMobile ? 'aspect-video' : 'flex-1'
+          } relative`}>
             <YouTube
               videoId={lecture.youtube_video_id}
               opts={youtubeOpts}
@@ -680,7 +706,11 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                   onClick={togglePlay}
                   className="h-10 w-10 p-0 md:h-12 md:w-12"
                 >
-                  <Play className="h-5 w-5 md:h-6 md:w-6" />
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5 md:h-6 md:w-6" />
+                  ) : (
+                    <Play className="h-5 w-5 md:h-6 md:w-6" />
+                  )}
                 </Button>
                 <Button 
                   variant="ghost" 
@@ -817,9 +847,37 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           </div>
         </div>
 
-        {/* Sidebar - Playlist */}
-        <div className="w-80 bg-background border-l overflow-y-auto">
-          <div className="p-4 border-b">
+        {/* Lecture Description (Mobile Only) */}
+        {isMobile && (
+          <div className="p-4 border-b bg-background">
+            <h2 className="font-semibold text-lg mb-2">
+              {parseLectureTitle(lecture.title).mainTitle}
+            </h2>
+            {parseLectureTitle(lecture.title).context && (
+              <Badge variant="secondary" className="mb-2">
+                {parseLectureTitle(lecture.title).context}
+              </Badge>
+            )}
+            {parseLectureTitle(lecture.title).metadata && (
+              <p className="text-sm text-muted-foreground">
+                {parseLectureTitle(lecture.title).metadata}
+              </p>
+            )}
+            {lecture.description && (
+              <p className="text-sm text-muted-foreground mt-2">
+                {lecture.description}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Sidebar/Playlist - Below video on mobile, right side on desktop */}
+        <div className={`${
+          isMobile 
+            ? 'flex-1 bg-background overflow-y-auto' 
+            : 'w-80 bg-background border-l overflow-y-auto'
+        }`}>
+          <div className={`p-4 border-b ${isMobile ? 'sticky top-0 bg-background z-10' : ''}`}>
             <h3 className="font-semibold mb-2">{playlistTitle}</h3>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">

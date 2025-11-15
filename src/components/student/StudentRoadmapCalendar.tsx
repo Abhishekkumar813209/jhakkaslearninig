@@ -68,6 +68,8 @@ const TopicCard = ({
   subject, 
   chapterName,
   gameCompletionRate,
+  gamesCompleted,
+  totalGames,
   isToday, 
   isPast,
   isLocked,
@@ -78,6 +80,8 @@ const TopicCard = ({
   subject: string;
   chapterName: string;
   gameCompletionRate: number;
+  gamesCompleted: number;
+  totalGames: number;
   isToday: boolean; 
   isPast: boolean;
   isLocked: boolean;
@@ -130,7 +134,7 @@ const TopicCard = ({
       {/* Progress Badge */}
       <div className="absolute top-1 right-1">
         <Badge className={`text-xs ${color.badgeClass} text-white`}>
-          {color.icon} {gameCompletionRate.toFixed(0)}%
+          {Math.round(gameCompletionRate)}% ({gamesCompleted}/{totalGames})
         </Badge>
       </div>
 
@@ -151,7 +155,7 @@ export const StudentRoadmapCalendar = ({
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
-  const [topicStatuses, setTopicStatuses] = useState<Record<string, { rate: number }>>({});
+  const [topicStatuses, setTopicStatuses] = useState<Record<string, { rate: number, completed: number, total: number }>>({});
 
   // Fetch topic statuses from backend
   useEffect(() => {
@@ -186,14 +190,16 @@ export const StudentRoadmapCalendar = ({
     
     const { data, error } = await supabase
       .from('student_topic_status')
-      .select('topic_id, game_completion_rate')
+      .select('topic_id, game_completion_rate, games_completed, total_games')
       .eq('student_id', user.id);
 
     if (!error && data) {
-      const statusMap: Record<string, { rate: number }> = {};
+      const statusMap: Record<string, { rate: number, completed: number, total: number }> = {};
       data.forEach(item => {
         statusMap[item.topic_id] = {
-          rate: item.game_completion_rate || 0
+          rate: item.game_completion_rate || 0,
+          completed: item.games_completed || 0,
+          total: item.total_games || 0
         };
       });
       setTopicStatuses(statusMap);
@@ -208,6 +214,8 @@ export const StudentRoadmapCalendar = ({
     chapterName: string;
     topicName: string;
     gameCompletionRate: number;
+    gamesCompleted: number;
+    totalGames: number;
     isEmpty?: boolean;
   }
 
@@ -216,7 +224,7 @@ export const StudentRoadmapCalendar = ({
       // If chapter has topics, show them
       if (chapter.topics && chapter.topics.length > 0) {
         return chapter.topics.map(topic => {
-          const topicStatus = topicStatuses[topic.id] || { rate: 0 };
+          const topicStatus = topicStatuses[topic.id] || { rate: 0, completed: 0, total: 0 };
           
           // Use topic's day_number (now properly distributed by backend)
           const topicDate = topic.day_number 
@@ -232,6 +240,8 @@ export const StudentRoadmapCalendar = ({
             chapterName: chapter.chapter_name,
             topicName: topic.topic_name,
             gameCompletionRate: topicStatus.rate,
+            gamesCompleted: topicStatus.completed,
+            totalGames: topicStatus.total,
             isEmpty: false
           } as CalendarTopic;
         });
@@ -244,6 +254,8 @@ export const StudentRoadmapCalendar = ({
           chapterName: chapter.chapter_name,
           topicName: '📚 Topics not yet added',
           gameCompletionRate: 0,
+          gamesCompleted: 0,
+          totalGames: 0,
           isEmpty: true
         } as CalendarTopic];
       }
@@ -360,6 +372,8 @@ export const StudentRoadmapCalendar = ({
                               subject={topicItem.subject}
                               chapterName={topicItem.chapterName}
                               gameCompletionRate={topicItem.gameCompletionRate}
+                              gamesCompleted={topicItem.gamesCompleted}
+                              totalGames={topicItem.totalGames}
                               isToday={isToday}
                               isPast={isPast}
                               isLocked={topicItem.id !== firstTopicId && !isPast && !isToday}
@@ -383,6 +397,8 @@ export const StudentRoadmapCalendar = ({
                                 subject={topicItem.subject}
                                 chapterName={topicItem.chapterName}
                                 gameCompletionRate={topicItem.gameCompletionRate}
+                                gamesCompleted={topicItem.gamesCompleted}
+                                totalGames={topicItem.totalGames}
                                 isToday={isToday}
                                 isPast={isPast}
                                 isLocked={topicItem.id !== firstTopicId && !isPast && !isToday}

@@ -518,25 +518,6 @@ export default function ParentDashboard() {
               </Card>
             )}
 
-            {/* Test Progress - Simple Chapter View */}
-            {roadmapCalendar && Object.keys(testAnalysis).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Test Progress</CardTitle>
-                  <CardDescription>
-                    Chapter-wise test completion status (Double-click to toggle)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ChapterTestProgress
-                    roadmapData={roadmapCalendar.subjectsData}
-                    testAnalysis={testAnalysis}
-                    chapterStatuses={chapterStatuses}
-                    onChapterDoubleClick={toggleChapterStatus}
-                  />
-                </CardContent>
-              </Card>
-            )}
 
             {/* Student Roadmap Calendar with Toggle */}
             {roadmapCalendar && (

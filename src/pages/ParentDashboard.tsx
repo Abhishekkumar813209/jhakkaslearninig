@@ -486,38 +486,26 @@ export default function ParentDashboard() {
               </Card>
             </div>
 
-            {/* Test Progress - Card View with Roadmap */}
+            {/* Chapter-wise Test Progress - Red/Green Zones */}
             {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Test Progress</CardTitle>
-                  <CardDescription>Double-click any chapter to mark as complete</CardDescription>
+                  <CardTitle>Chapter-wise Test Progress</CardTitle>
+                  <CardDescription>
+                    Double-click any chapter to toggle completion status. 
+                    Green = Tests completed, Red = No tests completed
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RoadmapCardView
-                    roadmapId={roadmapCalendar.roadmapId || 'parent-view'}
-                    subjects={roadmapCalendar.subjectsData.map((subject: any) => ({
-                      ...subject,
-                      chapters: subject.chapters.map((chapter: any) => ({
-                        ...chapter,
-                        // Override background based on manual status
-                        progress: chapterStatuses[chapter.id] ? 100 : 0
-                      }))
-                    }))}
-                    isEditable={false}
-                    onChapterClick={(chapterId) => {
-                      // No action on single click
-                    }}
-                    onChapterEdit={(chapterId) => {
-                      // Double-click to toggle
-                      toggleChapterStatus(chapterId);
-                    }}
-                    onChapterReorder={() => {}}
+                  <ChapterTestProgress
+                    roadmapData={roadmapCalendar.subjectsData}
+                    testAnalysis={testAnalysis}
+                    chapterStatuses={chapterStatuses}
+                    onChapterDoubleClick={toggleChapterStatus}
                   />
                 </CardContent>
               </Card>
             )}
-
 
             {/* Student Roadmap Calendar with Toggle */}
             {roadmapCalendar && (

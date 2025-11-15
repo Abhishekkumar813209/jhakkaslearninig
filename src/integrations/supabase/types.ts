@@ -4592,6 +4592,7 @@ export type Database = {
           allow_retakes: boolean | null
           base_xp_reward: number | null
           bonus_xp_on_perfect: number | null
+          chapter_id: string | null
           class: string | null
           course_id: string | null
           created_at: string | null
@@ -4621,6 +4622,7 @@ export type Database = {
           allow_retakes?: boolean | null
           base_xp_reward?: number | null
           bonus_xp_on_perfect?: number | null
+          chapter_id?: string | null
           class?: string | null
           course_id?: string | null
           created_at?: string | null
@@ -4650,6 +4652,7 @@ export type Database = {
           allow_retakes?: boolean | null
           base_xp_reward?: number | null
           bonus_xp_on_perfect?: number | null
+          chapter_id?: string | null
           class?: string | null
           course_id?: string | null
           created_at?: string | null
@@ -4676,6 +4679,13 @@ export type Database = {
           xp_per_mark?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tests_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tests_course_id_fkey"
             columns: ["course_id"]

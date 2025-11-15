@@ -51,6 +51,7 @@ interface NewTestData {
   duration_minutes: number;
   passing_marks: number;
   status: string;
+  chapter_id?: string;
 }
 
 const TestManagement: React.FC = () => {
@@ -59,6 +60,8 @@ const TestManagement: React.FC = () => {
   const { examTypes, loading: examTypesLoading } = useExamTypes();
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const { selectedBoard, selectedClass, setBoard, setClass, resetFromBoard, resetToBoard } = useBoardClassHierarchy();
+  const [availableChapters, setAvailableChapters] = useState<any[]>([]);
+  const [selectedChapterId, setSelectedChapterId] = useState<string>('');
 
   // Hydrate from URL on mount
   useEffect(() => {
@@ -248,7 +251,8 @@ const TestManagement: React.FC = () => {
           passing_marks: newTest.passing_marks,
           total_marks: 0,
           created_by: user.id,
-          is_published: newTest.status === 'published'
+          is_published: newTest.status === 'published',
+          chapter_id: selectedChapterId || null
         })
         .select()
         .single();
@@ -274,6 +278,8 @@ const TestManagement: React.FC = () => {
         passing_marks: 50,
         status: 'draft'
       });
+      setSelectedChapterId('');
+      setAvailableChapters([]);
 
       toast({
         title: "Success",
@@ -568,25 +574,65 @@ const TestManagement: React.FC = () => {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="subject">Subject</Label>
-                      <Input
-                        id="subject"
-                        value={newTest.subject}
-                        onChange={(e) => setNewTest(prev => ({ ...prev, subject: e.target.value }))}
-                        placeholder="e.g., Mathematics"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="class">Class</Label>
-                      <Input
-                        id="class"
-                        value={newTest.class}
-                        onChange={(e) => setNewTest(prev => ({ ...prev, class: e.target.value }))}
-                        placeholder="e.g., 10th Grade"
-                      />
-                    </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="subject">Subject</Label>
+                    <Input
+                      id="subject"
+                      value={newTest.subject}
+                      onChange={async (e) => {
+                        const subject = e.target.value;
+                        setNewTest(prev => ({ ...prev, subject }));
+                        
+                        // Fetch chapters for this subject and exam domain
+                        if (subject && newTest.exam_domain) {
+                          try {
+                            const { data: chapters } = await supabase
+                              .from('roadmap_chapters')
+                              .select('id, chapter_name, subject, roadmap_id')
+                              .eq('subject', subject)
+                              .order('chapter_name');
+                            
+                            setAvailableChapters(chapters || []);
+                          } catch (error) {
+                            console.error('Error fetching chapters:', error);
+                          }
+                        } else {
+                          setAvailableChapters([]);
+                        }
+                      }}
+                      placeholder="e.g., Mathematics"
+                    />
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="class">Class</Label>
+                    <Input
+                      id="class"
+                      value={newTest.class}
+                      onChange={(e) => setNewTest(prev => ({ ...prev, class: e.target.value }))}
+                      placeholder="e.g., 10th Grade"
+                    />
+                  </div>
+                </div>
+                
+                {/* Chapter Selection */}
+                {availableChapters.length > 0 && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="chapter">Chapter (Optional)</Label>
+                    <Select value={selectedChapterId} onValueChange={setSelectedChapterId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a chapter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {availableChapters.map((chapter) => (
+                          <SelectItem key={chapter.id} value={chapter.id}>
+                            {chapter.chapter_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="difficulty">Difficulty</Label>

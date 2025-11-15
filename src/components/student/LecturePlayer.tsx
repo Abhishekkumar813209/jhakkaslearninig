@@ -31,6 +31,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { supabase } from '@/integrations/supabase/client';
+import LectureNotes from './LectureNotes';
+import { Check } from 'lucide-react';
 
 interface Lecture {
   id: string;
@@ -94,6 +96,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     is_completed: false,
     last_watched_at: new Date()
   });
+  const [allLecturesProgress, setAllLecturesProgress] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -107,6 +110,11 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [availableQualities, setAvailableQualities] = useState<string[]>([]);
   const [availableRates, setAvailableRates] = useState<number[]>([]);
+  
+  // Auto-play next lecture states
+  const [showAutoplayCountdown, setShowAutoplayCountdown] = useState(false);
+  const [autoplayCountdown, setAutoplayCountdown] = useState(5);
+  const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -257,6 +265,9 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+      if (autoplayTimerRef.current) {
+        clearInterval(autoplayTimerRef.current);
+      }
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [lecture.id, player, currentTime, duration]);
@@ -325,6 +336,26 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         title: "🎉 Lecture Completed!",
         description: `Great job completing "${lecture.title}"`,
       });
+
+      // Check if there's a next lecture and show auto-play countdown
+      const currentIndex = lectures.findIndex(l => l.id === lecture.id);
+      if (currentIndex < lectures.length - 1) {
+        setShowAutoplayCountdown(true);
+        setAutoplayCountdown(5);
+        
+        let count = 5;
+        autoplayTimerRef.current = setInterval(() => {
+          count--;
+          setAutoplayCountdown(count);
+          
+          if (count === 0) {
+            clearInterval(autoplayTimerRef.current!);
+            setShowAutoplayCountdown(false);
+            const nextLectureId = lectures[currentIndex + 1].id;
+            onLectureChange(nextLectureId);
+          }
+        }, 1000);
+      }
     }
   };
 
@@ -342,8 +373,19 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
 
   const loadLectureProgress = async () => {
     try {
+      // Load progress for all lectures in playlist
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: progressData } = await supabase
+          .from("student_lecture_progress")
+          .select("*")
+          .in("chapter_lecture_id", lectures.map(l => l.id))
+          .eq("student_id", user.id);
+        
+        setAllLecturesProgress(progressData || []);
+      }
+      
       setLoading(false);
-      // Progress will be loaded and tracked via the learning-paths-api edge function
       setProgress({
         watch_time_seconds: 0,
         is_completed: false,
@@ -515,6 +557,31 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         description: "You're already at the first lecture",
         variant: "default"
       });
+    }
+  };
+
+  const cancelAutoplay = () => {
+    if (autoplayTimerRef.current) {
+      clearInterval(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+    setShowAutoplayCountdown(false);
+    setAutoplayCountdown(5);
+    toast({ title: "Auto-play cancelled" });
+  };
+
+  const skipToNextNow = () => {
+    cancelAutoplay();
+    goToNextLecture();
+  };
+
+  const handleSeekFromNote = (seconds: number) => {
+    if (player) {
+      player.seekTo(seconds, true);
+      if (!isPlaying) {
+        player.playVideo();
+      }
+      toast({ title: `Jumped to ${formatTime(seconds)}` });
     }
   };
 
@@ -713,6 +780,41 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
               className="absolute inset-0 w-full h-full"
               iframeClassName="w-full h-full"
             />
+
+            {/* Auto-play Countdown Overlay */}
+            {showAutoplayCountdown && (
+              <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+                <div className="bg-background rounded-lg p-6 md:p-8 max-w-md w-full mx-4 text-center space-y-4">
+                  <h3 className="text-lg md:text-xl font-semibold">Next Lecture Starting In</h3>
+                  
+                  <div className="text-5xl md:text-6xl font-bold text-primary">
+                    {autoplayCountdown}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm md:text-base text-muted-foreground">
+                      Up next: {lectures[lectures.findIndex(l => l.id === lecture.id) + 1]?.title}
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={cancelAutoplay}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      className="flex-1"
+                      onClick={skipToNextNow}
+                    >
+                      Play Now
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Video Controls */}
@@ -923,6 +1025,15 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             </div>
             </div>
           </div>
+
+          {/* Lecture Notes Section */}
+          <div className="p-4 bg-background border-t">
+            <LectureNotes
+              lectureId={lecture.id}
+              currentTime={currentTime}
+              onSeekToTime={handleSeekFromNote}
+            />
+          </div>
         </div>
 
         {/* Lecture Description (Mobile Only) */}
@@ -973,41 +1084,72 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           <div className="p-2">
             {lectures.map((lectureItem, index) => {
               const isCurrentLecture = lectureItem.id === lecture.id;
-              const lectureProgress = isCurrentLecture ? progressPercentage : Math.random() * 100;
-              const isCompleted = lectureProgress >= 80;
+              const lectureItemProgress = allLecturesProgress.find(p => p.chapter_lecture_id === lectureItem.id);
+              const watchTimeSeconds = isCurrentLecture ? currentTime : (lectureItemProgress?.watch_time_seconds || 0);
+              const lectureProgressPercent = Math.round((watchTimeSeconds / lectureItem.duration_seconds) * 100);
+              const isCompleted = isCurrentLecture ? progress.is_completed : (lectureItemProgress?.is_completed || false);
 
               return (
                 <Card 
                   key={lectureItem.id}
                   className={`mb-2 cursor-pointer transition-all hover:shadow-md ${
-                    isCurrentLecture ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : ''
+                    isCurrentLecture ? 'border-primary bg-primary/5' : ''
                   }`}
                   onClick={() => onLectureChange(lectureItem.id)}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                          isCompleted ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'
-                        }`}>
-                          {isCompleted ? <CheckCircle className="h-4 w-4" /> : index + 1}
+                      <div className="flex-shrink-0 relative">
+                        <div className="w-20 h-14 bg-muted rounded overflow-hidden">
+                          <img
+                            src={`https://img.youtube.com/vi/${lectureItem.youtube_video_id}/mqdefault.jpg`}
+                            alt={lectureItem.title}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Progress bar at bottom of thumbnail */}
+                          {lectureProgressPercent > 0 && (
+                            <div className="absolute bottom-0 left-0 right-0">
+                              <Progress 
+                                value={lectureProgressPercent} 
+                                className="h-1 rounded-none" 
+                              />
+                            </div>
+                          )}
                         </div>
+                        {/* Status badges */}
+                        {isCompleted && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                        {!isCompleted && lectureProgressPercent > 0 && lectureProgressPercent < 80 && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                            <Clock className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                        {lectureProgressPercent > 0 && (
+                          <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
+                            {lectureProgressPercent}%
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className={`text-sm font-medium line-clamp-2 ${
-                          isCurrentLecture ? 'text-blue-700 dark:text-blue-300' : ''
+                          isCurrentLecture ? 'text-primary' : ''
                         }`}>
                           {parseLectureTitle(lectureItem.title).mainTitle}
                         </h4>
                         <p className="text-xs text-muted-foreground mt-1">
                           {formatTime(lectureItem.duration_seconds)}
                         </p>
-                        <div className="mt-2">
-                          <Progress value={lectureProgress} className="h-1" />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {Math.round(lectureProgress)}% watched
-                          </p>
-                        </div>
+                        {lectureProgressPercent > 0 && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Progress value={lectureProgressPercent} className="h-1 flex-1" />
+                            <span className="text-xs text-muted-foreground">
+                              {lectureProgressPercent}%
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>

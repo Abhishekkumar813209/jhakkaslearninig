@@ -12,8 +12,8 @@ import { toast } from "sonner";
 import ParentNavbar from "@/components/ParentNavbar";
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
-import { SubjectChapterTestAnalysis } from "@/components/parent/SubjectChapterTestAnalysis";
 import { ParentRoadmapCalendar } from "@/components/parent/ParentRoadmapCalendar";
+import { ChapterTestProgress } from "@/components/parent/ChapterTestProgress";
 import { RoadmapCardView } from "@/components/RoadmapCardView";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
@@ -518,12 +518,27 @@ export default function ParentDashboard() {
               </Card>
             )}
 
-            {/* Subject-wise Test Analysis */}
-            {Object.keys(testAnalysis).length > 0 && (
-              <SubjectChapterTestAnalysis testAnalysis={testAnalysis} />
+            {/* Test Progress - Simple Chapter View */}
+            {roadmapCalendar && Object.keys(testAnalysis).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Test Progress</CardTitle>
+                  <CardDescription>
+                    Chapter-wise test completion status (Double-click to toggle)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChapterTestProgress
+                    roadmapData={roadmapCalendar.subjectsData}
+                    testAnalysis={testAnalysis}
+                    chapterStatuses={chapterStatuses}
+                    onChapterDoubleClick={toggleChapterStatus}
+                  />
+                </CardContent>
+              </Card>
             )}
 
-            {/* Roadmap Calendar - Parent View with Manual Tracking */}
+            {/* Student Roadmap Calendar with Toggle */}
             {roadmapCalendar && (
               <ParentRoadmapCalendar
                 startDate={new Date(roadmapCalendar.startDate)}
@@ -531,6 +546,7 @@ export default function ParentDashboard() {
                 subjectsData={roadmapCalendar.subjectsData}
                 chapterStatuses={chapterStatuses}
                 onChapterDoubleClick={toggleChapterStatus}
+                testAnalysis={testAnalysis}
               />
             )}
 

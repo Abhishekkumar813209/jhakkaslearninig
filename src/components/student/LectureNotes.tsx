@@ -4,7 +4,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Clock, Edit2, Trash2, Save, X } from "lucide-react";
 
 interface LectureNote {
@@ -256,7 +255,7 @@ const LectureNotes = ({ lectureId, currentTime, onSeekToTime }: LectureNotesProp
         </div>
       )}
 
-      <ScrollArea className="h-[300px] pr-4">
+      <div className="h-[300px] overflow-y-auto scrollbar-hide pr-4">
         {notes.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -334,7 +333,7 @@ const LectureNotes = ({ lectureId, currentTime, onSeekToTime }: LectureNotesProp
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </Card>
   );
 };

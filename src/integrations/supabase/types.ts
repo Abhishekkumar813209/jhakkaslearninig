@@ -1593,6 +1593,44 @@ export type Database = {
         }
         Relationships: []
       }
+      lecture_notes: {
+        Row: {
+          chapter_lecture_id: string
+          created_at: string | null
+          id: string
+          note_text: string
+          student_id: string
+          timestamp_seconds: number
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_lecture_id: string
+          created_at?: string | null
+          id?: string
+          note_text: string
+          student_id: string
+          timestamp_seconds: number
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_lecture_id?: string
+          created_at?: string | null
+          id?: string
+          note_text?: string
+          student_id?: string
+          timestamp_seconds?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecture_notes_chapter_lecture_id_fkey"
+            columns: ["chapter_lecture_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lectures: {
         Row: {
           chapter: number

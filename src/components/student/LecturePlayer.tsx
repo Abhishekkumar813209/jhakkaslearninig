@@ -105,6 +105,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [availableQualities, setAvailableQualities] = useState<string[]>([]);
+  const [availableRates, setAvailableRates] = useState<number[]>([]);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -237,10 +239,10 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           onClose();
           break;
         
-        case '1': case '2': case '3': case '4':
+        case '1': case '2':
           e.preventDefault();
           const speed = parseInt(e.key);
-          if (player && speed >= 1 && speed <= 4) {
+          if (player && speed >= 1 && speed <= 2) {
             player.setPlaybackRate(speed);
             setPlaybackSpeed(speed);
             toast({ title: `Speed: ${speed}x` });
@@ -262,7 +264,23 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   // YouTube player event handlers
   const onPlayerReady = (event: any) => {
     setPlayer(event.target);
-    setDuration(event.target.getDuration());
+    
+    // Get available playback rates from YouTube
+    const rates = event.target.getAvailablePlaybackRates() || [];
+    setAvailableRates(rates);
+    console.log('Available playback rates:', rates);
+    
+    // Get available quality levels from YouTube
+    const qualities = event.target.getAvailableQualityLevels() || [];
+    setAvailableQualities(qualities);
+    console.log('Available quality levels:', qualities);
+    
+    // Sync current values
+    setPlaybackSpeed(event.target.getPlaybackRate() || 1);
+    setCurrentQuality(event.target.getPlaybackQuality() || 'auto');
+    
+    const videoDuration = event.target.getDuration();
+    setDuration(videoDuration);
     setLoading(false);
 
     // Resume from saved timestamp if exists
@@ -270,7 +288,6 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       event.target.seekTo(progress.watch_time_seconds, true);
       setCurrentTime(progress.watch_time_seconds);
     }
-    
     
     // Start progress tracking
     progressIntervalRef.current = setInterval(() => {
@@ -309,6 +326,18 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         description: `Great job completing "${lecture.title}"`,
       });
     }
+  };
+
+  const onPlaybackRateChange = (event: any) => {
+    const newRate = event.target.getPlaybackRate();
+    setPlaybackSpeed(newRate);
+    console.log('Playback rate changed to:', newRate);
+  };
+
+  const onPlaybackQualityChange = (event: any) => {
+    const newQuality = event.data || event.target.getPlaybackQuality();
+    setCurrentQuality(newQuality);
+    console.log('Quality changed to:', newQuality);
   };
 
   const loadLectureProgress = async () => {
@@ -387,12 +416,27 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     if (player) {
       player.setPlaybackQuality(quality);
       setCurrentQuality(quality);
+      
       const qualityLabel = quality === 'auto' ? 'Auto' :
-                          quality === 'hd1080' ? '1080p' :
-                          quality === 'hd720' ? '720p' :
+                          quality === 'tiny' ? '144p' :
+                          quality === 'small' ? '240p' :
+                          quality === 'medium' ? '360p' :
                           quality === 'large' ? '480p' :
-                          quality === 'medium' ? '360p' : quality;
+                          quality === 'hd720' ? '720p' :
+                          quality === 'hd1080' ? '1080p' :
+                          quality === 'highres' ? '4K' : quality;
+      
       toast({ title: `Quality: ${qualityLabel}` });
+      
+      // Verify after a short delay if the quality actually changed
+      setTimeout(() => {
+        if (player && player.getPlaybackQuality) {
+          const actualQuality = player.getPlaybackQuality();
+          if (actualQuality !== quality && quality !== 'auto') {
+            console.warn(`Quality change rejected by YouTube. Requested: ${quality}, Got: ${actualQuality}`);
+          }
+        }
+      }, 1000);
     }
   };
 
@@ -635,7 +679,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                     <div><kbd className="px-2 py-1 bg-muted rounded text-xs">↓</kbd> Volume -</div>
                     <div><kbd className="px-2 py-1 bg-muted rounded text-xs">F</kbd> Fullscreen</div>
                     <div><kbd className="px-2 py-1 bg-muted rounded text-xs">P</kbd> PiP Mode</div>
-                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">1-4</kbd> Speed</div>
+                    <div><kbd className="px-2 py-1 bg-muted rounded text-xs">1-2</kbd> Speed</div>
                     <div><kbd className="px-2 py-1 bg-muted rounded text-xs">Esc</kbd> Exit</div>
                     <div><kbd className="px-2 py-1 bg-muted rounded text-xs">&lt;</kbd> Prev</div>
                     <div><kbd className="px-2 py-1 bg-muted rounded text-xs">&gt;</kbd> Next</div>
@@ -664,6 +708,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
               opts={youtubeOpts}
               onReady={onPlayerReady}
               onStateChange={onPlayerStateChange}
+              onPlaybackRateChange={onPlaybackRateChange}
+              onPlaybackQualityChange={onPlaybackQualityChange}
               className="absolute inset-0 w-full h-full"
               iframeClassName="w-full h-full"
             />
@@ -764,23 +810,33 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 <PopoverContent className="w-32 p-2" align="end">
                   <div className="space-y-1">
                     <div className="text-xs font-semibold mb-2 text-muted-foreground">Speed</div>
-                    {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4].map((speed) => (
-                      <Button
-                        key={speed}
-                        variant={playbackSpeed === speed ? "default" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => {
-                          if (player) {
-                            player.setPlaybackRate(speed);
-                            setPlaybackSpeed(speed);
-                            toast({ title: `Speed: ${speed}x` });
-                          }
-                        }}
-                      >
-                        {speed}x
-                      </Button>
-                    ))}
+                    {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((speed) => {
+                      const isAvailable = availableRates.length === 0 || availableRates.includes(speed);
+                      return (
+                        <Button
+                          key={speed}
+                          variant={playbackSpeed === speed ? "default" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start text-xs"
+                          disabled={!isAvailable}
+                          onClick={() => {
+                            if (player && isAvailable) {
+                              player.setPlaybackRate(speed);
+                              setPlaybackSpeed(speed);
+                              toast({ title: `Speed: ${speed}x` });
+                            } else if (!isAvailable) {
+                              toast({ 
+                                title: "Speed not available", 
+                                description: "This speed is not supported for this video",
+                                variant: "destructive" 
+                              });
+                            }
+                          }}
+                        >
+                          {speed}x {!isAvailable && '(N/A)'}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </PopoverContent>
               </Popover>
@@ -799,21 +855,43 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 <PopoverContent className="w-32 p-2" align="end">
                   <div className="space-y-1">
                     <div className="text-xs font-semibold mb-2 text-muted-foreground">Quality</div>
-                    {['auto', 'hd1080', 'hd720', 'large', 'medium'].map((quality) => (
-                      <Button
-                        key={quality}
-                        variant={currentQuality === quality ? "default" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                        onClick={() => handleQualityChange(quality)}
-                      >
-                        {quality === 'auto' ? 'Auto' :
-                         quality === 'hd1080' ? '1080p' :
-                         quality === 'hd720' ? '720p' :
-                         quality === 'large' ? '480p' :
-                         quality === 'medium' ? '360p' : quality}
-                      </Button>
-                    ))}
+                    {['auto', 'tiny', 'small', 'medium', 'large', 'hd720', 'hd1080', 'highres'].map((quality) => {
+                      const isAvailable = quality === 'auto' || 
+                                          availableQualities.length === 0 || 
+                                          availableQualities.includes(quality);
+                      
+                      const qualityLabel = quality === 'auto' ? 'Auto' :
+                                           quality === 'tiny' ? '144p' :
+                                           quality === 'small' ? '240p' :
+                                           quality === 'medium' ? '360p' :
+                                           quality === 'large' ? '480p' :
+                                           quality === 'hd720' ? '720p' :
+                                           quality === 'hd1080' ? '1080p' :
+                                           quality === 'highres' ? '4K' : quality;
+                      
+                      return (
+                        <Button
+                          key={quality}
+                          variant={currentQuality === quality ? "default" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start text-xs"
+                          disabled={!isAvailable}
+                          onClick={() => {
+                            if (isAvailable) {
+                              handleQualityChange(quality);
+                            } else {
+                              toast({ 
+                                title: "Quality not available", 
+                                description: `${qualityLabel} is not available for this video`,
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                        >
+                          {qualityLabel} {!isAvailable && '(N/A)'}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </PopoverContent>
               </Popover>

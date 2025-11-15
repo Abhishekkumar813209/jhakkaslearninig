@@ -142,7 +142,7 @@ const TopicCard = ({
             {/* Progress Badge */}
             <div className="absolute top-1 right-1">
               <Badge className={`text-xs ${color.badgeClass} text-white`}>
-                {gamesCompleted}/{totalGames}
+                {Math.round(gameCompletionRate)}% ({gamesCompleted}/{totalGames})
               </Badge>
             </div>
 

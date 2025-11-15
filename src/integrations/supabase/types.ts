@@ -228,6 +228,54 @@ export type Database = {
           },
         ]
       }
+      chapter_lectures: {
+        Row: {
+          chapter_id: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_published: boolean | null
+          lecture_order: number
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          video_duration_seconds: number
+          xp_reward: number | null
+          youtube_video_id: string
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean | null
+          lecture_order?: number
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          video_duration_seconds?: number
+          xp_reward?: number | null
+          youtube_video_id: string
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean | null
+          lecture_order?: number
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          video_duration_seconds?: number
+          xp_reward?: number | null
+          youtube_video_id?: string
+        }
+        Relationships: []
+      }
       chapter_library: {
         Row: {
           can_skip: boolean | null
@@ -3326,6 +3374,44 @@ export type Database = {
           },
         ]
       }
+      student_lecture_progress: {
+        Row: {
+          chapter_lecture_id: string
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          last_watched_at: string | null
+          student_id: string
+          watch_time_seconds: number | null
+        }
+        Insert: {
+          chapter_lecture_id: string
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          last_watched_at?: string | null
+          student_id: string
+          watch_time_seconds?: number | null
+        }
+        Update: {
+          chapter_lecture_id?: string
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          last_watched_at?: string | null
+          student_id?: string
+          watch_time_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_lecture_progress_chapter_lecture_id_fkey"
+            columns: ["chapter_lecture_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_lesson_progress: {
         Row: {
           completed_at: string | null
@@ -5166,15 +5252,7 @@ export type Database = {
       }
       calculate_topic_status: {
         Args: { p_student_id: string; p_topic_id: string }
-        Returns: {
-          game_completion_rate: number
-          games_completed: number
-          status: string
-          student_id: string
-          test_avg_score: number
-          topic_id: string
-          total_games: number
-        }[]
+        Returns: undefined
       }
       calculate_zone_rankings: { Args: never; Returns: undefined }
       can_see_question_answers: {

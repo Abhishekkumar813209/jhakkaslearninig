@@ -123,7 +123,11 @@ export default function ChapterLecturePlaylist() {
     navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${lectureId}`);
   };
 
+  // Calculate totals for summary
   const totalCompleted = Array.from(progress.values()).filter((p) => p.is_completed).length;
+  const totalDuration = lectures.reduce((acc, l) => acc + l.video_duration_seconds, 0);
+  const totalHours = Math.floor(totalDuration / 3600);
+  const totalMinutes = Math.floor((totalDuration % 3600) / 60);
 
   if (loading) {
     return (
@@ -135,7 +139,7 @@ export default function ChapterLecturePlaylist() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button
@@ -147,132 +151,132 @@ export default function ChapterLecturePlaylist() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{chapterName}</h1>
-            <p className="text-muted-foreground">
-              {totalCompleted} of {lectures.length} lectures completed
-            </p>
           </div>
         </div>
 
-        {/* Overall Progress */}
-        <Card className="p-6">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium">Chapter Progress</span>
+        {/* Summary Stats Card - Udemy Style */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-3 md:gap-4 flex-wrap">
+              <span className="font-medium">
+                {lectures.length} {lectures.length === 1 ? 'lecture' : 'lectures'}
+              </span>
+              <span className="text-muted-foreground hidden sm:inline">•</span>
               <span className="text-muted-foreground">
-                {Math.round((totalCompleted / lectures.length) * 100)}%
+                {totalHours > 0 && `${totalHours}h `}{totalMinutes}m total
               </span>
             </div>
-            <Progress value={(totalCompleted / lectures.length) * 100} />
+            <div className="text-muted-foreground text-xs md:text-sm">
+              {totalCompleted}/{lectures.length} completed
+            </div>
           </div>
+          {totalCompleted > 0 && (
+            <Progress 
+              value={(totalCompleted / lectures.length) * 100} 
+              className="h-1.5 mt-3"
+            />
+          )}
         </Card>
 
-        {/* Lectures List */}
+        {/* Compact Lecture List */}
         <div className="space-y-3">
           {lectures.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">No lectures available for this chapter yet.</p>
             </Card>
           ) : (
-            lectures.map((lecture) => {
-              const prog = progress.get(lecture.id);
-              const progressPercent = getProgressPercentage(lecture.id, lecture.video_duration_seconds);
-              const isCompleted = prog?.is_completed || false;
-              const { mainTitle, context } = parseLectureTitle(lecture.title);
-              const metadata = extractMetadata(lecture.title);
+            <Card className="divide-y divide-border">
+              {lectures.map((lecture, index) => {
+                const prog = progress.get(lecture.id);
+                const progressPercent = getProgressPercentage(lecture.id, lecture.video_duration_seconds);
+                const isCompleted = prog?.is_completed || false;
+                const { mainTitle } = parseLectureTitle(lecture.title);
+                const metadata = extractMetadata(lecture.title);
 
-              return (
-                <Card
-                  key={lecture.id}
-                  className="p-3 md:p-4 cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => handleLectureClick(lecture.id)}
-                >
-                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
-                    {/* Thumbnail */}
-                    <div className="relative w-full md:w-48 aspect-video md:aspect-auto md:h-28 flex-shrink-0">
-                      <img
-                        src={lecture.thumbnail_url || ""}
-                        alt={mainTitle}
-                        className="w-full h-full object-cover rounded"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded">
-                        {isCompleted ? (
-                          <CheckCircle className="h-10 w-10 text-green-500" />
-                        ) : (
-                          <PlayCircle className="h-10 w-10 text-white" />
-                        )}
+                return (
+                  <div
+                    key={lecture.id}
+                    className="group hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => handleLectureClick(lecture.id)}
+                  >
+                    {/* Main Row */}
+                    <div className="flex items-center gap-3 p-3 md:p-4">
+                      {/* Left: Icon */}
+                      <div className="flex-shrink-0 flex items-center justify-center">
+                        <div className={`
+                          relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold
+                          ${isCompleted 
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-primary/10 text-primary'
+                          }
+                        `}>
+                          {isCompleted ? (
+                            <CheckCircle className="h-5 w-5" />
+                          ) : (
+                            <PlayCircle className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Content */}
-                    <div className="flex-1 space-y-2 min-w-0">
-                      {/* Title Section */}
-                      <div>
-                        <h3 className="font-semibold text-base md:text-lg line-clamp-2">
-                          {mainTitle}
+                      {/* Middle: Title + Metadata */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`
+                          font-medium text-sm md:text-base line-clamp-1
+                          ${isCompleted ? 'text-muted-foreground' : ''}
+                        `}>
+                          {index + 1}. {mainTitle}
                         </h3>
                         
-                        {/* Contextual Info */}
-                        {(context || metadata.subject) && (
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-                            {context && (
-                              <>
-                                <span>{context}</span>
-                                {metadata.subject && <span>·</span>}
-                              </>
-                            )}
-                            {metadata.subject && <span>{metadata.subject}</span>}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Metadata Row - Compact Badges */}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {/* Class Badge */}
-                        {metadata.className && (
-                          <Badge variant="outline" className="h-6 text-xs px-2">
-                            {metadata.className}
-                          </Badge>
-                        )}
-                        
-                        {/* Duration Badge */}
-                        <Badge variant="outline" className="h-6 text-xs px-2">
-                          {formatDuration(lecture.video_duration_seconds)}
-                        </Badge>
-                        
-                        {/* XP Badge */}
-                        <Badge variant="secondary" className="h-6 text-xs px-2">
-                          {lecture.xp_reward} XP
-                        </Badge>
-                        
-                        {/* Completion Badge */}
-                        {isCompleted && (
-                          <Badge className="bg-green-600 h-6 text-xs px-2">
-                            ✓ Completed
-                          </Badge>
-                        )}
-                        
-                        {/* Hot/Trending indicator */}
-                        {lecture.title.includes('🔥') && !isCompleted && (
-                          <Badge variant="destructive" className="h-6 text-xs px-2">
-                            🔥 Hot
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Progress Bar (if in progress) */}
-                      {progressPercent > 0 && !isCompleted && (
-                        <div className="space-y-1 pt-1">
-                          <Progress value={progressPercent} className="h-1.5" />
-                          <p className="text-xs text-muted-foreground">
-                            {Math.round(progressPercent)}% watched
-                          </p>
+                        {/* Inline Metadata */}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <PlayCircle className="h-3 w-3" />
+                            {formatDuration(lecture.video_duration_seconds)}
+                          </span>
+                          
+                          {metadata.className && (
+                            <>
+                              <span className="hidden sm:inline">•</span>
+                              <span className="hidden sm:inline">{metadata.className}</span>
+                            </>
+                          )}
+                          
+                          <span className="hidden sm:inline">•</span>
+                          <span className="hidden sm:inline">{lecture.xp_reward} XP</span>
+                          
+                          {lecture.title.includes('🔥') && (
+                            <>
+                              <span className="hidden md:inline">•</span>
+                              <span className="text-orange-500 hidden md:inline">🔥 Hot</span>
+                            </>
+                          )}
                         </div>
-                      )}
+                      </div>
+
+                      {/* Right: Status Badge (Desktop only) */}
+                      <div className="flex-shrink-0 hidden md:block">
+                        {isCompleted ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                            Completed
+                          </Badge>
+                        ) : progressPercent > 0 ? (
+                          <Badge variant="outline">
+                            {Math.round(progressPercent)}%
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {/* Progress Bar (only if in progress and not completed) */}
+                    {progressPercent > 0 && !isCompleted && (
+                      <div className="px-3 pb-2 md:px-4">
+                        <Progress value={progressPercent} className="h-1" />
+                      </div>
+                    )}
                   </div>
-                </Card>
-              );
-            })
+                );
+              })}
+            </Card>
           )}
         </div>
       </div>

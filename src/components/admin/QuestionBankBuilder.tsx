@@ -203,17 +203,17 @@ export const QuestionBankBuilder = () => {
 
   // Fetch subjects when batch changes
   useEffect(() => {
-    if (selectedBatch) {
+    if (selectedBatch && batches.length > 0) {
       fetchSubjects();
     }
-  }, [selectedBatch]);
+  }, [selectedBatch, batches]);
 
   // Fetch chapters when subject changes
   useEffect(() => {
-    if (selectedSubject) {
+    if (selectedSubject && batches.length > 0) {
       fetchChapters();
     }
-  }, [selectedSubject]);
+  }, [selectedSubject, batches]);
 
   // Fetch topics when chapter changes
   useEffect(() => {

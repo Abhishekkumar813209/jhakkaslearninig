@@ -106,6 +106,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const progressIntervalRef = useRef<NodeJS.Timeout>();
   const lastUpdateRef = useRef<number>(0);
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
+  const lastQualityRef = useRef<string | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
@@ -130,7 +131,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     : 0;
 
   // YouTube player options
-  const youtubeOpts: YouTubeProps['opts'] = {
+  const youtubeOpts = React.useMemo<YouTubeProps['opts']>(() => ({
     height: '100%',
     width: '100%',
     playerVars: {
@@ -142,9 +143,9 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       cc_load_policy: 0,
       iv_load_policy: 3,
       disablekb: 0,
-      vq: currentQuality === 'auto' ? undefined : currentQuality,
+      // Note: we intentionally do not set `vq` here; quality is controlled imperatively
     },
-  };
+  }), []);
 
   // Calculate playlist progress
   const playlistProgress = lectures.length > 0
@@ -376,9 +377,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   };
 
   const onPlaybackQualityChange = (event: any) => {
-    const newQuality = event.data || event.target.getPlaybackQuality();
-    setCurrentQuality(newQuality);
-    console.log('Quality changed to:', newQuality);
+    const newQuality = event?.data || event?.target?.getPlaybackQuality?.();
+    if (!newQuality) return;
+    if (lastQualityRef.current !== newQuality) {
+      lastQualityRef.current = newQuality;
+      setCurrentQuality(newQuality);
+      console.log('Quality changed to:', newQuality);
+    }
   };
 
   const loadLectureProgress = async () => {

@@ -124,6 +124,11 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // Smart controls visibility
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSeeking, setIsSeeking] = useState(false);
+  
   // Auto-play next lecture states
   const [showAutoplayCountdown, setShowAutoplayCountdown] = useState(false);
   const [autoplayCountdown, setAutoplayCountdown] = useState(5);
@@ -144,6 +149,64 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   
   // Memoize title parsing to prevent blinking
   const parsedTitle = React.useMemo(() => parseLectureTitle(lecture.title), [lecture.title]);
+
+  // Smart controls: show on interaction, auto-hide in fullscreen when playing
+  const showAndMaybeAutoHide = React.useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    if (isFullscreen && isPlaying && !isSeeking) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  }, [isFullscreen, isPlaying, isSeeking]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onMove = () => {
+      showAndMaybeAutoHide();
+    };
+
+    if (isFullscreen) {
+      container.addEventListener('mousemove', onMove);
+      container.addEventListener('click', onMove);
+      container.addEventListener('touchstart', onMove);
+    } else {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    }
+
+    return () => {
+      if (isFullscreen && container) {
+        container.removeEventListener('mousemove', onMove);
+        container.removeEventListener('click', onMove);
+        container.removeEventListener('touchstart', onMove);
+      }
+    };
+  }, [isFullscreen, isPlaying, isSeeking, showAndMaybeAutoHide]);
+
+  useEffect(() => {
+    if (!isPlaying || isSeeking) {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    }
+  }, [isPlaying, isSeeking]);
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Calculate progress percentage
   const progressPercentage = duration > 0 
@@ -776,12 +839,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           id="video-container"
           className={`${
             isMobile ? 'flex-none' : 'flex-1'
-          } flex flex-col bg-black relative`}
+          } flex flex-col bg-black relative overflow-hidden${isFullscreen && !showControls ? ' cursor-none' : ''}`}
+          style={{ isolation: 'isolate' }}
         >
           {/* YouTube Player */}
           <div className={`${
             isMobile ? 'aspect-video' : 'flex-1'
-          } relative`}>
+          } relative${isFullscreen ? ' pointer-events-none' : ''}`}>
             <YouTube
               videoId={lecture.youtube_video_id}
               opts={youtubeOpts}
@@ -830,9 +894,10 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           </div>
 
           {/* Video Controls */}
-          <div className={`bg-black/90 p-3 md:p-4 text-white ${
-            isFullscreen ? 'absolute bottom-0 left-0 right-0 z-50' : ''
+          <div className={`p-3 md:p-4 text-white transition-all duration-300 ${
+            isFullscreen ? `absolute bottom-0 left-0 right-0 z-[100] bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-6 pt-16 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}` : 'bg-black/90'
           }`}>
+
             {/* Seekbar */}
             <div className="mb-3">
               <div className="flex items-center justify-between text-xs md:text-sm mb-2">
@@ -842,10 +907,24 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
               <Progress 
                 value={progressPercentage} 
                 className="cursor-pointer h-2 bg-gray-700"
+                onPointerDown={() => {
+                  setIsSeeking(true);
+                  setShowControls(true);
+                  if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+                }}
                 onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                   const percentage = ((e.clientX - rect.left) / rect.width) * 100;
                   handleSeek(percentage);
+                }}
+                onPointerUp={() => {
+                  setIsSeeking(false);
+                  setTimeout(() => {
+                    if (isPlaying && isFullscreen) {
+                      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+                      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
+                    }
+                  }, 1000);
                 }}
               />
             </div>

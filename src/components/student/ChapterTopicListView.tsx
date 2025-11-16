@@ -128,17 +128,17 @@ export const ChapterTopicListView = ({
 
         <Card className="card-gradient shadow-medium">
           <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1 space-y-1">
+            <div className="space-y-4">
+              {/* Title Section - Full Width */}
+              <div className="space-y-1">
                 <CardTitle className="text-2xl">{chapterName}</CardTitle>
                 <CardDescription className="text-base">
                   {sortedTopics.length} Topics • {completedCount} Completed
                 </CardDescription>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <Badge variant={totalProgress === 100 ? "default" : "secondary"} className="text-lg px-4 py-2">
-                  {Math.round(totalProgress)}%
-                </Badge>
+              
+              {/* Actions Section - Horizontal, Justified Between */}
+              <div className="flex items-center justify-between">
                 <Button
                   variant="outline"
                   onClick={() => navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lectures`)}
@@ -147,6 +147,9 @@ export const ChapterTopicListView = ({
                   <PlayCircle className="h-4 w-4" />
                   View Lectures
                 </Button>
+                <Badge variant={totalProgress === 100 ? "default" : "secondary"} className="text-lg px-4 py-2">
+                  {Math.round(totalProgress)}%
+                </Badge>
               </div>
             </div>
             <Progress value={totalProgress} className="h-2 mt-4" />
@@ -200,7 +203,8 @@ export const ChapterTopicListView = ({
 
                   {/* Topic Info */}
                   <div className="flex-1 space-y-2">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-3">
+                      {/* Topic Info Section - Full Width */}
                       <div className="space-y-1">
                         <h3 className="font-semibold text-lg leading-tight">
                           {index + 1}. {topic.topic_name}
@@ -221,14 +225,16 @@ export const ChapterTopicListView = ({
                         </div>
                       </div>
 
-                      {/* Rewards */}
+                      {/* Rewards Section - Horizontal, Justified Between */}
                       {topic.xp_reward && (
-                        <div className="flex flex-col gap-2 items-end flex-shrink-0">
-                          {isClickable && (
+                        <div className="flex items-center justify-between">
+                          {isClickable ? (
                             <Badge variant="default" className="bg-gradient-to-r from-blue-500 to-purple-500">
                               <Gamepad2 className="h-3 w-3 mr-1" />
                               Play
                             </Badge>
+                          ) : (
+                            <div></div>
                           )}
                           <Badge variant="outline" className="bg-primary/5">
                             +{Number(topic.xp_reward).toFixed(2)} XP

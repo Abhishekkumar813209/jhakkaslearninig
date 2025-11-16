@@ -13,6 +13,7 @@ import {
   SkipBack, 
   SkipForward, 
   Volume2, 
+  Volume1,
   VolumeX,
   Maximize, 
   CheckCircle,
@@ -20,7 +21,6 @@ import {
   BookOpen,
   ArrowLeft,
   Settings,
-  MonitorPlay,
   Monitor,
   Gauge,
   Keyboard,
@@ -32,6 +32,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { supabase } from '@/integrations/supabase/client';
 import LectureNotes from './LectureNotes';
 import { Check } from 'lucide-react';
@@ -114,11 +115,12 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const lastQualityRef = useRef<string | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [volume, setVolume] = useState<number>(100);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [availableQualities, setAvailableQualities] = useState<string[]>([]);
   const [availableRates, setAvailableRates] = useState<number[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   
   // Auto-play next lecture states
   const [showAutoplayCountdown, setShowAutoplayCountdown] = useState(false);
@@ -127,6 +129,16 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [showNotes, setShowNotes] = useState(true);
+  
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
   
   // Memoize title parsing to prevent blinking
   const parsedTitle = React.useMemo(() => parseLectureTitle(lecture.title), [lecture.title]);
@@ -232,16 +244,14 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         
         case 'f':
           e.preventDefault();
-          const iframe = document.querySelector('iframe');
-          if (iframe?.requestFullscreen) {
-            iframe.requestFullscreen();
+          const container = document.getElementById('video-container');
+          if (container) {
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              container.requestFullscreen();
+            }
           }
-          break;
-        
-        case 'p':
-        case 'i':
-          e.preventDefault();
-          togglePictureInPicture();
           break;
         
         case ',':
@@ -504,44 +514,6 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     }
   };
 
-  const togglePictureInPicture = async () => {
-    try {
-      const iframe = document.querySelector('iframe');
-      if (!iframe) return;
-
-      if (!document.pictureInPictureEnabled) {
-        toast({ 
-          title: "Not Supported", 
-          description: "Picture-in-Picture is not supported in your browser",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-        setIsPiPActive(false);
-        return;
-      }
-
-      const videoElement = iframe.querySelector('video');
-      if (videoElement) {
-        await (videoElement as any).requestPictureInPicture();
-        setIsPiPActive(true);
-        
-        videoElement.addEventListener('leavepictureinpicture', () => {
-          setIsPiPActive(false);
-        });
-      }
-    } catch (error) {
-      console.error('PiP error:', error);
-      toast({ 
-        title: "PiP Failed", 
-        description: "Could not enable Picture-in-Picture mode",
-        variant: "destructive"
-      });
-    }
-  };
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -785,9 +757,12 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         isMobile ? 'flex-col' : 'flex-row'
       }`}>
         {/* Video Player Area */}
-        <div className={`${
-          isMobile ? 'flex-none' : 'flex-1'
-        } flex flex-col bg-black`}>
+        <div 
+          id="video-container"
+          className={`${
+            isMobile ? 'flex-none' : 'flex-1'
+          } flex flex-col bg-black relative`}
+        >
           {/* YouTube Player */}
           <div className={`${
             isMobile ? 'aspect-video' : 'flex-1'
@@ -840,7 +815,9 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           </div>
 
           {/* Video Controls */}
-          <div className="bg-black/90 p-3 md:p-4 text-white">
+          <div className={`bg-black/90 p-3 md:p-4 text-white ${
+            isFullscreen ? 'absolute bottom-0 left-0 right-0 z-50' : ''
+          }`}>
             {/* Seekbar */}
             <div className="mb-3">
               <div className="flex items-center justify-between text-xs md:text-sm mb-2">
@@ -894,30 +871,41 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
 
             {/* Right Controls */}
             <div className="flex items-center gap-1 md:gap-2">
-              {/* Volume Button */}
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => {
-                  if (player) {
-                    const currentVolume = player.getVolume();
-                    if (currentVolume > 0) {
-                      player.setVolume(0);
-                      setIsMuted(true);
-                    } else {
-                      player.setVolume(100);
-                      setIsMuted(false);
-                    }
-                  }
-                }}
-              >
-                {isMuted ? (
-                  <VolumeX className="h-4 w-4" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
-                )}
-              </Button>
+              {/* Volume Control with Slider */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {volume === 0 || isMuted ? (
+                      <VolumeX className="h-4 w-4" />
+                    ) : volume < 50 ? (
+                      <Volume1 className="h-4 w-4" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-12 h-40 p-2" align="end" side="top">
+                  <div className="flex flex-col items-center h-full">
+                    <span className="text-xs mb-2 text-foreground">{volume}%</span>
+                    <Slider
+                      orientation="vertical"
+                      value={[volume]}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={(val) => {
+                        const newVolume = val[0];
+                        setVolume(newVolume);
+                        setIsMuted(newVolume === 0);
+                        if (player) {
+                          player.setVolume(newVolume);
+                        }
+                      }}
+                      className="h-full"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
               
               {/* Speed Control with Popover */}
               <Popover>
@@ -1019,25 +1007,19 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 </TooltipProvider>
               )}
               
-              {/* Picture-in-Picture Button */}
-              <Button 
-                variant={isPiPActive ? "default" : "ghost"}
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={togglePictureInPicture}
-              >
-                <MonitorPlay className="h-4 w-4" />
-              </Button>
-              
               {/* Fullscreen */}
               <Button 
                 variant="ghost" 
                 size="sm"
                 className="h-8 w-8 p-0"
                 onClick={() => {
-                  const iframe = document.querySelector('iframe');
-                  if (iframe?.requestFullscreen) {
-                    iframe.requestFullscreen();
+                  const container = document.getElementById('video-container');
+                  if (container) {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      container.requestFullscreen();
+                    }
                   }
                 }}
               >

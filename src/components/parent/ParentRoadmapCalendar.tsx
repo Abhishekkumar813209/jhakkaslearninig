@@ -142,7 +142,7 @@ const TopicCard = ({
             {/* Progress Badge */}
             <div className="absolute top-1 right-1">
               <Badge className={`text-xs ${color.badgeClass} text-white`}>
-                {Math.round(gameCompletionRate)}% ({gamesCompleted}/{totalGames})
+                {gamesCompleted}/{totalGames}
               </Badge>
             </div>
 
@@ -155,8 +155,7 @@ const TopicCard = ({
         <TooltipContent side="top" className="bg-popover text-popover-foreground">
           <div className="space-y-1 text-sm">
             <p className="font-semibold">Progress Details</p>
-            <p>Game Completion: {gameCompletionRate.toFixed(1)}%</p>
-            <p>Games: {gamesCompleted}/{totalGames}</p>
+            <p>Games Completed: {gamesCompleted}/{totalGames} ({Math.round(gameCompletionRate)}%)</p>
             <p>Status: {color.label}</p>
           </div>
         </TooltipContent>
@@ -175,7 +174,6 @@ export function ParentRoadmapCalendar({
 }: ParentRoadmapCalendarProps) {
   const isMobile = useIsMobile();
   const [selectedSubject, setSelectedSubject] = useState<string>(subjectsData[0]?.name || '');
-  const [viewMode, setViewMode] = useState<'calendar' | 'grid'>('calendar');
 
   // Transform to topic-level cards (including empty chapters)
   interface CalendarTopic {
@@ -267,29 +265,7 @@ export function ParentRoadmapCalendar({
           <Calendar className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-semibold">Student Roadmap Calendar</h3>
         </div>
-        
-        {/* Toggle Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === 'calendar' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('calendar')}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Calendar View
-          </Button>
-          <Button
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('grid')}
-          >
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Grid View
-          </Button>
-        </div>
       </div>
-
-      {viewMode === 'calendar' ? (
         <>
           {isMobile && (
             <div className="mb-4">

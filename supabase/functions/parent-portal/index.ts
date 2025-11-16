@@ -284,11 +284,26 @@ serve(async (req) => {
         if (!link) throw new Error('Unauthorized access to student');
 
         // Fetch student analytics
-        const { data: analytics } = await supabase
+        let { data: analytics } = await supabase
           .from('student_analytics')
           .select('*')
           .eq('student_id', studentId)
           .single();
+
+        // If rankings are missing but student has taken tests, recalculate
+        if (analytics && !analytics.overall_rank && analytics.tests_attempted > 0) {
+          console.log('Rankings missing for student with tests, recalculating...');
+          await supabase.rpc('calculate_zone_rankings');
+          
+          // Re-fetch analytics
+          const { data: updatedAnalytics } = await supabase
+            .from('student_analytics')
+            .select('*')
+            .eq('student_id', studentId)
+            .single();
+          
+          analytics = updatedAnalytics;
+        }
 
         // Fetch subject analytics
         const { data: subjectAnalytics } = await supabase
@@ -641,6 +656,94 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ dailyProgress: groupedByDate }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'getChapterTestCompletion': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verify parent has access
+        const { data: linkCheck } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .single();
+
+        if (!linkCheck) throw new Error('Unauthorized access to student');
+
+        // Get all test attempts for this student with chapter info
+        const { data: attempts, error: attemptsError } = await supabase
+          .from('test_attempts')
+          .select(`
+            test_id,
+            status,
+            tests!inner (
+              id,
+              title,
+              subject
+            )
+          `)
+          .eq('student_id', studentId)
+          .in('status', ['submitted', 'auto_submitted']);
+
+        if (attemptsError) {
+          console.error('Error fetching test attempts:', attemptsError);
+          throw attemptsError;
+        }
+
+        // For each test, find the chapter_id via questions->topic->chapter
+        const chapterCompletionMap: Record<string, number> = {};
+        
+        if (attempts && attempts.length > 0) {
+          const testIds = attempts.map(a => a.test_id);
+          
+          // Get questions with topic and chapter info
+          const { data: questions } = await supabase
+            .from('questions')
+            .select(`
+              test_id,
+              topic_id,
+              roadmap_topics!inner (
+                chapter_id
+              )
+            `)
+            .in('test_id', testIds)
+            .not('topic_id', 'is', null);
+
+          // Build map of test_id -> chapter_id
+          const testToChapterMap: Record<string, Set<string>> = {};
+          (questions || []).forEach((q: any) => {
+            const chapterId = q.roadmap_topics?.chapter_id;
+            if (chapterId) {
+              if (!testToChapterMap[q.test_id]) {
+                testToChapterMap[q.test_id] = new Set();
+              }
+              testToChapterMap[q.test_id].add(chapterId);
+            }
+          });
+
+          // Count tests per chapter
+          attempts.forEach(attempt => {
+            const chapterIds = testToChapterMap[attempt.test_id];
+            if (chapterIds) {
+              chapterIds.forEach(chapterId => {
+                chapterCompletionMap[chapterId] = (chapterCompletionMap[chapterId] || 0) + 1;
+              });
+            }
+          });
+        }
+
+        console.log('Chapter completion map:', chapterCompletionMap);
+
+        return new Response(
+          JSON.stringify({ chapterCompletion: chapterCompletionMap }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

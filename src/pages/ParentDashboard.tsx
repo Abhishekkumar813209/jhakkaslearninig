@@ -229,19 +229,6 @@ export default function ParentDashboard() {
     }
   };
 
-  const toggleChapterStatus = (chapterId: string) => {
-    setChapterStatuses(prev => {
-      const newStatus = !prev[chapterId];
-      toast.success(newStatus ? "✅ Chapter marked as Done" : "❌ Chapter marked as Not Done", {
-        description: "Status updated locally (not saved to backend)"
-      });
-      return {
-        ...prev,
-        [chapterId]: newStatus
-      };
-    });
-  };
-
   const toggleZone = (zone: 'red' | 'yellow' | 'green') => {
     setManualZone(zone);
     const zoneNames = {
@@ -513,7 +500,6 @@ export default function ParentDashboard() {
                 totalDays={roadmapCalendar.totalDays}
                 subjectsData={roadmapCalendar.subjectsData}
                 chapterStatuses={chapterStatuses}
-                onChapterDoubleClick={toggleChapterStatus}
                 testAnalysis={testAnalysis}
               />
             )}

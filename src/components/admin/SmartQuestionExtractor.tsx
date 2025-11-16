@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download, Grid3x3, PenLine, EyeIcon, Save } from "lucide-react";
+import { Upload, Loader2, Eye, FileText, CheckCircle2, Search, Filter, Image as ImageIcon, Trash2, Database, Plus, Copy, AlertCircle, ArrowLeft, Edit, Download, Grid3x3, PenLine, EyeIcon, Save, ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkQuestionEditor } from './BulkQuestionEditor';
 import { cn } from "@/lib/utils";
@@ -170,6 +170,13 @@ export const SmartQuestionExtractor = ({
     return saved ? JSON.parse(saved) : [];
   });
   const [reloadKey, setReloadKey] = useState(0);
+  
+  // Move questions state
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
+  const [targetTopicId, setTargetTopicId] = useState<string>("");
+  const [availableTopics, setAvailableTopics] = useState<Array<{ id: string; topic_name: string }>>([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [movingQuestions, setMovingQuestions] = useState(false);
 
   // Save selectedIds whenever it changes (debounced)
   useEffect(() => {
@@ -1555,6 +1562,83 @@ export const SmartQuestionExtractor = ({
 
   const clearSelection = () => {
     setSelectedIds([]);
+  };
+
+  // Fetch available topics from the same chapter
+  const fetchAvailableTopics = async () => {
+    if (!chapterId) {
+      toast.error("No chapter selected");
+      return;
+    }
+
+    setLoadingTopics(true);
+    try {
+      const { data, error } = await supabase
+        .from('roadmap_topics')
+        .select('id, topic_name')
+        .eq('chapter_id', chapterId)
+        .order('order_num', { ascending: true });
+
+      if (error) throw error;
+      setAvailableTopics(data || []);
+    } catch (error: any) {
+      console.error('Failed to fetch topics:', error);
+      toast.error('Failed to load available topics');
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
+  // Move selected questions to another topic
+  const handleMoveQuestions = async () => {
+    if (!targetTopicId) {
+      toast.error("Please select a target topic");
+      return;
+    }
+
+    if (selectedIds.length === 0) {
+      toast.error("No questions selected");
+      return;
+    }
+
+    setMovingQuestions(true);
+    try {
+      const questionIds = selectedIds.filter(id => isUUID(id));
+      
+      if (questionIds.length === 0) {
+        toast.error("No saved questions selected");
+        setMovingQuestions(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('question_bank')
+        .update({ topic_id: targetTopicId })
+        .in('id', questionIds);
+
+      if (error) throw error;
+
+      // Remove moved questions from current view
+      setExtractedQuestions(prev => prev.filter(q => !questionIds.includes(q.id)));
+      setSelectedIds([]);
+      
+      // Clear localStorage selection
+      const storageKey = mode === 'question-bank' ? `question-selections-${topicId}` : 'question-extractor-selected';
+      if (selectedIds.length === questionIds.length) {
+        localStorage.removeItem(storageKey);
+      }
+
+      const targetTopic = availableTopics.find(t => t.id === targetTopicId);
+      toast.success(`Successfully moved ${questionIds.length} question(s) to "${targetTopic?.topic_name}"`);
+      
+      setShowMoveDialog(false);
+      setTargetTopicId("");
+    } catch (error: any) {
+      console.error('Failed to move questions:', error);
+      toast.error(`Move failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setMovingQuestions(false);
+    }
   };
 
   const getFilteredQuestions = () => {
@@ -3005,10 +3089,25 @@ export const SmartQuestionExtractor = ({
                     Clear All
                   </Button>
                   {selectedIds.length > 0 && (
-                    <Button variant="default" size="sm" onClick={handleSaveToDatabase}>
-                      <Database className="h-4 w-4 mr-1" />
-                      {mode === 'test-builder' ? 'Add to Test' : 'Save to Database'} ({selectedIds.length})
-                    </Button>
+                    <>
+                      <Button variant="default" size="sm" onClick={handleSaveToDatabase}>
+                        <Database className="h-4 w-4 mr-1" />
+                        {mode === 'test-builder' ? 'Add to Test' : 'Save to Database'} ({selectedIds.length})
+                      </Button>
+                      {mode === 'question-bank' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            setShowMoveDialog(true);
+                            fetchAvailableTopics();
+                          }}
+                        >
+                          <ArrowRight className="h-4 w-4 mr-1" />
+                          Move to Topic ({selectedIds.length})
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -3678,6 +3777,73 @@ export const SmartQuestionExtractor = ({
                 </div>
               </div>
             </details>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Questions Dialog */}
+      <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Questions to Another Topic</DialogTitle>
+            <DialogDescription>
+              Select a target topic from the same chapter to move {selectedIds.length} selected question(s)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {loadingTopics ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Target Topic</label>
+                <Select value={targetTopicId} onValueChange={setTargetTopicId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a topic..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTopics
+                      .filter(t => t.id !== topicId) // Exclude current topic
+                      .map((topic) => (
+                        <SelectItem key={topic.id} value={topic.id}>
+                          {topic.topic_name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMoveDialog(false);
+                setTargetTopicId("");
+              }}
+              disabled={movingQuestions}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMoveQuestions}
+              disabled={!targetTopicId || movingQuestions}
+            >
+              {movingQuestions ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Moving...
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Move Questions
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

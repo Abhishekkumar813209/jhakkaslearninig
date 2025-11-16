@@ -135,7 +135,7 @@ export const ChapterTopicListView = ({
                   {sortedTopics.length} Topics • {completedCount} Completed
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end gap-2">
                 <Badge variant={totalProgress === 100 ? "default" : "secondary"} className="text-lg px-4 py-2">
                   {Math.round(totalProgress)}%
                 </Badge>
@@ -223,7 +223,7 @@ export const ChapterTopicListView = ({
 
                       {/* Rewards */}
                       {topic.xp_reward && (
-                        <div className="flex gap-2 flex-shrink-0">
+                        <div className="flex flex-col gap-2 items-end flex-shrink-0">
                           {isClickable && (
                             <Badge variant="default" className="bg-gradient-to-r from-blue-500 to-purple-500">
                               <Gamepad2 className="h-3 w-3 mr-1" />

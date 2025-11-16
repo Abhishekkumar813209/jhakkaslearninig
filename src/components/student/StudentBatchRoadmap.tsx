@@ -565,7 +565,24 @@ export const StudentBatchRoadmap = () => {
   };
 
   const handleChapterReorder = async (subjectName: string, reorderedChapterIds: string[]) => {
+    if (!roadmap) return;
+    
     try {
+      // Optimistic update - update state immediately for smooth UX
+      const updatedSubjects = roadmap.subjects.map(subject => {
+        if (subject.name === subjectName) {
+          const reorderedChapters = reorderedChapterIds.map(id => 
+            subject.chapters.find(ch => ch.id === id)
+          ).filter(Boolean) as any[];
+          
+          return { ...subject, chapters: reorderedChapters };
+        }
+        return subject;
+      });
+      
+      setRoadmap({ ...roadmap, subjects: updatedSubjects });
+      
+      // API call in background
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
       
@@ -585,8 +602,6 @@ export const StudentBatchRoadmap = () => {
         description: `Chapters reordered for ${subjectName}`
       });
       
-      // Refetch to get authoritative day ranges from backend
-      await fetchRoadmap();
     } catch (error) {
       console.error("Error updating chapter order:", error);
       toast({
@@ -594,6 +609,7 @@ export const StudentBatchRoadmap = () => {
         description: "Failed to save chapter order",
         variant: "destructive"
       });
+      // Only refetch on error to restore correct state
       fetchRoadmap();
     }
   };

@@ -14,6 +14,8 @@ interface GameFloatingChatbotProps {
   gameType: string;
   subject?: string;
   topic?: string;
+  correctAnswer?: string;
+  explanation?: string;
 }
 
 interface Message {
@@ -26,7 +28,9 @@ export const GameFloatingChatbot: React.FC<GameFloatingChatbotProps> = ({
   questionText,
   gameType,
   subject,
-  topic
+  topic,
+  correctAnswer,
+  explanation
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -67,10 +71,12 @@ export const GameFloatingChatbot: React.FC<GameFloatingChatbotProps> = ({
       const { data, error } = await supabase.functions.invoke('ai-question-explainer', {
         body: {
           questionText,
+          correctAnswer: correctAnswer || 'Not available',
+          studentAnswer: null,
           subject: subject || 'General',
           topic: topic || gameType,
           userMessage: userMessage || "Please help me understand this question step by step. I've attempted it multiple times but still struggling.",
-          explanation: `This is a ${gameType} type game question.`
+          explanation: explanation || `This is a ${gameType} type game question.`
         }
       });
 

@@ -15,7 +15,8 @@ import {
   Volume2, 
   Volume1,
   VolumeX,
-  Maximize, 
+  Maximize,
+  Minimize,
   CheckCircle,
   Clock,
   BookOpen,
@@ -199,6 +200,28 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       }
     }
   }, [isPlaying, isSeeking]);
+
+  // Handle fullscreen changes and orientation lock on mobile
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isCurrentlyFullscreen);
+      
+      // Unlock orientation when exiting fullscreen on mobile
+      if (!isCurrentlyFullscreen && isMobile && (screen.orientation as any)?.unlock) {
+        try {
+          (screen.orientation as any).unlock();
+        } catch (err) {
+          console.log('Orientation unlock not supported:', err);
+        }
+      }
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     return () => {
@@ -1106,18 +1129,34 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 variant="ghost" 
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => {
+                onClick={async () => {
                   const container = document.getElementById('video-container');
                   if (container) {
                     if (document.fullscreenElement) {
                       document.exitFullscreen();
+                      // Unlock orientation on mobile
+                      if (isMobile && (screen.orientation as any)?.unlock) {
+                        try {
+                          (screen.orientation as any).unlock();
+                        } catch (err) {
+                          console.log('Orientation unlock not supported:', err);
+                        }
+                      }
                     } else {
-                      container.requestFullscreen();
+                      await container.requestFullscreen();
+                      // Lock to landscape on mobile
+                      if (isMobile && (screen.orientation as any)?.lock) {
+                        try {
+                          await (screen.orientation as any).lock('landscape');
+                        } catch (err) {
+                          console.log('Orientation lock not supported:', err);
+                        }
+                      }
                     }
                   }
                 }}
               >
-                <Maximize className="h-4 w-4" />
+                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
             </div>
             </div>
@@ -1182,7 +1221,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           )}
           
           {/* Playlist Header */}
-          <div className={`p-4 border-b flex-shrink-0 ${isMobile ? 'sticky top-0 bg-background z-10' : ''}`}>
+          <div className="p-4 border-b flex-shrink-0 bg-background">
             <h3 className="font-semibold mb-2">{playlistTitle}</h3>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">

@@ -10,6 +10,7 @@ import { DragDropSequence } from "@/components/student/games/DragDropSequence";
 import { TypingRaceGame } from "@/components/student/games/TypingRaceGame";
 import { TrueFalseGame } from "@/components/student/games/TrueFalseGame";
 import { DragDropBlanks } from "@/components/student/games/DragDropBlanks";
+import { GameFloatingChatbot } from "@/components/student/GameFloatingChatbot";
 import { getAdjacentGames, loadGameById, GameNavigationInfo } from "@/lib/gameNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -948,6 +949,17 @@ const GamePlayerPage = () => {
         )}
 
         {renderGame()}
+        
+        {/* Floating AI Chatbot - Only shows after 2+ attempts */}
+        {gameData && gameId && (
+          <GameFloatingChatbot
+            gameId={gameId}
+            questionText={gameData.question_text || 'Game question'}
+            gameType={gameData.exercise_type || 'Unknown'}
+            subject={gameData.subject}
+            topic={topicId}
+          />
+        )}
       </div>
     </div>
   );

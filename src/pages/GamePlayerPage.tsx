@@ -958,6 +958,8 @@ const GamePlayerPage = () => {
             gameType={gameData.exercise_type || 'Unknown'}
             subject={gameData.subject}
             topic={topicId}
+            correctAnswer={gameData.correct_answer}
+            explanation={gameData.explanation}
           />
         )}
       </div>

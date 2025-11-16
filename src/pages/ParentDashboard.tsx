@@ -65,7 +65,7 @@ export default function ParentDashboard() {
   const [selectedRace, setSelectedRace] = useState<RaceType>('class');
   const [testAnalysis, setTestAnalysis] = useState<any>({});
   const [roadmapCalendar, setRoadmapCalendar] = useState<any>(null);
-  const [chapterStatuses, setChapterStatuses] = useState<Record<string, boolean>>({});
+  const [chapterStatuses, setChapterStatuses] = useState<Record<string, number>>({});
   const [manualZone, setManualZone] = useState<'red' | 'yellow' | 'green'>('red');
 
   useEffect(() => {
@@ -405,28 +405,28 @@ export default function ParentDashboard() {
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-1">Overall</p>
                     <p className="text-3xl font-bold text-primary">
-                      #{progress?.analytics?.overall_rank || '-'}
+                      #{progress?.analytics?.overall_rank ?? 'Not Ranked'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {progress?.analytics?.overall_percentile}th percentile
+                      {progress?.analytics?.overall_percentile ? `${progress.analytics.overall_percentile}th percentile` : 'Insufficient data'}
                     </p>
                   </div>
                   <div className="text-center border-x">
                     <p className="text-sm text-muted-foreground mb-1">Zone</p>
                     <p className="text-3xl font-bold text-primary">
-                      #{progress?.analytics?.zone_rank || '-'}
+                      #{progress?.analytics?.zone_rank ?? 'Not Ranked'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {progress?.analytics?.zone_percentile}th percentile
+                      {progress?.analytics?.zone_percentile ? `${progress.analytics.zone_percentile}th percentile` : 'Insufficient data'}
                     </p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-1">School</p>
                     <p className="text-3xl font-bold text-primary">
-                      #{progress?.analytics?.school_rank || '-'}
+                      #{progress?.analytics?.school_rank ?? 'Not Ranked'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {progress?.analytics?.school_percentile}th percentile
+                      {progress?.analytics?.school_percentile ? `${progress.analytics.school_percentile}th percentile` : 'Insufficient data'}
                     </p>
                   </div>
                 </div>
@@ -501,7 +501,6 @@ export default function ParentDashboard() {
                     roadmapData={roadmapCalendar.subjectsData}
                     testAnalysis={testAnalysis}
                     chapterStatuses={chapterStatuses}
-                    onChapterDoubleClick={toggleChapterStatus}
                   />
                 </CardContent>
               </Card>

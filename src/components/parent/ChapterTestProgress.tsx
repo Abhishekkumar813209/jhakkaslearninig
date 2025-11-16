@@ -26,30 +26,14 @@ interface SubjectData {
 interface ChapterTestProgressProps {
   roadmapData: SubjectData[];
   testAnalysis: Record<string, TestAttempt[]>;
-  chapterStatuses: Record<string, boolean>;
-  onChapterDoubleClick: (chapterId: string) => void;
+  chapterStatuses: Record<string, number>;
 }
 
 export function ChapterTestProgress({
   roadmapData,
   testAnalysis,
-  chapterStatuses,
-  onChapterDoubleClick
+  chapterStatuses
 }: ChapterTestProgressProps) {
-  
-  // Helper: Check if chapter has completed tests
-  const getChapterTestCount = (chapterId: string, chapterName: string) => {
-    let count = 0;
-    // Check testAnalysis for this chapter
-    Object.values(testAnalysis).forEach((tests) => {
-      tests.forEach((test) => {
-        if (test.test_title.toLowerCase().includes(chapterName.toLowerCase())) {
-          count++;
-        }
-      });
-    });
-    return count;
-  };
 
   return (
     <div className="space-y-6">
@@ -64,18 +48,17 @@ export function ChapterTestProgress({
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {subject.chapters.map((chapter) => {
-              const testCount = getChapterTestCount(chapter.id, chapter.chapter_name);
-              const hasTests = testCount > 0 || chapterStatuses[chapter.id];
+              const completedTests = chapterStatuses[chapter.id] || 0;
+              const hasTests = completedTests > 0;
               
               return (
                 <div
                   key={chapter.id}
-                  onDoubleClick={() => onChapterDoubleClick(chapter.id)}
                   className={`
-                    p-4 rounded-lg border-2 cursor-pointer transition-all
+                    p-4 rounded-lg border-2 transition-all
                     ${hasTests
-                      ? 'bg-green-50 border-green-300 hover:bg-green-100 dark:bg-green-950 dark:border-green-800'
-                      : 'bg-red-50 border-red-300 hover:bg-red-100 dark:bg-red-950 dark:border-red-800'}
+                      ? 'bg-green-50 border-green-300 dark:bg-green-950 dark:border-green-800'
+                      : 'bg-red-50 border-red-300 dark:bg-red-950 dark:border-red-800'}
                   `}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -93,7 +76,7 @@ export function ChapterTestProgress({
                     variant={hasTests ? "default" : "destructive"}
                     className="text-xs"
                   >
-                    {testCount} tests completed
+                    {completedTests} tests completed
                   </Badge>
                 </div>
               );

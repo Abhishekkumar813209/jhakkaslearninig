@@ -261,7 +261,6 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           if (speed >= 1 && speed <= 2) {
             player.setPlaybackRate(speed);
             setPlaybackSpeed(speed);
-            toast({ title: `Speed: ${speed}x` });
           }
           break;
       }
@@ -470,30 +469,27 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   };
 
   const handleQualityChange = (quality: string) => {
-    if (player) {
-      player.setPlaybackQuality(quality);
+    if (!player) return;
+    
+    try {
+      if (quality === 'auto') {
+        // For auto, let YouTube decide - set to highest available as a hint
+        const qualities = player.getAvailableQualityLevels();
+        if (qualities && qualities.length > 0) {
+          player.setPlaybackQuality(qualities[0]);
+        }
+      } else {
+        // For specific quality, set it directly
+        player.setPlaybackQuality(quality);
+      }
+      
+      // Update UI state optimistically
       setCurrentQuality(quality);
       
-      const qualityLabel = quality === 'auto' ? 'Auto' :
-                          quality === 'tiny' ? '144p' :
-                          quality === 'small' ? '240p' :
-                          quality === 'medium' ? '360p' :
-                          quality === 'large' ? '480p' :
-                          quality === 'hd720' ? '720p' :
-                          quality === 'hd1080' ? '1080p' :
-                          quality === 'highres' ? '4K' : quality;
-      
-      toast({ title: `Quality: ${qualityLabel}` });
-      
-      // Verify after a short delay if the quality actually changed
-      setTimeout(() => {
-        if (player && player.getPlaybackQuality) {
-          const actualQuality = player.getPlaybackQuality();
-          if (actualQuality !== quality && quality !== 'auto') {
-            console.warn(`Quality change rejected by YouTube. Requested: ${quality}, Got: ${actualQuality}`);
-          }
-        }
-      }, 1000);
+      // Note: We rely on onPlaybackQualityChange event to show actual quality
+      // No toast here - silent operation for better UX
+    } catch (error) {
+      console.error('Quality change error:', error);
     }
   };
 
@@ -940,13 +936,6 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                             if (player && isAvailable) {
                               player.setPlaybackRate(speed);
                               setPlaybackSpeed(speed);
-                              toast({ title: `Speed: ${speed}x` });
-                            } else if (!isAvailable) {
-                              toast({ 
-                                title: "Speed not available", 
-                                description: "This speed is not supported for this video",
-                                variant: "destructive" 
-                              });
                             }
                           }}
                         >
@@ -996,12 +985,6 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                           onClick={() => {
                             if (isAvailable) {
                               handleQualityChange(quality);
-                            } else {
-                              toast({ 
-                                title: "Quality not available", 
-                                description: `${qualityLabel} is not available for this video`,
-                                variant: "destructive"
-                              });
                             }
                           }}
                         >

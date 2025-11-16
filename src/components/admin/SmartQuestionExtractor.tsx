@@ -3091,22 +3091,22 @@ export const SmartQuestionExtractor = ({
                   {selectedIds.length > 0 && (
                     <>
                       <Button variant="default" size="sm" onClick={handleSaveToDatabase}>
-                        <Database className="h-4 w-4 mr-1" />
-                        {mode === 'test-builder' ? 'Add to Test' : 'Save to Database'} ({selectedIds.length})
+                      <Database className="h-4 w-4 mr-1" />
+                      {mode === 'test-builder' ? 'Add to Test' : 'Save to Database'} ({selectedIds.length})
+                    </Button>
+                    {topicId && chapterId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          setShowMoveDialog(true);
+                          fetchAvailableTopics();
+                        }}
+                      >
+                        <ArrowRight className="h-4 w-4 mr-1" />
+                        Move to Topic ({selectedIds.length})
                       </Button>
-                      {mode === 'question-bank' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => {
-                            setShowMoveDialog(true);
-                            fetchAvailableTopics();
-                          }}
-                        >
-                          <ArrowRight className="h-4 w-4 mr-1" />
-                          Move to Topic ({selectedIds.length})
-                        </Button>
-                      )}
+                    )}
                     </>
                   )}
                 </div>

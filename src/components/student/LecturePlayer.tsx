@@ -24,6 +24,8 @@ import {
   Monitor,
   Gauge,
   Keyboard,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Popover,
@@ -117,6 +119,10 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [showNotes, setShowNotes] = useState(true);
+  
+  // Memoize title parsing to prevent blinking
+  const parsedTitle = React.useMemo(() => parseLectureTitle(lecture.title), [lecture.title]);
 
   // Calculate progress percentage
   const progressPercentage = duration > 0 
@@ -687,17 +693,17 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <h1 className="text-lg md:text-xl font-bold line-clamp-2">
-              {parseLectureTitle(lecture.title).mainTitle}
+              {parsedTitle.mainTitle}
             </h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-              {parseLectureTitle(lecture.title).context && (
+              {parsedTitle.context && (
                 <>
-                  <span>{parseLectureTitle(lecture.title).context}</span>
-                  {parseLectureTitle(lecture.title).metadata && <span>•</span>}
+                  <span>{parsedTitle.context}</span>
+                  {parsedTitle.metadata && <span>•</span>}
                 </>
               )}
-              {parseLectureTitle(lecture.title).metadata && (
-                <span>{parseLectureTitle(lecture.title).metadata}</span>
+              {parsedTitle.metadata && (
+                <span>{parsedTitle.metadata}</span>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">{playlistTitle}</p>
@@ -1026,30 +1032,22 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             </div>
           </div>
 
-          {/* Lecture Notes Section */}
-          <div className="p-4 bg-background border-t">
-            <LectureNotes
-              lectureId={lecture.id}
-              currentTime={currentTime}
-              onSeekToTime={handleSeekFromNote}
-            />
-          </div>
         </div>
 
         {/* Lecture Description (Mobile Only) */}
         {isMobile && (
           <div className="p-4 border-b bg-background">
             <h2 className="font-semibold text-lg mb-2">
-              {parseLectureTitle(lecture.title).mainTitle}
+              {parsedTitle.mainTitle}
             </h2>
-            {parseLectureTitle(lecture.title).context && (
+            {parsedTitle.context && (
               <Badge variant="secondary" className="mb-2">
-                {parseLectureTitle(lecture.title).context}
+                {parsedTitle.context}
               </Badge>
             )}
-            {parseLectureTitle(lecture.title).metadata && (
+            {parsedTitle.metadata && (
               <p className="text-sm text-muted-foreground">
-                {parseLectureTitle(lecture.title).metadata}
+                {parsedTitle.metadata}
               </p>
             )}
             {lecture.description && (
@@ -1064,9 +1062,36 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         <div className={`${
           isMobile 
             ? 'flex-1 bg-background overflow-y-auto' 
-            : 'w-80 bg-background border-l overflow-y-auto'
+            : 'w-96 bg-background border-l flex flex-col overflow-hidden'
         }`}>
-          <div className={`p-4 border-b ${isMobile ? 'sticky top-0 bg-background z-10' : ''}`}>
+          {/* Lecture Notes Section - Top of Sidebar (Desktop Only) */}
+          {!isMobile && (
+            <div className="border-b">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowNotes(!showNotes)}
+                className="w-full justify-between p-4 h-auto hover:bg-muted/50"
+              >
+                <span className="font-semibold flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  My Notes
+                </span>
+                {showNotes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+              {showNotes && (
+                <div className="px-4 pb-4 max-h-64 overflow-y-auto">
+                  <LectureNotes
+                    lectureId={lecture.id}
+                    currentTime={currentTime}
+                    onSeekToTime={handleSeekFromNote}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Playlist Header */}
+          <div className={`p-4 border-b flex-shrink-0 ${isMobile ? 'sticky top-0 bg-background z-10' : ''}`}>
             <h3 className="font-semibold mb-2">{playlistTitle}</h3>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -1081,7 +1106,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             <Progress value={playlistProgress} className="mt-2" />
           </div>
 
-          <div className="p-2">
+          {/* Playlist Items */}
+          <div className={`p-2 ${isMobile ? '' : 'flex-1 overflow-y-auto'}`}>
             {lectures.map((lectureItem, index) => {
               const isCurrentLecture = lectureItem.id === lecture.id;
               const lectureItemProgress = allLecturesProgress.find(p => p.chapter_lecture_id === lectureItem.id);

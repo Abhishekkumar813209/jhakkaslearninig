@@ -3803,14 +3803,16 @@ export const SmartQuestionExtractor = ({
                   <SelectTrigger>
                     <SelectValue placeholder="Select a topic..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {availableTopics
-                      .filter(t => t.id !== topicId) // Exclude current topic
-                      .map((topic) => (
-                        <SelectItem key={topic.id} value={topic.id}>
-                          {topic.topic_name}
-                        </SelectItem>
-                      ))}
+                  <SelectContent className="max-h-[300px]">
+                    <ScrollArea className="h-[300px]">
+                      {availableTopics
+                        .filter(t => t.id !== topicId) // Exclude current topic
+                        .map((topic) => (
+                          <SelectItem key={topic.id} value={topic.id}>
+                            {topic.topic_name}
+                          </SelectItem>
+                        ))}
+                    </ScrollArea>
                   </SelectContent>
                 </Select>
               </div>

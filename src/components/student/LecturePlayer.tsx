@@ -151,10 +151,15 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     ? (lectures.filter(l => l.id === lecture.id ? progressPercentage >= 80 : false).length / lectures.length) * 100
     : 0;
 
+  // Load progress when lecture changes
   useEffect(() => {
     loadLectureProgress();
+  }, [lecture.id]);
 
-    // Keyboard shortcuts
+  // Setup keyboard shortcuts when player is ready
+  useEffect(() => {
+    if (!player) return;
+
     const handleKeyPress = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
@@ -170,55 +175,51 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         
         case 'arrowleft':
           e.preventDefault();
-          if (player) {
-            const newTime = Math.max(0, currentTime - 10);
+          player.getCurrentTime((time: number) => {
+            const newTime = Math.max(0, time - 10);
             player.seekTo(newTime);
             setCurrentTime(newTime);
             toast({ title: `⏪ -10s` });
-          }
+          });
           break;
         
         case 'arrowright':
           e.preventDefault();
-          if (player) {
-            const newTime = Math.min(duration, currentTime + 10);
-            player.seekTo(newTime);
-            setCurrentTime(newTime);
-            toast({ title: `⏩ +10s` });
-          }
+          player.getCurrentTime((time: number) => {
+            player.getDuration((dur: number) => {
+              const newTime = Math.min(dur, time + 10);
+              player.seekTo(newTime);
+              setCurrentTime(newTime);
+              toast({ title: `⏩ +10s` });
+            });
+          });
           break;
         
         case 'arrowup':
           e.preventDefault();
-          if (player) {
-            const newVolume = Math.min(100, player.getVolume() + 10);
-            player.setVolume(newVolume);
-            toast({ title: `🔊 Volume: ${newVolume}%` });
-          }
+          const newVolumeUp = Math.min(100, player.getVolume() + 10);
+          player.setVolume(newVolumeUp);
+          toast({ title: `🔊 Volume: ${newVolumeUp}%` });
           break;
         
         case 'arrowdown':
           e.preventDefault();
-          if (player) {
-            const newVolume = Math.max(0, player.getVolume() - 10);
-            player.setVolume(newVolume);
-            toast({ title: `🔉 Volume: ${newVolume}%` });
-          }
+          const newVolumeDown = Math.max(0, player.getVolume() - 10);
+          player.setVolume(newVolumeDown);
+          toast({ title: `🔉 Volume: ${newVolumeDown}%` });
           break;
         
         case 'm':
           e.preventDefault();
-          if (player) {
-            const currentVolume = player.getVolume();
-            if (currentVolume > 0) {
-              player.setVolume(0);
-              setIsMuted(true);
-              toast({ title: `🔇 Muted` });
-            } else {
-              player.setVolume(100);
-              setIsMuted(false);
-              toast({ title: `🔊 Unmuted` });
-            }
+          const currentVolume = player.getVolume();
+          if (currentVolume > 0) {
+            player.setVolume(0);
+            setIsMuted(true);
+            toast({ title: `🔇 Muted` });
+          } else {
+            player.setVolume(100);
+            setIsMuted(false);
+            toast({ title: `🔊 Unmuted` });
           }
           break;
         
@@ -256,7 +257,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
         case '1': case '2':
           e.preventDefault();
           const speed = parseInt(e.key);
-          if (player && speed >= 1 && speed <= 2) {
+          if (speed >= 1 && speed <= 2) {
             player.setPlaybackRate(speed);
             setPlaybackSpeed(speed);
             toast({ title: `Speed: ${speed}x` });
@@ -266,7 +267,11 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     };
 
     window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [player, onClose, toast]);
 
+  // Cleanup intervals when lecture changes
+  useEffect(() => {
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -274,9 +279,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       if (autoplayTimerRef.current) {
         clearInterval(autoplayTimerRef.current);
       }
-      window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [lecture.id, player, currentTime, duration]);
+  }, [lecture.id]);
 
   // YouTube player event handlers
   const onPlayerReady = (event: any) => {

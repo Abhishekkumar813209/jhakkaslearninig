@@ -35,6 +35,12 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import LectureNotes from './LectureNotes';
 import { Check } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Lecture {
   id: string;
@@ -295,6 +301,11 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     const qualities = event.target.getAvailableQualityLevels() || [];
     setAvailableQualities(qualities);
     console.log('Available quality levels:', qualities);
+    
+    if (qualities.length === 0) {
+      console.warn('⚠️ No quality options available for this video. Quality selector will be disabled.');
+      console.info('💡 This is a YouTube API limitation - not all videos support quality selection in embedded players.');
+    }
     
     // Sync current values
     setPlaybackSpeed(event.target.getPlaybackRate() || 1);
@@ -948,53 +959,72 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
               </Popover>
               
               {/* Quality Selector */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                  >
-                    <Monitor className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-32 p-2" align="end">
-                  <div className="space-y-1">
-                    <div className="text-xs font-semibold mb-2 text-muted-foreground">Quality</div>
-                    {['auto', 'tiny', 'small', 'medium', 'large', 'hd720', 'hd1080', 'highres'].map((quality) => {
-                      const isAvailable = quality === 'auto' || 
-                                          availableQualities.length === 0 || 
-                                          availableQualities.includes(quality);
-                      
-                      const qualityLabel = quality === 'auto' ? 'Auto' :
-                                           quality === 'tiny' ? '144p' :
-                                           quality === 'small' ? '240p' :
-                                           quality === 'medium' ? '360p' :
-                                           quality === 'large' ? '480p' :
-                                           quality === 'hd720' ? '720p' :
-                                           quality === 'hd1080' ? '1080p' :
-                                           quality === 'highres' ? '4K' : quality;
-                      
-                      return (
-                        <Button
-                          key={quality}
-                          variant={currentQuality === quality ? "default" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start text-xs"
-                          disabled={!isAvailable}
-                          onClick={() => {
-                            if (isAvailable) {
-                              handleQualityChange(quality);
-                            }
-                          }}
-                        >
-                          {qualityLabel} {!isAvailable && '(N/A)'}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {availableQualities.length > 0 ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                    >
+                      <Monitor className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-32 p-2" align="end">
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold mb-2 text-muted-foreground">Quality</div>
+                      {['auto', 'tiny', 'small', 'medium', 'large', 'hd720', 'hd1080', 'highres'].map((quality) => {
+                        const isAvailable = quality === 'auto' || availableQualities.includes(quality);
+                        
+                        const qualityLabel = quality === 'auto' ? 'Auto' :
+                                             quality === 'tiny' ? '144p' :
+                                             quality === 'small' ? '240p' :
+                                             quality === 'medium' ? '360p' :
+                                             quality === 'large' ? '480p' :
+                                             quality === 'hd720' ? '720p' :
+                                             quality === 'hd1080' ? '1080p' :
+                                             quality === 'highres' ? '4K' : quality;
+                        
+                        return (
+                          <Button
+                            key={quality}
+                            variant={currentQuality === quality ? "default" : "ghost"}
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            disabled={!isAvailable}
+                            onClick={() => {
+                              if (isAvailable) {
+                                handleQualityChange(quality);
+                              }
+                            }}
+                          >
+                            {qualityLabel} {currentQuality === quality && <Check className="ml-auto h-3 w-3" />}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="h-8 w-8 p-0 opacity-40 cursor-not-allowed"
+                        disabled
+                      >
+                        <Monitor className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Quality control unavailable</p>
+                      <p className="text-xs text-muted-foreground">This video doesn't support quality selection</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               
               {/* Picture-in-Picture Button */}
               <Button 

@@ -62,8 +62,7 @@ interface ParentRoadmapCalendarProps {
   startDate: Date;
   totalDays: number;
   subjectsData: SubjectData[];
-  chapterStatuses: Record<string, boolean>;
-  onChapterDoubleClick: (chapterId: string) => void;
+  chapterStatuses: Record<string, number>;
   testAnalysis: Record<string, TestAttempt[]>;
 }
 
@@ -169,7 +168,6 @@ export function ParentRoadmapCalendar({
   totalDays,
   subjectsData,
   chapterStatuses,
-  onChapterDoubleClick,
   testAnalysis
 }: ParentRoadmapCalendarProps) {
   const isMobile = useIsMobile();
@@ -266,7 +264,6 @@ export function ParentRoadmapCalendar({
           <h3 className="text-lg font-semibold">Student Roadmap Calendar</h3>
         </div>
       </div>
-        <>
           {isMobile && (
             <div className="mb-4">
               <Select value={selectedSubject} onValueChange={setSelectedSubject}>
@@ -416,68 +413,29 @@ export function ParentRoadmapCalendar({
               </div>
             </div>
           </div>
-        </>
-      ) : (
-        /* Grid View - Detailed Test Analysis */
-        <div className="space-y-4">
-          {Object.keys(testAnalysis).length > 0 ? (
-            <Accordion type="single" collapsible className="w-full">
-              {Object.keys(testAnalysis).map((subject) => (
-                <AccordionItem key={subject} value={subject}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center justify-between w-full pr-4">
-                      <span className="font-semibold">{subject}</span>
-                      <Badge variant="secondary">
-                        {testAnalysis[subject].length} tests
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-3 pt-2">
-                      {testAnalysis[subject].map((test, idx) => (
-                        <div
-                          key={`${test.test_id}-${idx}`}
-                          className="flex items-center justify-between p-3 rounded-lg border bg-card"
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            {test.passed ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{test.test_title}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(test.submitted_at).toLocaleDateString('en-IN', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className={`text-lg font-bold ${test.passed ? 'text-green-600' : 'text-red-600'}`}>
-                              {test.percentage.toFixed(1)}%
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {test.score}/{test.total_marks}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          ) : (
-            <Card className="p-6 text-center">
-              <p className="text-muted-foreground">No test data available yet.</p>
-            </Card>
-          )}
-        </div>
-      )}
+
+          {/* Legend - Only show in calendar view */}
+          <div className="mt-6 p-4 bg-muted rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Progress Indicators</h3>
+            <div className="flex flex-wrap gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-red-500"></div>
+                <span>0-25% Complete</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-yellow-500"></div>
+                <span>25-75% Complete</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-green-500"></div>
+                <span>75-100% Complete</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-2 border-primary"></div>
+                <span>Today's Topic</span>
+              </div>
+            </div>
+          </div>
     </div>
   );
 }

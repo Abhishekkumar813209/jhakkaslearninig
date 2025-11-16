@@ -121,6 +121,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [availableQualities, setAvailableQualities] = useState<string[]>([]);
   const [availableRates, setAvailableRates] = useState<number[]>([]);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const playerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Auto-play next lecture states
   const [showAutoplayCountdown, setShowAutoplayCountdown] = useState(false);
@@ -218,6 +220,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           e.preventDefault();
           const newVolumeUp = Math.min(100, player.getVolume() + 10);
           player.setVolume(newVolumeUp);
+          setVolume(newVolumeUp);
+          setIsMuted(false);
           toast({ title: `🔊 Volume: ${newVolumeUp}%` });
           break;
         
@@ -225,20 +229,24 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
           e.preventDefault();
           const newVolumeDown = Math.max(0, player.getVolume() - 10);
           player.setVolume(newVolumeDown);
+          setVolume(newVolumeDown);
+          setIsMuted(newVolumeDown === 0);
           toast({ title: `🔉 Volume: ${newVolumeDown}%` });
           break;
         
         case 'm':
           e.preventDefault();
-          const currentVolume = player.getVolume();
-          if (currentVolume > 0) {
-            player.setVolume(0);
-            setIsMuted(true);
-            toast({ title: `🔇 Muted` });
-          } else {
+          if (isMuted) {
+            player.unMute();
             player.setVolume(100);
+            setVolume(100);
             setIsMuted(false);
             toast({ title: `🔊 Unmuted` });
+          } else {
+            player.mute();
+            setVolume(0);
+            setIsMuted(true);
+            toast({ title: `🔇 Muted` });
           }
           break;
         
@@ -301,6 +309,12 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   // YouTube player event handlers
   const onPlayerReady = (event: any) => {
     setPlayer(event.target);
+    playerRef.current = event.target;
+    
+    // Initialize volume state from player
+    const vol = Math.round(event.target.getVolume?.() ?? 100);
+    setVolume(vol);
+    setIsMuted(vol === 0 || event.target.isMuted?.());
     
     // Get available playback rates from YouTube
     const rates = event.target.getAvailablePlaybackRates() || [];
@@ -758,6 +772,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       }`}>
         {/* Video Player Area */}
         <div 
+          ref={containerRef}
           id="video-container"
           className={`${
             isMobile ? 'flex-none' : 'flex-1'
@@ -884,7 +899,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-12 h-40 p-2" align="end" side="top">
+                <PopoverContent container={containerRef.current} className="w-12 h-40 p-2" align="end" side="top">
                   <div className="flex flex-col items-center h-full">
                     <span className="text-xs mb-2 text-foreground">{volume}%</span>
                     <Slider

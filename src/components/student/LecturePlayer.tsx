@@ -973,9 +973,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                   <PopoverContent className="w-32 p-2" align="end">
                     <div className="space-y-1">
                       <div className="text-xs font-semibold mb-2 text-muted-foreground">Quality</div>
-                      {['auto', 'tiny', 'small', 'medium', 'large', 'hd720', 'hd1080', 'highres'].map((quality) => {
-                        const isAvailable = quality === 'auto' || availableQualities.includes(quality);
-                        
+                      {['auto', ...availableQualities].map((quality) => {
                         const qualityLabel = quality === 'auto' ? 'Auto' :
                                              quality === 'tiny' ? '144p' :
                                              quality === 'small' ? '240p' :
@@ -991,12 +989,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                             variant={currentQuality === quality ? "default" : "ghost"}
                             size="sm"
                             className="w-full justify-start text-xs"
-                            disabled={!isAvailable}
-                            onClick={() => {
-                              if (isAvailable) {
-                                handleQualityChange(quality);
-                              }
-                            }}
+                            onClick={() => handleQualityChange(quality)}
                           >
                             {qualityLabel} {currentQuality === quality && <Check className="ml-auto h-3 w-3" />}
                           </Button>

@@ -568,18 +568,46 @@ export const StudentBatchRoadmap = () => {
     if (!roadmap) return;
     
     try {
-      // Optimistic update - update state immediately for smooth UX
+      // Optimistic update with full day recalculation
       const updatedSubjects = roadmap.subjects.map(subject => {
         if (subject.name === subjectName) {
-          const reorderedChapters = reorderedChapterIds.map(id => 
-            subject.chapters.find(ch => ch.id === id)
-          ).filter(Boolean) as any[];
+          // 1. Reorder chapters based on new order
+          const reorderedChapters = reorderedChapterIds
+            .map(id => subject.chapters.find(ch => ch.id === id))
+            .filter(Boolean) as any[];
           
-          return { ...subject, chapters: reorderedChapters };
+          // 2. Recalculate day ranges starting from day 1
+          let currentDay = 1;
+          const recalculatedChapters = reorderedChapters.map(chapter => {
+            const days = chapter.custom_days || chapter.estimated_days || 3;
+            const newDayStart = currentDay;
+            const newDayEnd = currentDay + days - 1;
+            
+            // 3. Recalculate topic assigned days within this chapter
+            const chapterDays = newDayEnd - newDayStart + 1;
+            const topicsPerDay = Math.max(1, Math.ceil(chapter.topics.length / chapterDays));
+            
+            const recalculatedTopics = chapter.topics.map((topic: any, index: number) => ({
+              ...topic,
+              day_number: newDayStart + Math.floor(index / topicsPerDay)
+            }));
+            
+            currentDay += days; // Move to next chapter's start day
+            
+            return {
+              ...chapter,
+              day_start: newDayStart,
+              day_end: newDayEnd,
+              topics: recalculatedTopics
+            };
+          });
+          
+          return { ...subject, chapters: recalculatedChapters };
         }
         return subject;
       });
       
+      // 4. Update state - UI instantly shows correct day ranges and calendar dates
       setRoadmap({ ...roadmap, subjects: updatedSubjects });
       
       // API call in background

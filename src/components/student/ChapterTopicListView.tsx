@@ -161,7 +161,7 @@ export const ChapterTopicListView = ({
       <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
         <p className="font-medium text-primary flex items-center gap-2">
           <BookMarked className="h-4 w-4" />
-          W3Schools Style Learning Path
+          Learning Path
         </p>
         <p className="text-sm text-muted-foreground">
           Complete each topic to unlock the next one. Topics are presented in a sequential order for optimal learning.

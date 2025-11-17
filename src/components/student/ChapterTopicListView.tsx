@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Lock, Unlock, CheckCircle2, Clock, BookMarked, Gamepad2, PlayCircle } from "lucide-react";
+import { ArrowLeft, Lock, Unlock, CheckCircle2, BookMarked, Gamepad2, PlayCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 // Removed old lesson path imports - now using direct game navigation
@@ -133,7 +133,7 @@ export const ChapterTopicListView = ({
               <div className="space-y-1">
                 <CardTitle className="text-2xl">{chapterName}</CardTitle>
                 <CardDescription className="text-base">
-                  {sortedTopics.length} Topics • {completedCount} Completed
+                  {completedCount} Completed
                 </CardDescription>
               </div>
               
@@ -210,12 +210,6 @@ export const ChapterTopicListView = ({
                           {index + 1}. {topic.topic_name}
                         </h3>
                         <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                          {topic.estimated_hours && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {topic.estimated_hours}h
-                            </span>
-                          )}
                           {topic.book_page_reference && (
                             <span className="flex items-center gap-1">
                               <BookMarked className="h-3 w-3" />

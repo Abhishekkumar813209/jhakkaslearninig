@@ -23,7 +23,7 @@ const Student = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="batch-roadmap" className="space-y-6">
+        <Tabs defaultValue="batch-roadmap" className="space-y-3">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="batch-roadmap" className="flex items-center gap-2">
               <Target className="h-4 w-4" />

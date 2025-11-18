@@ -41,3 +41,10 @@ verify_jwt = true
 
 [functions.topic-zone-analytics]
 verify_jwt = true
+
+[functions.generate-chapter-library]
+verify_jwt = true
+
+[functions.generate-full-chapter-topics]
+verify_jwt = true
+

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Sparkles, Library } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface CreateRoadmapWizardProps {
   open: boolean;
@@ -143,6 +144,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [isFetchingChapters, setIsFetchingChapters] = useState(false);
   const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
   const [useChapterLibrary, setUseChapterLibrary] = useState(true); // Toggle between AI and Library
+  const [usePredefinedTopics, setUsePredefinedTopics] = useState(false); // Toggle for using full_topics from library
   
   // Step 1: Days Budget (merged with subjects)
   const [daysBudget, setDaysBudget] = useState<Record<string, number>>({});
@@ -751,6 +753,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             intensity: intensity,
             use_chapter_library: useChapterLibrary,
             selected_chapter_library_ids: selectedChapterIds,
+            use_predefined_topics: usePredefinedTopics,
           }
         });
 
@@ -1255,6 +1258,36 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
                 </Button>
               </div>
 
+              {/* Topics Toggle - Only when using library */}
+              {useChapterLibrary && (
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">Use Pre-defined Topics</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Use topics from centralized library instead of AI generation
+                    </p>
+                  </div>
+                  <Switch
+                    checked={usePredefinedTopics}
+                    onCheckedChange={setUsePredefinedTopics}
+                  />
+                </div>
+              )}
+
+              {/* Visual Mode Indicator */}
+              {useChapterLibrary && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/30 dark:border-blue-800">
+                  <div className="flex items-center gap-2">
+                    <Library className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="font-medium text-blue-900 dark:text-blue-300">Using Centralized Library</span>
+                  </div>
+                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-400">
+                    • Chapters: From centralized library<br/>
+                    • Topics: {usePredefinedTopics ? 'Pre-defined (faster)' : 'AI Generated (customized)'}
+                  </div>
+                </div>
+              )}
+
               {useChapterLibrary ? (
                 <CentralizedChapterSelectionStep
                   examType={examType}
@@ -1386,6 +1419,11 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Generation Mode Indicator */}
+              <div className="p-2 bg-muted rounded text-sm text-center">
+                Mode: {useChapterLibrary ? 'Library' : 'AI'} Chapters + {usePredefinedTopics ? 'Pre-defined' : 'AI'} Topics
+              </div>
+
               {/* Status Message */}
               <p className="text-sm text-muted-foreground">{generationProgress.message}</p>
 

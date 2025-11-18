@@ -58,6 +58,95 @@ export type Database = {
           },
         ]
       }
+      batch_question_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          assignment_order: number | null
+          batch_id: string
+          chapter_library_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          question_id: string
+          roadmap_topic_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assignment_order?: number | null
+          batch_id: string
+          chapter_library_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          question_id: string
+          roadmap_topic_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assignment_order?: number | null
+          batch_id?: string
+          chapter_library_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          question_id?: string
+          roadmap_topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_question_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_question_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_question_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "batch_question_assignments_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_question_assignments_chapter_library_id_fkey"
+            columns: ["chapter_library_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_question_assignments_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_question_assignments_roadmap_topic_id_fkey"
+            columns: ["roadmap_topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batch_roadmaps: {
         Row: {
           ai_generated_plan: Json | null
@@ -228,6 +317,75 @@ export type Database = {
           },
         ]
       }
+      centralized_topic_mappings: {
+        Row: {
+          centralized_topic_name: string
+          chapter_library_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          mapping_confidence: string | null
+          roadmap_topic_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          centralized_topic_name: string
+          chapter_library_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          mapping_confidence?: string | null
+          roadmap_topic_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          centralized_topic_name?: string
+          chapter_library_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          mapping_confidence?: string | null
+          roadmap_topic_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "centralized_topic_mappings_chapter_library_id_fkey"
+            columns: ["chapter_library_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "centralized_topic_mappings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "centralized_topic_mappings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "centralized_topic_mappings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "centralized_topic_mappings_roadmap_topic_id_fkey"
+            columns: ["roadmap_topic_id"]
+            isOneToOne: false
+            referencedRelation: "roadmap_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chapter_lectures: {
         Row: {
           chapter_id: string
@@ -285,6 +443,7 @@ export type Database = {
           difficulty: string | null
           exam_relevance: string | null
           exam_type: string
+          full_topics: Json | null
           id: string
           importance_score: number | null
           is_active: boolean | null
@@ -293,6 +452,7 @@ export type Database = {
           suggested_days: number | null
           topics: Json | null
           topics_generated: boolean | null
+          topics_strategy: string | null
           updated_at: string | null
         }
         Insert: {
@@ -303,6 +463,7 @@ export type Database = {
           difficulty?: string | null
           exam_relevance?: string | null
           exam_type: string
+          full_topics?: Json | null
           id?: string
           importance_score?: number | null
           is_active?: boolean | null
@@ -311,6 +472,7 @@ export type Database = {
           suggested_days?: number | null
           topics?: Json | null
           topics_generated?: boolean | null
+          topics_strategy?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -321,6 +483,7 @@ export type Database = {
           difficulty?: string | null
           exam_relevance?: string | null
           exam_type?: string
+          full_topics?: Json | null
           id?: string
           importance_score?: number | null
           is_active?: boolean | null
@@ -329,6 +492,7 @@ export type Database = {
           suggested_days?: number | null
           topics?: Json | null
           topics_generated?: boolean | null
+          topics_strategy?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2158,9 +2322,13 @@ export type Database = {
         Row: {
           admin_reviewed: boolean | null
           answer_data: Json | null
+          applicable_classes: string[] | null
+          applicable_exams: string[] | null
           assertion: string | null
           batch_id: string | null
+          centralized_topic_name: string | null
           chapter_id: string | null
+          chapter_library_id: string | null
           correct_answer: string | null
           created_at: string | null
           created_by: string | null
@@ -2171,6 +2339,7 @@ export type Database = {
           explanation: string | null
           id: string
           is_approved: boolean | null
+          is_centralized: boolean | null
           is_published: boolean | null
           left_column: string[] | null
           marks: number
@@ -2192,9 +2361,13 @@ export type Database = {
         Insert: {
           admin_reviewed?: boolean | null
           answer_data?: Json | null
+          applicable_classes?: string[] | null
+          applicable_exams?: string[] | null
           assertion?: string | null
           batch_id?: string | null
+          centralized_topic_name?: string | null
           chapter_id?: string | null
+          chapter_library_id?: string | null
           correct_answer?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -2205,6 +2378,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_approved?: boolean | null
+          is_centralized?: boolean | null
           is_published?: boolean | null
           left_column?: string[] | null
           marks?: number
@@ -2226,9 +2400,13 @@ export type Database = {
         Update: {
           admin_reviewed?: boolean | null
           answer_data?: Json | null
+          applicable_classes?: string[] | null
+          applicable_exams?: string[] | null
           assertion?: string | null
           batch_id?: string | null
+          centralized_topic_name?: string | null
           chapter_id?: string | null
+          chapter_library_id?: string | null
           correct_answer?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -2239,6 +2417,7 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_approved?: boolean | null
+          is_centralized?: boolean | null
           is_published?: boolean | null
           left_column?: string[] | null
           marks?: number
@@ -2270,6 +2449,13 @@ export type Database = {
             columns: ["chapter_id"]
             isOneToOne: false
             referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_chapter_library_id_fkey"
+            columns: ["chapter_library_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_library"
             referencedColumns: ["id"]
           },
           {

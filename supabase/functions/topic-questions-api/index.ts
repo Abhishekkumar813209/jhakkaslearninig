@@ -1706,6 +1706,169 @@ serve(async (req) => {
       );
     }
 
+    // ========== save_centralized_question ==========
+    if (action === 'save_centralized_question') {
+      console.log('💾 Saving centralized question');
+      const { 
+        chapter_library_id, 
+        centralized_topic_name,
+        question_text,
+        question_type,
+        options,
+        correct_answer,
+        explanation,
+        difficulty,
+        marks,
+        subject,
+        applicable_classes,
+        applicable_exams,
+        question_data,
+        answer_data
+      } = body;
+
+      if (!chapter_library_id || !centralized_topic_name || !question_text || !question_type) {
+        throw new Error('Missing required fields for centralized question');
+      }
+
+      const insertData: any = {
+        chapter_library_id,
+        centralized_topic_name,
+        question_text: stripHtmlTags(question_text),
+        question_type,
+        options: options ? stripHtmlFromOptions(options) : null,
+        correct_answer: correct_answer || null,
+        explanation: explanation || null,
+        difficulty: difficulty || 'medium',
+        marks: marks || 1,
+        subject: subject || null,
+        applicable_classes: applicable_classes || [],
+        applicable_exams: applicable_exams || [],
+        is_centralized: true,
+        batch_id: null, // Centralized questions don't belong to specific batches
+        question_data: question_data || {},
+        answer_data: answer_data || {},
+        created_by: user.id,
+        admin_reviewed: true
+      };
+
+      const { data: question, error } = await serviceClient
+        .from('question_bank')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log(`✅ Centralized question saved: ${question.id}`);
+      
+      return new Response(
+        JSON.stringify({ success: true, question }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== assign_to_batch ==========
+    if (action === 'assign_to_batch') {
+      console.log('🔗 Assigning questions to batch topics');
+      const { batch_id, roadmap_topic_id, question_ids, chapter_library_id } = body;
+
+      if (!batch_id || !roadmap_topic_id || !question_ids || !Array.isArray(question_ids)) {
+        throw new Error('Missing or invalid required fields');
+      }
+
+      // Create assignments for each question
+      const assignments = question_ids.map((question_id, index) => ({
+        batch_id,
+        roadmap_topic_id,
+        question_id,
+        chapter_library_id: chapter_library_id || null,
+        assigned_by: user.id,
+        assignment_order: index,
+        is_active: true
+      }));
+
+      const { data, error } = await serviceClient
+        .from('batch_question_assignments')
+        .upsert(assignments, { onConflict: 'batch_id,roadmap_topic_id,question_id' })
+        .select();
+
+      if (error) throw error;
+
+      console.log(`✅ Assigned ${data.length} questions to batch topic`);
+      
+      return new Response(
+        JSON.stringify({ success: true, assignments: data, count: data.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== fetch_cross_exam_questions ==========
+    if (action === 'fetch_cross_exam_questions') {
+      console.log('🔍 Fetching cross-exam questions');
+      const { 
+        chapter_library_id,
+        centralized_topic_name,
+        subject,
+        applicable_class,
+        exam_type_filter,
+        difficulty_filter,
+        question_type_filter,
+        limit = 50
+      } = body;
+
+      if (!chapter_library_id && !centralized_topic_name) {
+        throw new Error('Either chapter_library_id or centralized_topic_name is required');
+      }
+
+      let query = serviceClient
+        .from('question_bank')
+        .select('*')
+        .eq('is_centralized', true);
+
+      if (chapter_library_id) {
+        query = query.eq('chapter_library_id', chapter_library_id);
+      }
+
+      if (centralized_topic_name) {
+        query = query.eq('centralized_topic_name', centralized_topic_name);
+      }
+
+      if (subject) {
+        query = query.eq('subject', subject);
+      }
+
+      // Filter by applicable class
+      if (applicable_class) {
+        query = query.contains('applicable_classes', [applicable_class]);
+      }
+
+      // Optional filters
+      if (exam_type_filter) {
+        query = query.contains('applicable_exams', [exam_type_filter]);
+      }
+
+      if (difficulty_filter) {
+        query = query.eq('difficulty', difficulty_filter);
+      }
+
+      if (question_type_filter) {
+        query = query.eq('question_type', question_type_filter);
+      }
+
+      query = query.order('created_at', { ascending: false }).limit(limit);
+
+      const { data: questions, error } = await query;
+
+      if (error) throw error;
+
+      console.log(`✅ Found ${questions?.length || 0} cross-exam questions`);
+      
+      return new Response(
+        JSON.stringify({ success: true, questions: questions || [], count: questions?.length || 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     throw new Error(`Unknown action: ${action}`);
 
   } catch (error) {

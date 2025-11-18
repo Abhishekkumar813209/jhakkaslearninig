@@ -146,10 +146,11 @@ serve(async (req) => {
       time_budget,
       intensity = 'balanced', // 'full' | 'important' | 'balanced'
       use_chapter_library = false, // NEW: Flag to use chapter_library
-      selected_chapter_library_ids = [] // NEW: Array of chapter_library IDs
+      selected_chapter_library_ids = [], // NEW: Array of chapter_library IDs
+      use_predefined_topics = false // NEW: Flag to use full_topics from library
     } = await req.json();
 
-    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget, intensity, use_chapter_library, selected_chapter_library_ids });
+    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget, intensity, use_chapter_library, selected_chapter_library_ids, use_predefined_topics });
 
     // Fallback: Fetch exam_type and exam_name from batch if not provided
     let finalExamType = exam_type;
@@ -317,7 +318,8 @@ serve(async (req) => {
           exam_relevance: ch.exam_relevance || 'important',
           can_skip: ch.can_skip || false,
           chapter_library_id: ch.id,
-          full_topics: ch.full_topics
+          // Only include full_topics if explicitly requested
+          ...(use_predefined_topics && ch.full_topics && { full_topics: ch.full_topics })
         });
       });
       
@@ -327,7 +329,18 @@ serve(async (req) => {
       }));
       
       console.log(`✅ Using ${selected_subjects.length} subjects from library`);
+      console.log(`📝 Topics mode: ${use_predefined_topics ? 'PRE-DEFINED' : 'AI GENERATED'}`);
     }
+
+    const topicInstructions = use_predefined_topics
+      ? `**📋 TOPIC MODE: PRE-DEFINED**
+- Use topics from the provided full_topics list
+- Select appropriate subset based on allocated days and intensity
+- Maintain topic order from the list`
+      : `**🤖 TOPIC MODE: AI GENERATED**
+- Generate topics dynamically based on chapter content and allocated days
+- Distribute topics evenly across available days
+- Ensure comprehensive coverage within budget`;
 
     const userPrompt = `Create a learning roadmap for:
 
@@ -335,6 +348,7 @@ ${studentContext}
 Subjects: ${extractedSubjects.join(', ')}
 
 **🎯 INTENSITY MODE: ${intensity}**
+${topicInstructions}
 ${needsClustering ? '⚠️ CLUSTERING REQUIRED - Budget is very tight, merge related chapters' : ''}
 
 **💰 TIME BUDGET (MUST MATCH EXACTLY - NO DEVIATION ALLOWED):**

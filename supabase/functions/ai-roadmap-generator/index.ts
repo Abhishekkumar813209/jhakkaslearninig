@@ -144,10 +144,12 @@ serve(async (req) => {
       mode = 'parallel',
       title,
       time_budget,
-      intensity = 'balanced' // 'full' | 'important' | 'balanced'
+      intensity = 'balanced', // 'full' | 'important' | 'balanced'
+      use_chapter_library = false, // NEW: Flag to use chapter_library
+      selected_chapter_library_ids = [] // NEW: Array of chapter_library IDs
     } = await req.json();
 
-    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget, intensity });
+    console.log('Received request:', { batch_id, exam_type, exam_name, mode, time_budget, intensity, use_chapter_library, selected_chapter_library_ids });
 
     // Fallback: Fetch exam_type and exam_name from batch if not provided
     let finalExamType = exam_type;
@@ -253,6 +255,27 @@ serve(async (req) => {
       console.log('');
     }
 
+    // NEW: Check for chapter library if flag is set
+    let chaptersFromLibrary: any[] = [];
+    let useLibraryGeneration = false;
+    
+    if (use_chapter_library && selected_chapter_library_ids && selected_chapter_library_ids.length > 0) {
+      console.log('📚 Using centralized chapter library...');
+      
+      const { data: libraryChapters, error: libraryError } = await supabase
+        .from('chapter_library')
+        .select('*')
+        .in('id', selected_chapter_library_ids);
+      
+      if (libraryError) {
+        console.error('Error fetching chapter library:', libraryError);
+      } else if (libraryChapters && libraryChapters.length > 0) {
+        chaptersFromLibrary = libraryChapters;
+        useLibraryGeneration = true;
+        console.log(`✅ Loaded ${chaptersFromLibrary.length} chapters from library`);
+      }
+    }
+
     // Use helper function for system prompt to reduce bundle size
     const systemPrompt = buildSystemPrompt(intensity);
     
@@ -275,6 +298,35 @@ serve(async (req) => {
       }
     } else {
       studentContext = `- Exam: ${exam_name || exam_type}`;
+    }
+
+    // NEW: If using library, construct selected_subjects from library chapters
+    if (useLibraryGeneration && chaptersFromLibrary.length > 0) {
+      console.log('📚 Constructing roadmap from library chapters...');
+      
+      const libraryBySubject: any = {};
+      chaptersFromLibrary.forEach((ch: any) => {
+        if (!libraryBySubject[ch.subject]) {
+          libraryBySubject[ch.subject] = [];
+        }
+        libraryBySubject[ch.subject].push({
+          chapter_name: ch.chapter_name,
+          suggested_days: ch.suggested_days || 3,
+          importance_score: ch.importance_score || 5,
+          difficulty: ch.difficulty || 'medium',
+          exam_relevance: ch.exam_relevance || 'important',
+          can_skip: ch.can_skip || false,
+          chapter_library_id: ch.id,
+          full_topics: ch.full_topics
+        });
+      });
+      
+      selected_subjects = Object.entries(libraryBySubject).map(([subject, chapters]) => ({
+        subject,
+        selected_chapters: chapters
+      }));
+      
+      console.log(`✅ Using ${selected_subjects.length} subjects from library`);
     }
 
     const userPrompt = `Create a learning roadmap for:
@@ -716,7 +768,8 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
           estimated_days: chapter.estimated_days || 3,
           day_start: chapter.day_start || null,
           day_end: chapter.day_end || null,
-          xp_reward: 100
+          xp_reward: 100,
+          chapter_library_id: chapter.chapter_library_id || null // Link to library if used
         })
         .select()
         .single();
@@ -729,7 +782,7 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
       // Insert topics for this chapter
       if (chapter.topics && Array.isArray(chapter.topics)) {
         for (const topic of chapter.topics) {
-          await supabase
+          const { data: insertedTopic, error: topicError } = await supabase
             .from('roadmap_topics')
             .insert({
               chapter_id: insertedChapter.id,
@@ -739,7 +792,22 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
               day_number: null,
               xp_reward: 50,
               coin_reward: 10
-            });
+            })
+            .select()
+            .single();
+          
+          // NEW: Auto-create centralized_topic_mappings if chapter is from library
+          if (!topicError && insertedTopic && chapter.chapter_library_id) {
+            await supabase
+              .from('centralized_topic_mappings')
+              .insert({
+                roadmap_topic_id: insertedTopic.id,
+                chapter_library_id: chapter.chapter_library_id,
+                centralized_topic_name: topic.topic_name,
+                mapping_confidence: 'exact_match',
+                created_by: user.id
+              });
+          }
         }
       }
     }

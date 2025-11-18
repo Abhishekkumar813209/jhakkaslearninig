@@ -40,7 +40,13 @@ export const ChapterLibraryManager = () => {
     if (selectedDomain) {
       const examType = examTypes.find(e => e.code === selectedDomain);
       if (examType?.requires_class) {
-        setClasses(['11', '12']); // Common classes, expand as needed
+        // Full range for School/Board exams, otherwise 11-12 for competitive
+        if (selectedDomain.toLowerCase() === 'school') {
+          setClasses(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
+        } else {
+          // Competitive exams typically 11-12
+          setClasses(['11', '12']);
+        }
       } else {
         setClasses([]);
       }

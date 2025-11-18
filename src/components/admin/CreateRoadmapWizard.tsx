@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ExamTypeStep } from "./wizard-steps/ExamTypeStep";
 import { SubjectDaysStep } from "./wizard-steps/SubjectDaysStep";
 import { ChapterSelectionStep } from "./wizard-steps/ChapterSelectionStep";
+import { CentralizedChapterSelectionStep } from "./wizard-steps/CentralizedChapterSelectionStep";
 import { IntensitySelectionStep } from "./wizard-steps/IntensitySelectionStep";
 import { RoadmapPreviewStep } from "./wizard-steps/RoadmapPreviewStep";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -15,7 +16,7 @@ import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Sparkles, Library } from "lucide-react";
 
 interface CreateRoadmapWizardProps {
   open: boolean;
@@ -141,6 +142,7 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
   const [fetchedChapters, setFetchedChapters] = useState<ChaptersBySubject>({});
   const [isFetchingChapters, setIsFetchingChapters] = useState(false);
   const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
+  const [useChapterLibrary, setUseChapterLibrary] = useState(true); // Toggle between AI and Library
   
   // Step 1: Days Budget (merged with subjects)
   const [daysBudget, setDaysBudget] = useState<Record<string, number>>({});
@@ -724,6 +726,13 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
         }, 2000);
       } else {
         // Create new roadmap
+        const selectedChapterIds = useChapterLibrary
+          ? Object.values(fetchedChapters)
+              .flat()
+              .filter(ch => ch.isSelected)
+              .map(ch => ch.id)
+          : [];
+
         const { data, error } = await supabase.functions.invoke('ai-roadmap-generator', {
           body: {
             batch_id: batchId,
@@ -739,7 +748,9 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
             title: roadmapTitle,
             mode: roadmapMode,
             time_budget: timeBudget,
-            intensity: intensity
+            intensity: intensity,
+            use_chapter_library: useChapterLibrary,
+            selected_chapter_library_ids: selectedChapterIds,
           }
         });
 
@@ -1221,22 +1232,59 @@ export const CreateRoadmapWizard = ({ open, onOpenChange, onSuccess, onSwitchToM
 
           {/* Step 2: Chapter Selection */}
           {currentStep === 2 && (
-            <ChapterSelectionStep
-              subjects={fetchedSubjects.filter(s => s.isSelected)}
-              chapters={fetchedChapters}
-              isFetching={isFetchingChapters}
-              timeBudget={timeBudget}
-              onFetchChapters={handleFetchChaptersForSubject}
-              onToggleChapter={handleToggleChapter}
-              onAddChapter={handleAddCustomChapter}
-              onDeleteChapter={handleDeleteChapter}
-              onUpdateDays={handleUpdateChapterDays}
-              onUploadPdf={handleUploadPdf}
-              uploadedPdf={uploadedPdf}
-              examType={examType}
-              examName={examName}
-              onUpdateChapter={handleUpdateChapter}
-            />
+            <div className="space-y-4">
+              {/* Mode Toggle */}
+              <div className="flex items-center justify-center gap-2 p-2 bg-muted rounded-lg">
+                <Button
+                  variant={useChapterLibrary ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseChapterLibrary(true)}
+                  className="gap-2"
+                >
+                  <Library className="h-4 w-4" />
+                  Use Centralized Library
+                </Button>
+                <Button
+                  variant={!useChapterLibrary ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseChapterLibrary(false)}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate with AI
+                </Button>
+              </div>
+
+              {useChapterLibrary ? (
+                <CentralizedChapterSelectionStep
+                  examType={examType}
+                  examName={examName}
+                  conditionalClass={conditionalClass}
+                  subjects={fetchedSubjects.filter(s => s.isSelected)}
+                  selectedChapters={fetchedChapters}
+                  onChaptersChange={setFetchedChapters}
+                  timeBudget={timeBudget}
+                  intensity={intensity}
+                />
+              ) : (
+                <ChapterSelectionStep
+                  subjects={fetchedSubjects.filter(s => s.isSelected)}
+                  chapters={fetchedChapters}
+                  isFetching={isFetchingChapters}
+                  timeBudget={timeBudget}
+                  onFetchChapters={handleFetchChaptersForSubject}
+                  onToggleChapter={handleToggleChapter}
+                  onAddChapter={handleAddCustomChapter}
+                  onDeleteChapter={handleDeleteChapter}
+                  onUpdateDays={handleUpdateChapterDays}
+                  onUploadPdf={handleUploadPdf}
+                  uploadedPdf={uploadedPdf}
+                  examType={examType}
+                  examName={examName}
+                  onUpdateChapter={handleUpdateChapter}
+                />
+              )}
+            </div>
           )}
 
           {/* Step 3: Intensity Selection */}

@@ -6,7 +6,8 @@ import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Library, Sparkles, CheckCircle2, BookOpen } from 'lucide-react';
+import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
 interface ChapterLibrary {
@@ -34,6 +35,13 @@ export const ChapterLibraryManager = () => {
   const [chapters, setChapters] = useState<ChapterLibrary[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  
+  // New states for AI subject fetching and manual input
+  const [fetchingSubjects, setFetchingSubjects] = useState(false);
+  const [customSubject, setCustomSubject] = useState('');
+  const [existingSubjects, setExistingSubjects] = useState<string[]>([]);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [subjectSource, setSubjectSource] = useState<'cache' | 'ai' | 'database' | null>(null);
 
   // Fetch classes when board/domain selected
   useEffect(() => {
@@ -52,6 +60,23 @@ export const ChapterLibraryManager = () => {
       }
     }
   }, [selectedDomain, examTypes]);
+
+  // Fetch existing subjects from chapter_library for autocomplete
+  useEffect(() => {
+    const fetchExistingSubjects = async () => {
+      const { data } = await supabase
+        .from('chapter_library')
+        .select('subject')
+        .eq('is_active', true);
+      
+      if (data) {
+        const uniqueSubjects = [...new Set(data.map(d => d.subject))];
+        setExistingSubjects(uniqueSubjects.sort());
+      }
+    };
+    
+    fetchExistingSubjects();
+  }, []);
 
   // Fetch subjects from exam_templates
   useEffect(() => {
@@ -75,6 +100,8 @@ export const ChapterLibraryManager = () => {
       
       if (error) {
         console.error('Error fetching subjects:', error);
+        setSubjects([]);
+        setSubjectSource(null);
         return;
       }
 
@@ -83,11 +110,57 @@ export const ChapterLibraryManager = () => {
           ? (data.standard_subjects as string[]) 
           : [];
         setSubjects(subjectList);
+        setSubjectSource('database');
+      } else {
+        setSubjects([]);
+        setSubjectSource(null);
       }
     };
 
     fetchSubjects();
   }, [selectedDomain, selectedBoard, selectedClass, requiresBoard, requiresClass]);
+
+  // Handler: Fetch subjects with AI
+  const handleFetchSubjectsWithAI = async () => {
+    setFetchingSubjects(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-exam-subjects', {
+        body: {
+          exam_type: selectedDomain,
+          board: selectedBoard || '',
+          student_class: selectedClass || '',
+          exam_name: ''
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.subjects && Array.isArray(data.subjects)) {
+        setSubjects(data.subjects);
+        setSubjectSource(data.from_cache ? 'cache' : 'ai');
+        toast.success(`Found ${data.subjects.length} subjects`, {
+          description: data.from_cache ? 'Loaded from cache' : 'Generated with AI'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error fetching subjects:', error);
+      toast.error('Failed to fetch subjects with AI');
+    } finally {
+      setFetchingSubjects(false);
+    }
+  };
+
+  // Handler: Add custom subject
+  const handleAddCustomSubject = () => {
+    const trimmed = customSubject.trim();
+    if (trimmed && !subjects.includes(trimmed)) {
+      setSubjects([...subjects, trimmed]);
+      setSelectedSubject(trimmed);
+      setCustomSubject('');
+      setShowManualInput(false);
+      toast.success(`Added "${trimmed}" to subjects`);
+    }
+  };
 
   // Fetch existing chapter library
   const fetchChapterLibrary = async () => {
@@ -252,20 +325,101 @@ export const ChapterLibraryManager = () => {
               </div>
             )}
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Subject</label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium block">Subject</label>
+              <div className="flex items-center gap-2">
+                <Select 
+                  value={selectedSubject} 
+                  onValueChange={setSelectedSubject}
+                  disabled={!selectedDomain || subjects.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select subject"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject} value={subject}>
+                        {subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Button
+                  onClick={handleFetchSubjectsWithAI}
+                  disabled={!selectedDomain || fetchingSubjects || (requiresBoard && !selectedBoard) || (requiresClass && !selectedClass)}
+                  variant="outline"
+                  size="icon"
+                  title="Fetch subjects with AI"
+                >
+                  {fetchingSubjects ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                </Button>
+                
+                <Button 
+                  onClick={() => setShowManualInput(!showManualInput)} 
+                  variant="ghost" 
+                  size="icon"
+                  title="Add custom subject"
+                  disabled={!selectedDomain}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {subjects.length > 0 && subjectSource && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {subjects.length} subjects
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {subjectSource === 'cache' && '📋 Cached'}
+                    {subjectSource === 'ai' && '🤖 AI Generated'}
+                    {subjectSource === 'database' && '📚 Database'}
+                  </Badge>
+                </div>
+              )}
+              
+              {subjects.length === 0 && selectedDomain && !fetchingSubjects && (
+                <div className="p-4 border border-dashed rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground text-center">
+                    No subjects found. Click <Sparkles className="inline h-4 w-4 mx-1" /> to fetch with AI
+                    or <Plus className="inline h-4 w-4 mx-1" /> to add manually
+                  </p>
+                </div>
+              )}
+              
+              {showManualInput && (
+                <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+                  <Input
+                    placeholder="Enter custom subject name"
+                    value={customSubject}
+                    onChange={(e) => setCustomSubject(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && customSubject.trim()) {
+                        handleAddCustomSubject();
+                      }
+                    }}
+                    list="subject-suggestions"
+                  />
+                  <datalist id="subject-suggestions">
+                    {existingSubjects.map(sub => (
+                      <option key={sub} value={sub} />
+                    ))}
+                  </datalist>
+                  
+                  <Button 
+                    onClick={handleAddCustomSubject}
+                    disabled={!customSubject.trim()}
+                    size="sm"
+                  >
+                    Add
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 

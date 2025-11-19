@@ -6,7 +6,7 @@ import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus, Edit, Trash2, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
@@ -47,6 +47,19 @@ export const ChapterLibraryManager = () => {
   const [existingSubjects, setExistingSubjects] = useState<string[]>([]);
   const [showManualInput, setShowManualInput] = useState(false);
   const [subjectSource, setSubjectSource] = useState<'cache' | 'ai' | 'database' | null>(null);
+
+  // Chapter entry mode states
+  const [entryMode, setEntryMode] = useState<'manual' | 'ai'>('manual');
+  const [manualChapterData, setManualChapterData] = useState({
+    chapter_name: '',
+    difficulty: 'medium',
+    importance_score: 5,
+    suggested_days: 5,
+    can_skip: false,
+    exam_relevance: ''
+  });
+  const [showBulkChapterDialog, setShowBulkChapterDialog] = useState(false);
+  const [bulkChaptersText, setBulkChaptersText] = useState('');
 
   // Topic management states
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -217,7 +230,7 @@ export const ChapterLibraryManager = () => {
     fetchChapterLibrary();
   }, [selectedDomain, selectedSubject]);
 
-  // Generate chapter library
+  // Generate chapter library (FIXED: No auto-topic generation)
   const handleGenerateLibrary = async () => {
     if (!selectedDomain || !selectedSubject) {
       toast.error('Please select exam type and subject');
@@ -228,7 +241,6 @@ export const ChapterLibraryManager = () => {
     const toastId = toast.loading('Generating chapter library with AI...');
 
     try {
-      // Generate chapter library
       const { data, error } = await supabase.functions.invoke('generate-chapter-library', {
         body: { 
           exam_type: selectedDomain, 
@@ -241,28 +253,111 @@ export const ChapterLibraryManager = () => {
 
       if (data.status === 'exists') {
         toast.success('Chapter library already exists!', { id: toastId });
-      } else {
-        toast.success(`Generated ${data.count} chapters!`, { id: toastId });
-        
-        // Generate full topics for each chapter
-        const chapterIds = data.chapters.map((ch: any) => ch.id);
-        toast.loading(`Generating comprehensive topics for ${chapterIds.length} chapters...`);
-        
-        for (const chapterId of chapterIds) {
-          await supabase.functions.invoke('generate-full-chapter-topics', {
-            body: { chapter_library_id: chapterId }
-          });
-        }
-        
-        toast.success('Full topic lists generated for all chapters!');
+        fetchChapterLibrary();
+        return;
       }
 
+      const chapterCount = data.chapters?.length || 0;
+      toast.success(`Generated ${chapterCount} chapters! Add topics for each chapter individually.`, { id: toastId });
+      
       fetchChapterLibrary();
     } catch (error: any) {
       console.error('Error generating library:', error);
       toast.error(error.message || 'Failed to generate chapter library', { id: toastId });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // Manual chapter entry handler
+  const handleManualChapterAdd = async () => {
+    if (!selectedDomain || !selectedSubject) {
+      toast.error('Please select exam domain and subject');
+      return;
+    }
+    
+    if (!manualChapterData.chapter_name.trim()) {
+      toast.error('Chapter name is required');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('chapter_library')
+        .insert({
+          exam_type: selectedDomain,
+          class_level: selectedClass || null,
+          subject: selectedSubject,
+          chapter_name: manualChapterData.chapter_name,
+          difficulty: manualChapterData.difficulty,
+          importance_score: manualChapterData.importance_score,
+          suggested_days: manualChapterData.suggested_days,
+          can_skip: manualChapterData.can_skip,
+          exam_relevance: manualChapterData.exam_relevance,
+          entry_source: 'manual',
+          topics_generated: false,
+          full_topics: []
+        });
+      
+      if (error) throw error;
+      
+      toast.success('Chapter added successfully!');
+      setManualChapterData({
+        chapter_name: '',
+        difficulty: 'medium',
+        importance_score: 5,
+        suggested_days: 5,
+        can_skip: false,
+        exam_relevance: ''
+      });
+      
+      fetchChapterLibrary();
+    } catch (error: any) {
+      console.error('Error adding manual chapter:', error);
+      toast.error('Failed to add chapter');
+    }
+  };
+
+  // Bulk chapter add handler
+  const handleBulkChapterAdd = async () => {
+    const lines = bulkChaptersText.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+    
+    if (lines.length === 0) {
+      toast.error('Please enter chapter names');
+      return;
+    }
+    
+    try {
+      const chaptersToInsert = lines.map(name => ({
+        exam_type: selectedDomain,
+        class_level: selectedClass || null,
+        subject: selectedSubject,
+        chapter_name: name,
+        difficulty: 'medium',
+        importance_score: 5,
+        suggested_days: 5,
+        can_skip: false,
+        exam_relevance: '',
+        entry_source: 'manual',
+        topics_generated: false,
+        full_topics: []
+      }));
+      
+      const { error } = await supabase
+        .from('chapter_library')
+        .insert(chaptersToInsert);
+      
+      if (error) throw error;
+      
+      toast.success(`${lines.length} chapters added!`);
+      setShowBulkChapterDialog(false);
+      setBulkChaptersText('');
+      fetchChapterLibrary();
+    } catch (error: any) {
+      console.error('Error bulk adding chapters:', error);
+      toast.error('Failed to add chapters');
     }
   };
 
@@ -432,7 +527,7 @@ export const ChapterLibraryManager = () => {
               </div>
             )}
 
-            {requiresClass && (
+            {selectedDomain && (requiresClass || selectedDomain.toLowerCase() === 'school') && (
               <div>
                 <label className="text-sm font-medium mb-2 block">Class</label>
                 <Select value={selectedClass} onValueChange={setSelectedClass}>
@@ -567,6 +662,138 @@ export const ChapterLibraryManager = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Entry Mode Toggle & Forms */}
+      {selectedDomain && selectedSubject && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Entry Mode:</label>
+            <div className="flex gap-2">
+              <Button
+                variant={entryMode === 'manual' ? 'default' : 'outline'}
+                onClick={() => setEntryMode('manual')}
+                size="sm"
+              >
+                ✍️ Manual Entry
+              </Button>
+              <Button
+                variant={entryMode === 'ai' ? 'default' : 'outline'}
+                onClick={() => setEntryMode('ai')}
+                size="sm"
+              >
+                🤖 AI Generation
+              </Button>
+            </div>
+          </div>
+
+          {entryMode === 'manual' ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Add Chapter Manually</CardTitle>
+                <CardDescription>Enter chapter details or bulk import</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label>Chapter Name *</Label>
+                    <Input
+                      value={manualChapterData.chapter_name}
+                      onChange={(e) => setManualChapterData({...manualChapterData, chapter_name: e.target.value})}
+                      placeholder="e.g., Introduction to Algebra"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Difficulty</Label>
+                    <Select
+                      value={manualChapterData.difficulty}
+                      onValueChange={(val) => setManualChapterData({...manualChapterData, difficulty: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">Easy</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="hard">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Suggested Days</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={manualChapterData.suggested_days}
+                      onChange={(e) => setManualChapterData({...manualChapterData, suggested_days: parseInt(e.target.value) || 1})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Importance Score (1-10)</Label>
+                    <Slider
+                      value={[manualChapterData.importance_score]}
+                      onValueChange={(val) => setManualChapterData({...manualChapterData, importance_score: val[0]})}
+                      min={1}
+                      max={10}
+                      step={1}
+                    />
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {manualChapterData.importance_score}/10
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label>Can Skip?</Label>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <input
+                        type="checkbox"
+                        checked={manualChapterData.can_skip}
+                        onChange={(e) => setManualChapterData({...manualChapterData, can_skip: e.target.checked})}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-muted-foreground">Allow skipping in fast-track mode</span>
+                    </div>
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <Label>Exam Relevance</Label>
+                    <Textarea
+                      value={manualChapterData.exam_relevance}
+                      onChange={(e) => setManualChapterData({...manualChapterData, exam_relevance: e.target.value})}
+                      placeholder="High weightage in board exams..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button onClick={handleManualChapterAdd}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Chapter
+                  </Button>
+                  <Button onClick={() => setShowBulkChapterDialog(true)} variant="outline">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Bulk Add Chapters
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex justify-center">
+              <Button 
+                onClick={handleGenerateLibrary}
+                disabled={generating || loading}
+                size="lg"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {generating ? 'Generating...' : 'Generate Chapter Library with AI'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Chapter List */}
       {loading ? (
@@ -794,7 +1021,43 @@ export const ChapterLibraryManager = () => {
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
-  </div>
+      </Dialog>
+
+      {/* Bulk Chapter Add Dialog */}
+      <Dialog open={showBulkChapterDialog} onOpenChange={setShowBulkChapterDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Bulk Add Chapters</DialogTitle>
+            <DialogDescription>
+              Enter chapter names (one per line)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Textarea
+            value={bulkChaptersText}
+            onChange={(e) => setBulkChaptersText(e.target.value)}
+            placeholder="Introduction to Algebra&#10;Linear Equations&#10;Quadratic Equations&#10;Polynomials"
+            rows={12}
+            className="font-mono"
+          />
+          
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              {bulkChaptersText.split('\n').filter(l => l.trim()).length} chapters to add
+            </span>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkChapterDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkChapterAdd}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Chapters
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };

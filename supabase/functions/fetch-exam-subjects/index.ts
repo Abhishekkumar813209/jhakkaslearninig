@@ -7,6 +7,114 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// AI Provider helper functions
+async function callLovableAI(systemPrompt: string, userPrompt: string) {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    throw new Error('LOVABLE_API_KEY not configured');
+  }
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+    }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('RATE_LIMIT: Lovable AI rate limit exceeded');
+    }
+    if (response.status === 402) {
+      throw new Error('PAYMENT_REQUIRED: Lovable AI credits exhausted');
+    }
+    const errorText = await response.text();
+    throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+async function callGeminiAI(systemPrompt: string, userPrompt: string) {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const AI_PROVIDER = Deno.env.get('AI_PROVIDER') || 'lovable';
+  
+  console.log(`Primary AI Provider: ${AI_PROVIDER}`);
+  
+  try {
+    if (AI_PROVIDER === 'lovable') {
+      console.log('Using Lovable AI (google/gemini-2.5-flash)...');
+      const data = await callLovableAI(systemPrompt, userPrompt);
+      const aiText = data.choices?.[0]?.message?.content || '';
+      console.log('✅ Lovable AI succeeded');
+      return aiText;
+    } else {
+      console.log('Using Gemini API directly...');
+      const data = await callGeminiAI(systemPrompt, userPrompt);
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('✅ Gemini API succeeded');
+      return aiText;
+    }
+  } catch (primaryError: any) {
+    console.error(`${AI_PROVIDER} failed:`, primaryError.message);
+    console.log('Attempting fallback...');
+    
+    const fallbackProvider = AI_PROVIDER === 'lovable' ? 'gemini' : 'lovable';
+    
+    try {
+      if (fallbackProvider === 'lovable') {
+        const data = await callLovableAI(systemPrompt, userPrompt);
+        const aiText = data.choices?.[0]?.message?.content || '';
+        console.log('✅ Fallback to Lovable AI succeeded');
+        return aiText;
+      } else {
+        const data = await callGeminiAI(systemPrompt, userPrompt);
+        const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        console.log('✅ Fallback to Gemini succeeded');
+        return aiText;
+      }
+    } catch (fallbackError: any) {
+      console.error(`Fallback ${fallbackProvider} also failed:`, fallbackError.message);
+      throw new Error(`Both AI providers failed. Primary: ${primaryError.message}, Fallback: ${fallbackError.message}`);
+    }
+  }
+}
+
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -84,19 +192,9 @@ Output: ["Subject1", "Subject2"] - NO markdown.`;
       ? `${exam_type} - ${exam_name}`
       : `${exam_type}`;
 
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
-        generationConfig: { 
-          temperature: 0.7, 
-          maxOutputTokens: 2000
-        }
-      }),
-    });
+    const aiText = await callAI(systemPrompt, userPrompt);
 
-    if (!aiResponse.ok) {
+    if (!aiText) {
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }), {
           status: 429,

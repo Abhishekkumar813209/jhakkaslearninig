@@ -68,70 +68,21 @@ serve(async (req) => {
     // Generate using AI
     console.log('Generating subjects using AI');
     
-    const systemPrompt = `You are an expert Indian education consultant with deep knowledge of CBSE, ICSE, and State Board syllabi.
+    const systemPrompt = `Expert Indian education consultant. Generate subjects for specified class/board.
 
-CRITICAL INSTRUCTIONS:
-1. Generate subjects based on EXACT class level and board specifications
-2. Use LATEST 2025-26 academic year official syllabus
-3. For Classes 11-12, subjects are STREAM-SPECIFIC (Science/Commerce/Humanities)
-4. DO NOT include generic subjects like "Science" or "Social Science" for senior classes
-5. Include optional subjects where applicable (ICSE)
+RULES:
+• Classes 9-10: Science, Math, Social Science, English, Hindi/Second Language, Computer (ICSE optional)
+• Classes 11-12 SCIENCE: Physics, Chemistry, Math, Biology/CS, English Core, PE/IP (optional)
+• Classes 11-12 COMMERCE: Accountancy, Business, Economics, Math/Applied Math, English, IP/PE (optional)
+• Classes 11-12 ARTS: History, Political Science, Geography, Economics, English, Psychology/Sociology (optional)
+• ICSE Class 11-12: More optional subjects, Commerce includes Accounts/Commerce/Economics/CS
+• CBSE: NCERT-based, Applied subjects available
+• SSC: Reasoning, Quantitative, English, GK
+• BANKING: Reasoning, Quantitative, English, General Awareness, Computer
+• UPSC: History, Geography, Polity, Economics, Science & Tech, Environment, Current Affairs
 
-CLASS-WISE SUBJECT MAPPING:
-
-**Classes 9-10 (Both CBSE & ICSE):**
-- Science (Physics, Chemistry, Biology combined)
-- Mathematics
-- Social Science / History & Civics (ICSE)
-- English Language & Literature
-- Hindi / Second Language
-- Computer Applications (ICSE optional)
-
-**Classes 11-12 SCIENCE STREAM:**
-- Physics
-- Chemistry
-- Mathematics
-- Biology (for Medical) OR Computer Science (for Non-Medical)
-- English Core / English Language
-- Physical Education / Informatics Practices (optional 5th subject)
-
-**Classes 11-12 COMMERCE STREAM:**
-- Accountancy
-- Business Studies
-- Economics
-- Mathematics / Applied Mathematics
-- English Core
-- Informatics Practices / Physical Education (optional)
-
-**Classes 11-12 HUMANITIES/ARTS:**
-- History
-- Political Science
-- Geography
-- Economics
-- English Core
-- Psychology / Sociology / Philosophy (optional)
-
-**ICSE-SPECIFIC RULES:**
-- Class 11-12 ICSE has MORE optional subjects
-- Commerce stream includes: Accounts, Commerce, Economics, Computer Science
-- Mathematics has optional sections
-
-**CBSE-SPECIFIC RULES:**
-- Strictly follows NCERT textbooks
-- Applied subjects available (Applied Mathematics, etc.)
-
-**SSC EXAMS:**
-- Reasoning, Quantitative Aptitude, English, General Knowledge
-
-**BANKING EXAMS:**
-- Reasoning, Quantitative Aptitude, English, General Awareness, Computer Knowledge
-
-**UPSC:**
-- History, Geography, Polity, Economics, Science & Technology, Environment, Current Affairs
-
-Output ONLY a JSON array of subject names, nothing else.
-Example: ["Subject1", "Subject2", "Subject3"]
-NO explanations, NO markdown, ONLY JSON array.`;
+Output ONLY JSON array: ["Subject1", "Subject2"]
+NO markdown, NO explanations.`;
 
     const userPrompt = exam_name && student_class && board
       ? `Generate subjects for ${exam_type} - ${exam_name}, Class ${student_class}, Board: ${board}.
@@ -152,7 +103,7 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1500 }
       }),
     });
 

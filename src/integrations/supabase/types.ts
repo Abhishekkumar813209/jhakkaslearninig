@@ -436,69 +436,45 @@ export type Database = {
       }
       chapter_library: {
         Row: {
-          can_skip: boolean | null
           chapter_name: string
           class_level: string | null
           created_at: string | null
-          created_by: string | null
-          difficulty: string | null
           entry_source: string | null
-          exam_relevance: string | null
           exam_type: string
           full_topics: Json | null
           id: string
-          importance_score: number | null
           is_active: boolean | null
-          is_custom: boolean | null
           subject: string
           suggested_days: number | null
-          topics: Json | null
           topics_generated: boolean | null
-          topics_strategy: string | null
           updated_at: string | null
         }
         Insert: {
-          can_skip?: boolean | null
           chapter_name: string
           class_level?: string | null
           created_at?: string | null
-          created_by?: string | null
-          difficulty?: string | null
           entry_source?: string | null
-          exam_relevance?: string | null
           exam_type: string
           full_topics?: Json | null
           id?: string
-          importance_score?: number | null
           is_active?: boolean | null
-          is_custom?: boolean | null
           subject: string
           suggested_days?: number | null
-          topics?: Json | null
           topics_generated?: boolean | null
-          topics_strategy?: string | null
           updated_at?: string | null
         }
         Update: {
-          can_skip?: boolean | null
           chapter_name?: string
           class_level?: string | null
           created_at?: string | null
-          created_by?: string | null
-          difficulty?: string | null
           entry_source?: string | null
-          exam_relevance?: string | null
           exam_type?: string
           full_topics?: Json | null
           id?: string
-          importance_score?: number | null
           is_active?: boolean | null
-          is_custom?: boolean | null
           subject?: string
           suggested_days?: number | null
-          topics?: Json | null
           topics_generated?: boolean | null
-          topics_strategy?: string | null
           updated_at?: string | null
         }
         Relationships: []

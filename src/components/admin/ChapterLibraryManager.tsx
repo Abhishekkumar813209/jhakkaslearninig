@@ -22,8 +22,9 @@ interface ChapterLibrary {
   chapter_name: string;
   full_topics: any;
   topics_generated: boolean;
-  difficulty: string;
-  importance_score: number;
+  suggested_days: number;
+  entry_source: string;
+  is_active: boolean;
 }
 
 export const ChapterLibraryManager = () => {
@@ -286,10 +287,6 @@ export const ChapterLibraryManager = () => {
           subject: selectedSubject,
           chapter_name: manualChapterData.chapter_name,
           suggested_days: manualChapterData.suggested_days,
-          difficulty: 'medium',
-          importance_score: 5,
-          can_skip: false,
-          exam_relevance: '',
           entry_source: 'manual',
           topics_generated: false,
           full_topics: []
@@ -327,11 +324,7 @@ export const ChapterLibraryManager = () => {
         class_level: selectedClass || null,
         subject: selectedSubject,
         chapter_name: name,
-        difficulty: 'medium',
-        importance_score: 5,
         suggested_days: 5,
-        can_skip: false,
-        exam_relevance: '',
         entry_source: 'manual',
         topics_generated: false,
         full_topics: []
@@ -751,8 +744,9 @@ export const ChapterLibraryManager = () => {
                   <div className="flex-1">
                     <CardTitle className="text-lg">{chapter.chapter_name}</CardTitle>
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline">{chapter.difficulty}</Badge>
-                      <Badge variant="outline">Score: {chapter.importance_score}/10</Badge>
+                      <Badge variant="outline">
+                        {chapter.suggested_days} day{chapter.suggested_days !== 1 ? 's' : ''}
+                      </Badge>
                       {chapter.topics_generated && chapter.full_topics?.length > 0 ? (
                         <Badge className="bg-green-600">
                           <CheckCircle2 className="h-3 w-3 mr-1" />

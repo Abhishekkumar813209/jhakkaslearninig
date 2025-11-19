@@ -206,16 +206,13 @@ Return ONLY valid JSON array, no markdown:
       supabase.from('chapter_library').insert({
         exam_type,
         subject,
+        class_level: classLevel || null,
         chapter_name: ch.chapter_name,
-        difficulty: ch.difficulty || 'medium',
-        importance_score: ch.importance_score || 5,
         suggested_days: ch.suggested_days || 3,
-        can_skip: ch.can_skip || false,
-        exam_relevance: ch.exam_relevance,
-        full_topics: [], // Will be populated by generate-full-chapter-topics
-        topics_strategy: 'comprehensive',
-        is_active: true,
-        is_custom: false
+        full_topics: [],
+        entry_source: 'ai',
+        topics_generated: false,
+        is_active: true
       }).select()
     );
 

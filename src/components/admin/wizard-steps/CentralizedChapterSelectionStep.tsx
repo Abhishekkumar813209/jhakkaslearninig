@@ -13,12 +13,11 @@ import type { Chapter, ChaptersBySubject } from "../CreateRoadmapWizard";
 interface ChapterLibraryItem {
   id: string;
   chapter_name: string;
-  difficulty: string;
-  importance_score: number;
   suggested_days: number;
-  exam_relevance: string;
   subject: string;
   full_topics: any;
+  entry_source: string;
+  topics_generated: boolean;
 }
 
 interface CentralizedChapterSelectionStepProps {
@@ -89,19 +88,8 @@ export const CentralizedChapterSelectionStep = ({
   };
 
   const autoSelectByIntensity = (chapters: ChapterLibraryItem[], intensityMode: string): ChapterLibraryItem[] => {
-    switch (intensityMode) {
-      case 'full':
-        return chapters; // Select all
-      case 'important':
-        return chapters.filter(ch => ch.importance_score >= 7); // Top 60-70%
-      case 'balanced':
-        return chapters.filter(ch => 
-          ch.exam_relevance === 'core' || 
-          (ch.exam_relevance === 'important' && ch.importance_score >= 5)
-        ); // Core + 50% important
-      default:
-        return chapters;
-    }
+    // Simplified: all intensities select all chapters
+    return chapters;
   };
 
   const updateSelectedChapters = (subjectName: string, chaptersToSelect: ChapterLibraryItem[]) => {
@@ -112,10 +100,7 @@ export const CentralizedChapterSelectionStep = ({
       chapter_name: ch.chapter_name,
       suggested_days: ch.suggested_days || 3,
       isSelected: true,
-      isCustom: false,
-      difficulty: ch.difficulty as 'easy' | 'medium' | 'hard',
-      importance_score: ch.importance_score,
-      exam_relevance: ch.exam_relevance as 'core' | 'important' | 'optional',
+      isCustom: false
     }));
 
     onChaptersChange(newSelectedChapters);
@@ -140,10 +125,7 @@ export const CentralizedChapterSelectionStep = ({
           chapter_name: libraryChapter.chapter_name,
           suggested_days: libraryChapter.suggested_days || 3,
           isSelected: true,
-          isCustom: false,
-          difficulty: libraryChapter.difficulty as 'easy' | 'medium' | 'hard',
-          importance_score: libraryChapter.importance_score,
-          exam_relevance: libraryChapter.exam_relevance as 'core' | 'important' | 'optional',
+          isCustom: false
         });
       }
     }
@@ -164,25 +146,8 @@ export const CentralizedChapterSelectionStep = ({
   };
 
   const getFilteredChapters = (subjectName: string): ChapterLibraryItem[] => {
-    let chapters = libraryChapters[subjectName] || [];
-
-    const diffFilter = difficultyFilter[subjectName];
-    if (diffFilter && diffFilter !== 'all') {
-      chapters = chapters.filter(ch => ch.difficulty === diffFilter);
-    }
-
-    const impFilter = importanceFilter[subjectName];
-    if (impFilter && impFilter !== 'all') {
-      if (impFilter === 'high') {
-        chapters = chapters.filter(ch => ch.importance_score >= 7);
-      } else if (impFilter === 'medium') {
-        chapters = chapters.filter(ch => ch.importance_score >= 4 && ch.importance_score < 7);
-      } else if (impFilter === 'low') {
-        chapters = chapters.filter(ch => ch.importance_score < 4);
-      }
-    }
-
-    return chapters;
+    // Return all chapters (filtering removed)
+    return libraryChapters[subjectName] || [];
   };
 
   const getImportanceBadge = (relevance: string, score: number) => {
@@ -357,8 +322,6 @@ export const CentralizedChapterSelectionStep = ({
                             <div className="flex-1">
                               <div className="font-medium">{chapter.chapter_name}</div>
                               <div className="flex items-center gap-2 mt-1">
-                                {getImportanceBadge(chapter.exam_relevance, chapter.importance_score)}
-                                {getDifficultyBadge(chapter.difficulty)}
                                 <Badge variant="outline" className="text-xs">
                                   {chapter.suggested_days} days
                                 </Badge>

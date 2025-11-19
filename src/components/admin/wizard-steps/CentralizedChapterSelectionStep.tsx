@@ -60,11 +60,11 @@ export const CentralizedChapterSelectionStep = ({
       try {
         const { data, error } = await supabase
           .from('chapter_library')
-          .select('*')
+          .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, created_at, updated_at')
           .eq('exam_type', examType)
           .eq('subject', subject.name)
           .eq('is_active', true)
-          .order('importance_score', { ascending: false });
+          .order('chapter_name');
 
         if (error) throw error;
 

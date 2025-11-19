@@ -209,7 +209,7 @@ export const ChapterLibraryManager = () => {
       
       const { data, error } = await supabase
         .from('chapter_library')
-        .select('*')
+        .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, created_at, updated_at')
         .match(filters)
         .order('chapter_name');
 
@@ -404,7 +404,6 @@ export const ChapterLibraryManager = () => {
         .update({
           full_topics: manualTopics,
           topics_generated: true,
-          topics_strategy: 'manual',
           updated_at: new Date().toISOString()
         })
         .eq('id', chapterId);

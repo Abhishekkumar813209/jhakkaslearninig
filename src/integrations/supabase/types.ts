@@ -438,6 +438,7 @@ export type Database = {
         Row: {
           can_skip: boolean | null
           chapter_name: string
+          class_level: string | null
           created_at: string | null
           created_by: string | null
           difficulty: string | null
@@ -459,6 +460,7 @@ export type Database = {
         Insert: {
           can_skip?: boolean | null
           chapter_name: string
+          class_level?: string | null
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
@@ -480,6 +482,7 @@ export type Database = {
         Update: {
           can_skip?: boolean | null
           chapter_name?: string
+          class_level?: string | null
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null

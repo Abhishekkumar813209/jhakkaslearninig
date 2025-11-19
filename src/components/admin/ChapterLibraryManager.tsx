@@ -52,11 +52,7 @@ export const ChapterLibraryManager = () => {
   const [entryMode, setEntryMode] = useState<'manual' | 'ai'>('manual');
   const [manualChapterData, setManualChapterData] = useState({
     chapter_name: '',
-    difficulty: 'medium',
-    importance_score: 5,
-    suggested_days: 5,
-    can_skip: false,
-    exam_relevance: ''
+    suggested_days: 5
   });
   const [showBulkChapterDialog, setShowBulkChapterDialog] = useState(false);
   const [bulkChaptersText, setBulkChaptersText] = useState('');
@@ -289,11 +285,11 @@ export const ChapterLibraryManager = () => {
           class_level: selectedClass || null,
           subject: selectedSubject,
           chapter_name: manualChapterData.chapter_name,
-          difficulty: manualChapterData.difficulty,
-          importance_score: manualChapterData.importance_score,
           suggested_days: manualChapterData.suggested_days,
-          can_skip: manualChapterData.can_skip,
-          exam_relevance: manualChapterData.exam_relevance,
+          difficulty: 'medium',
+          importance_score: 5,
+          can_skip: false,
+          exam_relevance: '',
           entry_source: 'manual',
           topics_generated: false,
           full_topics: []
@@ -304,11 +300,7 @@ export const ChapterLibraryManager = () => {
       toast.success('Chapter added successfully!');
       setManualChapterData({
         chapter_name: '',
-        difficulty: 'medium',
-        importance_score: 5,
-        suggested_days: 5,
-        can_skip: false,
-        exam_relevance: ''
+        suggested_days: 5
       });
       
       fetchChapterLibrary();
@@ -693,8 +685,8 @@ export const ChapterLibraryManager = () => {
                 <CardDescription>Enter chapter details or bulk import</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
+                <div className="space-y-4">
+                  <div>
                     <Label>Chapter Name *</Label>
                     <Input
                       value={manualChapterData.chapter_name}
@@ -704,67 +696,17 @@ export const ChapterLibraryManager = () => {
                   </div>
                   
                   <div>
-                    <Label>Difficulty</Label>
-                    <Select
-                      value={manualChapterData.difficulty}
-                      onValueChange={(val) => setManualChapterData({...manualChapterData, difficulty: val})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easy">Easy</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="hard">Hard</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label>Suggested Days</Label>
+                    <Label>Suggested Days (Optional)</Label>
                     <Input
                       type="number"
                       min="1"
+                      max="30"
                       value={manualChapterData.suggested_days}
-                      onChange={(e) => setManualChapterData({...manualChapterData, suggested_days: parseInt(e.target.value) || 1})}
+                      onChange={(e) => setManualChapterData({...manualChapterData, suggested_days: parseInt(e.target.value) || 5})}
                     />
-                  </div>
-                  
-                  <div>
-                    <Label>Importance Score (1-10)</Label>
-                    <Slider
-                      value={[manualChapterData.importance_score]}
-                      onValueChange={(val) => setManualChapterData({...manualChapterData, importance_score: val[0]})}
-                      min={1}
-                      max={10}
-                      step={1}
-                    />
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {manualChapterData.importance_score}/10
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Can Skip?</Label>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <input
-                        type="checkbox"
-                        checked={manualChapterData.can_skip}
-                        onChange={(e) => setManualChapterData({...manualChapterData, can_skip: e.target.checked})}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-muted-foreground">Allow skipping in fast-track mode</span>
-                    </div>
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <Label>Exam Relevance</Label>
-                    <Textarea
-                      value={manualChapterData.exam_relevance}
-                      onChange={(e) => setManualChapterData({...manualChapterData, exam_relevance: e.target.value})}
-                      placeholder="High weightage in board exams..."
-                      rows={2}
-                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Default: 5 days. Adjust based on chapter complexity.
+                    </p>
                   </div>
                 </div>
                 

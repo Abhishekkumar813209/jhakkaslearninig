@@ -68,35 +68,21 @@ serve(async (req) => {
     // Generate using AI
     console.log('Generating subjects using AI');
     
-    const systemPrompt = `Expert Indian education consultant. Generate subjects for specified class/board.
+    const systemPrompt = `Expert in Indian education. Generate subject list as JSON array only.
 
-RULES:
-• Classes 9-10: Science, Math, Social Science, English, Hindi/Second Language, Computer (ICSE optional)
-• Classes 11-12 SCIENCE: Physics, Chemistry, Math, Biology/CS, English Core, PE/IP (optional)
-• Classes 11-12 COMMERCE: Accountancy, Business, Economics, Math/Applied Math, English, IP/PE (optional)
-• Classes 11-12 ARTS: History, Political Science, Geography, Economics, English, Psychology/Sociology (optional)
-• ICSE Class 11-12: More optional subjects, Commerce includes Accounts/Commerce/Economics/CS
-• CBSE: NCERT-based, Applied subjects available
-• SSC: Reasoning, Quantitative, English, GK
-• BANKING: Reasoning, Quantitative, English, General Awareness, Computer
-• UPSC: History, Geography, Polity, Economics, Science & Tech, Environment, Current Affairs
+Classes 9-10: Science, Math, Social Science, English, Hindi, Computer
+Classes 11-12 Science: Physics, Chemistry, Math, Biology/CS, English, PE
+Classes 11-12 Commerce: Accountancy, Business, Economics, Math, English
+Classes 11-12 Arts: History, Political Science, Geography, Economics, English
+Competitive: SSC (Reasoning, Quant, English, GK), UPSC (History, Geography, Polity, Economics, Current Affairs)
 
-Output ONLY JSON array: ["Subject1", "Subject2"]
-NO markdown, NO explanations.`;
+Output: ["Subject1", "Subject2"] - NO markdown.`;
 
     const userPrompt = exam_name && student_class && board
-      ? `Generate subjects for ${exam_type} - ${exam_name}, Class ${student_class}, Board: ${board}.
-
-Context:
-- Academic Year: 2025-26
-- Board: ${board}
-- Class: ${student_class}
-${parseInt(student_class) >= 11 ? '- Stream: Specify if Science/Commerce/Humanities (default: Science)' : ''}
-
-Return ONLY subjects that are officially prescribed for this exact class and board combination.`
+      ? `${exam_type} - ${exam_name}, Class ${student_class}, ${board}${parseInt(student_class) >= 11 ? ' (Science stream)' : ''}`
       : exam_name
-      ? `Generate subjects for ${exam_type} exam: ${exam_name}`
-      : `Generate standard subjects for ${exam_type} exam type`;
+      ? `${exam_type} - ${exam_name}`
+      : `${exam_type}`;
 
     const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -105,7 +91,7 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
         contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
         generationConfig: { 
           temperature: 0.7, 
-          maxOutputTokens: 5000
+          maxOutputTokens: 2000
         }
       }),
     });

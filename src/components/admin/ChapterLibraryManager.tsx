@@ -6,7 +6,12 @@ import { useExamTypes } from '@/hooks/useExamTypes';
 import { useBoards } from '@/hooks/useBoards';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus } from 'lucide-react';
+import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus, Edit, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
@@ -42,6 +47,19 @@ export const ChapterLibraryManager = () => {
   const [existingSubjects, setExistingSubjects] = useState<string[]>([]);
   const [showManualInput, setShowManualInput] = useState(false);
   const [subjectSource, setSubjectSource] = useState<'cache' | 'ai' | 'database' | null>(null);
+
+  // Topic management states
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [manualTopics, setManualTopics] = useState<any[]>([]);
+  const [currentTopicForm, setCurrentTopicForm] = useState({
+    topic_name: '',
+    subtopics: '',
+    difficulty: 'medium',
+    weightage: 5,
+    exam_relevance: ''
+  });
+  const [bulkTopicsText, setBulkTopicsText] = useState('');
+  const [showTopicEditor, setShowTopicEditor] = useState(false);
 
   // Fetch classes when board/domain selected
   useEffect(() => {
@@ -168,12 +186,21 @@ export const ChapterLibraryManager = () => {
 
     setLoading(true);
     try {
+      const filters: any = {
+        exam_type: selectedDomain,
+        subject: selectedSubject,
+        is_active: true
+      };
+      
+      // Add class_level filter for School/Board exams
+      if (selectedClass) {
+        filters.class_level = selectedClass;
+      }
+      
       const { data, error } = await supabase
         .from('chapter_library')
         .select('*')
-        .eq('exam_type', selectedDomain)
-        .eq('subject', selectedSubject)
-        .eq('is_active', true)
+        .match(filters)
         .order('chapter_name');
 
       if (error) throw error;
@@ -256,6 +283,104 @@ export const ChapterLibraryManager = () => {
       console.error('Error generating topics:', error);
       toast.error(error.message || 'Failed to generate topics', { id: toastId });
     }
+  };
+
+  // Manual topic handlers
+  const handleAddTopic = () => {
+    if (!currentTopicForm.topic_name.trim()) {
+      toast.error('Topic name is required');
+      return;
+    }
+    
+    const newTopic = {
+      topic_name: currentTopicForm.topic_name.trim(),
+      subtopics: currentTopicForm.subtopics.split(',').map((s: string) => s.trim()).filter((s: string) => s),
+      difficulty: currentTopicForm.difficulty,
+      weightage: currentTopicForm.weightage,
+      exam_relevance: currentTopicForm.exam_relevance,
+      source: 'manual'
+    };
+    
+    setManualTopics([...manualTopics, newTopic]);
+    setCurrentTopicForm({
+      topic_name: '',
+      subtopics: '',
+      difficulty: 'medium',
+      weightage: 5,
+      exam_relevance: ''
+    });
+    toast.success('Topic added!');
+  };
+
+  const handleSaveTopicsToChapter = async (chapterId: string) => {
+    if (manualTopics.length === 0) {
+      toast.error('Please add at least one topic');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('chapter_library')
+        .update({
+          full_topics: manualTopics,
+          topics_generated: true,
+          topics_strategy: 'manual',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', chapterId);
+      
+      if (error) throw error;
+      
+      toast.success(`Saved ${manualTopics.length} topics!`);
+      setShowTopicEditor(false);
+      setManualTopics([]);
+      fetchChapterLibrary();
+    } catch (error: any) {
+      console.error('Error saving topics:', error);
+      toast.error('Failed to save topics');
+    }
+  };
+
+  const handleBulkImport = () => {
+    const lines = bulkTopicsText
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
+    
+    if (lines.length === 0) {
+      toast.error('Please enter topic names');
+      return;
+    }
+    
+    const bulkTopics = lines.map((name: string) => ({
+      topic_name: name,
+      subtopics: [],
+      difficulty: 'medium',
+      weightage: 5,
+      exam_relevance: '',
+      source: 'bulk_import'
+    }));
+    
+    setManualTopics([...manualTopics, ...bulkTopics]);
+    setBulkTopicsText('');
+    toast.success(`Imported ${lines.length} topics!`);
+  };
+
+  const handleEditTopic = (index: number) => {
+    const topic = manualTopics[index];
+    setCurrentTopicForm({
+      topic_name: topic.topic_name,
+      subtopics: topic.subtopics.join(', '),
+      difficulty: topic.difficulty,
+      weightage: topic.weightage,
+      exam_relevance: topic.exam_relevance || ''
+    });
+    setManualTopics(manualTopics.filter((_: any, i: number) => i !== index));
+  };
+
+  const handleDeleteTopic = (index: number) => {
+    setManualTopics(manualTopics.filter((_: any, i: number) => i !== index));
+    toast.success('Topic removed');
   };
 
   return (
@@ -469,14 +594,28 @@ export const ChapterLibraryManager = () => {
                       )}
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={chapter.topics_generated ? "outline" : "default"}
-                    onClick={() => handleGenerateTopics(chapter.id, chapter.topics_generated)}
-                  >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    {chapter.topics_generated ? 'Regenerate' : 'Generate'} Topics
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={chapter.topics_generated ? "outline" : "default"}
+                      onClick={() => handleGenerateTopics(chapter.id, chapter.topics_generated)}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      AI {chapter.topics_generated ? 'Regenerate' : 'Generate'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingChapterId(chapter.id);
+                        setManualTopics(chapter.full_topics || []);
+                        setShowTopicEditor(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Manually
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               {chapter.topics_generated && chapter.full_topics?.length > 0 && (
@@ -506,10 +645,156 @@ export const ChapterLibraryManager = () => {
       ) : selectedDomain && selectedSubject ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No chapter library found. Click "Generate Chapter Library with AI" to create one.
-          </CardContent>
-        </Card>
-      ) : null}
-    </div>
+          No chapter library found. Click "Generate Chapter Library with AI" to create one.
+        </CardContent>
+      </Card>
+    ) : null}
+
+    {/* Topic Editor Dialog */}
+    <Dialog open={showTopicEditor} onOpenChange={setShowTopicEditor}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage Topics</DialogTitle>
+          <DialogDescription>
+            Add, edit, or organize topics for this chapter
+          </DialogDescription>
+        </DialogHeader>
+        
+        <Tabs defaultValue="single" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="single" className="flex-1">Add Single Topic</TabsTrigger>
+            <TabsTrigger value="bulk" className="flex-1">Bulk Import</TabsTrigger>
+            <TabsTrigger value="list" className="flex-1">Topic List ({manualTopics.length})</TabsTrigger>
+          </TabsList>
+          
+          {/* Single Topic Form */}
+          <TabsContent value="single" className="space-y-4 mt-4">
+            <div>
+              <Label>Topic Name *</Label>
+              <Input
+                value={currentTopicForm.topic_name}
+                onChange={(e) => setCurrentTopicForm({...currentTopicForm, topic_name: e.target.value})}
+                placeholder="e.g., Laws of Motion"
+              />
+            </div>
+            
+            <div>
+              <Label>Subtopics (comma-separated)</Label>
+              <Input
+                value={currentTopicForm.subtopics}
+                onChange={(e) => setCurrentTopicForm({...currentTopicForm, subtopics: e.target.value})}
+                placeholder="e.g., Newton's First Law, Newton's Second Law"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Difficulty</Label>
+                <Select
+                  value={currentTopicForm.difficulty}
+                  onValueChange={(val) => setCurrentTopicForm({...currentTopicForm, difficulty: val})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="easy">Easy</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Weightage (1-10): {currentTopicForm.weightage}</Label>
+                <Slider
+                  value={[currentTopicForm.weightage]}
+                  onValueChange={(val) => setCurrentTopicForm({...currentTopicForm, weightage: val[0]})}
+                  min={1}
+                  max={10}
+                  step={1}
+                  className="mt-2"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label>Exam Relevance</Label>
+              <Textarea
+                value={currentTopicForm.exam_relevance}
+                onChange={(e) => setCurrentTopicForm({...currentTopicForm, exam_relevance: e.target.value})}
+                placeholder="High weightage in board exams..."
+                rows={3}
+              />
+            </div>
+            
+            <Button onClick={handleAddTopic}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Topic
+            </Button>
+          </TabsContent>
+          
+          {/* Bulk Import */}
+          <TabsContent value="bulk" className="space-y-4 mt-4">
+            <Label>Enter topic names (one per line)</Label>
+            <Textarea
+              value={bulkTopicsText}
+              onChange={(e) => setBulkTopicsText(e.target.value)}
+              placeholder="Laws of Motion&#10;Work and Energy&#10;Gravitation"
+              rows={10}
+            />
+            <Button onClick={handleBulkImport} disabled={!bulkTopicsText.trim()}>
+              Import {bulkTopicsText.split('\n').filter(l => l.trim()).length} Topics
+            </Button>
+          </TabsContent>
+          
+          {/* Topic List */}
+          <TabsContent value="list" className="space-y-2 mt-4">
+            {manualTopics.map((topic, idx) => (
+              <Card key={idx}>
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex-1">
+                    <p className="font-medium">{topic.topic_name}</p>
+                    {topic.subtopics?.length > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {topic.subtopics.join(', ')}
+                      </p>
+                    )}
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant="outline">{topic.difficulty}</Badge>
+                      <Badge variant="outline">Weightage: {topic.weightage}</Badge>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleEditTopic(idx)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => handleDeleteTopic(idx)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {manualTopics.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                No topics added yet. Use "Add Single Topic" or "Bulk Import" tabs.
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowTopicEditor(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => editingChapterId && handleSaveTopicsToChapter(editingChapterId)}>
+            Save {manualTopics.length} Topics
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
   );
 };

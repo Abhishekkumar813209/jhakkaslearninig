@@ -441,6 +441,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           difficulty: string | null
+          entry_source: string | null
           exam_relevance: string | null
           exam_type: string
           full_topics: Json | null
@@ -461,6 +462,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
+          entry_source?: string | null
           exam_relevance?: string | null
           exam_type: string
           full_topics?: Json | null
@@ -481,6 +483,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           difficulty?: string | null
+          entry_source?: string | null
           exam_relevance?: string | null
           exam_type?: string
           full_topics?: Json | null

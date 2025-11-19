@@ -105,9 +105,9 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
         contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
         generationConfig: { 
           temperature: 0.7, 
-          maxOutputTokens: 1500,
-          thinkingConfig: { mode: 'DISABLED' }
-        }
+          maxOutputTokens: 5000
+        },
+        thinkingConfig: { mode: 'DISABLED' }
       }),
     });
 

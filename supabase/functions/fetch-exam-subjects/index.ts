@@ -103,7 +103,11 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1500 }
+        generationConfig: { 
+          temperature: 0.7, 
+          maxOutputTokens: 1500,
+          thinkingConfig: { mode: 'DISABLED' }
+        }
       }),
     });
 

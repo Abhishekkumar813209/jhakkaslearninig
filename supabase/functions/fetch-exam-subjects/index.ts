@@ -106,8 +106,7 @@ Return ONLY subjects that are officially prescribed for this exact class and boa
         generationConfig: { 
           temperature: 0.7, 
           maxOutputTokens: 5000
-        },
-        thinkingConfig: { mode: 'DISABLED' }
+        }
       }),
     });
 

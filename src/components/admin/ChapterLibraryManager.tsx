@@ -8,10 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus, Edit, Trash2, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
@@ -65,7 +63,6 @@ export const ChapterLibraryManager = () => {
     topic_name: '',
     difficulty: 'medium' as 'easy' | 'medium' | 'hard'
   });
-  const [bulkTopicsText, setBulkTopicsText] = useState('');
   const [showTopicEditor, setShowTopicEditor] = useState(false);
 
   // Fetch classes when board/domain selected
@@ -363,14 +360,7 @@ export const ChapterLibraryManager = () => {
   };
 
   // Manual topic handlers
-  const handleAddTopic = (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    
-    console.log('🔵 handleAddTopic CALLED');
-    console.log('🔵 currentTopicForm:', currentTopicForm);
-    console.log('🔵 manualTopics length before:', manualTopics.length);
-    
+  const handleAddTopicQuick = () => {
     if (!currentTopicForm.topic_name.trim()) {
       toast.error('Topic name is required');
       return;
@@ -381,14 +371,7 @@ export const ChapterLibraryManager = () => {
       difficulty: currentTopicForm.difficulty
     };
     
-    console.log('🔵 Adding topic:', newTopic);
-    toast.info('Processing...'); // Immediate feedback
-    
-    setManualTopics(prev => {
-      const updated = [...prev, newTopic];
-      console.log('🔵 Updated topics array:', updated);
-      return updated;
-    });
+    setManualTopics(prev => [...prev, newTopic]);
     
     setCurrentTopicForm({
       topic_name: '',
@@ -396,7 +379,6 @@ export const ChapterLibraryManager = () => {
     });
     
     toast.success('Topic added!');
-    console.log('🔵 manualTopics length after:', manualTopics.length + 1);
   };
 
   const handleSaveTopicsToChapter = async (chapterId: string) => {
@@ -427,35 +409,6 @@ export const ChapterLibraryManager = () => {
     }
   };
 
-  const handleBulkImport = () => {
-    const lines = bulkTopicsText
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0);
-    
-    if (lines.length === 0) {
-      toast.error('Please enter topic names');
-      return;
-    }
-    
-    const bulkTopics = lines.map((name: string) => ({
-      topic_name: name,
-      difficulty: 'medium' as const
-    }));
-    
-    setManualTopics([...manualTopics, ...bulkTopics]);
-    setBulkTopicsText('');
-    toast.success(`Imported ${lines.length} topics!`);
-  };
-
-  const handleEditTopic = (index: number) => {
-    const topic = manualTopics[index];
-    setCurrentTopicForm({
-      topic_name: topic.topic_name,
-      difficulty: topic.difficulty
-    });
-    setManualTopics(manualTopics.filter((_: any, i: number) => i !== index));
-  };
 
   const handleDeleteTopic = (index: number) => {
     setManualTopics(manualTopics.filter((_: any, i: number) => i !== index));
@@ -822,40 +775,28 @@ export const ChapterLibraryManager = () => {
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="single" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="single" className="flex-1">Add Single Topic</TabsTrigger>
-            <TabsTrigger value="bulk" className="flex-1">Bulk Import</TabsTrigger>
-            <TabsTrigger value="list" className="flex-1">Topic List ({manualTopics.length})</TabsTrigger>
-          </TabsList>
-          
-          {/* Single Topic Form */}
-          <TabsContent value="single" className="space-y-4 mt-4">
+        {/* Simple Table Format for Adding Topics */}
+        <div className="space-y-4">
+          {/* Add New Topic Row */}
+          <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end p-3 border rounded-lg bg-muted/20">
             <div>
-              <Label>Topic Name *</Label>
+              <Label className="text-xs mb-1.5 block">Topic Name</Label>
               <Input
                 value={currentTopicForm.topic_name}
-                onChange={(e) => {
-                  console.log('🔴 INPUT CHANGED:', e.target.value);
-                  const newValue = e.target.value;
-                  setCurrentTopicForm(prev => {
-                    console.log('🔴 Previous state:', prev);
-                    const updated = {...prev, topic_name: newValue};
-                    console.log('🔴 Updated state:', updated);
-                    return updated;
-                  });
-                }}
+                onChange={(e) => setCurrentTopicForm({...currentTopicForm, topic_name: e.target.value})}
                 placeholder="e.g., Laws of Motion"
+                className="h-9"
               />
             </div>
-            
             <div>
-              <Label>Difficulty</Label>
+              <Label className="text-xs mb-1.5 block">Difficulty</Label>
               <Select
                 value={currentTopicForm.difficulty}
-                onValueChange={(val: 'easy' | 'medium' | 'hard') => setCurrentTopicForm({...currentTopicForm, difficulty: val})}
+                onValueChange={(value: 'easy' | 'medium' | 'hard') => 
+                  setCurrentTopicForm({...currentTopicForm, difficulty: value})
+                }
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-32 h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -865,105 +806,32 @@ export const ChapterLibraryManager = () => {
                 </SelectContent>
               </Select>
             </div>
-            
-            <Button 
+            <Button
               type="button"
-              className="pointer-events-auto relative z-50"
-              style={{ pointerEvents: 'auto' }}
-              onClick={(e) => {
-                alert('Button clicked! Check console for details.');
-                console.log('🟢 BUTTON CLICKED');
-                console.log('🟢 Current form state:', currentTopicForm);
-                console.log('🟢 Manual topics array:', manualTopics);
-                handleAddTopic(e);
-              }}
-              onMouseDown={(e) => console.log('🟡 BUTTON MOUSE DOWN')}
-              onMouseUp={(e) => console.log('🟡 BUTTON MOUSE UP')}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Topic
-            </Button>
-            
-            {/* Native button fallback for testing */}
-            <button
-              type="button"
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginTop: '8px'
-              }}
-              onClick={(e) => {
-                alert('Native button clicked!');
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🟠 NATIVE BUTTON CLICKED');
-                console.log('🟠 Current form state:', currentTopicForm);
-                handleAddTopic();
-              }}
+              size="sm"
+              onClick={handleAddTopicQuick}
+              disabled={!currentTopicForm.topic_name.trim()}
+              className="h-9"
             >
               <Plus className="w-4 h-4" />
-              Add Topic (Native Fallback)
-            </button>
-            
-            {/* Topics Preview */}
-            {manualTopics.length > 0 && (
-              <div className="space-y-2 mt-4 p-4 bg-muted/50 rounded-lg">
-                <Label className="text-sm font-semibold">
-                  Added Topics ({manualTopics.length})
-                </Label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {manualTopics.map((topic, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{topic.topic_name}</p>
-                        <Badge variant="outline" className="mt-1 text-xs">
-                          {topic.difficulty}
-                        </Badge>
-                      </div>
-                      <Button 
-                        type="button"
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => handleDeleteTopic(idx)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-          
-          {/* Bulk Import */}
-          <TabsContent value="bulk" className="space-y-4 mt-4">
-            <Label>Enter topic names (one per line)</Label>
-            <Textarea
-              value={bulkTopicsText}
-              onChange={(e) => setBulkTopicsText(e.target.value)}
-              placeholder="Laws of Motion&#10;Work and Energy&#10;Gravitation"
-              rows={10}
-            />
-            <Button onClick={handleBulkImport} disabled={!bulkTopicsText.trim()}>
-              Import {bulkTopicsText.split('\n').filter(l => l.trim()).length} Topics
             </Button>
-          </TabsContent>
-          
-          {/* Topic List */}
-          <TabsContent value="list" className="space-y-2 mt-4">
-            {manualTopics.map((topic, idx) => (
-              <Card key={idx}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex-1">
-                    <p className="font-medium">{topic.topic_name}</p>
-                    <div className="flex gap-2 mt-1">
+          </div>
+
+          {/* Topics List Table */}
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 text-sm font-medium">Topic Name</th>
+                  <th className="text-left p-3 text-sm font-medium w-32">Difficulty</th>
+                  <th className="text-right p-3 text-sm font-medium w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {manualTopics.map((topic, idx) => (
+                  <tr key={idx} className="border-t hover:bg-muted/20 transition-colors">
+                    <td className="p-3 text-sm">{topic.topic_name}</td>
+                    <td className="p-3">
                       <Badge variant={
                         topic.difficulty === 'easy' ? 'default' :
                         topic.difficulty === 'medium' ? 'secondary' :
@@ -971,27 +839,55 @@ export const ChapterLibraryManager = () => {
                       }>
                         {topic.difficulty}
                       </Badge>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleEditTopic(idx)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDeleteTopic(idx)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            {manualTopics.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                No topics added yet. Use "Add Single Topic" or "Bulk Import" tabs.
-              </p>
-            )}
-          </TabsContent>
-        </Tabs>
+                    </td>
+                    <td className="p-3 text-right">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => handleDeleteTopic(idx)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {manualTopics.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="text-center py-8 text-sm text-muted-foreground">
+                      No topics added yet. Add your first topic above.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bulk Import Option */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const result = prompt('Paste topics (one per line, format: "Topic Name | difficulty")\nExample:\nLaws of Motion | medium\nWork and Energy | hard');
+              if (result) {
+                const lines = result.split('\n').filter(l => l.trim());
+                const newTopics = lines.map(line => {
+                  const parts = line.split('|').map(p => p.trim());
+                  return {
+                    topic_name: parts[0],
+                    difficulty: (parts[1] as 'easy' | 'medium' | 'hard') || 'medium'
+                  };
+                });
+                setManualTopics(prev => [...prev, ...newTopics]);
+                toast.success(`Added ${newTopics.length} topics`);
+              }
+            }}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Bulk Import
+          </Button>
+        </div>
         
         <DialogFooter>
           <Button variant="outline" onClick={() => setShowTopicEditor(false)}>

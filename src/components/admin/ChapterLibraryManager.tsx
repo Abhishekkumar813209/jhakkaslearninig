@@ -374,7 +374,9 @@ export const ChapterLibraryManager = () => {
       difficulty: currentTopicForm.difficulty
     };
     
-    setManualTopics([...manualTopics, newTopic]);
+    console.log('Adding topic:', newTopic);
+    console.log('Current topics before add:', manualTopics.length);
+    setManualTopics(prev => [...prev, newTopic]);
     setCurrentTopicForm({
       topic_name: '',
       difficulty: 'medium'
@@ -840,10 +842,39 @@ export const ChapterLibraryManager = () => {
               </Select>
             </div>
             
-            <Button onClick={handleAddTopic}>
+            <Button type="button" onClick={handleAddTopic}>
               <Plus className="w-4 h-4 mr-2" />
               Add Topic
             </Button>
+            
+            {/* Topics Preview */}
+            {manualTopics.length > 0 && (
+              <div className="space-y-2 mt-4 p-4 bg-muted/50 rounded-lg">
+                <Label className="text-sm font-semibold">
+                  Added Topics ({manualTopics.length})
+                </Label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {manualTopics.map((topic, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{topic.topic_name}</p>
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          {topic.difficulty}
+                        </Badge>
+                      </div>
+                      <Button 
+                        type="button"
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => handleDeleteTopic(idx)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
           
           {/* Bulk Import */}

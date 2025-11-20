@@ -12,12 +12,23 @@ import { DynamicQuestionInput } from './DynamicQuestionInput';
 type GameType = "mcq" | "fill_blank" | "true_false" | "match_column" | "match_pairs" | "sequence_order" | "typing_race" | "interactive_blanks" | "card_memory";
 
 interface ManualQuestionEntryProps {
-  selectedTopic: { id: string; topic_name: string };
-  selectedChapter: { id: string; chapter_name: string };
-  selectedSubject: string;
-  selectedBatch: string; // This is the batch ID (UUID)
-  selectedDomain: string | null;
+  // Batch-specific mode (original)
+  selectedTopic?: { id: string; topic_name: string };
+  selectedChapter?: { id: string; chapter_name: string };
+  selectedSubject?: string;
+  selectedBatch?: string; // This is the batch ID (UUID)
+  selectedDomain?: string | null;
   examName?: string; // exam_name from the batch
+  
+  // Centralized mode (new)
+  mode?: 'batch' | 'centralized';
+  chapterLibraryId?: string;
+  centralizedTopicName?: string;
+  examDomain?: string;
+  subject?: string;
+  applicableClasses?: string[];
+  applicableExams?: string[];
+  
   onComplete: () => void;
 }
 
@@ -28,6 +39,13 @@ export const ManualQuestionEntry = ({
   selectedBatch,
   selectedDomain,
   examName,
+  mode = 'batch',
+  chapterLibraryId,
+  centralizedTopicName,
+  examDomain,
+  subject,
+  applicableClasses = [],
+  applicableExams = [],
   onComplete
 }: ManualQuestionEntryProps) => {
   const [selectedGameType, setSelectedGameType] = useState<GameType>("mcq");
@@ -358,33 +376,47 @@ export const ManualQuestionEntry = ({
       });
 
       // Save to question_bank (DUAL-WRITE: JSONB + Legacy columns)
+      const insertData: any = {
+        // JSONB columns (NEW)
+        question_type: gameType,
+        question_data: questionDataJSON,
+        answer_data: answerDataJSON,
+        
+        // Legacy columns (for compatibility)
+        ...legacyFields,
+        
+        // Metadata
+        explanation: questionData.explanation || null,
+        marks: questionData.marks || 1,
+        difficulty: questionData.difficulty || 'medium',
+        is_published: true,
+        admin_reviewed: true,
+        created_manually: true,
+      };
+
+      // Add mode-specific fields
+      if (mode === 'centralized') {
+        // Centralized mode: save to centralized question bank
+        insertData.chapter_library_id = chapterLibraryId;
+        insertData.centralized_topic_name = centralizedTopicName;
+        insertData.is_centralized = true;
+        insertData.applicable_classes = applicableClasses;
+        insertData.applicable_exams = applicableExams;
+        insertData.exam_domain = examDomain;
+        insertData.subject = subject;
+      } else {
+        // Batch mode: save to batch-specific question bank
+        insertData.topic_id = selectedTopic?.id;
+        insertData.chapter_id = selectedChapter?.id;
+        insertData.subject = selectedSubject;
+        insertData.batch_id = selectedBatch;
+        insertData.exam_domain = selectedDomain;
+        insertData.exam_name = examName || selectedDomain || '';
+      }
+
       const { data: questionBankData, error: questionBankError } = await supabase
         .from('question_bank')
-        .insert([{
-          // JSONB columns (NEW)
-          question_type: gameType,
-          question_data: questionDataJSON,
-          answer_data: answerDataJSON,
-          
-          // Legacy columns (for compatibility)
-          ...legacyFields,
-          
-          // Foreign Keys (CRITICAL)
-          topic_id: selectedTopic.id,
-          chapter_id: selectedChapter.id,
-          subject: selectedSubject,
-          batch_id: selectedBatch, // Batch ID (UUID)
-          exam_domain: selectedDomain,
-          exam_name: examName || selectedDomain || '',
-          
-          // Metadata
-          explanation: questionData.explanation || null,
-          marks: questionData.marks || 1,
-          difficulty: questionData.difficulty || 'medium',
-          is_published: true,
-          admin_reviewed: true,
-          created_manually: true,
-        }])
+        .insert([insertData])
         .select()
         .single();
 
@@ -424,14 +456,31 @@ export const ManualQuestionEntry = ({
             Manual Question Builder - All Game Types
           </CardTitle>
           <CardDescription>
-            Create questions manually for: {selectedSubject} → {selectedChapter.chapter_name} → {selectedTopic.topic_name}
+            {mode === 'centralized' ? (
+              <>Create centralized questions for: {subject} → {centralizedTopicName}</>
+            ) : (
+              <>Create questions manually for: {selectedSubject} → {selectedChapter?.chapter_name} → {selectedTopic?.topic_name}</>
+            )}
           </CardDescription>
           
           <div className="flex flex-wrap gap-2 mt-2">
-            <Badge variant="outline">{selectedDomain || 'Domain'}</Badge>
-            <Badge variant="outline">{selectedSubject}</Badge>
-            <Badge variant="outline">{selectedChapter.chapter_name}</Badge>
-            <Badge variant="secondary">{selectedTopic.topic_name}</Badge>
+            {mode === 'centralized' ? (
+              <>
+                <Badge variant="outline">{examDomain || 'Domain'}</Badge>
+                <Badge variant="outline">{subject}</Badge>
+                <Badge variant="secondary">{centralizedTopicName}</Badge>
+                {applicableClasses.length > 0 && (
+                  <Badge variant="outline">Classes: {applicableClasses.join(', ')}</Badge>
+                )}
+              </>
+            ) : (
+              <>
+                <Badge variant="outline">{selectedDomain || 'Domain'}</Badge>
+                <Badge variant="outline">{selectedSubject}</Badge>
+                <Badge variant="outline">{selectedChapter?.chapter_name}</Badge>
+                <Badge variant="secondary">{selectedTopic?.topic_name}</Badge>
+              </>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-6">

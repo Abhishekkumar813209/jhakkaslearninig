@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useExamTypes } from '@/hooks/useExamTypes';
-import { useBoards } from '@/hooks/useBoards';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { Loader2, Library, Sparkles, CheckCircle2, BookOpen, Plus, Edit, Trash2, FileText } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Loader2, Plus, Trash2, BookOpen, Sparkles, Library, Save, FileText, CheckCircle2 } from "lucide-react";
+import { useExamTypes } from "@/hooks/useExamTypes";
+import { useBoards } from "@/hooks/useBoards";
 
 interface ChapterLibrary {
   id: string;
@@ -26,7 +27,10 @@ interface ChapterLibrary {
 }
 
 export const ChapterLibraryManager = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { examTypes } = useExamTypes();
+  
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [selectedBoard, setSelectedBoard] = useState<string>('');
   const [selectedClass, setSelectedClass] = useState<string>('');
@@ -824,7 +828,7 @@ export const ChapterLibraryManager = () => {
                 <tr>
                   <th className="text-left p-3 text-sm font-medium">Topic Name</th>
                   <th className="text-left p-3 text-sm font-medium w-32">Difficulty</th>
-                  <th className="text-right p-3 text-sm font-medium w-24">Actions</th>
+                  <th className="text-right p-3 text-sm font-medium w-48">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -841,14 +845,38 @@ export const ChapterLibraryManager = () => {
                       </Badge>
                     </td>
                     <td className="p-3 text-right">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => handleDeleteTopic(idx)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            params.set('tab', 'question-bank');
+                            params.set('mode', 'centralized');
+                            params.set('subTab', 'questions');
+                            params.set('exam_domain', selectedDomain);
+                            if (selectedBoard) params.set('board', selectedBoard);
+                            if (selectedClass) params.set('class', selectedClass);
+                            params.set('subject', selectedSubject);
+                            params.set('chapter_id', editingChapterId || '');
+                            params.set('chapter_name', chapters.find(c => c.id === editingChapterId)?.chapter_name || '');
+                            params.set('topic_name', topic.topic_name);
+                            navigate(`/admin?${params.toString()}`);
+                          }}
+                          className="h-8"
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Questions
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => handleDeleteTopic(idx)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

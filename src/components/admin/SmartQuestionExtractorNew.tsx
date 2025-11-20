@@ -53,6 +53,7 @@ interface ExtractedQuestion {
 }
 
 interface SmartQuestionExtractorNewProps {
+  // Batch-specific mode (original)
   selectedTopic?: string;
   selectedTopicName?: string;
   selectedChapter?: string;
@@ -61,6 +62,14 @@ interface SmartQuestionExtractorNewProps {
   selectedRoadmap?: string;
   selectedExamDomain?: string;
   selectedExamName?: string;
+  
+  // Centralized mode (new)
+  mode?: 'batch' | 'centralized';
+  chapterLibraryId?: string;
+  centralizedTopicName?: string;
+  applicableClasses?: string[];
+  applicableExams?: string[];
+  
   onQuestionsAdded?: (questions: ExtractedQuestion[]) => void;
 }
 

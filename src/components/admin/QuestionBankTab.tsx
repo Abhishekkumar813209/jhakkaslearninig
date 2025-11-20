@@ -29,7 +29,7 @@ export default function QuestionBankTab() {
         setSearchParams(params, { replace: true });
       }
     }
-  }, [isClient, searchParams, setSearchParams]);
+  }, [isClient, setSearchParams]);
 
   return (
     <div className="space-y-6">
@@ -44,7 +44,7 @@ export default function QuestionBankTab() {
                 setViewMode("batch-specific");
                 const params = new URLSearchParams(searchParams);
                 params.set('mode', 'batch-specific');
-                window.history.replaceState({}, '', `/admin?${params.toString()}`);
+                window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
                 setSearchParams(params);
               }}
               className="gap-2"
@@ -58,7 +58,7 @@ export default function QuestionBankTab() {
                 setViewMode("centralized");
                 const params = new URLSearchParams(searchParams);
                 params.set('mode', 'centralized');
-                window.history.replaceState({}, '', `/admin?${params.toString()}`);
+                window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
                 setSearchParams(params);
               }}
               className="gap-2"

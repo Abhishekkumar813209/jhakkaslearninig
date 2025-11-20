@@ -63,10 +63,7 @@ export const ChapterLibraryManager = () => {
   const [manualTopics, setManualTopics] = useState<any[]>([]);
   const [currentTopicForm, setCurrentTopicForm] = useState({
     topic_name: '',
-    subtopics: '',
-    difficulty: 'medium',
-    weightage: 5,
-    exam_relevance: ''
+    difficulty: 'medium' as 'easy' | 'medium' | 'hard'
   });
   const [bulkTopicsText, setBulkTopicsText] = useState('');
   const [showTopicEditor, setShowTopicEditor] = useState(false);
@@ -374,20 +371,13 @@ export const ChapterLibraryManager = () => {
     
     const newTopic = {
       topic_name: currentTopicForm.topic_name.trim(),
-      subtopics: currentTopicForm.subtopics.split(',').map((s: string) => s.trim()).filter((s: string) => s),
-      difficulty: currentTopicForm.difficulty,
-      weightage: currentTopicForm.weightage,
-      exam_relevance: currentTopicForm.exam_relevance,
-      source: 'manual'
+      difficulty: currentTopicForm.difficulty
     };
     
     setManualTopics([...manualTopics, newTopic]);
     setCurrentTopicForm({
       topic_name: '',
-      subtopics: '',
-      difficulty: 'medium',
-      weightage: 5,
-      exam_relevance: ''
+      difficulty: 'medium'
     });
     toast.success('Topic added!');
   };
@@ -433,11 +423,7 @@ export const ChapterLibraryManager = () => {
     
     const bulkTopics = lines.map((name: string) => ({
       topic_name: name,
-      subtopics: [],
-      difficulty: 'medium',
-      weightage: 5,
-      exam_relevance: '',
-      source: 'bulk_import'
+      difficulty: 'medium' as const
     }));
     
     setManualTopics([...manualTopics, ...bulkTopics]);
@@ -449,10 +435,7 @@ export const ChapterLibraryManager = () => {
     const topic = manualTopics[index];
     setCurrentTopicForm({
       topic_name: topic.topic_name,
-      subtopics: topic.subtopics.join(', '),
-      difficulty: topic.difficulty,
-      weightage: topic.weightage,
-      exam_relevance: topic.exam_relevance || ''
+      difficulty: topic.difficulty
     });
     setManualTopics(manualTopics.filter((_: any, i: number) => i !== index));
   };
@@ -841,53 +824,20 @@ export const ChapterLibraryManager = () => {
             </div>
             
             <div>
-              <Label>Subtopics (comma-separated)</Label>
-              <Input
-                value={currentTopicForm.subtopics}
-                onChange={(e) => setCurrentTopicForm({...currentTopicForm, subtopics: e.target.value})}
-                placeholder="e.g., Newton's First Law, Newton's Second Law"
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Difficulty</Label>
-                <Select
-                  value={currentTopicForm.difficulty}
-                  onValueChange={(val) => setCurrentTopicForm({...currentTopicForm, difficulty: val})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="easy">Easy</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="hard">Hard</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label>Weightage (1-10): {currentTopicForm.weightage}</Label>
-                <Slider
-                  value={[currentTopicForm.weightage]}
-                  onValueChange={(val) => setCurrentTopicForm({...currentTopicForm, weightage: val[0]})}
-                  min={1}
-                  max={10}
-                  step={1}
-                  className="mt-2"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label>Exam Relevance</Label>
-              <Textarea
-                value={currentTopicForm.exam_relevance}
-                onChange={(e) => setCurrentTopicForm({...currentTopicForm, exam_relevance: e.target.value})}
-                placeholder="High weightage in board exams..."
-                rows={3}
-              />
+              <Label>Difficulty</Label>
+              <Select
+                value={currentTopicForm.difficulty}
+                onValueChange={(val: 'easy' | 'medium' | 'hard') => setCurrentTopicForm({...currentTopicForm, difficulty: val})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <Button onClick={handleAddTopic}>
@@ -917,14 +867,14 @@ export const ChapterLibraryManager = () => {
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex-1">
                     <p className="font-medium">{topic.topic_name}</p>
-                    {topic.subtopics?.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        {topic.subtopics.join(', ')}
-                      </p>
-                    )}
                     <div className="flex gap-2 mt-1">
-                      <Badge variant="outline">{topic.difficulty}</Badge>
-                      <Badge variant="outline">Weightage: {topic.weightage}</Badge>
+                      <Badge variant={
+                        topic.difficulty === 'easy' ? 'default' :
+                        topic.difficulty === 'medium' ? 'secondary' :
+                        'destructive'
+                      }>
+                        {topic.difficulty}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex gap-2">

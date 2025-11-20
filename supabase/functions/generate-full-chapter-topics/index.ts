@@ -175,24 +175,21 @@ Requirements:
 
 For each topic, provide:
 - topic_name: Clear, concise topic name
-- subtopics: Array of 2-3 key subtopics (optional)
-- difficulty: easy/medium/hard
-- weightage: Expected exam weightage (1-10)
+- difficulty: easy/medium/hard (based on complexity and exam pattern)
 
 Return ONLY valid JSON array:
 [
   {
     "topic_name": "Introduction and Basic Concepts",
-    "subtopics": ["Definition", "Historical Context", "Key Terminology"],
-    "difficulty": "easy",
-    "weightage": 6
+    "difficulty": "easy"
   },
   {
     "topic_name": "Advanced Applications",
-    "subtopics": ["Real-world Problems", "Case Studies"],
-    "difficulty": "hard",
-    "weightage": 9
+    "difficulty": "hard"
   }
+]
+
+Generate 10-15 comprehensive topics covering the entire chapter.`;
 ]
 
 Generate 10-15 comprehensive topics covering the entire chapter.`;

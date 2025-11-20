@@ -19,12 +19,17 @@ const QuestionBank = () => {
     setIsClient(true);
   }, []);
 
-  // Sync mode with URL
+  // Sync mode with URL and set default if missing
   useEffect(() => {
     if (isClient) {
       const urlMode = searchParams.get('mode');
       if (urlMode === 'centralized' || urlMode === 'batch-specific') {
         setMode(urlMode);
+      } else {
+        // Set default mode if missing
+        const params = new URLSearchParams(searchParams);
+        params.set('mode', 'batch-specific');
+        setSearchParams(params, { replace: true });
       }
     }
   }, [isClient, searchParams]);
@@ -36,6 +41,9 @@ const QuestionBank = () => {
     params.delete('subTab'); // Clear subTab when switching modes
     params.delete('chapter_id');
     params.delete('topic_name');
+    
+    // Use window.history.replaceState for immediate URL update
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
     setSearchParams(params);
   };
 

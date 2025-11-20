@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, BookOpen, Sparkles, Library, Save, FileText, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, Trash2, BookOpen, Sparkles, Library, Save, FileText, CheckCircle2, Settings } from "lucide-react";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { useBoards } from "@/hooks/useBoards";
 
@@ -789,10 +789,18 @@ export const ChapterLibraryManager = () => {
                     <Button
                       size="sm"
                       variant={chapter.topics_generated ? "outline" : "default"}
-                      onClick={() => handleGenerateTopics(chapter.id, chapter.topics_generated)}
+                      onClick={() => {
+                        if (chapter.topics_generated && chapter.full_topics?.length > 0) {
+                          if (confirm(`⚠️ This will replace all ${chapter.full_topics.length} existing topics with AI-generated ones. Continue?`)) {
+                            handleGenerateTopics(chapter.id, true);
+                          }
+                        } else {
+                          handleGenerateTopics(chapter.id, false);
+                        }
+                      }}
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      AI {chapter.topics_generated ? 'Regenerate' : 'Generate'}
+                      {chapter.topics_generated ? 'Replace with AI' : 'AI Generate'}
                     </Button>
                     <Button
                       size="sm"
@@ -802,30 +810,99 @@ export const ChapterLibraryManager = () => {
                         setManualTopics(chapter.full_topics || []);
                         setShowTopicEditor(true);
                       }}
+                      title="Add, edit, or delete topics for this chapter"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Manually
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage Topics
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               {chapter.topics_generated && chapter.full_topics?.length > 0 && (
                 <CardContent>
-                  <div className="text-sm space-y-2">
-                    <p className="font-medium text-muted-foreground">Comprehensive Topic List:</p>
-                    <div className="grid gap-2">
-                      {chapter.full_topics.map((topic: any, idx: number) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs">
-                          <span className="text-muted-foreground">{idx + 1}.</span>
-                          <div className="flex-1">
-                            <span className="font-medium">{topic.topic_name}</span>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">{topic.difficulty}</Badge>
-                              <Badge variant="outline" className="text-xs">Weightage: {topic.weightage}/10</Badge>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-sm">Topics ({chapter.full_topics.length})</p>
+                    </div>
+                    
+                    {/* Interactive Topics Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="text-left p-2 font-medium">#</th>
+                            <th className="text-left p-2 font-medium">Topic Name</th>
+                            <th className="text-left p-2 font-medium">Difficulty</th>
+                            <th className="text-right p-2 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chapter.full_topics.map((topic: any, idx: number) => (
+                            <tr key={idx} className="border-t hover:bg-muted/20">
+                              <td className="p-2 text-muted-foreground">{idx + 1}</td>
+                              <td className="p-2 font-medium">{topic.topic_name}</td>
+                              <td className="p-2">
+                                <Badge variant={
+                                  topic.difficulty === 'easy' ? 'default' :
+                                  topic.difficulty === 'medium' ? 'secondary' :
+                                  'destructive'
+                                } className="text-xs">
+                                  {topic.difficulty}
+                                </Badge>
+                              </td>
+                              <td className="p-2">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const params = new URLSearchParams();
+                                      params.set('tab', 'question-bank');
+                                      params.set('mode', 'centralized');
+                                      params.set('subTab', 'questions');
+                                      params.set('exam_domain', selectedDomain);
+                                      if (selectedBoard) params.set('board', selectedBoard);
+                                      if (selectedClass) params.set('class', selectedClass);
+                                      params.set('subject', selectedSubject);
+                                      params.set('chapter_id', chapter.id);
+                                      params.set('chapter_name', chapter.chapter_name);
+                                      params.set('topic_name', topic.topic_name);
+                                      navigate(`/admin?${params.toString()}`);
+                                    }}
+                                    className="h-7 text-xs"
+                                  >
+                                    <FileText className="w-3 h-3 mr-1" />
+                                    Questions
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={async () => {
+                                      if (confirm(`Delete topic "${topic.topic_name}"?`)) {
+                                        const updatedTopics = chapter.full_topics.filter((_: any, i: number) => i !== idx);
+                                        const { error } = await supabase
+                                          .from('chapter_library')
+                                          .update({ full_topics: updatedTopics })
+                                          .eq('id', chapter.id);
+                                        
+                                        if (!error) {
+                                          toast.success('Topic deleted');
+                                          fetchChapterLibrary();
+                                        } else {
+                                          toast.error('Failed to delete topic');
+                                        }
+                                      }
+                                    }}
+                                    className="h-7 w-7 p-0"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </CardContent>

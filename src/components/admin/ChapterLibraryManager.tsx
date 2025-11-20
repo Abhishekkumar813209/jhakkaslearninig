@@ -363,7 +363,14 @@ export const ChapterLibraryManager = () => {
   };
 
   // Manual topic handlers
-  const handleAddTopic = () => {
+  const handleAddTopic = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    console.log('🔵 handleAddTopic CALLED');
+    console.log('🔵 currentTopicForm:', currentTopicForm);
+    console.log('🔵 manualTopics length before:', manualTopics.length);
+    
     if (!currentTopicForm.topic_name.trim()) {
       toast.error('Topic name is required');
       return;
@@ -374,14 +381,22 @@ export const ChapterLibraryManager = () => {
       difficulty: currentTopicForm.difficulty
     };
     
-    console.log('Adding topic:', newTopic);
-    console.log('Current topics before add:', manualTopics.length);
-    setManualTopics(prev => [...prev, newTopic]);
+    console.log('🔵 Adding topic:', newTopic);
+    toast.info('Processing...'); // Immediate feedback
+    
+    setManualTopics(prev => {
+      const updated = [...prev, newTopic];
+      console.log('🔵 Updated topics array:', updated);
+      return updated;
+    });
+    
     setCurrentTopicForm({
       topic_name: '',
       difficulty: 'medium'
     });
+    
     toast.success('Topic added!');
+    console.log('🔵 manualTopics length after:', manualTopics.length + 1);
   };
 
   const handleSaveTopicsToChapter = async (chapterId: string) => {
@@ -842,7 +857,15 @@ export const ChapterLibraryManager = () => {
               </Select>
             </div>
             
-            <Button type="button" onClick={handleAddTopic}>
+            <Button 
+              type="button" 
+              onClick={(e) => {
+                console.log('🟢 BUTTON CLICKED');
+                handleAddTopic(e);
+              }}
+              onMouseDown={(e) => console.log('🟡 BUTTON MOUSE DOWN')}
+              onMouseUp={(e) => console.log('🟡 BUTTON MOUSE UP')}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Topic
             </Button>

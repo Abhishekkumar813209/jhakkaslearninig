@@ -190,9 +190,6 @@ Return ONLY valid JSON array:
 ]
 
 Generate 10-15 comprehensive topics covering the entire chapter.`;
-]
-
-Generate 10-15 comprehensive topics covering the entire chapter.`;
 
     // Generate using Lovable AI with Gemini fallback
     const aiText = await callAI(systemPrompt, '');

@@ -835,7 +835,16 @@ export const ChapterLibraryManager = () => {
               <Label>Topic Name *</Label>
               <Input
                 value={currentTopicForm.topic_name}
-                onChange={(e) => setCurrentTopicForm({...currentTopicForm, topic_name: e.target.value})}
+                onChange={(e) => {
+                  console.log('🔴 INPUT CHANGED:', e.target.value);
+                  const newValue = e.target.value;
+                  setCurrentTopicForm(prev => {
+                    console.log('🔴 Previous state:', prev);
+                    const updated = {...prev, topic_name: newValue};
+                    console.log('🔴 Updated state:', updated);
+                    return updated;
+                  });
+                }}
                 placeholder="e.g., Laws of Motion"
               />
             </div>
@@ -858,9 +867,14 @@ export const ChapterLibraryManager = () => {
             </div>
             
             <Button 
-              type="button" 
+              type="button"
+              className="pointer-events-auto relative z-50"
+              style={{ pointerEvents: 'auto' }}
               onClick={(e) => {
+                alert('Button clicked! Check console for details.');
                 console.log('🟢 BUTTON CLICKED');
+                console.log('🟢 Current form state:', currentTopicForm);
+                console.log('🟢 Manual topics array:', manualTopics);
                 handleAddTopic(e);
               }}
               onMouseDown={(e) => console.log('🟡 BUTTON MOUSE DOWN')}
@@ -869,6 +883,34 @@ export const ChapterLibraryManager = () => {
               <Plus className="w-4 h-4 mr-2" />
               Add Topic
             </Button>
+            
+            {/* Native button fallback for testing */}
+            <button
+              type="button"
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '8px'
+              }}
+              onClick={(e) => {
+                alert('Native button clicked!');
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🟠 NATIVE BUTTON CLICKED');
+                console.log('🟠 Current form state:', currentTopicForm);
+                handleAddTopic();
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Add Topic (Native Fallback)
+            </button>
             
             {/* Topics Preview */}
             {manualTopics.length > 0 && (

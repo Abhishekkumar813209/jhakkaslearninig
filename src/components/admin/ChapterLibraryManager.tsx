@@ -30,6 +30,7 @@ export const ChapterLibraryManager = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { examTypes } = useExamTypes();
+  const [isClient, setIsClient] = useState(false);
   
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [selectedBoard, setSelectedBoard] = useState<string>('');
@@ -68,6 +69,62 @@ export const ChapterLibraryManager = () => {
     difficulty: 'medium' as 'easy' | 'medium' | 'hard'
   });
   const [showTopicEditor, setShowTopicEditor] = useState(false);
+
+  // Set isClient for hydration safety
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Initialize filters from URL on mount
+  useEffect(() => {
+    if (isClient) {
+      const examDomain = searchParams.get('exam_domain');
+      const board = searchParams.get('board');
+      const studentClass = searchParams.get('class');
+      const subject = searchParams.get('subject');
+      
+      if (examDomain) setSelectedDomain(examDomain);
+      if (board) setSelectedBoard(board);
+      if (studentClass) setSelectedClass(studentClass);
+      if (subject) setSelectedSubject(subject);
+    }
+  }, [isClient]);
+
+  // Sync selectedDomain with URL
+  useEffect(() => {
+    if (isClient && selectedDomain) {
+      const params = new URLSearchParams(searchParams);
+      params.set('exam_domain', selectedDomain);
+      navigate(`?${params.toString()}`, { replace: true });
+    }
+  }, [selectedDomain, isClient]);
+
+  // Sync selectedBoard with URL
+  useEffect(() => {
+    if (isClient && selectedBoard) {
+      const params = new URLSearchParams(searchParams);
+      params.set('board', selectedBoard);
+      navigate(`?${params.toString()}`, { replace: true });
+    }
+  }, [selectedBoard, isClient]);
+
+  // Sync selectedClass with URL
+  useEffect(() => {
+    if (isClient && selectedClass) {
+      const params = new URLSearchParams(searchParams);
+      params.set('class', selectedClass);
+      navigate(`?${params.toString()}`, { replace: true });
+    }
+  }, [selectedClass, isClient]);
+
+  // Sync selectedSubject with URL
+  useEffect(() => {
+    if (isClient && selectedSubject) {
+      const params = new URLSearchParams(searchParams);
+      params.set('subject', selectedSubject);
+      navigate(`?${params.toString()}`, { replace: true });
+    }
+  }, [selectedSubject, isClient]);
 
   // Fetch classes when board/domain selected
   useEffect(() => {
@@ -584,7 +641,22 @@ export const ChapterLibraryManager = () => {
             </div>
           </div>
 
-          <Button 
+          {/* User Guidance Message */}
+          {selectedDomain && selectedSubject && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Next Steps:</strong>
+              </p>
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-sm text-blue-700 dark:text-blue-300">
+                <li>Click "Generate Chapter Library with AI" or manually add chapters below</li>
+                <li>Once chapters are added, click on a chapter to manage its topics</li>
+                <li>Add topics to the chapter</li>
+                <li>Click "Manage Questions" button on any topic to add questions</li>
+              </ol>
+            </div>
+          )}
+
+          <Button
             onClick={handleGenerateLibrary}
             disabled={!selectedDomain || !selectedSubject || generating}
             className="w-full"

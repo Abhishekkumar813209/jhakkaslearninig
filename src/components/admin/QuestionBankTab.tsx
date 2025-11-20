@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Database, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +10,26 @@ import { CentralizedQuestionExtractor } from "./CentralizedQuestionExtractor";
 import { BatchQuestionAssigner } from "./BatchQuestionAssigner";
 
 export default function QuestionBankTab() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<"batch-specific" | "centralized">("batch-specific");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      const urlMode = searchParams.get('mode');
+      if (urlMode === 'centralized' || urlMode === 'batch-specific') {
+        setViewMode(urlMode);
+      } else {
+        const params = new URLSearchParams(searchParams);
+        params.set('mode', 'batch-specific');
+        setSearchParams(params, { replace: true });
+      }
+    }
+  }, [isClient, searchParams, setSearchParams]);
 
   return (
     <div className="space-y-6">
@@ -20,7 +40,13 @@ export default function QuestionBankTab() {
           <div className="flex gap-2">
             <Button
               variant={viewMode === "batch-specific" ? "default" : "outline"}
-              onClick={() => setViewMode("batch-specific")}
+              onClick={() => {
+                setViewMode("batch-specific");
+                const params = new URLSearchParams(searchParams);
+                params.set('mode', 'batch-specific');
+                window.history.replaceState({}, '', `/admin?${params.toString()}`);
+                setSearchParams(params);
+              }}
               className="gap-2"
             >
               <Database className="h-4 w-4" />
@@ -28,7 +54,13 @@ export default function QuestionBankTab() {
             </Button>
             <Button
               variant={viewMode === "centralized" ? "default" : "outline"}
-              onClick={() => setViewMode("centralized")}
+              onClick={() => {
+                setViewMode("centralized");
+                const params = new URLSearchParams(searchParams);
+                params.set('mode', 'centralized');
+                window.history.replaceState({}, '', `/admin?${params.toString()}`);
+                setSearchParams(params);
+              }}
               className="gap-2"
             >
               <Library className="h-4 w-4" />

@@ -62,18 +62,64 @@ export const BatchQuestionAssigner = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [classesLoading, setClassesLoading] = useState(false);
 
-  // Fetch classes
+  // Fetch classes dynamically from batches
   useEffect(() => {
-    if (selectedDomain) {
-      const examType = examTypes.find(e => e.code === selectedDomain);
-      if (examType?.requires_class) {
-        setClasses(['11', '12']);
-      } else {
+    const fetchAvailableClasses = async () => {
+      if (!selectedDomain) {
         setClasses([]);
+        return;
       }
-    }
-  }, [selectedDomain, examTypes]);
+
+      const examType = examTypes.find(e => e.code === selectedDomain);
+      if (!examType?.requires_class) {
+        setClasses([]);
+        return;
+      }
+
+      setClassesLoading(true);
+      try {
+        // Query distinct classes from batches for this exam_type and board
+        let query = supabase
+          .from('batches')
+          .select('target_class')
+          .eq('exam_type', selectedDomain)
+          .not('target_class', 'is', null)
+          .eq('is_active', true);
+
+        // Add board filter if required and selected
+        if (requiresBoard && selectedBoard) {
+          query = query.eq('target_board', selectedBoard as any);
+        }
+
+        const { data, error } = await query.order('target_class');
+
+        if (error) {
+          console.error('Error fetching classes:', error);
+          return;
+        }
+
+        // Get unique classes and sort numerically (1-12)
+        const uniqueClasses = [...new Set(data.map(b => b.target_class))]
+          .filter(Boolean)
+          .sort((a, b) => {
+            // Extract numeric part (handle "13th" or plain numbers)
+            const aNum = a === '13th' ? 13 : parseInt(a);
+            const bNum = b === '13th' ? 13 : parseInt(b);
+            return aNum - bNum;
+          });
+
+        setClasses(uniqueClasses);
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+      } finally {
+        setClassesLoading(false);
+      }
+    };
+
+    fetchAvailableClasses();
+  }, [selectedDomain, selectedBoard, requiresBoard, examTypes]);
 
   // Fetch subjects
   useEffect(() => {
@@ -328,21 +374,29 @@ export const BatchQuestionAssigner = () => {
             {requiresClass && (
               <div>
                 <label className="text-sm font-medium mb-2 block">Class</label>
-                <Select value={selectedClass} onValueChange={(val) => {
-                  setSelectedClass(val);
-                  setSelectedBatch('');
-                  setSelectedSubject('');
-                  setSelectedTopic('');
-                }}>
+                <Select 
+                  value={selectedClass} 
+                  onValueChange={(val) => {
+                    setSelectedClass(val);
+                    setSelectedBatch('');
+                    setSelectedSubject('');
+                    setSelectedTopic('');
+                  }}
+                  disabled={classesLoading}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
+                    <SelectValue placeholder={classesLoading ? "Loading classes..." : "Select class"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls} value={cls}>
-                        Class {cls}
-                      </SelectItem>
-                    ))}
+                    {classes.length === 0 ? (
+                      <SelectItem value="none" disabled>No classes available</SelectItem>
+                    ) : (
+                      classes.map((cls) => (
+                        <SelectItem key={cls} value={cls}>
+                          Class {cls}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

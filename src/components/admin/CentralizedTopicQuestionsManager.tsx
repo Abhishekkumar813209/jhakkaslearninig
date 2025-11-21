@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ArrowLeft, FileText } from 'lucide-react';
-import { SmartQuestionExtractorNew } from './SmartQuestionExtractorNew';
+import { SmartQuestionExtractor } from './SmartQuestionExtractor';
 
 interface CentralizedTopicQuestionsManagerProps {
   examDomain: string;
@@ -62,18 +62,16 @@ export const CentralizedTopicQuestionsManager = ({
       </div>
 
       {/* Main Content - Single Unified Interface */}
-      <SmartQuestionExtractorNew
-        mode="centralized"
-        selectedTopic="dummy-topic-id"
-        selectedTopicName={topicName}
-        chapterLibraryId={chapterLibraryId}
-        centralizedTopicName={topicName}
-        applicableClasses={studentClass ? [studentClass] : []}
-        applicableExams={[examDomain]}
-        selectedSubject={subject}
-        selectedChapter={chapterLibraryId}
-        selectedExamDomain={examDomain}
+      <SmartQuestionExtractor
+        mode="question-bank"
+        topicId={chapterLibraryId}
+        topicName={topicName}
+        chapterId={chapterLibraryId}
+        chapterName={chapterName}
+        subjectName={subject}
+        examDomain={examDomain}
         onQuestionsAdded={handleQuestionsAdded}
+        onBackClick={onBack}
       />
     </div>
   );

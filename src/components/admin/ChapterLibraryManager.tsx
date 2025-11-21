@@ -189,14 +189,37 @@ export const ChapterLibraryManager = () => {
     return selectedDomain;
   };
 
+  // Reset subjects when filters change
+  useEffect(() => {
+    setSubjects([]);
+    setSelectedSubject(null);
+    setSubjectSource(null);
+  }, [selectedDomain, selectedBoard, selectedClass]);
+
   // Fetch subjects from exam_templates
   useEffect(() => {
     const fetchSubjects = async () => {
-      if (!selectedDomain) return;
+      if (!selectedDomain) {
+        setSubjects([]);
+        setSubjectSource(null);
+        return;
+      }
+
+      // Must have board selected for school domain
+      if (selectedDomain === 'school' && !selectedBoard) {
+        setSubjects([]);
+        setSubjectSource(null);
+        return;
+      }
+
+      // Must have class selected if required
+      if (requiresClass && !selectedClass) {
+        setSubjects([]);
+        setSubjectSource(null);
+        return;
+      }
       
-      const examName = selectedDomain === 'school' 
-        ? (selectedBoard || selectedDomain) 
-        : selectedDomain;
+      const examName = getExamName();
       
       const query = supabase
         .from('exam_templates')
@@ -208,6 +231,7 @@ export const ChapterLibraryManager = () => {
       if (requiresBoard && selectedBoard) {
         query.eq('board', selectedBoard);
       }
+      
       if (requiresClass && selectedClass) {
         query.eq('student_class', selectedClass);
       }
@@ -216,6 +240,7 @@ export const ChapterLibraryManager = () => {
       
       if (error) {
         console.error('Error fetching subjects:', error);
+        toast.error('Failed to fetch subjects');
         setSubjects([]);
         setSubjectSource(null);
         return;

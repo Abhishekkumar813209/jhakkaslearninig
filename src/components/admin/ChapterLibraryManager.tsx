@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, BookOpen, Sparkles, Library, Save, FileText, CheckCircle2, Settings } from "lucide-react";
+import { Loader2, Plus, Trash2, BookOpen, Sparkles, Library, Save, FileText, CheckCircle2, Settings, Pencil } from "lucide-react";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { useBoards } from "@/hooks/useBoards";
 
@@ -70,6 +70,17 @@ export const ChapterLibraryManager = () => {
   });
   const [showTopicEditor, setShowTopicEditor] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<{[chapterId: string]: number[]}>({});
+
+  // Chapter edit states
+  const [showEditChapterDialog, setShowEditChapterDialog] = useState(false);
+  const [editingChapterData, setEditingChapterData] = useState({
+    id: '',
+    chapter_name: '',
+    suggested_days: 5
+  });
+
+  // Bulk chapter selection
+  const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
 
   // Set isClient for hydration safety
   useEffect(() => {
@@ -477,6 +488,60 @@ export const ChapterLibraryManager = () => {
     toast.success('Topic removed');
   };
 
+  // Edit chapter handler
+  const handleEditChapter = async () => {
+    if (!editingChapterData.chapter_name.trim()) {
+      toast.error('Chapter name is required');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('chapter_library')
+        .update({
+          chapter_name: editingChapterData.chapter_name,
+          suggested_days: editingChapterData.suggested_days,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingChapterData.id);
+
+      if (error) throw error;
+
+      toast.success('Chapter updated successfully!');
+      setShowEditChapterDialog(false);
+      fetchChapterLibrary();
+    } catch (error: any) {
+      console.error('Error updating chapter:', error);
+      toast.error('Failed to update chapter');
+    }
+  };
+
+  // Bulk delete chapters
+  const handleBulkDeleteChapters = async () => {
+    if (selectedChapters.length === 0) {
+      toast.error('No chapters selected');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('chapter_library')
+        .update({ is_active: false })
+        .in('id', selectedChapters);
+
+      if (!error) {
+        toast.success(`Deleted ${selectedChapters.length} chapter${selectedChapters.length > 1 ? 's' : ''}`);
+        setSelectedChapters([]);
+        fetchChapterLibrary();
+      } else {
+        toast.error('Failed to delete chapters');
+      }
+    } catch (error: any) {
+      console.error('Error bulk deleting chapters:', error);
+      toast.error('Failed to delete chapters');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -765,13 +830,52 @@ export const ChapterLibraryManager = () => {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : chapters.length > 0 ? (
-        <div className="grid gap-4">
-          {chapters.map((chapter) => (
-            <Card key={chapter.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{chapter.chapter_name}</CardTitle>
+        <div className="space-y-4">
+          {/* Bulk Actions */}
+          {selectedChapters.length > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <Badge variant="secondary">{selectedChapters.length} chapter{selectedChapters.length > 1 ? 's' : ''} selected</Badge>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleBulkDeleteChapters}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete Selected
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedChapters([])}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          )}
+
+          <div className="grid gap-4">
+            {chapters.map((chapter) => (
+              <Card key={chapter.id} className={selectedChapters.includes(chapter.id) ? 'ring-2 ring-primary' : ''}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Checkbox */}
+                    <div className="pt-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedChapters.includes(chapter.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedChapters(prev => [...prev, chapter.id]);
+                          } else {
+                            setSelectedChapters(prev => prev.filter(id => id !== chapter.id));
+                          }
+                        }}
+                        className="cursor-pointer w-4 h-4"
+                      />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">{chapter.chapter_name}</CardTitle>
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant="outline">
                         {chapter.suggested_days} day{chapter.suggested_days !== 1 ? 's' : ''}
@@ -785,61 +889,76 @@ export const ChapterLibraryManager = () => {
                         <Badge variant="secondary">No Topics</Badge>
                       )}
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={chapter.topics_generated ? "outline" : "default"}
-                      onClick={() => {
-                        if (chapter.topics_generated && chapter.full_topics?.length > 0) {
-                          if (confirm(`⚠️ This will replace all ${chapter.full_topics.length} existing topics with AI-generated ones. Continue?`)) {
-                            handleGenerateTopics(chapter.id, true);
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={chapter.topics_generated ? "outline" : "default"}
+                        onClick={() => {
+                          if (chapter.topics_generated && chapter.full_topics?.length > 0) {
+                            if (confirm(`⚠️ This will replace all ${chapter.full_topics.length} existing topics with AI-generated ones. Continue?`)) {
+                              handleGenerateTopics(chapter.id, true);
+                            }
+                          } else {
+                            handleGenerateTopics(chapter.id, false);
                           }
-                        } else {
-                          handleGenerateTopics(chapter.id, false);
-                        }
-                      }}
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      {chapter.topics_generated ? 'Replace with AI' : 'AI Generate'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingChapterId(chapter.id);
-                        setManualTopics(chapter.full_topics || []);
-                        setShowTopicEditor(true);
-                      }}
-                      title="Add, edit, or delete topics for this chapter"
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Manage Topics
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={async () => {
-                        const { error } = await supabase
-                          .from('chapter_library')
-                          .update({ is_active: false })
-                          .eq('id', chapter.id);
-                        
-                        if (!error) {
-                          toast.success('Chapter deleted');
-                          fetchChapterLibrary();
-                        } else {
-                          toast.error('Failed to delete chapter');
-                        }
-                      }}
-                      className="text-destructive hover:text-destructive"
-                      title="Delete this chapter"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {chapter.topics_generated ? 'Replace with AI' : 'AI Generate'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingChapterId(chapter.id);
+                          setManualTopics(chapter.full_topics || []);
+                          setShowTopicEditor(true);
+                        }}
+                        title="Add, edit, or delete topics for this chapter"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Manage Topics
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingChapterData({
+                            id: chapter.id,
+                            chapter_name: chapter.chapter_name,
+                            suggested_days: chapter.suggested_days
+                          });
+                          setShowEditChapterDialog(true);
+                        }}
+                        title="Edit chapter details"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from('chapter_library')
+                            .update({ is_active: false })
+                            .eq('id', chapter.id);
+                          
+                          if (!error) {
+                            toast.success('Chapter deleted');
+                            fetchChapterLibrary();
+                          } else {
+                            toast.error('Failed to delete chapter');
+                          }
+                        }}
+                        className="text-destructive hover:text-destructive"
+                        title="Delete this chapter"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
+                </CardHeader>
               {chapter.topics_generated && chapter.full_topics?.length > 0 && (
                 <CardContent>
                   <div className="space-y-3">
@@ -991,6 +1110,7 @@ export const ChapterLibraryManager = () => {
               )}
             </Card>
           ))}
+          </div>
         </div>
       ) : selectedDomain && selectedSubject ? (
         <Card>
@@ -1156,7 +1276,51 @@ export const ChapterLibraryManager = () => {
             Save {manualTopics.length} Topics
           </Button>
         </DialogFooter>
-      </DialogContent>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Chapter Dialog */}
+      <Dialog open={showEditChapterDialog} onOpenChange={setShowEditChapterDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Chapter</DialogTitle>
+            <DialogDescription>
+              Update chapter name and suggested days
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Chapter Name *</Label>
+              <Input
+                value={editingChapterData.chapter_name}
+                onChange={(e) => setEditingChapterData({...editingChapterData, chapter_name: e.target.value})}
+                placeholder="e.g., Introduction to Algebra"
+              />
+            </div>
+            
+            <div>
+              <Label>Suggested Days</Label>
+              <Input
+                type="number"
+                min="1"
+                max="30"
+                value={editingChapterData.suggested_days}
+                onChange={(e) => setEditingChapterData({...editingChapterData, suggested_days: parseInt(e.target.value) || 5})}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditChapterDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditChapter}>
+              <Save className="w-4 h-4 mr-2" />
+              Update Chapter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Bulk Chapter Add Dialog */}

@@ -49,21 +49,24 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
         {
           event: '*',
           schema: 'public',
-          table: 'gamified_exercises'
+          table: 'batch_question_assignments'
         },
         (payload) => {
-          console.log('Game change detected:', payload.eventType, payload);
+          console.log('Assignment change detected:', payload.eventType, payload);
           
-          // Immediately clear lessons on DELETE to prevent showing stale nodes
-          if (payload.eventType === 'DELETE') {
-            setLessons([]);
-            setLoading(true);
-            
-            toast({
-              title: "Content Updated",
-              description: "A lesson was removed. Refreshing...",
-              variant: "default"
-            });
+          // Immediately clear lessons on UPDATE (deactivation) or DELETE
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+            const newRow = (payload as any).new;
+            if (payload.eventType === 'DELETE' || (newRow && !newRow.is_active)) {
+              setLessons([]);
+              setLoading(true);
+              
+              toast({
+                title: "Content Updated",
+                description: "A lesson was removed. Refreshing...",
+                variant: "default"
+              });
+            }
           }
           
           // Debounce refetch with shorter delay
@@ -72,27 +75,7 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           }
           const timeout = setTimeout(() => {
             fetchLessons();
-          }, 200); // Reduced from 500ms to 200ms
-          setRefetchTimeout(timeout);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'topic_content_mapping'
-        },
-        (payload) => {
-          console.log('Content mapping change:', payload.eventType);
-          
-          // Debounce refetch
-          if (refetchTimeout) {
-            clearTimeout(refetchTimeout);
-          }
-          const timeout = setTimeout(() => {
-            fetchLessons();
-          }, 500);
+          }, 200);
           setRefetchTimeout(timeout);
         }
       )
@@ -138,38 +121,43 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
       return;
     }
 
-    // First, try to load games dynamically from gamified_exercises
-    const { data: mappings, error: mappingError } = await supabase
-      .from('topic_content_mapping')
-      .select('id')
-      .eq('topic_id', topicId);
+    // Fetch games from batch_question_assignments (reference-based, zero duplication)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('batch_id')
+      .eq('id', user.user.id)
+      .single();
 
-    if (mappingError) {
-      console.error("Error fetching topic_content_mapping:", mappingError);
+    if (!profile?.batch_id) {
+      setLoading(false);
+      return;
     }
 
     let lessonsData: Lesson[] = [];
     const progressMap: Record<string, LessonProgress> = {};
 
-    // If we have mappings, load games
-    if (mappings && mappings.length > 0) {
-      const mappingIds = mappings.map(m => m.id);
-      
-      const { data: games, error: gamesError } = await supabase
-        .from('gamified_exercises')
-        .select('*')
-        .in('topic_content_id', mappingIds)
-        .order('game_order', { ascending: true });
+    // @ts-ignore - Supabase depth limitation
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('batch_question_assignments')
+      .select(`
+        id,
+        assignment_order,
+        question_bank!inner(
+          id, question_type, difficulty, marks
+        )
+      `)
+      .eq('batch_id', profile.batch_id)
+      .eq('roadmap_topic_id', topicId)
+      .eq('is_active', true)
+      .order('assignment_order', { ascending: true });
 
-      if (gamesError) {
-        console.error("Error fetching games:", gamesError);
-      }
+    if (assignmentsError) {
+      console.error("Error fetching assignments:", assignmentsError);
+    }
 
-      // Filter out any null/undefined games (defensive check)
-      const validGames = (games || []).filter(g => g && g.id);
+    const validGames = (assignments || []).filter((a: any) => a && a.id);
 
-      // If we have games, build lessons from them
-      if (validGames.length > 0) {
+    if (validGames.length > 0) {
         // Load student game progress
         const { data: gameProgress } = await supabase
           .from('student_topic_game_progress')
@@ -191,15 +179,19 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           new Set((attempts || []).map(a => a.question_id).filter((id): id is string => typeof id === 'string' && id.length > 0))
         );
 
-        // Build lessons array from all valid games
-        lessonsData = validGames.map((game, index) => ({
-          id: game.id,
-          lesson_type: 'game',
-          content_order: game.game_order || (index + 1),
-          game_type: game.exercise_type || 'mcq',
-          xp_reward: game.xp_reward || 10, // From database, fallback to 10
-          estimated_time_minutes: 3, // Default time estimate
-        }));
+        // Build lessons array from all valid assignments
+        lessonsData = validGames.map((assignment: any, index: number) => {
+          const q = assignment.question_bank;
+          const difficulty = q.difficulty || 'medium';
+          return {
+            id: assignment.id,
+            lesson_type: 'game',
+            content_order: assignment.assignment_order || (index + 1),
+            game_type: q.question_type || 'mcq',
+            xp_reward: difficulty === 'hard' ? 50 : difficulty === 'medium' ? 40 : 30,
+            estimated_time_minutes: 3,
+          };
+        });
 
         // Build progress map from completed and attempted games
         lessonsData.forEach((lesson, index) => {
@@ -238,7 +230,6 @@ export function DuolingoLessonPath({ topicId, onLessonClick }: DuolingoLessonPat
           };
         });
       }
-    }
 
     // Fallback to topic_learning_content if no games found
     if (lessonsData.length === 0) {

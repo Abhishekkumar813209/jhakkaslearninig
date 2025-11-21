@@ -68,34 +68,37 @@ const GamePlayerPage = () => {
     }
     loadGameData();
     
-    // Listen for game deletion while student is playing
+    // Listen for game deletion/deactivation while student is playing
     const channel = supabase
       .channel(`game-${gameId}`)
       .on(
         'postgres_changes',
         {
-          event: 'DELETE',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'gamified_exercises',
+          table: 'batch_question_assignments',
           filter: `id=eq.${gameId}`
         },
         (payload) => {
-          console.log('Current game was deleted:', payload);
-          
-          toast({
-            title: "Game Removed",
-            description: "This game was deleted. Redirecting to next available game...",
-            variant: "destructive"
-          });
-          
-          // Try to navigate to next game, or back to topic if none available
-          setTimeout(async () => {
-            if (navInfo?.nextGameId) {
-              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
-            } else {
-              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
-            }
-          }, 2000);
+          const newRow = (payload as any).new;
+          if (newRow && !newRow.is_active) {
+            console.log('Current game was deactivated:', payload);
+            
+            toast({
+              title: "Game Removed",
+              description: "This game was removed. Redirecting to next available game...",
+              variant: "destructive"
+            });
+            
+            // Try to navigate to next game, or back to topic if none available
+            setTimeout(async () => {
+              if (navInfo?.nextGameId) {
+                navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
+              } else {
+                navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+              }
+            }, 2000);
+          }
         }
       )
       .subscribe();
@@ -117,22 +120,7 @@ const GamePlayerPage = () => {
       
       let game = await loadGameById(gameId);
       
-      // Fallback: If gameId is actually a topic_content_mapping.id, try to find the game
-      if (!game) {
-        const { data: exerciseData } = await supabase
-          .from('gamified_exercises')
-          .select('*')
-          .eq('topic_content_id', gameId)
-          .order('game_order', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        
-        if (exerciseData) {
-          game = exerciseData;
-          // Navigate to correct game ID to update URL
-          navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${exerciseData.id}`, { replace: true });
-        }
-      }
+      // Game not found, will be handled by auto-redirect useEffect
 
       if (!game) {
         toast({
@@ -163,35 +151,22 @@ const GamePlayerPage = () => {
           setInitialAttemptCount(0);
         }
 
-        // Fetch progress percentage based on completed games
-        const { data: mapping } = await supabase
-          .from('topic_content_mapping')
-          .select('id')
+        // Fetch progress percentage from navigation info (already calculated)
+        const { data: progress } = await supabase
+          .from('student_topic_game_progress')
+          .select('completed_game_ids')
+          .eq('student_id', user.id)
           .eq('topic_id', topicId)
           .maybeSingle();
-        
-        if (mapping) {
-          const { count: totalGames } = await supabase
-            .from('gamified_exercises')
-            .select('id', { count: 'exact' })
-            .eq('topic_content_id', mapping.id);
 
-          const { data: progress } = await supabase
-            .from('student_topic_game_progress')
-            .select('completed_game_ids')
-            .eq('student_id', user.id)
-            .eq('topic_id', topicId)
-            .maybeSingle();
-
-          const completedCount = progress?.completed_game_ids?.length || 0;
-          const percentage = totalGames && totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
-          setProgressPercentage(Math.round(percentage));
-        }
+        const completedCount = progress?.completed_game_ids?.length || 0;
+        const navigation = await getAdjacentGames(topicId, game.id);
+        const percentage = navigation.totalGames > 0 ? (completedCount / navigation.totalGames) * 100 : 0;
+        setProgressPercentage(Math.round(percentage));
+        setNavInfo(navigation);
       }
 
-      const navigation = await getAdjacentGames(topicId, game.id);
       setGameData(game);
-      setNavInfo(navigation);
     } catch (error) {
       console.error("Error loading game:", error);
       toast({
@@ -204,36 +179,45 @@ const GamePlayerPage = () => {
     }
   };
 
-  // Auto-redirect when game not found
+  // Auto-redirect when game not found (using reference-based navigation)
   useEffect(() => {
     if (!loading && !gameData && topicId && roadmapId) {
       const findNextGame = async () => {
-        // Try to find the first available game in this topic
-        const { data: mapping } = await supabase
-          .from('topic_content_mapping')
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get student's batch
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('batch_id')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile?.batch_id) {
+          handleExit();
+          return;
+        }
+
+        // Fetch first assigned game
+        const { data: assignments } = await supabase
+          .from('batch_question_assignments')
           .select('id')
-          .eq('topic_id', topicId)
-          .maybeSingle();
+          .eq('batch_id', profile.batch_id)
+          .eq('roadmap_topic_id', topicId)
+          .eq('is_active', true)
+          .order('assignment_order', { ascending: true })
+          .limit(1);
         
-        if (mapping) {
-          const { data: games } = await supabase
-            .from('gamified_exercises')
-            .select('id, game_order')
-            .eq('topic_content_id', mapping.id)
-            .order('game_order', { ascending: true })
-            .limit(1);
+        if (assignments && assignments.length > 0) {
+          toast({
+            title: "Game Not Found",
+            description: "Redirecting to next available game...",
+          });
           
-          if (games && games.length > 0) {
-            toast({
-              title: "Game Not Found",
-              description: "Redirecting to next available game...",
-            });
-            
-            setTimeout(() => {
-              navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${games[0].id}`, { replace: true });
-            }, 1500);
-            return;
-          }
+          setTimeout(() => {
+            navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${assignments[0].id}`, { replace: true });
+          }, 1500);
+          return;
         }
         
         // No games found, go back to topic
@@ -253,24 +237,8 @@ const GamePlayerPage = () => {
   }, [loading, gameData, topicId, roadmapId]);
 
   const markGameCompleted = async (studentId: string, topicId: string, gameId: string) => {
-    // Step 1: Get the actual total count of games for this topic
-    const { data: mapping } = await supabase
-      .from('topic_content_mapping')
-      .select('id')
-      .eq('topic_id', topicId)
-      .maybeSingle();
-    
-    if (!mapping) {
-      console.error('No content mapping found for topic:', topicId);
-      return;
-    }
-    
-    const { count: totalGamesCount } = await supabase
-      .from('gamified_exercises')
-      .select('id', { count: 'exact' })
-      .eq('topic_content_id', mapping.id);
-    
-    const totalGames = totalGamesCount || 0;
+    // Get total count from navigation info (already calculated from batch_question_assignments)
+    const totalGames = navInfo?.totalGames || 0;
     
     // Step 2: Check for existing progress
     const { data: progress } = await supabase
@@ -352,30 +320,18 @@ const GamePlayerPage = () => {
       // Mark game as completed in progress table
       await markGameCompleted(user.id, topicId!, gameData.id);
 
-      // Update progress percentage
-      const { data: mapping } = await supabase
-        .from('topic_content_mapping')
-        .select('id')
+      // Update progress percentage using navInfo
+      const { data: progress } = await supabase
+        .from('student_topic_game_progress')
+        .select('completed_game_ids')
+        .eq('student_id', user.id)
         .eq('topic_id', topicId)
         .maybeSingle();
-      
-      if (mapping) {
-        const { count: totalGames } = await supabase
-          .from('gamified_exercises')
-          .select('id', { count: 'exact' })
-          .eq('topic_content_id', mapping.id);
 
-        const { data: progress } = await supabase
-          .from('student_topic_game_progress')
-          .select('completed_game_ids')
-          .eq('student_id', user.id)
-          .eq('topic_id', topicId)
-          .maybeSingle();
-
-        const completedCount = progress?.completed_game_ids?.length || 0;
-        const percentage = totalGames && totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
-        setProgressPercentage(Math.round(percentage));
-      }
+      const completedCount = progress?.completed_game_ids?.length || 0;
+      const totalGames = navInfo?.totalGames || 0;
+      const percentage = totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
+      setProgressPercentage(Math.round(percentage));
 
       // After successful correct answer handling, move to next game automatically
       handleGameComplete();
@@ -445,7 +401,7 @@ const GamePlayerPage = () => {
       
       toast({
         title: "🎉 Correct!",
-        description: `Moving to next game... (${navInfo.currentGameNum}/${navInfo.totalGames})`,
+        description: `Moving to next game... (${navInfo.currentGameNumber}/${navInfo.totalGames})`,
       });
     } else {
       confetti({
@@ -472,8 +428,8 @@ const GamePlayerPage = () => {
   };
 
   const handlePrevious = () => {
-    if (navInfo?.prevGameId) {
-      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.prevGameId}`);
+    if (navInfo?.previousGameId) {
+      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.previousGameId}`);
     }
   };
 
@@ -568,10 +524,10 @@ const GamePlayerPage = () => {
           onWrong={handleWrongAnswer}
           onComplete={handleGameComplete}
           onNext={navInfo?.nextGameId ? handleNext : undefined}
-          onPrevious={navInfo?.prevGameId ? handlePrevious : undefined}
+          onPrevious={navInfo?.previousGameId ? handlePrevious : undefined}
           onExit={handleExit}
           hasMoreQuestions={!!navInfo?.nextGameId}
-          currentQuestionNum={navInfo?.currentGameNum || 1}
+          currentQuestionNum={navInfo?.currentGameNumber || 1}
           totalQuestions={navInfo?.totalGames || 1}
           initialAttemptCount={initialAttemptCount}
         />
@@ -834,10 +790,10 @@ const GamePlayerPage = () => {
             onWrong={handleWrongAnswer}
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
-            onPrevious={navInfo?.prevGameId ? handlePrevious : undefined}
+            onPrevious={navInfo?.previousGameId ? handlePrevious : undefined}
             onExit={handleExit}
             hasMoreQuestions={!!navInfo?.nextGameId}
-            currentQuestionNum={navInfo?.currentGameNum || 1}
+            currentQuestionNum={navInfo?.currentGameNumber || 1}
             totalQuestions={navInfo?.totalGames || 1}
           />
         );
@@ -907,7 +863,7 @@ const GamePlayerPage = () => {
           </Button>
           <span>/</span>
           <span className="font-medium">
-            Game {navInfo?.currentGameNum}/{navInfo?.totalGames}
+            Game {navInfo?.currentGameNumber}/{navInfo?.totalGames}
           </span>
         </div>
 

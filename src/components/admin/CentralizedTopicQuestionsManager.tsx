@@ -72,6 +72,12 @@ export const CentralizedTopicQuestionsManager = ({
         examDomain={examDomain}
         onQuestionsAdded={handleQuestionsAdded}
         onBackClick={onBack}
+        // Centralized Question Bank props
+        isCentralized={true}
+        chapterLibraryId={chapterLibraryId}
+        centralizedTopicName={topicName}
+        applicableClasses={studentClass ? [studentClass] : []}
+        applicableExams={[examDomain]}
       />
     </div>
   );

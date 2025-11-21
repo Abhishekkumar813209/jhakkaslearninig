@@ -1037,7 +1037,12 @@ serve(async (req) => {
 
     // ========== save_draft_questions (DUAL WRITE: JSONB + Legacy) ==========
     if (action === 'save_draft_questions') {
-      const { questions, topic_id, subject, batch_id, source_id, exam_domain, exam_name } = body;
+      const { 
+        questions, topic_id, subject, batch_id, source_id, exam_domain, exam_name,
+        // Centralized Question Bank fields (optional)
+        is_centralized, chapter_library_id, centralized_topic_name, 
+        applicable_classes, applicable_exams 
+      } = body;
       
       if (!questions || !Array.isArray(questions) || !topic_id) {
         throw new Error('Missing questions array or topic_id');
@@ -1193,7 +1198,14 @@ serve(async (req) => {
           exam_name: exam_name || null,
           is_approved: false,
           admin_reviewed: false,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          
+          // Centralized Question Bank fields (only included if provided)
+          is_centralized: is_centralized || false,
+          chapter_library_id: chapter_library_id || null,
+          centralized_topic_name: centralized_topic_name || null,
+          applicable_classes: applicable_classes || [],
+          applicable_exams: applicable_exams || []
         };
 
         console.log('🧾 question_bank insert keys:', Object.keys(insertPayload));

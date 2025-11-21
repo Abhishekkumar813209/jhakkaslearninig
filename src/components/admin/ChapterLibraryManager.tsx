@@ -179,13 +179,13 @@ export const ChapterLibraryManager = () => {
     fetchExistingSubjects();
   }, []);
 
-  // Helper: Get correct exam_name based on domain
+  // Helper: Get correct exam_name based on domain (includes class for uniqueness)
   const getExamName = () => {
-    // For school domain, exam_name should be the board
     if (selectedDomain === 'school') {
-      return selectedBoard || selectedDomain;
+      const board = selectedBoard || selectedDomain;
+      const classInfo = selectedClass ? `_Class_${selectedClass}` : '';
+      return `${board}${classInfo}`; // e.g., 'CBSE_Class_12', 'CBSE_Class_9'
     }
-    // For other domains (jee, neet, etc.), exam_name is the domain itself
     return selectedDomain;
   };
 
@@ -200,6 +200,7 @@ export const ChapterLibraryManager = () => {
   useEffect(() => {
     const fetchSubjects = async () => {
       if (!selectedDomain) {
+        console.log('❌ No domain selected');
         setSubjects([]);
         setSubjectSource(null);
         return;
@@ -207,6 +208,7 @@ export const ChapterLibraryManager = () => {
 
       // Must have board selected for school domain
       if (selectedDomain === 'school' && !selectedBoard) {
+        console.log('❌ School domain requires board');
         setSubjects([]);
         setSubjectSource(null);
         return;
@@ -214,32 +216,30 @@ export const ChapterLibraryManager = () => {
 
       // Must have class selected if required
       if (requiresClass && !selectedClass) {
+        console.log('❌ Class required but not selected');
         setSubjects([]);
         setSubjectSource(null);
         return;
       }
       
       const examName = getExamName();
+      console.log('🔍 Fetching subjects for:', { 
+        examName, 
+        domain: selectedDomain, 
+        board: selectedBoard, 
+        class: selectedClass 
+      });
       
-      const query = supabase
+      const { data, error } = await supabase
         .from('exam_templates')
         .select('standard_subjects')
         .eq('exam_type', selectedDomain)
         .eq('exam_name', examName)
-        .eq('is_active', true);
-
-      if (requiresBoard && selectedBoard) {
-        query.eq('board', selectedBoard);
-      }
-      
-      if (requiresClass && selectedClass) {
-        query.eq('student_class', selectedClass);
-      }
-
-      const { data, error } = await query.maybeSingle();
+        .eq('is_active', true)
+        .maybeSingle();
       
       if (error) {
-        console.error('Error fetching subjects:', error);
+        console.error('❌ Error fetching subjects:', error);
         toast.error('Failed to fetch subjects');
         setSubjects([]);
         setSubjectSource(null);
@@ -250,9 +250,11 @@ export const ChapterLibraryManager = () => {
         const subjectList = Array.isArray(data.standard_subjects) 
           ? (data.standard_subjects as string[]) 
           : [];
+        console.log('✅ Found subjects:', subjectList);
         setSubjects(subjectList);
         setSubjectSource('database');
       } else {
+        console.log('ℹ️ No subjects found, showing empty state');
         setSubjects([]);
         setSubjectSource(null);
       }
@@ -265,12 +267,13 @@ export const ChapterLibraryManager = () => {
   const handleFetchSubjectsWithAI = async () => {
     setFetchingSubjects(true);
     try {
+      const examName = getExamName();
       const { data, error } = await supabase.functions.invoke('fetch-exam-subjects', {
         body: {
           exam_type: selectedDomain,
           board: selectedBoard || '',
           student_class: selectedClass || '',
-          exam_name: ''
+          exam_name: examName
         }
       });
 

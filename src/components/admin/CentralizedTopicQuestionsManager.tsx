@@ -64,6 +64,8 @@ export const CentralizedTopicQuestionsManager = ({
       {/* Main Content - Single Unified Interface */}
       <SmartQuestionExtractorNew
         mode="centralized"
+        selectedTopic="dummy-topic-id"
+        selectedTopicName={topicName}
         chapterLibraryId={chapterLibraryId}
         centralizedTopicName={topicName}
         applicableClasses={studentClass ? [studentClass] : []}

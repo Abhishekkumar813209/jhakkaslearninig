@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,7 @@ export const CentralizedChapterSelectionStep = ({
   const [libraryExists, setLibraryExists] = useState<{ [subject: string]: boolean }>({});
   const [difficultyFilter, setDifficultyFilter] = useState<{ [subject: string]: string }>({});
   const [importanceFilter, setImportanceFilter] = useState<{ [subject: string]: string }>({});
+  const initialLoadComplete = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     checkAndLoadLibrary();
@@ -81,9 +82,17 @@ export const CentralizedChapterSelectionStep = ({
         newLibraryChapters[subject.name] = data || [];
 
         if (data && data.length > 0) {
-          // Auto-select based on intensity mode
-          const autoSelectedChapters = autoSelectByIntensity(data, intensity);
-          updateSelectedChapters(subject.name, autoSelectedChapters);
+          // Only auto-select if:
+          // 1. This subject hasn't been loaded before
+          // 2. No chapters are already selected
+          const hasExistingSelection = selectedChapters[subject.name]?.some(ch => ch.isSelected);
+          const isFirstLoad = !initialLoadComplete.current.has(subject.name);
+          
+          if (isFirstLoad && !hasExistingSelection) {
+            const autoSelectedChapters = autoSelectByIntensity(data, intensity);
+            updateSelectedChapters(subject.name, autoSelectedChapters);
+            initialLoadComplete.current.add(subject.name);
+          }
         }
       } catch (error: any) {
         console.error(`Error loading chapter library for ${subject.name}:`, error);

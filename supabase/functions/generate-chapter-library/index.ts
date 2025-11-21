@@ -134,12 +134,20 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Check if chapter library already exists for this combination
-    const { data: existing, error: checkError } = await supabase
+    // Build query with conditional class_level filter
+    let query = supabase
       .from('chapter_library')
       .select('id, chapter_name, full_topics')
       .eq('exam_type', exam_type)
       .eq('subject', subject)
       .eq('is_active', true);
+
+    // Add class_level filter only if provided (for school/board exams)
+    if (class_level) {
+      query = query.eq('class_level', class_level);
+    }
+
+    const { data: existing, error: checkError } = await query;
 
     if (checkError) throw checkError;
 

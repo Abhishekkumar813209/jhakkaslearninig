@@ -195,37 +195,20 @@ Output: ["Subject1", "Subject2"] - NO markdown.`;
     const aiText = await callAI(systemPrompt, userPrompt);
 
     if (!aiText) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI usage limit reached. Please add credits to your Lovable workspace.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      const errorText = await aiResponse.text();
-      console.error('Lovable AI error:', aiResponse.status, errorText);
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      throw new Error('Empty response from AI');
     }
 
-    const aiData = await aiResponse.json();
-    
-    if (!aiData.candidates?.[0]?.content?.parts?.[0]?.text) {
-      console.error('Unexpected AI response structure:', aiData);
-      throw new Error('Invalid AI response format');
-    }
-    
     let subjects;
     try {
-      const cleanedContent = stripMarkdownCodeBlocks(aiData.candidates[0].content.parts[0].text);
+      const cleanedContent = stripMarkdownCodeBlocks(aiText);
       subjects = JSON.parse(cleanedContent);
+      
+      if (!Array.isArray(subjects)) {
+        throw new Error('AI response is not an array');
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      console.error('Raw content:', aiData.candidates[0].content.parts[0].text);
+      console.error('Raw content:', aiText);
       throw new Error('Failed to parse subjects from AI response');
     }
 

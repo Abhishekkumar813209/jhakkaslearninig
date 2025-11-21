@@ -245,15 +245,75 @@ export const ChapterLibraryManager = () => {
     }
   };
 
-  // Handler: Add custom subject
-  const handleAddCustomSubject = () => {
+  // Handler: Add custom subject and save to database
+  const handleAddCustomSubject = async () => {
     const trimmed = customSubject.trim();
-    if (trimmed && !subjects.includes(trimmed)) {
-      setSubjects([...subjects, trimmed]);
+    if (!trimmed) {
+      toast.error('Please enter a subject name');
+      return;
+    }
+    
+    if (subjects.includes(trimmed)) {
+      toast.error('Subject already exists');
+      return;
+    }
+
+    try {
+      // Check if exam_template exists for current filters
+      const { data: existing, error: fetchError } = await supabase
+        .from('exam_templates')
+        .select('id, standard_subjects')
+        .eq('exam_type', selectedDomain)
+        .eq('board', selectedBoard || '')
+        .eq('student_class', selectedClass || '')
+        .eq('exam_name', selectedDomain)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      const updatedSubjects = existing?.standard_subjects 
+        ? [...(existing.standard_subjects as string[]), trimmed]
+        : [trimmed];
+
+      if (existing) {
+        // UPDATE existing exam_template
+        const { error: updateError } = await supabase
+          .from('exam_templates')
+          .update({ 
+            standard_subjects: updatedSubjects,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // INSERT new exam_template
+        const { error: insertError } = await supabase
+          .from('exam_templates')
+          .insert({
+            exam_type: selectedDomain,
+            board: selectedBoard || '',
+            student_class: selectedClass || '',
+            exam_name: selectedDomain,
+            standard_subjects: updatedSubjects,
+            is_active: true
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      // Update local state only after successful database save
+      setSubjects(updatedSubjects);
       setSelectedSubject(trimmed);
       setCustomSubject('');
       setShowManualInput(false);
-      toast.success(`Added "${trimmed}" to subjects`);
+      setSubjectSource('database');
+      toast.success(`Added and saved "${trimmed}"`);
+    } catch (error: any) {
+      console.error('Error saving subject:', error);
+      toast.error(`Failed to save subject: ${error.message}`);
     }
   };
 

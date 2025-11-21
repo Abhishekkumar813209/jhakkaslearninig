@@ -69,6 +69,7 @@ export const ChapterLibraryManager = () => {
     difficulty: 'medium' as 'easy' | 'medium' | 'hard'
   });
   const [showTopicEditor, setShowTopicEditor] = useState(false);
+  const [selectedTopics, setSelectedTopics] = useState<{[chapterId: string]: number[]}>({});
 
   // Set isClient for hydration safety
   useEffect(() => {
@@ -815,6 +816,27 @@ export const ChapterLibraryManager = () => {
                       <Settings className="h-4 w-4 mr-2" />
                       Manage Topics
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from('chapter_library')
+                          .update({ is_active: false })
+                          .eq('id', chapter.id);
+                        
+                        if (!error) {
+                          toast.success('Chapter deleted');
+                          fetchChapterLibrary();
+                        } else {
+                          toast.error('Failed to delete chapter');
+                        }
+                      }}
+                      className="text-destructive hover:text-destructive"
+                      title="Delete this chapter"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -823,6 +845,34 @@ export const ChapterLibraryManager = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-sm">Topics ({chapter.full_topics.length})</p>
+                      {(selectedTopics[chapter.id]?.length > 0) && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={async () => {
+                            const indicesToDelete = selectedTopics[chapter.id] || [];
+                            const updatedTopics = chapter.full_topics.filter((_: any, i: number) => 
+                              !indicesToDelete.includes(i)
+                            );
+                            
+                            const { error } = await supabase
+                              .from('chapter_library')
+                              .update({ full_topics: updatedTopics })
+                              .eq('id', chapter.id);
+                            
+                            if (!error) {
+                              toast.success(`Deleted ${indicesToDelete.length} topic${indicesToDelete.length > 1 ? 's' : ''}`);
+                              setSelectedTopics(prev => ({...prev, [chapter.id]: []}));
+                              fetchChapterLibrary();
+                            } else {
+                              toast.error('Failed to delete topics');
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete ({selectedTopics[chapter.id]?.length})
+                        </Button>
+                      )}
                     </div>
                     
                     {/* Interactive Topics Table */}
@@ -830,15 +880,49 @@ export const ChapterLibraryManager = () => {
                       <table className="w-full text-sm">
                         <thead className="bg-muted/50">
                           <tr>
-                            <th className="text-left p-2 font-medium">#</th>
+                            <th className="p-2 w-10">
+                              <input
+                                type="checkbox"
+                                checked={selectedTopics[chapter.id]?.length === chapter.full_topics.length && chapter.full_topics.length > 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedTopics(prev => ({
+                                      ...prev,
+                                      [chapter.id]: chapter.full_topics.map((_:any, i:number) => i)
+                                    }));
+                                  } else {
+                                    setSelectedTopics(prev => ({...prev, [chapter.id]: []}));
+                                  }
+                                }}
+                                className="cursor-pointer"
+                              />
+                            </th>
+                            <th className="text-left p-2 font-medium w-12">#</th>
                             <th className="text-left p-2 font-medium">Topic Name</th>
-                            <th className="text-left p-2 font-medium">Difficulty</th>
-                            <th className="text-right p-2 font-medium">Actions</th>
+                            <th className="text-left p-2 font-medium w-24">Difficulty</th>
+                            <th className="text-right p-2 font-medium w-32">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {chapter.full_topics.map((topic: any, idx: number) => (
                             <tr key={idx} className="border-t hover:bg-muted/20">
+                              <td className="p-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTopics[chapter.id]?.includes(idx) || false}
+                                  onChange={(e) => {
+                                    setSelectedTopics(prev => {
+                                      const current = prev[chapter.id] || [];
+                                      if (e.target.checked) {
+                                        return {...prev, [chapter.id]: [...current, idx]};
+                                      } else {
+                                        return {...prev, [chapter.id]: current.filter(i => i !== idx)};
+                                      }
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                              </td>
                               <td className="p-2 text-muted-foreground">{idx + 1}</td>
                               <td className="p-2 font-medium">{topic.topic_name}</td>
                               <td className="p-2">
@@ -878,19 +962,17 @@ export const ChapterLibraryManager = () => {
                                     size="sm"
                                     variant="ghost"
                                     onClick={async () => {
-                                      if (confirm(`Delete topic "${topic.topic_name}"?`)) {
-                                        const updatedTopics = chapter.full_topics.filter((_: any, i: number) => i !== idx);
-                                        const { error } = await supabase
-                                          .from('chapter_library')
-                                          .update({ full_topics: updatedTopics })
-                                          .eq('id', chapter.id);
-                                        
-                                        if (!error) {
-                                          toast.success('Topic deleted');
-                                          fetchChapterLibrary();
-                                        } else {
-                                          toast.error('Failed to delete topic');
-                                        }
+                                      const updatedTopics = chapter.full_topics.filter((_: any, i: number) => i !== idx);
+                                      const { error } = await supabase
+                                        .from('chapter_library')
+                                        .update({ full_topics: updatedTopics })
+                                        .eq('id', chapter.id);
+                                      
+                                      if (!error) {
+                                        toast.success('Topic deleted');
+                                        fetchChapterLibrary();
+                                      } else {
+                                        toast.error('Failed to delete topic');
                                       }
                                     }}
                                     className="h-7 w-7 p-0"

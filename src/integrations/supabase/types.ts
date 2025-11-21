@@ -68,6 +68,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          last_synced_at: string | null
           question_id: string
           roadmap_topic_id: string
         }
@@ -80,6 +81,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_synced_at?: string | null
           question_id: string
           roadmap_topic_id: string
         }
@@ -92,6 +94,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_synced_at?: string | null
           question_id?: string
           roadmap_topic_id?: string
         }

@@ -82,6 +82,12 @@ export const ChapterLibraryManager = () => {
   // Bulk chapter selection
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
 
+  // Topic edit states
+  const [editingTopicIndex, setEditingTopicIndex] = useState<{chapterId: string, index: number} | null>(null);
+  const [editingTopicData, setEditingTopicData] = useState<{topic_name: string, difficulty: 'easy' | 'medium' | 'hard'} | null>(null);
+  const [editingDialogTopicIndex, setEditingDialogTopicIndex] = useState<number | null>(null);
+  const [editingDialogTopicData, setEditingDialogTopicData] = useState<{topic_name: string, difficulty: 'easy' | 'medium' | 'hard'} | null>(null);
+
   // Set isClient for hydration safety
   useEffect(() => {
     setIsClient(true);
@@ -546,6 +552,44 @@ export const ChapterLibraryManager = () => {
   const handleDeleteTopic = (index: number) => {
     setManualTopics(manualTopics.filter((_: any, i: number) => i !== index));
     toast.success('Topic removed');
+  };
+
+  // Update topic in inline table
+  const handleUpdateTopic = async (chapterId: string, topicIndex: number) => {
+    if (!editingTopicData) return;
+    
+    const chapter = chapters.find(c => c.id === chapterId);
+    if (!chapter) return;
+    
+    const updatedTopics = [...chapter.full_topics];
+    updatedTopics[topicIndex] = editingTopicData;
+    
+    const { error } = await supabase
+      .from('chapter_library')
+      .update({ full_topics: updatedTopics })
+      .eq('id', chapterId);
+    
+    if (!error) {
+      toast.success('Topic updated successfully');
+      setEditingTopicIndex(null);
+      setEditingTopicData(null);
+      fetchChapterLibrary();
+    } else {
+      toast.error('Failed to update topic');
+    }
+  };
+
+  // Update topic in dialog
+  const handleUpdateDialogTopic = (index: number) => {
+    if (!editingDialogTopicData) return;
+    
+    const updatedTopics = [...manualTopics];
+    updatedTopics[index] = editingDialogTopicData;
+    setManualTopics(updatedTopics);
+    
+    setEditingDialogTopicIndex(null);
+    setEditingDialogTopicData(null);
+    toast.success('Topic updated');
   };
 
   // Edit chapter handler
@@ -1083,85 +1127,165 @@ export const ChapterLibraryManager = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {chapter.full_topics.map((topic: any, idx: number) => (
-                            <tr key={idx} className="border-t hover:bg-muted/20">
-                              <td className="p-2">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedTopics[chapter.id]?.includes(idx) || false}
-                                  onChange={(e) => {
-                                    setSelectedTopics(prev => {
-                                      const current = prev[chapter.id] || [];
-                                      if (e.target.checked) {
-                                        return {...prev, [chapter.id]: [...current, idx]};
-                                      } else {
-                                        return {...prev, [chapter.id]: current.filter(i => i !== idx)};
-                                      }
-                                    });
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                              </td>
-                              <td className="p-2 text-muted-foreground">{idx + 1}</td>
-                              <td className="p-2 font-medium">{topic.topic_name}</td>
-                              <td className="p-2">
-                                <Badge variant={
-                                  topic.difficulty === 'easy' ? 'default' :
-                                  topic.difficulty === 'medium' ? 'secondary' :
-                                  'destructive'
-                                } className="text-xs">
-                                  {topic.difficulty}
-                                </Badge>
-                              </td>
-                              <td className="p-2">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const params = new URLSearchParams();
-                                      params.set('tab', 'question-bank');
-                                      params.set('mode', 'centralized');
-                                      params.set('subTab', 'questions');
-                                      params.set('exam_domain', selectedDomain);
-                                      if (selectedBoard) params.set('board', selectedBoard);
-                                      if (selectedClass) params.set('class', selectedClass);
-                                      params.set('subject', selectedSubject);
-                                      params.set('chapter_id', chapter.id);
-                                      params.set('chapter_name', chapter.chapter_name);
-                                      params.set('topic_name', topic.topic_name);
-                                      navigate(`/admin?${params.toString()}`);
-                                    }}
-                                    className="h-7 text-xs"
+                          {chapter.full_topics.map((topic: any, idx: number) => {
+                            const isEditing = editingTopicIndex?.chapterId === chapter.id && editingTopicIndex?.index === idx;
+                            
+                            return isEditing ? (
+                              // EDIT MODE
+                              <tr key={idx} className="border-t bg-blue-50 dark:bg-blue-950/30">
+                                <td className="p-2">
+                                  <input type="checkbox" disabled className="opacity-30" />
+                                </td>
+                                <td className="p-2 text-muted-foreground">{idx + 1}</td>
+                                <td className="p-2">
+                                  <Input 
+                                    value={editingTopicData?.topic_name || ''} 
+                                    onChange={(e) => setEditingTopicData({...editingTopicData!, topic_name: e.target.value})}
+                                    className="h-8"
+                                    autoFocus
+                                  />
+                                </td>
+                                <td className="p-2">
+                                  <Select 
+                                    value={editingTopicData?.difficulty} 
+                                    onValueChange={(value: 'easy' | 'medium' | 'hard') => 
+                                      setEditingTopicData({...editingTopicData!, difficulty: value})
+                                    }
                                   >
-                                    <FileText className="w-3 h-3 mr-1" />
-                                    Questions
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={async () => {
-                                      const updatedTopics = chapter.full_topics.filter((_: any, i: number) => i !== idx);
-                                      const { error } = await supabase
-                                        .from('chapter_library')
-                                        .update({ full_topics: updatedTopics })
-                                        .eq('id', chapter.id);
-                                      
-                                      if (!error) {
-                                        toast.success('Topic deleted');
-                                        fetchChapterLibrary();
-                                      } else {
-                                        toast.error('Failed to delete topic');
-                                      }
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="easy">Easy</SelectItem>
+                                      <SelectItem value="medium">Medium</SelectItem>
+                                      <SelectItem value="hard">Hard</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="p-2">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleUpdateTopic(chapter.id, idx)}
+                                      className="h-7 text-xs"
+                                    >
+                                      <Save className="w-3 h-3 mr-1" />
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingTopicIndex(null);
+                                        setEditingTopicData(null);
+                                      }}
+                                      className="h-7 text-xs"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              // VIEW MODE
+                              <tr key={idx} className="border-t hover:bg-muted/20">
+                                <td className="p-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedTopics[chapter.id]?.includes(idx) || false}
+                                    onChange={(e) => {
+                                      setSelectedTopics(prev => {
+                                        const current = prev[chapter.id] || [];
+                                        if (e.target.checked) {
+                                          return {...prev, [chapter.id]: [...current, idx]};
+                                        } else {
+                                          return {...prev, [chapter.id]: current.filter(i => i !== idx)};
+                                        }
+                                      });
                                     }}
-                                    className="h-7 w-7 p-0"
-                                  >
-                                    <Trash2 className="w-3 h-3 text-destructive" />
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                    className="cursor-pointer"
+                                    disabled={editingTopicIndex !== null}
+                                  />
+                                </td>
+                                <td className="p-2 text-muted-foreground">{idx + 1}</td>
+                                <td className="p-2 font-medium">{topic.topic_name}</td>
+                                <td className="p-2">
+                                  <Badge variant={
+                                    topic.difficulty === 'easy' ? 'default' :
+                                    topic.difficulty === 'medium' ? 'secondary' :
+                                    'destructive'
+                                  } className="text-xs">
+                                    {topic.difficulty}
+                                  </Badge>
+                                </td>
+                                <td className="p-2">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const params = new URLSearchParams();
+                                        params.set('tab', 'question-bank');
+                                        params.set('mode', 'centralized');
+                                        params.set('subTab', 'questions');
+                                        params.set('exam_domain', selectedDomain);
+                                        if (selectedBoard) params.set('board', selectedBoard);
+                                        if (selectedClass) params.set('class', selectedClass);
+                                        params.set('subject', selectedSubject);
+                                        params.set('chapter_id', chapter.id);
+                                        params.set('chapter_name', chapter.chapter_name);
+                                        params.set('topic_name', topic.topic_name);
+                                        navigate(`/admin?${params.toString()}`);
+                                      }}
+                                      className="h-7 text-xs"
+                                      disabled={editingTopicIndex !== null}
+                                    >
+                                      <FileText className="w-3 h-3 mr-1" />
+                                      Questions
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingTopicIndex({chapterId: chapter.id, index: idx});
+                                        setEditingTopicData({
+                                          topic_name: topic.topic_name,
+                                          difficulty: topic.difficulty
+                                        });
+                                      }}
+                                      className="h-7 w-7 p-0"
+                                      disabled={editingTopicIndex !== null}
+                                      title="Edit topic"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={async () => {
+                                        const updatedTopics = chapter.full_topics.filter((_: any, i: number) => i !== idx);
+                                        const { error } = await supabase
+                                          .from('chapter_library')
+                                          .update({ full_topics: updatedTopics })
+                                          .eq('id', chapter.id);
+                                        
+                                        if (!error) {
+                                          toast.success('Topic deleted');
+                                          fetchChapterLibrary();
+                                        } else {
+                                          toast.error('Failed to delete topic');
+                                        }
+                                      }}
+                                      className="h-7 w-7 p-0"
+                                      disabled={editingTopicIndex !== null}
+                                    >
+                                      <Trash2 className="w-3 h-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1243,54 +1367,129 @@ export const ChapterLibraryManager = () => {
                 </tr>
               </thead>
               <tbody>
-                {manualTopics.map((topic, idx) => (
-                  <tr key={idx} className="border-t hover:bg-muted/20 transition-colors">
-                    <td className="p-3 text-sm">{topic.topic_name}</td>
-                    <td className="p-3">
-                      <Badge variant={
-                        topic.difficulty === 'easy' ? 'default' :
-                        topic.difficulty === 'medium' ? 'secondary' :
-                        'destructive'
-                      }>
-                        {topic.difficulty}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            const params = new URLSearchParams();
-                            params.set('tab', 'question-bank');
-                            params.set('mode', 'centralized');
-                            params.set('subTab', 'questions');
-                            params.set('exam_domain', selectedDomain);
-                            if (selectedBoard) params.set('board', selectedBoard);
-                            if (selectedClass) params.set('class', selectedClass);
-                            params.set('subject', selectedSubject);
-                            params.set('chapter_id', editingChapterId || '');
-                            params.set('chapter_name', chapters.find(c => c.id === editingChapterId)?.chapter_name || '');
-                            params.set('topic_name', topic.topic_name);
-                            navigate(`/admin?${params.toString()}`);
-                          }}
-                          className="h-8"
+                {manualTopics.map((topic, idx) => {
+                  const isEditing = editingDialogTopicIndex === idx;
+                  
+                  return isEditing ? (
+                    // EDIT MODE
+                    <tr key={idx} className="border-t bg-blue-50 dark:bg-blue-950/30">
+                      <td className="p-3">
+                        <Input
+                          value={editingDialogTopicData?.topic_name || ''}
+                          onChange={(e) => setEditingDialogTopicData({...editingDialogTopicData!, topic_name: e.target.value})}
+                          className="h-9"
+                          autoFocus
+                        />
+                      </td>
+                      <td className="p-3">
+                        <Select
+                          value={editingDialogTopicData?.difficulty}
+                          onValueChange={(value: 'easy' | 'medium' | 'hard') =>
+                            setEditingDialogTopicData({...editingDialogTopicData!, difficulty: value})
+                          }
                         >
-                          <FileText className="w-4 h-4 mr-1" />
-                          Questions
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => handleDeleteTopic(idx)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <SelectTrigger className="w-32 h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="easy">Easy</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="hard">Hard</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateDialogTopic(idx)}
+                            className="h-8"
+                          >
+                            <Save className="w-4 h-4 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingDialogTopicIndex(null);
+                              setEditingDialogTopicData(null);
+                            }}
+                            className="h-8"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    // VIEW MODE
+                    <tr key={idx} className="border-t hover:bg-muted/20 transition-colors">
+                      <td className="p-3 text-sm">{topic.topic_name}</td>
+                      <td className="p-3">
+                        <Badge variant={
+                          topic.difficulty === 'easy' ? 'default' :
+                          topic.difficulty === 'medium' ? 'secondary' :
+                          'destructive'
+                        }>
+                          {topic.difficulty}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              params.set('tab', 'question-bank');
+                              params.set('mode', 'centralized');
+                              params.set('subTab', 'questions');
+                              params.set('exam_domain', selectedDomain);
+                              if (selectedBoard) params.set('board', selectedBoard);
+                              if (selectedClass) params.set('class', selectedClass);
+                              params.set('subject', selectedSubject);
+                              params.set('chapter_id', editingChapterId || '');
+                              params.set('chapter_name', chapters.find(c => c.id === editingChapterId)?.chapter_name || '');
+                              params.set('topic_name', topic.topic_name);
+                              navigate(`/admin?${params.toString()}`);
+                            }}
+                            className="h-8"
+                            disabled={editingDialogTopicIndex !== null}
+                          >
+                            <FileText className="w-4 h-4 mr-1" />
+                            Questions
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingDialogTopicIndex(idx);
+                              setEditingDialogTopicData({
+                                topic_name: topic.topic_name,
+                                difficulty: topic.difficulty
+                              });
+                            }}
+                            className="h-8 w-8 p-0"
+                            disabled={editingDialogTopicIndex !== null}
+                            title="Edit topic"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handleDeleteTopic(idx)}
+                            className="h-8 w-8 p-0"
+                            disabled={editingDialogTopicIndex !== null}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {manualTopics.length === 0 && (
                   <tr>
                     <td colSpan={3} className="text-center py-8 text-sm text-muted-foreground">

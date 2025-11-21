@@ -96,6 +96,12 @@ interface SmartQuestionExtractorProps {
   testTitle?: string;
   subject?: string;
   difficulty?: string;
+  // Centralized Question Bank props (OPTIONAL - won't affect batch-specific mode)
+  isCentralized?: boolean;
+  chapterLibraryId?: string;
+  centralizedTopicName?: string;
+  applicableClasses?: string[];
+  applicableExams?: string[];
 }
 
 export const SmartQuestionExtractor = ({ 
@@ -116,7 +122,13 @@ export const SmartQuestionExtractor = ({
   testId,
   testTitle,
   subject,
-  difficulty
+  difficulty,
+  // Centralized Question Bank props
+  isCentralized,
+  chapterLibraryId,
+  centralizedTopicName,
+  applicableClasses,
+  applicableExams
 }: SmartQuestionExtractorProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -2082,17 +2094,28 @@ export const SmartQuestionExtractor = ({
     try {
       if (mode === 'question-bank') {
         // Use topic-questions-api edge function for JSONB-only writes
+        const requestBody: any = {
+          action: 'save_draft_questions',
+          questions: selected,
+          topic_id: topicId,
+          subject: subjectName,
+          batch_id: batchId,
+          exam_domain: examDomain,
+          exam_name: examName
+        };
+        
+        // ✅ SAFE: Only add centralized fields if provided (won't affect batch-specific mode)
+        if (isCentralized && chapterLibraryId) {
+          requestBody.is_centralized = true;
+          requestBody.chapter_library_id = chapterLibraryId;
+          requestBody.centralized_topic_name = centralizedTopicName;
+          requestBody.applicable_classes = applicableClasses || [];
+          requestBody.applicable_exams = applicableExams || [];
+        }
+        
         const data = await invokeWithAuth<any, { success: boolean; saved_count: number; question_ids: string[] }>({
           name: 'topic-questions-api',
-          body: {
-            action: 'save_draft_questions',
-            questions: selected,
-            topic_id: topicId,
-            subject: subjectName,
-            batch_id: batchId,
-            exam_domain: examDomain,
-            exam_name: examName
-          }
+          body: requestBody
         });
 
         if (!data.success) {

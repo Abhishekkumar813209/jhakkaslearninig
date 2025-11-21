@@ -2123,7 +2123,7 @@ export const SmartQuestionExtractor = ({
         }
 
         toast.success(`✅ Saved ${data.saved_count} questions to Question Bank!`, {
-          description: `Topic: ${topicName} • Chapter: ${chapterName} • Subject: ${subjectName}`
+          description: `Topic: ${topicName} • Reloading to show saved questions...`
         });
 
         // Show warning if some questions failed
@@ -2135,10 +2135,24 @@ export const SmartQuestionExtractor = ({
           console.error('❌ Failed questions:', data.errors);
         }
         
-        // Clear session after successful save
+        // Clear upload progress/session data
         clearProgress();
-        setExtractedQuestions([]);
-        setSelectedIds([]);
+
+        // For question-bank mode, reload questions from database to show what was saved
+        // For lesson-builder mode, keep existing behavior (clear everything)
+        if (mode === 'question-bank') {
+          // Trigger reload from database - this will fetch all saved questions
+          setReloadKey((k) => k + 1);
+          
+          // Clear selections after a brief delay to let reload happen
+          setTimeout(() => {
+            setSelectedIds([]);
+          }, 500);
+        } else {
+          // Lesson builder mode - clear everything
+          setExtractedQuestions([]);
+          setSelectedIds([]);
+        }
         
         // Notify parent component
         onQuestionsAdded(selected);

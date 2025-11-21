@@ -58,13 +58,22 @@ export const CentralizedChapterSelectionStep = ({
 
     for (const subject of subjects.filter(s => s.isSelected)) {
       try {
-        const { data, error } = await supabase
+        // Build query with proper filters
+        let query = supabase
           .from('chapter_library')
           .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, created_at, updated_at')
           .eq('exam_type', examType)
           .eq('subject', subject.name)
-          .eq('is_active', true)
-          .order('chapter_name');
+          .eq('is_active', true);
+        
+        // Filter by class_level if provided (critical for school exams)
+        if (conditionalClass) {
+          query = query.eq('class_level', conditionalClass);
+        }
+        
+        query = query.order('chapter_name');
+        
+        const { data, error } = await query;
 
         if (error) throw error;
 

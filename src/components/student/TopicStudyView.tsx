@@ -127,30 +127,55 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
         return;
       }
 
-      // Fetch exercises
-      const { data: exercisesData, error: exercisesError } = await supabase
-        .from("gamified_exercises")
-        .select("*")
-        .eq("topic_content_id", contentData.id);
+      // Fetch exercises from batch_question_assignments (reference-based)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      if (exercisesError) throw exercisesError;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('batch_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.batch_id) throw new Error('Student not assigned to batch');
+
+      // @ts-ignore - Supabase depth limitation
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('batch_question_assignments')
+        .select(`
+          id,
+          assignment_order,
+          question_bank!inner(
+            id, question_text, question_type,
+            question_data, answer_data, difficulty, marks
+          )
+        `)
+        .eq('batch_id', profile.batch_id)
+        .eq('roadmap_topic_id', topicId)
+        .eq('is_active', true)
+        .order('assignment_order', { ascending: true });
+
+      if (assignmentsError) throw assignmentsError;
 
       setContent({
         ...contentData,
         difficulty: contentData.difficulty as Difficulty,
-        exercises: (exercisesData || []).map(ex => ({
-          id: ex.id,
-          question_type: ex.exercise_type,
-          question_data: ex.exercise_data,
-          answer_data: ex.correct_answer,
-          explanation: ex.explanation || '',
-          xp_reward: ex.xp_reward || 10,
-          difficulty: ex.difficulty as Difficulty,
-          // Keep legacy fields for backward compatibility
-          exercise_type: ex.exercise_type,
-          exercise_data: ex.exercise_data,
-          correct_answer: ex.correct_answer
-        }))
+        exercises: (assignments || []).map((assignment: any) => {
+          const q = assignment.question_bank;
+          return {
+            id: assignment.id,
+            question_type: q.question_type,
+            question_data: q.question_data,
+            answer_data: q.answer_data,
+            explanation: '',
+            xp_reward: q.difficulty === 'hard' ? 50 : q.difficulty === 'medium' ? 40 : 30,
+            difficulty: q.difficulty as Difficulty,
+            // Keep legacy fields for backward compatibility
+            exercise_type: q.question_type,
+            exercise_data: q.question_data,
+            correct_answer: q.answer_data
+          };
+        })
       });
     } catch (error: any) {
       console.error("Error fetching content:", error);

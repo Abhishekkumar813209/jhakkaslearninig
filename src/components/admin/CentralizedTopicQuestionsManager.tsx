@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Search, Edit2, Trash2, FileText, Upload, List } from 'lucide-react';
 import { ManualQuestionEntry } from './ManualQuestionEntry';
-import { SmartQuestionExtractorNew } from './SmartQuestionExtractorNew';
+import { SmartQuestionExtractor } from './SmartQuestionExtractor';
 import { renderWithImages } from '@/lib/mathRendering';
 import { normalizeGameTypeForDisplay } from '@/lib/gameTypeMapping';
 
@@ -110,8 +110,9 @@ export const CentralizedTopicQuestionsManager = ({
     }
   };
 
-  const handleQuestionAdded = () => {
-    toast.success('Question added successfully');
+  const handleQuestionAdded = (questions?: any[]) => {
+    const count = questions?.length || 1;
+    toast.success(`${count} question${count > 1 ? 's' : ''} added successfully`);
     fetchQuestions();
     setActiveTab('view-all');
   };
@@ -315,17 +316,14 @@ export const CentralizedTopicQuestionsManager = ({
 
         {/* Upload PDF/Word Tab */}
         <TabsContent value="upload-pdf">
-          <SmartQuestionExtractorNew
-            mode="centralized"
-            chapterLibraryId={chapterLibraryId}
-            centralizedTopicName={topicName}
-            selectedExamDomain={examDomain}
-            selectedSubject={subject}
-            selectedChapter={chapterLibraryId}
-            selectedTopic={chapterLibraryId}
-            selectedTopicName={topicName}
-            applicableClasses={studentClass ? [studentClass] : []}
-            applicableExams={[examDomain]}
+          <SmartQuestionExtractor
+            mode="question-bank"
+            topicId={chapterLibraryId}
+            topicName={topicName}
+            chapterId={chapterLibraryId}
+            chapterName={chapterName}
+            subjectName={subject}
+            examDomain={examDomain}
             onQuestionsAdded={handleQuestionAdded}
           />
         </TabsContent>

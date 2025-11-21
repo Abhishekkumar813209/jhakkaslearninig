@@ -1068,8 +1068,24 @@ serve(async (req) => {
         applicable_classes, applicable_exams 
       } = body;
       
-      if (!questions || !Array.isArray(questions) || !topic_id) {
-        throw new Error('Missing questions array or topic_id');
+      // Dual-mode validation
+      if (is_centralized) {
+        // Centralized mode: require chapter_library_id + centralized_topic_name, allow topic_id: null
+        if (!questions || !Array.isArray(questions)) {
+          throw new Error('Missing questions array');
+        }
+        if (!chapter_library_id || !centralized_topic_name) {
+          console.error('❌ CENTRALIZED mode validation failed: missing chapter_library_id or centralized_topic_name');
+          throw new Error('Missing chapter_library_id or centralized_topic_name for centralized questions');
+        }
+        console.log(`✅ CENTRALIZED questions validation passed: chapter=${chapter_library_id}, topic=${centralized_topic_name}, count=${questions.length}`);
+      } else {
+        // Batch-specific mode: require topic_id
+        if (!questions || !Array.isArray(questions) || !topic_id) {
+          console.error('❌ BATCH-SPECIFIC mode validation failed: missing questions or topic_id');
+          throw new Error('Missing questions array or topic_id');
+        }
+        console.log(`✅ BATCH-SPECIFIC questions validation passed: topic_id=${topic_id}, count=${questions.length}`);
       }
 
       console.log(`💾 Saving ${questions.length} draft questions (DUAL WRITE) for topic: ${topic_id}`);
@@ -1214,7 +1230,7 @@ serve(async (req) => {
           explanation: q.explanation || null,
           marks: q.marks || 1,
           difficulty: q.difficulty || 'medium',
-          topic_id: topic_id,
+          topic_id: is_centralized ? null : topic_id, // Allow NULL for centralized questions
           subject: subject,
           batch_id: batch_id || null,
           // source_id removed

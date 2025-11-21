@@ -1805,99 +1805,17 @@ serve(async (req) => {
         .select();
 
       if (assignError) throw assignError;
-      console.log(`✅ Step 1: Assigned ${assignmentsData.length} questions to batch_question_assignments`);
+      console.log(`✅ Assigned ${assignmentsData.length} questions to batch_question_assignments`);
 
-      // Step 2: Auto-publish to gamified_exercises for student access
-      try {
-        // Fetch or create topic_content_mapping
-        const { data: mapping } = await serviceClient
-          .from('topic_content_mapping')
-          .select('id')
-          .eq('topic_id', roadmap_topic_id)
-          .maybeSingle();
+      // Option B: Reference-based approach - NO duplication to gamified_exercises
+      // Students will fetch directly from batch_question_assignments with JOINs
+      const syncTimestamp = new Date().toISOString();
+      await serviceClient
+        .from('batch_question_assignments')
+        .update({ last_synced_at: syncTimestamp })
+        .in('id', assignmentsData.map(a => a.id));
 
-        let mappingId = mapping?.id;
-        
-        if (!mappingId) {
-          console.log('📝 Creating new topic_content_mapping');
-          const { data: newMapping, error: mappingError } = await serviceClient
-            .from('topic_content_mapping')
-            .insert({ topic_id: roadmap_topic_id, content_type: 'theory' })
-            .select('id')
-            .single();
-          
-          if (mappingError) throw mappingError;
-          mappingId = newMapping.id;
-        }
-
-        console.log(`✅ Step 2: Using topic_content_mapping ID: ${mappingId}`);
-
-        // Fetch question details
-        const { data: questions, error: questionsError } = await serviceClient
-          .from('question_bank')
-          .select('id, question_text, question_data, answer_data, question_type, difficulty')
-          .in('id', question_ids);
-
-        if (questionsError) throw questionsError;
-        console.log(`✅ Step 3: Fetched ${questions.length} questions from question_bank`);
-
-        // Get current max game_order for this topic
-        const { data: maxOrderData } = await serviceClient
-          .from('gamified_exercises')
-          .select('game_order')
-          .eq('topic_content_id', mappingId)
-          .order('game_order', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        let currentOrder = maxOrderData?.game_order ?? -1;
-        console.log(`📊 Current max game_order: ${currentOrder}`);
-
-        // Convert questions to gamified_exercises format
-        const gamifiedExercises = questions.map((q, idx) => ({
-          topic_content_id: mappingId,
-          exercise_type: q.question_type as any,
-          question_text: q.question_text,
-          exercise_data: {
-            question: q.question_data?.question || q.question_text,
-            options: q.question_data?.options,
-            correctAnswer: q.answer_data,
-            difficulty: q.difficulty || 'medium',
-            source: 'centralized_bank',
-            centralized_question_id: q.id
-          },
-          correct_answer: q.answer_data,
-          game_order: currentOrder + idx + 1,
-          difficulty: q.difficulty || 'medium',
-          xp_reward: q.difficulty === 'hard' ? 50 : q.difficulty === 'medium' ? 40 : 30
-        }));
-
-        // Insert into gamified_exercises (with conflict handling)
-        const { error: publishError } = await serviceClient
-          .from('gamified_exercises')
-          .upsert(gamifiedExercises, { 
-            onConflict: 'topic_content_id,exercise_type,question_text',
-            ignoreDuplicates: true 
-          });
-
-        if (publishError) {
-          console.error('⚠️ Failed to publish to gamified_exercises:', publishError);
-          // Don't throw - assignment still succeeded
-        } else {
-          console.log(`✅ Step 4: Published ${gamifiedExercises.length} games to gamified_exercises`);
-        }
-
-        // Update sync timestamp
-        const syncTimestamp = new Date().toISOString();
-        await serviceClient
-          .from('batch_question_assignments')
-          .update({ last_synced_at: syncTimestamp })
-          .in('id', assignmentsData.map(a => a.id));
-
-        console.log(`✅ Step 5: Updated last_synced_at timestamp`);
-
-      } catch (publishErr) {
-        console.error('⚠️ Auto-publish failed but assignment succeeded:', publishErr);
+      console.log(`✅ Updated last_synced_at timestamp (Option B: zero duplication)`);
         // Continue - assignment is the critical operation
       }
       

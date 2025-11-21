@@ -1816,8 +1816,6 @@ serve(async (req) => {
         .in('id', assignmentsData.map(a => a.id));
 
       console.log(`✅ Updated last_synced_at timestamp (Option B: zero duplication)`);
-        // Continue - assignment is the critical operation
-      }
       
       return new Response(
         JSON.stringify({ 

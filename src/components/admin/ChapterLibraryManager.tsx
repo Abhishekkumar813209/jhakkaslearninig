@@ -13,6 +13,9 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2, BookOpen, Sparkles, Library, Save, FileText, CheckCircle2, Settings, Pencil } from "lucide-react";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { useBoards } from "@/hooks/useBoards";
+import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableChapterCard } from "./SortableChapterCard";
 
 interface ChapterLibrary {
   id: string;
@@ -24,6 +27,7 @@ interface ChapterLibrary {
   suggested_days: number;
   entry_source: string;
   is_active: boolean;
+  display_order: number;
 }
 
 export const ChapterLibraryManager = () => {
@@ -87,6 +91,10 @@ export const ChapterLibraryManager = () => {
   const [editingTopicData, setEditingTopicData] = useState<{topic_name: string, difficulty: 'easy' | 'medium' | 'hard'} | null>(null);
   const [editingDialogTopicIndex, setEditingDialogTopicIndex] = useState<number | null>(null);
   const [editingDialogTopicData, setEditingDialogTopicData] = useState<{topic_name: string, difficulty: 'easy' | 'medium' | 'hard'} | null>(null);
+
+  // Drag-and-drop state
+  const [hasOrderChanged, setHasOrderChanged] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Set isClient for hydration safety
   useEffect(() => {
@@ -387,9 +395,9 @@ export const ChapterLibraryManager = () => {
       
       const { data, error } = await supabase
         .from('chapter_library')
-        .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, created_at, updated_at')
+        .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, display_order, created_at, updated_at')
         .match(filters)
-        .order('chapter_name');
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
       setChapters(data || []);
@@ -467,7 +475,8 @@ export const ChapterLibraryManager = () => {
           suggested_days: manualChapterData.suggested_days,
           entry_source: 'manual',
           topics_generated: false,
-          full_topics: []
+          full_topics: [],
+          display_order: chapters.length + 1
         });
       
       if (error) throw error;
@@ -497,7 +506,7 @@ export const ChapterLibraryManager = () => {
     }
     
     try {
-      const chaptersToInsert = lines.map(name => ({
+      const chaptersToInsert = lines.map((name, index) => ({
         exam_type: selectedDomain,
         class_level: selectedClass || null,
         subject: selectedSubject,
@@ -505,7 +514,8 @@ export const ChapterLibraryManager = () => {
         suggested_days: 5,
         entry_source: 'manual',
         topics_generated: false,
-        full_topics: []
+        full_topics: [],
+        display_order: chapters.length + index + 1
       }));
       
       const { error } = await supabase
@@ -688,6 +698,43 @@ export const ChapterLibraryManager = () => {
     } catch (error: any) {
       console.error('Error bulk deleting chapters:', error);
       toast.error('Failed to delete chapters');
+    }
+  };
+
+  // Drag-and-drop handlers
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = chapters.findIndex(ch => ch.id === active.id);
+    const newIndex = chapters.findIndex(ch => ch.id === over.id);
+    
+    const reorderedChapters = arrayMove(chapters, oldIndex, newIndex)
+      .map((ch, idx) => ({ ...ch, display_order: idx + 1 }));
+    
+    setChapters(reorderedChapters);
+    setHasOrderChanged(true);
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      setSavingOrder(true);
+      
+      for (const chapter of chapters) {
+        await supabase
+          .from('chapter_library')
+          .update({ display_order: chapter.display_order })
+          .eq('id', chapter.id);
+      }
+      
+      toast.success('Chapter order saved successfully!');
+      setHasOrderChanged(false);
+    } catch (error: any) {
+      console.error('Error saving order:', error);
+      toast.error('Failed to save chapter order');
+    } finally {
+      setSavingOrder(false);
     }
   };
 
@@ -980,366 +1027,132 @@ export const ChapterLibraryManager = () => {
         </div>
       ) : chapters.length > 0 ? (
         <div className="space-y-4">
-          {/* Bulk Actions */}
-          {selectedChapters.length > 0 && (
+          {/* Bulk Actions & Save Order */}
+          {(selectedChapters.length > 0 || hasOrderChanged) && (
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <Badge variant="secondary">{selectedChapters.length} chapter{selectedChapters.length > 1 ? 's' : ''} selected</Badge>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={handleBulkDeleteChapters}
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                Delete Selected
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setSelectedChapters([])}
-              >
-                Clear Selection
-              </Button>
+              {selectedChapters.length > 0 && (
+                <>
+                  <Badge variant="secondary">{selectedChapters.length} chapter{selectedChapters.length > 1 ? 's' : ''} selected</Badge>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleBulkDeleteChapters}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Delete Selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedChapters([])}
+                  >
+                    Clear Selection
+                  </Button>
+                </>
+              )}
+              {hasOrderChanged && (
+                <>
+                  <Badge variant="default" className="ml-auto">Order Changed</Badge>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveOrder}
+                    disabled={savingOrder}
+                  >
+                    {savingOrder ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3 w-3 mr-1" />
+                        Save Order
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      fetchChapterLibrary();
+                      setHasOrderChanged(false);
+                    }}
+                  >
+                    Reset
+                  </Button>
+                </>
+              )}
             </div>
           )}
 
-          <div className="grid gap-4">
-            {chapters.map((chapter) => (
-              <Card key={chapter.id} className={selectedChapters.includes(chapter.id) ? 'ring-2 ring-primary' : ''}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    {/* Checkbox */}
-                    <div className="pt-1">
-                      <input
-                        type="checkbox"
-                        checked={selectedChapters.includes(chapter.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedChapters(prev => [...prev, chapter.id]);
-                          } else {
-                            setSelectedChapters(prev => prev.filter(id => id !== chapter.id));
-                          }
-                        }}
-                        className="cursor-pointer w-4 h-4"
-                      />
-                    </div>
-                    
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{chapter.chapter_name}</CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline">
-                        {chapter.suggested_days} day{chapter.suggested_days !== 1 ? 's' : ''}
-                      </Badge>
-                      {chapter.topics_generated && chapter.full_topics?.length > 0 ? (
-                        <Badge className="bg-green-600">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          {chapter.full_topics.length} Topics
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">No Topics</Badge>
-                      )}
-                    </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={chapter.topics_generated ? "outline" : "default"}
-                        onClick={() => {
-                          if (chapter.topics_generated && chapter.full_topics?.length > 0) {
-                            if (confirm(`⚠️ This will replace all ${chapter.full_topics.length} existing topics with AI-generated ones. Continue?`)) {
-                              handleGenerateTopics(chapter.id, true);
-                            }
-                          } else {
-                            handleGenerateTopics(chapter.id, false);
-                          }
-                        }}
-                      >
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        {chapter.topics_generated ? 'Replace with AI' : 'AI Generate'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingChapterId(chapter.id);
-                          setManualTopics(chapter.full_topics || []);
-                          setShowTopicEditor(true);
-                        }}
-                        title="Add, edit, or delete topics for this chapter"
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        Manage Topics
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingChapterData({
-                            id: chapter.id,
-                            chapter_name: chapter.chapter_name,
-                            suggested_days: chapter.suggested_days
-                          });
-                          setShowEditChapterDialog(true);
-                        }}
-                        title="Edit chapter details"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={async () => {
-                          const { error } = await supabase
-                            .from('chapter_library')
-                            .update({ is_active: false })
-                            .eq('id', chapter.id);
-                          
-                          if (!error) {
-                            toast.success('Chapter deleted');
-                            fetchChapterLibrary();
-                          } else {
-                            toast.error('Failed to delete chapter');
-                          }
-                        }}
-                        className="text-destructive hover:text-destructive"
-                        title="Delete this chapter"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-              {chapter.topics_generated && chapter.full_topics?.length > 0 && (
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm">Topics ({chapter.full_topics.length})</p>
-                      {(selectedTopics[chapter.id]?.length > 0) && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            const indicesToDelete = selectedTopics[chapter.id] || [];
-                            const updatedTopics = chapter.full_topics.filter((_: any, i: number) => 
-                              !indicesToDelete.includes(i)
-                            );
-                            
-                            const { error } = await supabase
-                              .from('chapter_library')
-                              .update({ full_topics: updatedTopics })
-                              .eq('id', chapter.id);
-                            
-                            if (!error) {
-                              toast.success(`Deleted ${indicesToDelete.length} topic${indicesToDelete.length > 1 ? 's' : ''}`);
-                              setSelectedTopics(prev => ({...prev, [chapter.id]: []}));
-                              fetchChapterLibrary();
-                            } else {
-                              toast.error('Failed to delete topics');
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Delete ({selectedTopics[chapter.id]?.length})
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {/* Interactive Topics Table */}
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="p-2 w-10">
-                              <input
-                                type="checkbox"
-                                checked={selectedTopics[chapter.id]?.length === chapter.full_topics.length && chapter.full_topics.length > 0}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedTopics(prev => ({
-                                      ...prev,
-                                      [chapter.id]: chapter.full_topics.map((_:any, i:number) => i)
-                                    }));
-                                  } else {
-                                    setSelectedTopics(prev => ({...prev, [chapter.id]: []}));
-                                  }
-                                }}
-                                className="cursor-pointer"
-                              />
-                            </th>
-                            <th className="text-left p-2 font-medium w-12">#</th>
-                            <th className="text-left p-2 font-medium">Topic Name</th>
-                            <th className="text-left p-2 font-medium w-24">Difficulty</th>
-                            <th className="text-right p-2 font-medium w-32">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {chapter.full_topics.map((topic: any, idx: number) => {
-                            const isEditing = editingTopicIndex?.chapterId === chapter.id && editingTopicIndex?.index === idx;
-                            
-                            return isEditing ? (
-                              // EDIT MODE
-                              <tr key={idx} className="border-t bg-blue-50 dark:bg-blue-950/30">
-                                <td className="p-2">
-                                  <input type="checkbox" disabled className="opacity-30" />
-                                </td>
-                                <td className="p-2 text-muted-foreground">{idx + 1}</td>
-                                <td className="p-2">
-                                  <Input 
-                                    value={editingTopicData?.topic_name || ''} 
-                                    onChange={(e) => setEditingTopicData({...editingTopicData!, topic_name: e.target.value})}
-                                    className="h-8"
-                                    autoFocus
-                                  />
-                                </td>
-                                <td className="p-2">
-                                  <Select 
-                                    value={editingTopicData?.difficulty} 
-                                    onValueChange={(value: 'easy' | 'medium' | 'hard') => 
-                                      setEditingTopicData({...editingTopicData!, difficulty: value})
-                                    }
-                                  >
-                                    <SelectTrigger className="h-8">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="easy">Easy</SelectItem>
-                                      <SelectItem value="medium">Medium</SelectItem>
-                                      <SelectItem value="hard">Hard</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </td>
-                                <td className="p-2">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleUpdateTopic(chapter.id, idx)}
-                                      className="h-7 text-xs"
-                                    >
-                                      <Save className="w-3 h-3 mr-1" />
-                                      Save
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setEditingTopicIndex(null);
-                                        setEditingTopicData(null);
-                                      }}
-                                      className="h-7 text-xs"
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              // VIEW MODE
-                              <tr key={idx} className="border-t hover:bg-muted/20">
-                                <td className="p-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedTopics[chapter.id]?.includes(idx) || false}
-                                    onChange={(e) => {
-                                      setSelectedTopics(prev => {
-                                        const current = prev[chapter.id] || [];
-                                        if (e.target.checked) {
-                                          return {...prev, [chapter.id]: [...current, idx]};
-                                        } else {
-                                          return {...prev, [chapter.id]: current.filter(i => i !== idx)};
-                                        }
-                                      });
-                                    }}
-                                    className="cursor-pointer"
-                                    disabled={editingTopicIndex !== null}
-                                  />
-                                </td>
-                                <td className="p-2 text-muted-foreground">{idx + 1}</td>
-                                <td className="p-2 font-medium">{topic.topic_name}</td>
-                                <td className="p-2">
-                                  <Badge variant={
-                                    topic.difficulty === 'easy' ? 'default' :
-                                    topic.difficulty === 'medium' ? 'secondary' :
-                                    'destructive'
-                                  } className="text-xs">
-                                    {topic.difficulty}
-                                  </Badge>
-                                </td>
-                                <td className="p-2">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        const params = new URLSearchParams();
-                                        params.set('tab', 'question-bank');
-                                        params.set('mode', 'centralized');
-                                        params.set('subTab', 'questions');
-                                        params.set('exam_domain', selectedDomain);
-                                        if (selectedBoard) params.set('board', selectedBoard);
-                                        if (selectedClass) params.set('class', selectedClass);
-                                        params.set('subject', selectedSubject);
-                                        params.set('chapter_id', chapter.id);
-                                        params.set('chapter_name', chapter.chapter_name);
-                                        params.set('topic_name', topic.topic_name);
-                                        navigate(`/admin?${params.toString()}`);
-                                      }}
-                                      className="h-7 text-xs"
-                                      disabled={editingTopicIndex !== null}
-                                    >
-                                      <FileText className="w-3 h-3 mr-1" />
-                                      Questions
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setEditingTopicIndex({chapterId: chapter.id, index: idx});
-                                        setEditingTopicData({
-                                          topic_name: topic.topic_name,
-                                          difficulty: topic.difficulty
-                                        });
-                                      }}
-                                      className="h-7 w-7 p-0"
-                                      disabled={editingTopicIndex !== null}
-                                      title="Edit topic"
-                                    >
-                                      <Pencil className="w-3 h-3" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={async () => {
-                                        const updatedTopics = chapter.full_topics.filter((_: any, i: number) => i !== idx);
-                                        const { error } = await supabase
-                                          .from('chapter_library')
-                                          .update({ full_topics: updatedTopics })
-                                          .eq('id', chapter.id);
-                                        
-                                        if (!error) {
-                                          toast.success('Topic deleted');
-                                          fetchChapterLibrary();
-                                        } else {
-                                          toast.error('Failed to delete topic');
-                                        }
-                                      }}
-                                      className="h-7 w-7 p-0"
-                                      disabled={editingTopicIndex !== null}
-                                    >
-                                      <Trash2 className="w-3 h-3 text-destructive" />
-                                    </Button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          ))}
-          </div>
+          <DndContext 
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={chapters.map(ch => ch.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="grid gap-4">
+                {chapters.map((chapter) => (
+                  <SortableChapterCard
+                    key={chapter.id}
+                    chapter={chapter}
+                    isSelected={selectedChapters.includes(chapter.id)}
+                    onToggleSelect={(checked) => {
+                      if (checked) {
+                        setSelectedChapters(prev => [...prev, chapter.id]);
+                      } else {
+                        setSelectedChapters(prev => prev.filter(id => id !== chapter.id));
+                      }
+                    }}
+                    onGenerateTopics={(forceRegenerate) => {
+                      if (forceRegenerate) {
+                        if (confirm(`⚠️ This will replace all ${chapter.full_topics?.length || 0} existing topics with AI-generated ones. Continue?`)) {
+                          handleGenerateTopics(chapter.id, true);
+                        }
+                      } else {
+                        handleGenerateTopics(chapter.id, false);
+                      }
+                    }}
+                    onManageTopics={() => {
+                      setEditingChapterId(chapter.id);
+                      setManualTopics(chapter.full_topics || []);
+                      setShowTopicEditor(true);
+                    }}
+                    onEdit={() => {
+                      setEditingChapterData({
+                        id: chapter.id,
+                        chapter_name: chapter.chapter_name,
+                        suggested_days: chapter.suggested_days
+                      });
+                      setShowEditChapterDialog(true);
+                    }}
+                    onDelete={async () => {
+                      const { error } = await supabase
+                        .from('chapter_library')
+                        .update({ is_active: false })
+                        .eq('id', chapter.id);
+                      
+                      if (!error) {
+                        toast.success('Chapter deleted');
+                        fetchChapterLibrary();
+                      } else {
+                        toast.error('Failed to delete chapter');
+                      }
+                    }}
+                    onNavigateToQuestions={() => {
+                      const params = new URLSearchParams(searchParams);
+                      params.set('subTab', 'questions');
+                      params.set('chapter_id', chapter.id);
+                      params.set('chapter_name', chapter.chapter_name);
+                      navigate(`?${params.toString()}`, { replace: true });
+                    }}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       ) : selectedDomain && selectedSubject ? (
         <Card>

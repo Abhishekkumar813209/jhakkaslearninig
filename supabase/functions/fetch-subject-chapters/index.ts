@@ -49,7 +49,8 @@ serve(async (req) => {
       .select('*')
       .eq('exam_type', exam_type)
       .eq('subject', subject)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
 
     if (cached && cached.length > 0 && !cacheError) {
       console.log('Found cached chapters:', cached.length);

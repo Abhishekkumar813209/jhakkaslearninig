@@ -137,10 +137,11 @@ serve(async (req) => {
     // Build query with conditional class_level filter
     let query = supabase
       .from('chapter_library')
-      .select('id, chapter_name, full_topics')
+      .select('id, chapter_name, full_topics, display_order')
       .eq('exam_type', exam_type)
       .eq('subject', subject)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
 
     // Add class_level filter only if provided (for school/board exams)
     if (class_level) {
@@ -210,7 +211,7 @@ Return ONLY valid JSON array, no markdown:
     const chapters = JSON.parse(cleanText);
 
     // Insert chapters into chapter_library
-    const insertPromises = chapters.map((ch: any) =>
+    const insertPromises = chapters.map((ch: any, index: number) =>
       supabase.from('chapter_library').insert({
         exam_type,
         subject,
@@ -218,6 +219,7 @@ Return ONLY valid JSON array, no markdown:
         chapter_name: ch.chapter_name,
         suggested_days: ch.suggested_days || 3,
         full_topics: [],
+        display_order: index + 1,
         entry_source: 'ai',
         topics_generated: false,
         is_active: true

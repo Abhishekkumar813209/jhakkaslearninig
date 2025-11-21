@@ -77,23 +77,16 @@ export const CentralizedQuestionBrowser = ({
     try {
       setLoading(true);
       
-      let query = supabase
+      const { data, error } = await supabase
         .from('chapter_library')
-        .select('id, chapter_name, full_topics')
+        .select('id, chapter_name, full_topics, display_order')
         .eq('exam_type', examDomain)
         .eq('subject', subject)
         .eq('is_active', true)
-        .ilike('chapter_name', `%${chapterName}%`) as any;
-
-      if (board) {
-        query = query.eq('board', board);
-      }
-
-      if (classLevel) {
-        query = query.eq('class_level', classLevel);
-      }
-
-      const { data, error } = await query.limit(1).maybeSingle();
+        .ilike('chapter_name', `%${chapterName}%`)
+        .order('display_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
 

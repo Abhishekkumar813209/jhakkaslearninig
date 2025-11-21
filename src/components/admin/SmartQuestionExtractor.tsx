@@ -264,12 +264,27 @@ export const SmartQuestionExtractor = ({
       try {
         setAuthError(false);
         const action = mode === 'question-bank' ? 'get_topic_questions' : 'get_by_topic';
+
+        // Build request body based on centralized vs batch-specific mode
+        const requestBody: any = {
+          action
+        };
+
+        if (isCentralized) {
+          // Centralized mode: fetch by chapter_library_id + centralized_topic_name
+          requestBody.chapter_library_id = chapterLibraryId;
+          requestBody.centralized_topic_name = centralizedTopicName;
+          requestBody.is_centralized = true;
+          console.log('📡 Fetching CENTRALIZED questions:', { chapterLibraryId, centralizedTopicName });
+        } else {
+          // Batch-specific mode: fetch by topic_id
+          requestBody.topic_id = activeTopicId;
+          console.log('📡 Fetching BATCH-SPECIFIC questions:', { topicId: activeTopicId });
+        }
+
         const data = await invokeWithAuth<any, { success: boolean; questions: any[] }>({
           name: 'topic-questions-api',
-          body: {
-            action,
-            topic_id: activeTopicId
-          }
+          body: requestBody
         });
         
         if (data.success && data.questions && data.questions.length > 0) {

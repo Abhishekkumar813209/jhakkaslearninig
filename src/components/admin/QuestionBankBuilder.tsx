@@ -11,6 +11,7 @@ import { BoardClassSelector } from "./BoardClassSelector";
 import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { SmartQuestionExtractor } from "./SmartQuestionExtractor";
 import { ManualQuestionEntry } from "./ManualQuestionEntry";
+import { CentralizedQuestionBrowser } from "./CentralizedQuestionBrowser";
 import * as LucideIcons from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -667,7 +668,7 @@ export const QuestionBankBuilder = () => {
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="view">View All Questions</TabsTrigger>
                 <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-                <TabsTrigger value="upload">Upload PDF/Word</TabsTrigger>
+                <TabsTrigger value="centralized">Centralized</TabsTrigger>
               </TabsList>
 
               <TabsContent value="view">
@@ -699,20 +700,17 @@ export const QuestionBankBuilder = () => {
                 />
               </TabsContent>
 
-              <TabsContent value="upload">
-                <SmartQuestionExtractor
-                  key={refetchKey}
-                  mode="question-bank"
-                  topicId={selectedTopic.id}
-                  topicName={selectedTopic.topic_name}
-                  chapterId={selectedChapter.id}
-                  chapterName={selectedChapter.chapter_name}
-                  subjectName={selectedSubject}
-                  batchId={selectedBatch}
+              <TabsContent value="centralized">
+                <CentralizedQuestionBrowser
                   examDomain={selectedDomain || ''}
-                  examName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+                  board={selectedBoard || ''}
+                  classLevel={selectedClass}
+                  subject={selectedSubject}
+                  chapterName={selectedChapter.chapter_name}
+                  batchId={selectedBatch}
+                  roadmapTopicId={selectedTopic.id}
+                  roadmapTopicName={selectedTopic.topic_name}
                   onQuestionsAdded={handleQuestionsComplete}
-                  onBackClick={() => setCurrentStep(6)}
                 />
               </TabsContent>
             </Tabs>

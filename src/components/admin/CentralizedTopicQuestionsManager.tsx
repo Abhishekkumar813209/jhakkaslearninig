@@ -25,8 +25,8 @@ export const CentralizedTopicQuestionsManager = ({
   onBack
 }: CentralizedTopicQuestionsManagerProps) => {
   const handleQuestionsAdded = (questions?: any[]) => {
-    const count = questions?.length || 1;
-    toast.success(`${count} question${count > 1 ? 's' : ''} saved to centralized bank`);
+    // Callback kept for extensibility - SmartQuestionExtractor handles toast
+    console.log('✅ Questions saved:', questions?.length || 0);
   };
 
   return (

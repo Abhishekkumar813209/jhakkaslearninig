@@ -2097,9 +2097,9 @@ export const SmartQuestionExtractor = ({
         const requestBody: any = {
           action: 'save_draft_questions',
           questions: selected,
-          topic_id: topicId,
+          topic_id: isCentralized ? null : topicId, // ✅ NULL for centralized questions
           subject: subjectName,
-          batch_id: batchId,
+          batch_id: isCentralized ? null : batchId, // ✅ NULL for centralized questions
           exam_domain: examDomain,
           exam_name: examName
         };
@@ -2113,7 +2113,7 @@ export const SmartQuestionExtractor = ({
           requestBody.applicable_exams = applicableExams || [];
         }
         
-        const data = await invokeWithAuth<any, { success: boolean; saved_count: number; question_ids: string[] }>({
+        const data = await invokeWithAuth<any, { success: boolean; saved_count: number; question_ids: string[]; failed_count?: number; errors?: any[] }>({
           name: 'topic-questions-api',
           body: requestBody
         });
@@ -2125,6 +2125,15 @@ export const SmartQuestionExtractor = ({
         toast.success(`✅ Saved ${data.saved_count} questions to Question Bank!`, {
           description: `Topic: ${topicName} • Chapter: ${chapterName} • Subject: ${subjectName}`
         });
+
+        // Show warning if some questions failed
+        if (data.failed_count && data.failed_count > 0) {
+          toast.warning(`⚠️ ${data.failed_count} questions failed to save`, {
+            description: 'Check console for details',
+            duration: 8000
+          });
+          console.error('❌ Failed questions:', data.errors);
+        }
         
         // Clear session after successful save
         clearProgress();

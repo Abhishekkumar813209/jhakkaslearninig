@@ -214,7 +214,7 @@ Return ONLY valid JSON array, no markdown:
       supabase.from('chapter_library').insert({
         exam_type,
         subject,
-        class_level: classLevel || null,
+        class_level: class_level || null,
         chapter_name: ch.chapter_name,
         suggested_days: ch.suggested_days || 3,
         full_topics: [],

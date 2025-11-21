@@ -72,7 +72,7 @@ export const CentralizedChapterSelectionStep = ({
           query = query.eq('class_level', conditionalClass);
         }
         
-        query = query.order('chapter_name');
+        query = query.order('display_order', { ascending: true });
         
         const { data, error } = await query;
 

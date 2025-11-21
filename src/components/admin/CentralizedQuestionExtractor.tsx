@@ -78,11 +78,11 @@ export const CentralizedQuestionExtractor = () => {
 
       const { data } = await supabase
         .from('chapter_library')
-        .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, created_at, updated_at')
+        .select('id, exam_type, subject, class_level, chapter_name, suggested_days, entry_source, topics_generated, full_topics, is_active, display_order, created_at, updated_at')
         .eq('exam_type', selectedDomain)
         .eq('subject', selectedSubject)
         .eq('is_active', true)
-        .order('chapter_name');
+        .order('display_order', { ascending: true });
 
       setChapters(data || []);
     };

@@ -442,6 +442,7 @@ export type Database = {
           chapter_name: string
           class_level: string | null
           created_at: string | null
+          display_order: number | null
           entry_source: string | null
           exam_type: string
           full_topics: Json | null
@@ -456,6 +457,7 @@ export type Database = {
           chapter_name: string
           class_level?: string | null
           created_at?: string | null
+          display_order?: number | null
           entry_source?: string | null
           exam_type: string
           full_topics?: Json | null
@@ -470,6 +472,7 @@ export type Database = {
           chapter_name?: string
           class_level?: string | null
           created_at?: string | null
+          display_order?: number | null
           entry_source?: string | null
           exam_type?: string
           full_topics?: Json | null

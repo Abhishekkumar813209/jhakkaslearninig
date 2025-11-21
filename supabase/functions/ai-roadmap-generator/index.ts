@@ -266,7 +266,8 @@ serve(async (req) => {
       const { data: libraryChapters, error: libraryError } = await supabase
         .from('chapter_library')
         .select('*')
-        .in('id', selected_chapter_library_ids);
+        .in('id', selected_chapter_library_ids)
+        .order('display_order', { ascending: true });
       
       if (libraryError) {
         console.error('Error fetching chapter library:', libraryError);

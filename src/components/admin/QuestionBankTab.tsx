@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Database, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,11 +8,23 @@ import { QuestionBankBuilder } from "./QuestionBankBuilder";
 import { ChapterLibraryManager } from "./ChapterLibraryManager";
 import { CentralizedQuestionExtractor } from "./CentralizedQuestionExtractor";
 import { BatchQuestionAssigner } from "./BatchQuestionAssigner";
+import { CentralizedTopicQuestionsManager } from "./CentralizedTopicQuestionsManager";
 
 export default function QuestionBankTab() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<"batch-specific" | "centralized">("batch-specific");
   const [isClient, setIsClient] = useState(false);
+
+  // Read URL parameters for topic questions management
+  const subTab = searchParams.get('subTab');
+  const examDomain = searchParams.get('exam_domain') || '';
+  const board = searchParams.get('board') || '';
+  const studentClass = searchParams.get('class') || '';
+  const subject = searchParams.get('subject') || '';
+  const chapterLibraryId = searchParams.get('chapter_id') || '';
+  const chapterName = searchParams.get('chapter_name') || '';
+  const topicName = searchParams.get('topic_name') || '';
 
   useEffect(() => {
     setIsClient(true);
@@ -79,25 +91,49 @@ export default function QuestionBankTab() {
       {viewMode === "batch-specific" ? (
         <QuestionBankBuilder />
       ) : (
-        <Tabs defaultValue="chapter-library" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="chapter-library">Chapter Library</TabsTrigger>
-            <TabsTrigger value="extract-questions">Extract Questions</TabsTrigger>
-            <TabsTrigger value="assign-to-batches">Assign to Batches</TabsTrigger>
-          </TabsList>
+        <>
+          {/* Show CentralizedTopicQuestionsManager when subTab=questions */}
+          {subTab === 'questions' && chapterLibraryId && topicName ? (
+            <CentralizedTopicQuestionsManager
+              examDomain={examDomain}
+              board={board}
+              studentClass={studentClass}
+              subject={subject}
+              chapterLibraryId={chapterLibraryId}
+              chapterName={chapterName}
+              topicName={topicName}
+              onBack={() => {
+                // Navigate back to chapter library tab
+                const params = new URLSearchParams(searchParams);
+                params.delete('subTab');
+                params.delete('chapter_id');
+                params.delete('chapter_name');
+                params.delete('topic_name');
+                navigate(`/admin?${params.toString()}`, { replace: true });
+              }}
+            />
+          ) : (
+            <Tabs defaultValue="chapter-library" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="chapter-library">Chapter Library</TabsTrigger>
+                <TabsTrigger value="extract-questions">Extract Questions</TabsTrigger>
+                <TabsTrigger value="assign-to-batches">Assign to Batches</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="chapter-library">
-            <ChapterLibraryManager />
-          </TabsContent>
+              <TabsContent value="chapter-library">
+                <ChapterLibraryManager />
+              </TabsContent>
 
-          <TabsContent value="extract-questions">
-            <CentralizedQuestionExtractor />
-          </TabsContent>
+              <TabsContent value="extract-questions">
+                <CentralizedQuestionExtractor />
+              </TabsContent>
 
-          <TabsContent value="assign-to-batches">
-            <BatchQuestionAssigner />
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="assign-to-batches">
+                <BatchQuestionAssigner />
+              </TabsContent>
+            </Tabs>
+          )}
+        </>
       )}
     </div>
   );

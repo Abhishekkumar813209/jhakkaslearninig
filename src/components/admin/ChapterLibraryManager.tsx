@@ -179,15 +179,30 @@ export const ChapterLibraryManager = () => {
     fetchExistingSubjects();
   }, []);
 
+  // Helper: Get correct exam_name based on domain
+  const getExamName = () => {
+    // For school domain, exam_name should be the board
+    if (selectedDomain === 'school') {
+      return selectedBoard || selectedDomain;
+    }
+    // For other domains (jee, neet, etc.), exam_name is the domain itself
+    return selectedDomain;
+  };
+
   // Fetch subjects from exam_templates
   useEffect(() => {
     const fetchSubjects = async () => {
       if (!selectedDomain) return;
       
+      const examName = selectedDomain === 'school' 
+        ? (selectedBoard || selectedDomain) 
+        : selectedDomain;
+      
       const query = supabase
         .from('exam_templates')
         .select('standard_subjects')
         .eq('exam_type', selectedDomain)
+        .eq('exam_name', examName)
         .eq('is_active', true);
 
       if (requiresBoard && selectedBoard) {
@@ -265,6 +280,8 @@ export const ChapterLibraryManager = () => {
     }
 
     try {
+      const examName = getExamName();
+      
       // Check if exam_template exists for current filters
       const { data: existing, error: fetchError } = await supabase
         .from('exam_templates')
@@ -272,7 +289,7 @@ export const ChapterLibraryManager = () => {
         .eq('exam_type', selectedDomain)
         .eq('board', selectedBoard || '')
         .eq('student_class', selectedClass || '')
-        .eq('exam_name', selectedDomain)
+        .eq('exam_name', examName)
         .maybeSingle();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -302,7 +319,7 @@ export const ChapterLibraryManager = () => {
             exam_type: selectedDomain,
             board: selectedBoard || '',
             student_class: selectedClass || '',
-            exam_name: selectedDomain,
+            exam_name: examName,
             standard_subjects: updatedSubjects,
             is_active: true
           });

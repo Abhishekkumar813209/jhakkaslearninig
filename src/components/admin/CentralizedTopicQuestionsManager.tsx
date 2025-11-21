@@ -49,6 +49,7 @@ export const CentralizedTopicQuestionsManager = ({
             {studentClass && <><span>→</span><span>Class {studentClass}</span></>}
             <span>→</span><span>{subject}</span>
             <span>→</span><span>{chapterName}</span>
+            <span>→</span><span className="font-medium text-foreground">{topicName}</span>
           </div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <FileText className="w-6 h-6" />

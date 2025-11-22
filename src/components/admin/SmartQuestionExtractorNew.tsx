@@ -136,7 +136,7 @@ export const SmartQuestionExtractorNew = ({
   selectedExamDomain,
   selectedExamName,
   mode = 'batch',
-  fetchMode = 'batch',
+  fetchMode,
   chapterLibraryId,
   centralizedTopicName,
   onQuestionsAdded
@@ -144,11 +144,24 @@ export const SmartQuestionExtractorNew = ({
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   
+  // Defensive default: if mode is centralized but fetchMode not specified, default to centralized
+  const effectiveFetchMode = fetchMode || (mode === 'centralized' ? 'centralized' : 'batch');
+  
   // Source tracking for dual mode
   const [batchQuestionCount, setBatchQuestionCount] = useState(0);
   const [centralQuestionCount, setCentralQuestionCount] = useState(0);
   const [extracting, setExtracting] = useState(false);
   const navigate = useNavigate();
+
+  console.log('📋 SmartQuestionExtractorNew Props:', {
+    mode,
+    fetchMode,
+    effectiveFetchMode,
+    selectedTopic,
+    selectedBatch,
+    chapterLibraryId,
+    centralizedTopicName
+  });
   
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -227,14 +240,16 @@ export const SmartQuestionExtractorNew = ({
   }, [selectedIds, selectedTopic]);
 
   const loadTopicQuestions = async () => {
-    if (!selectedTopic && fetchMode !== 'centralized') return;
+    if (!selectedTopic && effectiveFetchMode !== 'centralized') return;
     
     setLoading(true);
     try {
       let allQuestions: ExtractedQuestion[] = [];
       
+      console.log('🔍 Loading questions with effectiveFetchMode:', effectiveFetchMode);
+      
       // Dual mode: Fetch BOTH batch-specific AND centralized questions
-      if (fetchMode === 'dual') {
+      if (effectiveFetchMode === 'dual') {
         // Parallel fetch for performance
         const [batchData, centralData] = await Promise.all([
           // Fetch batch-specific questions
@@ -265,11 +280,11 @@ export const SmartQuestionExtractorNew = ({
         console.log(`✅ Dual-mode fetch: ${batchQuestions.length} batch + ${centralQuestions.length} central = ${allQuestions.length} total`);
       } else {
         // Single mode: Fetch only one type
-        const body: any = { action: 'get_topic_questions', fetch_mode: fetchMode };
+        const body: any = { action: 'get_topic_questions', fetch_mode: effectiveFetchMode };
         
-        if (fetchMode === 'batch') {
+        if (effectiveFetchMode === 'batch') {
           body.topic_id = selectedTopic;
-        } else if (fetchMode === 'centralized') {
+        } else if (effectiveFetchMode === 'centralized') {
           body.chapter_library_id = chapterLibraryId;
           body.centralized_topic_name = centralizedTopicName;
         }
@@ -280,7 +295,7 @@ export const SmartQuestionExtractorNew = ({
         });
         
         if (data.success) {
-          allQuestions = (data.questions || []).map(q => ({ ...q, _source: fetchMode }));
+          allQuestions = (data.questions || []).map(q => ({ ...q, _source: effectiveFetchMode }));
         }
       }
 
@@ -1348,12 +1363,12 @@ export const SmartQuestionExtractorNew = ({
                             <Badge className={`${getTypeColor(q.question_type)} text-xs font-semibold px-3 py-1`}>
                               {getTypeLabel(q.question_type)}
                             </Badge>
-                            {(q as any)._source === 'batch' && fetchMode === 'dual' && (
+                            {(q as any)._source === 'batch' && effectiveFetchMode === 'dual' && (
                               <Badge className="bg-blue-500 text-white text-xs px-3 py-1">
                                 Batch-Specific
                               </Badge>
                             )}
-                            {(q as any)._source === 'centralized' && fetchMode === 'dual' && (
+                            {(q as any)._source === 'centralized' && effectiveFetchMode === 'dual' && (
                               <Badge className="bg-purple-500 text-white text-xs px-3 py-1">
                                 Centralized Bank
                               </Badge>

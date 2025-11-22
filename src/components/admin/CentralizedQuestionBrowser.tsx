@@ -396,46 +396,53 @@ export const CentralizedQuestionBrowser = ({
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto p-1">
                   {filteredQuestions.map((q) => (
                     <Card
                       key={q.id}
-                      className={`p-4 cursor-pointer transition-colors ${
+                      className={`p-4 cursor-pointer transition-all ${
                         q.already_added
                           ? 'opacity-60 bg-muted/50 cursor-not-allowed'
                           : selectedQuestionIds.has(q.id)
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:border-primary/50'
+                          ? 'border-primary border-2 bg-primary/5 shadow-sm'
+                          : 'hover:border-primary/50 hover:scale-[1.02] hover:shadow-md'
                       }`}
                       onClick={() => handleToggleQuestion(q.id, q.already_added)}
                     >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedQuestionIds.has(q.id)}
-                          disabled={q.already_added}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium line-clamp-2">
-                              {q.question_text || q.question_data?.text || 'Untitled Question'}
-                            </p>
-                            <div className="flex gap-2">
-                              <Badge variant="outline">{q.question_type}</Badge>
-                              <Badge variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}>
-                                {q.difficulty}
-                              </Badge>
-                              {q.already_added && (
-                                <Badge className="bg-green-600">
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Already Added
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
+                      <div className="space-y-3">
+                        {/* Checkbox header */}
+                        <div className="flex items-center justify-between">
+                          <Checkbox
+                            checked={selectedQuestionIds.has(q.id)}
+                            disabled={q.already_added}
+                          />
+                          {q.already_added && (
+                            <Badge className="bg-green-600 text-white">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Added
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Question text */}
+                        <p className="text-sm font-medium line-clamp-3 min-h-[60px]">
+                          {q.question_text || q.question_data?.text || 'Untitled Question'}
+                        </p>
+
+                        {/* Metadata badges */}
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {q.question_type}
+                          </Badge>
+                          <Badge 
+                            variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {q.difficulty}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
                             {q.marks} mark{q.marks !== 1 ? 's' : ''}
-                          </div>
+                          </Badge>
                         </div>
                       </div>
                     </Card>

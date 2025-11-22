@@ -180,6 +180,7 @@ export const CentralizedQuestionBrowser = ({
               {/* Render SmartQuestionExtractorNew with centralized mode */}
               <SmartQuestionExtractorNew
                 mode="centralized"
+                fetchMode="centralized"
                 chapterLibraryId={chapterLibrary.id}
                 centralizedTopicName={selectedTopicName}
                 applicableClasses={classLevel ? [classLevel] : []}

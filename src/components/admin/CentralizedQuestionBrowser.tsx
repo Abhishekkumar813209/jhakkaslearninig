@@ -127,26 +127,26 @@ export const CentralizedQuestionBrowser = ({
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Browse Centralized Questions</CardTitle>
-          <CardDescription>
-            Pull questions from centralized chapter: "{chapterLibrary.chapter_name}" → Add to batch topic: "{roadmapTopicName}"
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Topic Selection */}
-          {!selectedTopicName && (
+  // Don't render SmartQuestionExtractorNew until a topic is selected
+  if (!selectedTopicName) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Browse Centralized Questions</CardTitle>
+            <CardDescription>
+              Pull questions from centralized chapter: "{chapterLibrary.chapter_name}" → Add to batch topic: "{roadmapTopicName}"
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div>
-              <h3 className="text-sm font-medium mb-3">Select a Topic</h3>
+              <h3 className="text-sm font-medium mb-3">Select a Topic to Browse Questions</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {topics.map((topic, idx) => (
                   <Button
                     key={idx}
                     variant="outline"
-                    className="h-auto p-4 flex flex-col items-start text-left"
+                    className="h-auto p-4 flex flex-col items-start text-left hover:ring-2 hover:ring-primary"
                     onClick={() => setSelectedTopicName(topic.topic_name)}
                   >
                     <div className="flex items-start justify-between w-full mb-2">
@@ -160,45 +160,50 @@ export const CentralizedQuestionBrowser = ({
                 ))}
               </div>
             </div>
-          )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-          {/* Full-Featured Question Extractor UI */}
-          {selectedTopicName && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setSelectedTopicName('')}
-                >
-                  ← Back to Topics
-                </Button>
-                <div className="text-sm text-muted-foreground">
-                  Topic: <span className="font-medium">{selectedTopicName}</span>
-                </div>
-              </div>
+  // Only render SmartQuestionExtractorNew AFTER topic selection
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Browse Centralized Questions</CardTitle>
+          <CardDescription>
+            Centralized Topic: <strong>{selectedTopicName}</strong> → Adding to Batch Topic: <strong>{roadmapTopicName}</strong>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setSelectedTopicName('')}
+          >
+            ← Back to Topics
+          </Button>
 
-              {/* Render SmartQuestionExtractorNew with centralized mode */}
-              <SmartQuestionExtractorNew
-                mode="centralized"
-                fetchMode="dual"
-                chapterLibraryId={chapterLibrary.id}
-                centralizedTopicName={selectedTopicName}
-                applicableClasses={classLevel ? [classLevel] : []}
-                applicableExams={[examDomain]}
-                selectedTopic={roadmapTopicId}
-                selectedTopicName={roadmapTopicName}
-                selectedBatch={batchId}
-                selectedExamDomain={examDomain}
-                onQuestionsAdded={() => {
-                  onQuestionsAdded();
-                  toast({
-                    title: "Questions Added",
-                    description: "Selected questions have been added to the batch topic"
-                  });
-                }}
-              />
-            </div>
-          )}
+          {/* Now render SmartQuestionExtractorNew with dual mode */}
+          <SmartQuestionExtractorNew
+            mode="centralized"
+            fetchMode="dual"
+            chapterLibraryId={chapterLibrary.id}
+            centralizedTopicName={selectedTopicName}
+            applicableClasses={classLevel ? [classLevel] : []}
+            applicableExams={[examDomain]}
+            selectedTopic={roadmapTopicId}
+            selectedTopicName={roadmapTopicName}
+            selectedBatch={batchId}
+            selectedExamDomain={examDomain}
+            onQuestionsAdded={() => {
+              onQuestionsAdded();
+              toast({
+                title: "Questions Added",
+                description: "Selected questions have been added to the batch topic"
+              });
+            }}
+          />
         </CardContent>
       </Card>
     </div>

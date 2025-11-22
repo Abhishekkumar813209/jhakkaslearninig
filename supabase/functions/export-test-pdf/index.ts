@@ -38,7 +38,18 @@ serve(async (req) => {
       .from('tests')
       .select(`
         *,
-        questions (*)
+        questions (
+          id,
+          question_text,
+          question_type,
+          marks,
+          correct_answer,
+          options,
+          explanation,
+          difficulty,
+          tags,
+          order_num
+        )
       `)
       .eq('id', testId)
       .single()

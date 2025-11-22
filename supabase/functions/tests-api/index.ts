@@ -139,13 +139,24 @@ serve(async (req: Request) => {
       case 'GET':
         if (testId && testId !== 'tests-api') {
           // Get single test with questions
-          const { data: test, error } = await supabase
-            .from('tests')
-            .select(`
-              *,
-              questions (*),
-              courses (title)
-            `)
+    const { data: test, error } = await supabase
+      .from('tests')
+      .select(`
+        *,
+        questions (
+          id,
+          question_text,
+          question_type,
+          marks,
+          correct_answer,
+          options,
+          explanation,
+          difficulty,
+          tags,
+          order_num
+        ),
+        courses (title)
+      `)
             .eq('id', testId)
             .single()
 
@@ -214,12 +225,23 @@ serve(async (req: Request) => {
                 )
               : supabase
 
-            const { data: testWithQuestions, error: testError } = await clientToUse
-              .from('tests')
-              .select(`
-                *,
-                questions (*)
-              `)
+    const { data: testWithQuestions, error: testError } = await clientToUse
+      .from('tests')
+      .select(`
+        *,
+        questions (
+          id,
+          question_text,
+          question_type,
+          marks,
+          correct_answer,
+          options,
+          explanation,
+          difficulty,
+          tags,
+          order_num
+        )
+      `)
               .eq('id', testId)
               .single()
 
@@ -429,9 +451,23 @@ serve(async (req: Request) => {
             const { answers } = requestData as any
             
             // Get test questions
-            const { data: test } = await supabase
-              .from('tests')
-              .select('*, questions (*)')
+        const { data: test } = await supabase
+          .from('tests')
+          .select(`
+            *,
+            questions (
+              id,
+              question_text,
+              question_type,
+              marks,
+              correct_answer,
+              options,
+              explanation,
+              difficulty,
+              tags,
+              order_num
+            )
+          `)
               .eq('id', testId)
               .single()
 

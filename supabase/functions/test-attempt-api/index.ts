@@ -380,7 +380,17 @@ async function getAttemptResults(supabase: any, attemptId: string) {
       .from('test_answers')
       .select(`
         *,
-        questions (*)
+        questions (
+          id,
+          question_text,
+          question_type,
+          marks,
+          correct_answer,
+          options,
+          explanation,
+          difficulty,
+          tags
+        )
       `)
       .eq('attempt_id', attemptId);
 

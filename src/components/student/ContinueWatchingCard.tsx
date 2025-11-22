@@ -39,8 +39,13 @@ export const ContinueWatchingCard = () => {
 
   const fetchContinueWatching = async () => {
     try {
+      // Get current session for auth headers
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+      
       const { data: response, error } = await supabase.functions.invoke('chapter-lectures-api', {
-        body: { action: 'get_continue_watching' }
+        body: { action: 'get_continue_watching' },
+        headers
       });
 
       if (error || !response?.success || !response?.data) {

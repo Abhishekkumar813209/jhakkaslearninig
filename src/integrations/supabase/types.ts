@@ -5575,6 +5575,7 @@ export type Database = {
           topic_name: string
         }[]
       }
+      get_user_league_week: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]

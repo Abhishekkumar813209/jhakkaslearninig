@@ -36,13 +36,16 @@ serve(async (req) => {
 
         if (lecturesError) throw lecturesError;
 
-        // Fetch student progress
+        // Fetch student progress (gracefully handle no progress yet)
         const { data: progress, error: progressError } = await supabaseClient
           .from('student_lecture_progress')
           .select('*')
           .eq('student_id', student_id);
 
-        if (progressError) throw progressError;
+        // Don't throw on missing progress - it's normal for new students
+        if (progressError && progressError.code !== 'PGRST116') {
+          console.error('Progress fetch error:', progressError);
+        }
 
         // Merge progress with lectures
         const lecturesWithProgress = lectures.map(lecture => {
@@ -203,9 +206,9 @@ serve(async (req) => {
 
         const { data: chapterData } = await supabaseClient
           .from('roadmap_chapters')
-          .select('id, title')
+          .select('chapter_name')
           .eq('id', continueData.chapter_lectures.chapter_id)
-          .single();
+          .maybeSingle();
 
         const responseData = {
           lectureId: continueData.chapter_lectures.id,
@@ -214,7 +217,7 @@ serve(async (req) => {
           videoDurationSeconds: continueData.chapter_lectures.video_duration_seconds,
           watchTimeSeconds: continueData.watch_time_seconds,
           chapterId: continueData.chapter_lectures.chapter_id,
-          chapterName: chapterData?.title || 'Unknown Chapter',
+          chapterName: chapterData?.chapter_name || 'Unknown Chapter',
         };
 
         return new Response(

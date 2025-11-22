@@ -71,7 +71,8 @@ const TestQuestionReviewNew: React.FC = () => {
         .from('test_answers')
         .select(`
           id,
-          student_answer,
+          selected_option,
+          text_answer,
           is_correct,
           marks_awarded,
           questions!inner (
@@ -134,7 +135,7 @@ const TestQuestionReviewNew: React.FC = () => {
           questionType: q.question_type,
           options: parsedOptions,
           correctAnswer: q.correct_answer,
-          studentAnswer: answer.student_answer,
+          studentAnswer: answer.selected_option || answer.text_answer || null,
           isCorrect: answer.is_correct,
           marksAwarded: answer.marks_awarded || 0,
           maxMarks: q.marks,

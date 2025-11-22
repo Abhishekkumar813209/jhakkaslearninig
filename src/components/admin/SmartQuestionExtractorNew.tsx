@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library, Upload, Crop, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Trash2, Search, X, Eye, Plus, Save, Library, Upload, Crop, ArrowRight, Edit, Pencil } from "lucide-react";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
 import { DocumentUploader } from "./DocumentUploader";
 import { UniversalCropModal } from "./UniversalCropModal";
@@ -170,6 +170,11 @@ export const SmartQuestionExtractorNew = ({
   const [availableTopics, setAvailableTopics] = useState<Array<{ id: string; topic_name: string }>>([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [movingQuestions, setMovingQuestions] = useState(false);
+
+  // Edit & Preview modals (new for grid view)
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<any>(null);
 
   // Auto-load draft questions when topic changes
   useEffect(() => {
@@ -760,6 +765,55 @@ export const SmartQuestionExtractorNew = ({
     });
   };
 
+  const handleEditQuestion = (question: ExtractedQuestion) => {
+    if (!question.id) return;
+    setEditingQuestionId(question.id);
+    setEditFormData({
+      question_text: question.question_text || '',
+      question_type: question.question_type,
+      correct_answer: question.correct_answer,
+      options: question.options,
+      difficulty: question.difficulty,
+      marks: question.marks,
+    });
+  };
+
+  const handlePreviewQuestion = (question: ExtractedQuestion) => {
+    if (!question.id) return;
+    setPreviewQuestionId(question.id);
+  };
+
+  const handleSaveEditedQuestion = async () => {
+    if (!editingQuestionId || !editFormData) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('topic-questions-api', {
+        body: {
+          action: 'update_question',
+          question_id: editingQuestionId,
+          updates: {
+            question_text: editFormData.question_text,
+            correct_answer: editFormData.correct_answer,
+            options: editFormData.options,
+            difficulty: editFormData.difficulty,
+            marks: editFormData.marks,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Question updated successfully');
+      
+      setEditingQuestionId(null);
+      setEditFormData(null);
+      loadTopicQuestions(); // Reload questions
+    } catch (error: any) {
+      console.error('Error updating question:', error);
+      toast.error(error.message || 'Failed to update question');
+    }
+  };
+
   const selectAll = () => {
     // Only select non-published questions
     const allIds = filteredQuestions
@@ -1231,6 +1285,30 @@ export const SmartQuestionExtractorNew = ({
                           </div>
                         </div>
                         <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditQuestion(q);
+                            }}
+                            title="Edit Question"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePreviewQuestion(q);
+                            }}
+                            title="Preview Question"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1733,6 +1811,119 @@ export const SmartQuestionExtractorNew = ({
               </AlertDialogContent>
             </AlertDialog>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Question Modal */}
+      <Dialog open={!!editingQuestionId} onOpenChange={(open) => !open && (setEditingQuestionId(null), setEditFormData(null))}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Question</DialogTitle>
+            <DialogDescription>
+              Make changes to the question details and save
+            </DialogDescription>
+          </DialogHeader>
+          {editFormData && editingQuestionId && (
+            <div className="space-y-4">
+              <div>
+                <Label>Question Text</Label>
+                <Input
+                  value={editFormData.question_text}
+                  onChange={(e) => setEditFormData({ ...editFormData, question_text: e.target.value })}
+                  placeholder="Enter question text"
+                />
+              </div>
+              
+              <QuestionAnswerInput
+                questionType={editFormData.question_type}
+                options={editFormData.options}
+                currentAnswer={editFormData.correct_answer}
+                onChange={(answer) => setEditFormData({ ...editFormData, correct_answer: answer })}
+              />
+              
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Label>Difficulty</Label>
+                  <Select 
+                    value={editFormData.difficulty} 
+                    onValueChange={(val) => setEditFormData({ ...editFormData, difficulty: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">Easy</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="hard">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label>Marks</Label>
+                  <Input
+                    type="number"
+                    value={editFormData.marks}
+                    onChange={(e) => setEditFormData({ ...editFormData, marks: parseInt(e.target.value) || 1 })}
+                    min={1}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setEditingQuestionId(null); setEditFormData(null); }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEditedQuestion}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Question Modal */}
+      <Dialog open={!!previewQuestionId} onOpenChange={(open) => !open && setPreviewQuestionId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Question Preview</DialogTitle>
+            <DialogDescription>
+              Student-facing view of this question
+            </DialogDescription>
+          </DialogHeader>
+          {previewQuestionId && (() => {
+            const question = questions.find(q => q.id === previewQuestionId);
+            if (!question) return <p>Question not found</p>;
+            
+            return (
+              <div className="space-y-4">
+                <div className="bg-muted/30 p-6 rounded-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Badge>{question.question_type}</Badge>
+                    <Badge variant="outline">{question.difficulty}</Badge>
+                    <Badge variant="outline">{question.marks}m</Badge>
+                  </div>
+                  <div 
+                    className="prose prose-sm max-w-none mb-4"
+                    dangerouslySetInnerHTML={{ __html: renderWithImages(question.question_text || '') }}
+                  />
+                  {question.options && question.options.length > 0 && (
+                    <div className="space-y-2">
+                      {question.options.map((opt, i) => (
+                        <div key={i} className="flex items-start gap-2 p-2 bg-background rounded border">
+                          <span className="font-mono text-xs mt-0.5">{String.fromCharCode(65 + i)})</span>
+                          <div 
+                            className="flex-1 text-sm"
+                            dangerouslySetInnerHTML={{ __html: renderWithImages(opt) }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

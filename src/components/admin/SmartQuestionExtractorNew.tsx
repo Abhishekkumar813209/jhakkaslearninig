@@ -147,6 +147,11 @@ export const SmartQuestionExtractorNew = ({
   // Defensive default: if mode is centralized but fetchMode not specified, default to centralized
   const effectiveFetchMode = fetchMode || (mode === 'centralized' ? 'centralized' : 'batch');
   
+  // Display logic: Show centralized topic prominently in dual mode
+  const displayTopicName = effectiveFetchMode === 'dual' && centralizedTopicName
+    ? centralizedTopicName
+    : selectedTopicName;
+  
   // Source tracking for dual mode
   const [batchQuestionCount, setBatchQuestionCount] = useState(0);
   const [centralQuestionCount, setCentralQuestionCount] = useState(0);
@@ -160,7 +165,8 @@ export const SmartQuestionExtractorNew = ({
     selectedTopic,
     selectedBatch,
     chapterLibraryId,
-    centralizedTopicName
+    centralizedTopicName,
+    displayTopicName
   });
   
   // Selection state
@@ -1119,8 +1125,18 @@ export const SmartQuestionExtractorNew = ({
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>📚 Question Bank Fetcher</CardTitle>
-                <CardDescription>
-                  Fetch questions from database, edit answers, and add to Lesson Library
+                <CardDescription className="flex items-center gap-2 flex-wrap">
+                  <span>Topic: {displayTopicName}</span>
+                  {effectiveFetchMode === 'dual' && selectedTopicName !== displayTopicName && (
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-300 text-xs">
+                      Adding to batch topic: {selectedTopicName}
+                    </Badge>
+                  )}
+                  {effectiveFetchMode === 'dual' && (
+                    <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-300">
+                      Showing Both: Batch + Centralized Questions
+                    </Badge>
+                  )}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -1136,7 +1152,7 @@ export const SmartQuestionExtractorNew = ({
                   </Badge>
                 )}
                 <Badge variant="outline">{totalCount} Total</Badge>
-                {fetchMode === 'dual' && (
+                {effectiveFetchMode === 'dual' && (
                   <>
                     <Badge className="bg-blue-500 text-white">{batchQuestionCount} Batch</Badge>
                     <Badge className="bg-purple-500 text-white">{centralQuestionCount} Central</Badge>

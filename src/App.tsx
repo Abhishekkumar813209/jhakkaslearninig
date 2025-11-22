@@ -41,7 +41,7 @@ import LegacyTestResultsRedirect from "@/components/student/LegacyTestResultsRed
 import DatabaseExplorer from "./pages/DatabaseExplorer";
 import { EdgeFunctionExplorer } from "./components/admin/EdgeFunctionExplorer";
 import TestAnalyticsHistory from "./pages/TestAnalyticsHistory";
-import TestQuestionReview from "./pages/TestQuestionReview";
+import TestQuestionReviewNew from "./pages/TestQuestionReviewNew";
 
 // Lazy load heavy admin pages to prevent them from affecting public routes
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -164,7 +164,7 @@ const App = () => (
             {/* Question-by-question review by attempt ID */}
             <Route path="/test/review/:attemptId" element={
               <ProtectedRoute>
-                <TestQuestionReview />
+                <TestQuestionReviewNew />
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={

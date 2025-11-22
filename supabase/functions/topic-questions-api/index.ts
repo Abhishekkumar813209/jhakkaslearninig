@@ -575,35 +575,81 @@ serve(async (req) => {
           throw new Error('Missing topic_id');
         }
         console.log(`📚 Fetching BATCH-SPECIFIC questions for topic: ${topic_id}`);
+      } else if (mode === 'dual') {
+        if (!topic_id || !chapter_library_id || !centralized_topic_name) {
+          console.error('❌ Missing required parameters for dual mode');
+          throw new Error('Dual mode requires topic_id, chapter_library_id, and centralized_topic_name');
+        }
+        console.log(`📚 Fetching DUAL MODE questions - Batch topic: ${topic_id}, Centralized: ${chapter_library_id}/${centralized_topic_name}`);
       }
 
-      // Build query based on mode
-      let query = serviceClient
-        .from('question_bank')
-        .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name');
+      let questions: any[] = [];
 
-      if (mode === 'centralized') {
-        // Centralized mode: filter by chapter_library_id + centralized_topic_name
-        query = query
-          .eq('is_centralized', true)
-          .eq('chapter_library_id', chapter_library_id)
-          .eq('centralized_topic_name', centralized_topic_name);
-      } else if (mode === 'batch') {
-        // Batch-specific mode: filter by topic_id
-        query = query.eq('topic_id', topic_id);
+      if (mode === 'dual') {
+        // Dual mode: fetch both batch-specific and centralized questions in parallel
+        const [batchResult, centralizedResult] = await Promise.all([
+          serviceClient
+            .from('question_bank')
+            .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name')
+            .eq('topic_id', topic_id)
+            .order('created_at', { ascending: false }),
+          serviceClient
+            .from('question_bank')
+            .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name')
+            .eq('is_centralized', true)
+            .eq('chapter_library_id', chapter_library_id)
+            .eq('centralized_topic_name', centralized_topic_name)
+            .order('created_at', { ascending: false })
+        ]);
+
+        if (batchResult.error) {
+          console.error('❌ Batch query error:', batchResult.error);
+          throw batchResult.error;
+        }
+        if (centralizedResult.error) {
+          console.error('❌ Centralized query error:', centralizedResult.error);
+          throw centralizedResult.error;
+        }
+
+        // Tag batch questions with source
+        const batchQuestions = (batchResult.data || []).map(q => ({ ...q, source: 'batch-specific' }));
+        // Tag centralized questions with source
+        const centralizedQuestions = (centralizedResult.data || []).map(q => ({ ...q, source: 'centralized' }));
+
+        // Merge results (batch first, then centralized)
+        questions = [...batchQuestions, ...centralizedQuestions];
+
+        console.log(`✅ Dual mode: Found ${batchQuestions.length} batch-specific + ${centralizedQuestions.length} centralized = ${questions.length} total`);
+      } else {
+        // Single mode: build query based on mode
+        let query = serviceClient
+          .from('question_bank')
+          .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name');
+
+        if (mode === 'centralized') {
+          // Centralized mode: filter by chapter_library_id + centralized_topic_name
+          query = query
+            .eq('is_centralized', true)
+            .eq('chapter_library_id', chapter_library_id)
+            .eq('centralized_topic_name', centralized_topic_name);
+        } else if (mode === 'batch') {
+          // Batch-specific mode: filter by topic_id
+          query = query.eq('topic_id', topic_id);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ Database error:', error);
+          throw error;
+        }
+
+        questions = data || [];
+        console.log(`✅ Found ${questions.length} questions in question_bank (mode: ${mode})`);
       }
-
-      const { data: questions, error } = await query.order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ Database error:', error);
-        throw error;
-      }
-
-      console.log(`✅ Found ${questions?.length || 0} questions in question_bank (mode: ${mode})`);
 
       // Return JSONB data as-is for frontend to parse
-      const normalized = (questions || []).map(q => ({
+      const normalized = questions.map(q => ({
         id: q.id,
         question_type: q.question_type || 'mcq',
         question_data: q.question_data || {},
@@ -616,7 +662,8 @@ serve(async (req) => {
         created_at: q.created_at,
         is_centralized: q.is_centralized,
         chapter_library_id: q.chapter_library_id,
-        centralized_topic_name: q.centralized_topic_name
+        centralized_topic_name: q.centralized_topic_name,
+        source: q.source // Include source tag for dual mode
       }));
 
       return new Response(

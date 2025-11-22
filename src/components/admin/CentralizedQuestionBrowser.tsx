@@ -139,21 +139,30 @@ export const CentralizedQuestionBrowser = ({
         console.error('Error fetching existing assignments:', err);
       }
 
-      // Fetch centralized questions
-      // @ts-ignore - Bypass TS depth limit on Supabase query chains
-      const { data: questionsData, error } = await supabase
-        .from('question_bank')
-        .select('id, question_text, question_type, question_data, difficulty, marks')
-        .eq('chapter_library_id', chapterLibrary.id)
-        .eq('centralized_topic_name', topicName)
-        .eq('is_centralized', true)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+      // Fetch centralized questions via edge function (bypasses RLS)
+      const { data, error } = await supabase.functions.invoke('topic-questions-api', {
+        body: {
+          action: 'get_topic_questions',
+          is_centralized: true,
+          chapter_library_id: chapterLibrary.id,
+          centralized_topic_name: topicName
+        }
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
+      }
 
-      const questionsWithStatus: CentralizedQuestion[] = (questionsData || []).map(q => ({
-        ...q,
+      const questionsData = data?.questions || [];
+
+      const questionsWithStatus: CentralizedQuestion[] = questionsData.map((q: any) => ({
+        id: q.id,
+        question_text: q.question_text,
+        question_type: q.question_type,
+        question_data: q.question_data,
+        difficulty: q.difficulty || 'medium',
+        marks: q.marks || 1,
         already_added: existingIds.has(q.id)
       }));
 

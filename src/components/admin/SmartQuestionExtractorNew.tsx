@@ -1114,6 +1114,18 @@ export const SmartQuestionExtractorNew = ({
   const selectedCount = selectedIds.size;
   const reviewedCount = questions.filter(q => q.admin_reviewed && validateAnswer(q)).length;
 
+  // 🐛 DEBUG: Log props to verify batch assignment config
+  useEffect(() => {
+    console.log('🔍 SmartQuestionExtractorNew Debug:', {
+      enableBatchAssignment,
+      fetchMode,
+      effectiveFetchMode,
+      selectedCount,
+      centralizedTopicName,
+      mode
+    });
+  }, [enableBatchAssignment, fetchMode, selectedCount, centralizedTopicName, mode]);
+
   return (
     <div className="space-y-4">
       {!selectedTopic && (
@@ -1192,7 +1204,7 @@ export const SmartQuestionExtractorNew = ({
             <div className="flex flex-wrap gap-2">
               {selectedCount > 0 && (
                 <>
-                  {enableBatchAssignment && effectiveFetchMode === 'dual' && (
+                  {enableBatchAssignment && (
                     <Button 
                       onClick={async () => {
                         const centralizedQuestionIds = questions

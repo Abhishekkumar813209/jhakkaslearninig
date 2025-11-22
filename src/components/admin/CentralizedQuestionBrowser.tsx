@@ -44,6 +44,46 @@ export const CentralizedQuestionBrowser = ({
   const [chapterLibrary, setChapterLibrary] = useState<ChapterLibrary | null>(null);
   const [selectedTopicName, setSelectedTopicName] = useState<string>('');
 
+  const handleAssignToBatch = async (questionIds: string[]) => {
+    try {
+      setLoading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { data, error } = await supabase
+        .from('batch_question_assignments')
+        .insert(
+          questionIds.map(qId => ({
+            batch_id: batchId,
+            roadmap_topic_id: roadmapTopicId,
+            question_id: qId,
+            chapter_library_id: chapterLibrary!.id,
+            assigned_by: user.id,
+            is_active: true
+          }))
+        );
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Questions Assigned",
+        description: `${questionIds.length} centralized question(s) added to "${roadmapTopicName}"`,
+      });
+      
+      onQuestionsAdded();
+    } catch (error: any) {
+      console.error('Assignment error:', error);
+      toast({
+        title: "Assignment Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMatchingChapterLibrary();
   }, [examDomain, board, classLevel, subject, chapterName]);
@@ -196,6 +236,8 @@ export const CentralizedQuestionBrowser = ({
             selectedTopicName={roadmapTopicName}
             selectedBatch={batchId}
             selectedExamDomain={examDomain}
+            enableBatchAssignment={true}
+            onAssignToBatch={handleAssignToBatch}
             onQuestionsAdded={() => {
               onQuestionsAdded();
               toast({

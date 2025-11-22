@@ -94,20 +94,15 @@ const TestQuestionReview: React.FC = () => {
           student_answer,
           is_correct,
           marks_awarded,
-          questions (
+          questions!inner (
             id,
             question_text,
             question_type,
             marks,
             explanation,
             tags,
-            subject,
-            topic,
-            options (
-              option_text,
-              is_correct,
-              order_num
-            )
+            difficulty,
+            options
           )
         `)
         .eq('attempt_id', attemptId)
@@ -132,19 +127,39 @@ const TestQuestionReview: React.FC = () => {
           correctCount: 0,
           wrongCount: 0,
           correctPercentage: 0,
-          difficultyLevel: 'Medium'
+          difficultyLevel: q.difficulty || 'Medium'
         };
+
+        // Parse options from JSONB field
+        let parsedOptions = [];
+        try {
+          if (Array.isArray(q.options)) {
+            parsedOptions = q.options;
+          } else if (typeof q.options === 'string') {
+            parsedOptions = JSON.parse(q.options);
+          }
+        } catch (e) {
+          console.error('Error parsing options:', e);
+          parsedOptions = [];
+        }
+
+        // Map options to expected format
+        const formattedOptions = parsedOptions.map((opt: any, idx: number) => ({
+          text: opt.text || opt.option_text || opt,
+          isCorrect: opt.is_correct || false,
+          orderNum: opt.order_num || opt.orderNum || idx
+        })).sort((a: any, b: any) => a.orderNum - b.orderNum);
 
         return {
           questionId: q.id,
           questionText: q.question_text,
           questionType: q.question_type,
           marks: q.marks,
-          options: (q.options || []).sort((a: any, b: any) => a.order_num - b.order_num),
+          options: formattedOptions,
           explanation: q.explanation,
-          tags: q.tags,
-          subject: q.subject,
-          topic: q.topic,
+          tags: q.tags || [],
+          subject: (attempt.tests as any)?.subject || '', // Get from test, not question
+          topic: q.tags?.[0] || '', // Use first tag as topic fallback
           
           studentAnswer: answer.student_answer,
           isStudentCorrect: answer.is_correct,

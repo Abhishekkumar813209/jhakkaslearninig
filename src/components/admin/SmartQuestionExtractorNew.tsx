@@ -73,6 +73,10 @@ interface SmartQuestionExtractorNewProps {
   // Dual mode context
   fetchMode?: 'batch' | 'centralized' | 'dual';
   
+  // Batch assignment feature
+  enableBatchAssignment?: boolean;
+  onAssignToBatch?: (questionIds: string[]) => Promise<void>;
+  
   onQuestionsAdded?: (questions: ExtractedQuestion[]) => void;
 }
 
@@ -139,6 +143,8 @@ export const SmartQuestionExtractorNew = ({
   fetchMode,
   chapterLibraryId,
   centralizedTopicName,
+  enableBatchAssignment = false,
+  onAssignToBatch,
   onQuestionsAdded
 }: SmartQuestionExtractorNewProps) => {
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
@@ -1186,26 +1192,64 @@ export const SmartQuestionExtractorNew = ({
             <div className="flex flex-wrap gap-2">
               {selectedCount > 0 && (
                 <>
-                  <Button 
-                    onClick={handleAddToLessonLibrary} 
-                    disabled={loading}
-                    variant="default"
-                  >
-                    <Library className="mr-2 h-4 w-4" />
-                    Add to Lesson Library ({selectedCount})
-                  </Button>
+                  {enableBatchAssignment && effectiveFetchMode === 'dual' && (
+                    <Button 
+                      onClick={async () => {
+                        const centralizedQuestionIds = questions
+                          .filter(q => 
+                            q.id && 
+                            selectedIds.has(q.id) && 
+                            (q as any)._source === 'centralized'
+                          )
+                          .map(q => q.id!);
+                        
+                        if (centralizedQuestionIds.length === 0) {
+                          toast.error("Please select at least one centralized question");
+                          return;
+                        }
+                        
+                        if (onAssignToBatch) {
+                          await onAssignToBatch(centralizedQuestionIds);
+                          setSelectedIds(new Set());
+                        }
+                      }}
+                      disabled={loading}
+                      variant="default"
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Add to Batch Topic ({questions.filter(q => 
+                        q.id && 
+                        selectedIds.has(q.id) && 
+                        (q as any)._source === 'centralized'
+                      ).length})
+                    </Button>
+                  )}
                   
-                  <Button 
-                    onClick={() => {
-                      setShowMoveDialog(true);
-                      fetchAvailableTopics();
-                    }} 
-                    disabled={loading}
-                    variant="outline"
-                  >
-                    <ArrowRight className="mr-2 h-4 w-4" />
-                    Move to Topic ({selectedCount})
-                  </Button>
+                  {!enableBatchAssignment && (
+                    <>
+                      <Button 
+                        onClick={handleAddToLessonLibrary} 
+                        disabled={loading}
+                        variant="default"
+                      >
+                        <Library className="mr-2 h-4 w-4" />
+                        Add to Lesson Library ({selectedCount})
+                      </Button>
+                      
+                      <Button 
+                        onClick={() => {
+                          setShowMoveDialog(true);
+                          fetchAvailableTopics();
+                        }} 
+                        disabled={loading}
+                        variant="outline"
+                      >
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                        Move to Topic ({selectedCount})
+                      </Button>
+                    </>
+                  )}
                 </>
               )}
 
@@ -1274,7 +1318,7 @@ export const SmartQuestionExtractorNew = ({
                 {filteredQuestions.filter(q => q.id).length > 0 && (
                   <>
                     <Button variant="outline" size="sm" onClick={selectAll}>
-                      Select All ({filteredQuestions.filter(q => q.id && !publishedQuestionIds.has(q.id)).length})
+                      Select All ({filteredQuestions.filter(q => q.id && !publishedQuestionIds.has(q.id) && !(enableBatchAssignment && (q as any)._source === 'batch')).length})
                     </Button>
                     {selectedCount > 0 && (
                       <Button variant="outline" size="sm" onClick={clearSelection}>
@@ -1282,6 +1326,21 @@ export const SmartQuestionExtractorNew = ({
                       </Button>
                     )}
                   </>
+                )}
+
+                {enableBatchAssignment && effectiveFetchMode === 'dual' && selectedCount > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      Batch: {questions.filter(q => 
+                        q.id && selectedIds.has(q.id) && (q as any)._source === 'batch'
+                      ).length}
+                    </Badge>
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                      Centralized: {questions.filter(q => 
+                        q.id && selectedIds.has(q.id) && (q as any)._source === 'centralized'
+                      ).length}
+                    </Badge>
+                  </div>
                 )}
 
                 <div className="text-sm text-muted-foreground">
@@ -1371,7 +1430,10 @@ export const SmartQuestionExtractorNew = ({
                             {q.id && (
                               <Checkbox
                                 checked={selectedIds.has(q.id)}
-                                disabled={publishedQuestionIds.has(q.id)}
+                                disabled={
+                                  publishedQuestionIds.has(q.id) || 
+                                  (enableBatchAssignment && (q as any)._source === 'batch')
+                                }
                                 onCheckedChange={() => toggleSelection(q.id)}
                                 onClick={(e) => e.stopPropagation()}
                               />

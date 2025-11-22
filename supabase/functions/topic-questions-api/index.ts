@@ -557,16 +557,19 @@ serve(async (req) => {
 
     // ========== get_topic_questions: Load all questions from question_bank for a topic ==========
     if (action === 'get_topic_questions') {
-      const { topic_id, is_centralized, chapter_library_id, centralized_topic_name } = body;
+      const { topic_id, is_centralized, chapter_library_id, centralized_topic_name, fetch_mode } = body;
+      
+      // Determine mode: explicit fetch_mode OR legacy is_centralized flag
+      const mode = fetch_mode || (is_centralized ? 'centralized' : 'batch');
       
       // Validate parameters based on mode
-      if (is_centralized) {
+      if (mode === 'centralized') {
         if (!chapter_library_id || !centralized_topic_name) {
           console.error('❌ Missing chapter_library_id or centralized_topic_name for centralized mode');
           throw new Error('Missing required parameters for centralized question fetch');
         }
         console.log(`📚 Fetching CENTRALIZED questions for chapter: ${chapter_library_id}, topic: ${centralized_topic_name}`);
-      } else {
+      } else if (mode === 'batch') {
         if (!topic_id) {
           console.error('❌ Missing topic_id for batch-specific mode');
           throw new Error('Missing topic_id');
@@ -579,13 +582,13 @@ serve(async (req) => {
         .from('question_bank')
         .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name');
 
-      if (is_centralized) {
+      if (mode === 'centralized') {
         // Centralized mode: filter by chapter_library_id + centralized_topic_name
         query = query
           .eq('is_centralized', true)
           .eq('chapter_library_id', chapter_library_id)
           .eq('centralized_topic_name', centralized_topic_name);
-      } else {
+      } else if (mode === 'batch') {
         // Batch-specific mode: filter by topic_id
         query = query.eq('topic_id', topic_id);
       }
@@ -597,7 +600,7 @@ serve(async (req) => {
         throw error;
       }
 
-      console.log(`✅ Found ${questions?.length || 0} questions in question_bank (centralized: ${is_centralized})`);
+      console.log(`✅ Found ${questions?.length || 0} questions in question_bank (mode: ${mode})`);
 
       // Return JSONB data as-is for frontend to parse
       const normalized = (questions || []).map(q => ({

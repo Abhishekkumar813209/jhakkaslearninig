@@ -64,11 +64,14 @@ interface SmartQuestionExtractorNewProps {
   selectedExamName?: string;
   
   // Centralized mode (new)
-  mode?: 'batch' | 'centralized';
+  mode?: 'batch' | 'centralized' | 'dual';
   chapterLibraryId?: string;
   centralizedTopicName?: string;
   applicableClasses?: string[];
   applicableExams?: string[];
+  
+  // Dual mode context
+  fetchMode?: 'batch' | 'centralized' | 'dual';
   
   onQuestionsAdded?: (questions: ExtractedQuestion[]) => void;
 }
@@ -132,10 +135,18 @@ export const SmartQuestionExtractorNew = ({
   selectedRoadmap,
   selectedExamDomain,
   selectedExamName,
+  mode = 'batch',
+  fetchMode = 'batch',
+  chapterLibraryId,
+  centralizedTopicName,
   onQuestionsAdded
 }: SmartQuestionExtractorNewProps) => {
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Source tracking for dual mode
+  const [batchQuestionCount, setBatchQuestionCount] = useState(0);
+  const [centralQuestionCount, setCentralQuestionCount] = useState(0);
   const [extracting, setExtracting] = useState(false);
   const navigate = useNavigate();
   
@@ -216,17 +227,65 @@ export const SmartQuestionExtractorNew = ({
   }, [selectedIds, selectedTopic]);
 
   const loadTopicQuestions = async () => {
-    if (!selectedTopic) return;
+    if (!selectedTopic && fetchMode !== 'centralized') return;
     
     setLoading(true);
     try {
-      const data = await invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
-        name: 'topic-questions-api',
-        body: { action: 'get_topic_questions', topic_id: selectedTopic }
-      });
+      let allQuestions: ExtractedQuestion[] = [];
+      
+      // Dual mode: Fetch BOTH batch-specific AND centralized questions
+      if (fetchMode === 'dual') {
+        // Parallel fetch for performance
+        const [batchData, centralData] = await Promise.all([
+          // Fetch batch-specific questions
+          invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
+            name: 'topic-questions-api',
+            body: { action: 'get_topic_questions', topic_id: selectedTopic, fetch_mode: 'batch' }
+          }),
+          // Fetch centralized questions
+          invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
+            name: 'topic-questions-api',
+            body: { 
+              action: 'get_topic_questions', 
+              chapter_library_id: chapterLibraryId,
+              centralized_topic_name: centralizedTopicName,
+              fetch_mode: 'centralized'
+            }
+          })
+        ]);
+        
+        // Merge results with source tagging
+        const batchQuestions = (batchData.success ? batchData.questions : []).map(q => ({ ...q, _source: 'batch' }));
+        const centralQuestions = (centralData.success ? centralData.questions : []).map(q => ({ ...q, _source: 'centralized' }));
+        
+        allQuestions = [...batchQuestions, ...centralQuestions];
+        setBatchQuestionCount(batchQuestions.length);
+        setCentralQuestionCount(centralQuestions.length);
+        
+        console.log(`✅ Dual-mode fetch: ${batchQuestions.length} batch + ${centralQuestions.length} central = ${allQuestions.length} total`);
+      } else {
+        // Single mode: Fetch only one type
+        const body: any = { action: 'get_topic_questions', fetch_mode: fetchMode };
+        
+        if (fetchMode === 'batch') {
+          body.topic_id = selectedTopic;
+        } else if (fetchMode === 'centralized') {
+          body.chapter_library_id = chapterLibraryId;
+          body.centralized_topic_name = centralizedTopicName;
+        }
+        
+        const data = await invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
+          name: 'topic-questions-api',
+          body
+        });
+        
+        if (data.success) {
+          allQuestions = (data.questions || []).map(q => ({ ...q, _source: fetchMode }));
+        }
+      }
 
-      if (data.success) {
-        const rawQuestions = data.questions || [];
+      if (allQuestions.length > 0) {
+        const rawQuestions = allQuestions;
         
         // ✅ Parse JSONB into legacy format for admin UI
         const normalizedQuestions = rawQuestions.map(q => {
@@ -1062,6 +1121,12 @@ export const SmartQuestionExtractorNew = ({
                   </Badge>
                 )}
                 <Badge variant="outline">{totalCount} Total</Badge>
+                {fetchMode === 'dual' && (
+                  <>
+                    <Badge className="bg-blue-500 text-white">{batchQuestionCount} Batch</Badge>
+                    <Badge className="bg-purple-500 text-white">{centralQuestionCount} Central</Badge>
+                  </>
+                )}
                 {publishedQuestionIds.size > 0 && (
                   <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                     {publishedQuestionIds.size} Published
@@ -1283,9 +1348,16 @@ export const SmartQuestionExtractorNew = ({
                             <Badge className={`${getTypeColor(q.question_type)} text-xs font-semibold px-3 py-1`}>
                               {getTypeLabel(q.question_type)}
                             </Badge>
-                            <Badge className="bg-orange-500 text-white text-xs px-3 py-1">
-                              medium confidence
-                            </Badge>
+                            {(q as any)._source === 'batch' && fetchMode === 'dual' && (
+                              <Badge className="bg-blue-500 text-white text-xs px-3 py-1">
+                                Batch-Specific
+                              </Badge>
+                            )}
+                            {(q as any)._source === 'centralized' && fetchMode === 'dual' && (
+                              <Badge className="bg-purple-500 text-white text-xs px-3 py-1">
+                                Centralized Bank
+                              </Badge>
+                            )}
                             {q.difficulty && (
                               <Badge 
                                 variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}

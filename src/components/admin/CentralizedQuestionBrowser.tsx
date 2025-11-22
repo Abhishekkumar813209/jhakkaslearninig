@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, BookOpen, CheckCircle2 } from "lucide-react";
+import { Loader2, BookOpen, CheckCircle2, Edit, Eye } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QuestionAnswerInput } from "./QuestionAnswerInput";
 
 interface CentralizedQuestionBrowserProps {
   examDomain: string;
@@ -34,6 +36,8 @@ interface CentralizedQuestion {
   question_text: string;
   question_type: string;
   question_data: any;
+  correct_answer: any;
+  options?: any;
   difficulty: string;
   marks: number;
   already_added: boolean;
@@ -62,6 +66,11 @@ export const CentralizedQuestionBrowser = ({
   // Filters
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  // Edit/Preview modals
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<any>(null);
 
   useEffect(() => {
     fetchMatchingChapterLibrary();
@@ -161,6 +170,8 @@ export const CentralizedQuestionBrowser = ({
         question_text: q.question_text,
         question_type: q.question_type,
         question_data: q.question_data,
+        correct_answer: q.correct_answer,
+        options: q.options,
         difficulty: q.difficulty || 'medium',
         marks: q.marks || 1,
         already_added: existingIds.has(q.id)
@@ -244,6 +255,56 @@ export const CentralizedQuestionBrowser = ({
       });
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleEditQuestion = (question: CentralizedQuestion) => {
+    setEditingQuestionId(question.id);
+    setEditFormData({
+      question_text: question.question_text || question.question_data?.text || '',
+      question_type: question.question_type,
+      correct_answer: question.correct_answer,
+      options: question.options,
+      difficulty: question.difficulty,
+      marks: question.marks,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingQuestionId || !editFormData) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('topic-questions-api', {
+        body: {
+          action: 'update_question',
+          question_id: editingQuestionId,
+          updates: {
+            question_text: editFormData.question_text,
+            correct_answer: editFormData.correct_answer,
+            options: editFormData.options,
+            difficulty: editFormData.difficulty,
+            marks: editFormData.marks,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Question Updated",
+        description: "Changes saved successfully"
+      });
+      
+      setEditingQuestionId(null);
+      setEditFormData(null);
+      fetchQuestionsForTopic(selectedTopicName);
+    } catch (error: any) {
+      console.error('Error updating question:', error);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to update question',
+        variant: "destructive"
+      });
     }
   };
 
@@ -397,54 +458,98 @@ export const CentralizedQuestionBrowser = ({
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto p-1">
-                  {filteredQuestions.map((q) => (
+                  {filteredQuestions.map((q, index) => (
                     <Card
                       key={q.id}
-                      className={`p-4 cursor-pointer transition-all ${
+                      className={`transition-all ${
                         q.already_added
-                          ? 'opacity-60 bg-muted/50 cursor-not-allowed'
+                          ? 'opacity-60 bg-muted/50'
                           : selectedQuestionIds.has(q.id)
                           ? 'border-primary border-2 bg-primary/5 shadow-sm'
-                          : 'hover:border-primary/50 hover:scale-[1.02] hover:shadow-md'
+                          : 'hover:border-primary/50 hover:shadow-md'
                       }`}
-                      onClick={() => handleToggleQuestion(q.id, q.already_added)}
                     >
-                      <div className="space-y-3">
-                        {/* Checkbox header */}
-                        <div className="flex items-center justify-between">
-                          <Checkbox
-                            checked={selectedQuestionIds.has(q.id)}
-                            disabled={q.already_added}
-                          />
-                          {q.already_added && (
-                            <Badge className="bg-green-600 text-white">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Added
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedQuestionIds.has(q.id)}
+                              disabled={q.already_added}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleQuestion(q.id, q.already_added);
+                              }}
+                            />
+                            <Badge variant="outline" className="text-xs font-semibold">
+                              Q{index + 1}
                             </Badge>
-                          )}
+                            <Badge variant="outline" className="text-xs">
+                              {q.question_type}
+                            </Badge>
+                            <Badge 
+                              variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {q.difficulty}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditQuestion(q);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewQuestionId(q.id);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-
+                      </CardHeader>
+                      <CardContent className="space-y-3">
                         {/* Question text */}
                         <p className="text-sm font-medium line-clamp-3 min-h-[60px]">
                           {q.question_text || q.question_data?.text || 'Untitled Question'}
                         </p>
 
-                        {/* Metadata badges */}
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {q.question_type}
-                          </Badge>
-                          <Badge 
-                            variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {q.difficulty}
-                          </Badge>
+                        {/* Show options preview for MCQ */}
+                        {q.question_type === 'mcq' && q.options && (
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            {Object.entries(q.options).slice(0, 2).map(([key, value]) => (
+                              <div key={key} className="line-clamp-1">• {String(value)}</div>
+                            ))}
+                            {Object.keys(q.options).length > 2 && (
+                              <div className="italic">+{Object.keys(q.options).length - 2} more options</div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Footer metadata */}
+                        <div className="flex items-center justify-between pt-2 border-t">
                           <Badge variant="secondary" className="text-xs">
                             {q.marks} mark{q.marks !== 1 ? 's' : ''}
                           </Badge>
+                          {q.already_added && (
+                            <Badge className="bg-green-600 text-white text-xs">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Added
+                            </Badge>
+                          )}
                         </div>
-                      </div>
+                      </CardContent>
                     </Card>
                   ))}
                 </div>
@@ -472,6 +577,132 @@ export const CentralizedQuestionBrowser = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingQuestionId} onOpenChange={() => {
+        setEditingQuestionId(null);
+        setEditFormData(null);
+      }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Question</DialogTitle>
+          </DialogHeader>
+          {editFormData && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Question Text</label>
+                <textarea
+                  className="w-full mt-1 p-2 border rounded-md min-h-[100px]"
+                  value={editFormData.question_text}
+                  onChange={(e) => setEditFormData({ ...editFormData, question_text: e.target.value })}
+                />
+              </div>
+              
+              <QuestionAnswerInput
+                questionType={editFormData.question_type}
+                options={editFormData.options}
+                currentAnswer={editFormData.correct_answer}
+                onChange={(answer) => setEditFormData({ ...editFormData, correct_answer: answer })}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Difficulty</label>
+                  <select
+                    className="w-full mt-1 p-2 border rounded-md"
+                    value={editFormData.difficulty}
+                    onChange={(e) => setEditFormData({ ...editFormData, difficulty: e.target.value })}
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Marks</label>
+                  <input
+                    type="number"
+                    className="w-full mt-1 p-2 border rounded-md"
+                    value={editFormData.marks}
+                    onChange={(e) => setEditFormData({ ...editFormData, marks: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => {
+                  setEditingQuestionId(null);
+                  setEditFormData(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit}>Save Changes</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewQuestionId} onOpenChange={() => setPreviewQuestionId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Question Preview</DialogTitle>
+          </DialogHeader>
+          {previewQuestionId && (() => {
+            const question = questions.find(q => q.id === previewQuestionId);
+            if (!question) return null;
+            
+            return (
+              <div className="space-y-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="font-medium mb-4">
+                    {question.question_text || question.question_data?.text}
+                  </p>
+                  
+                  {question.question_type === 'mcq' && question.options && (
+                    <div className="space-y-2">
+                      {Object.entries(question.options).map(([key, value]) => (
+                        <div
+                          key={key}
+                          className={`p-3 border rounded-md ${
+                            question.correct_answer === key ? 'bg-green-100 border-green-500' : 'bg-background'
+                          }`}
+                        >
+                          <span className="font-medium mr-2">{key}.</span> {String(value)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {question.question_type === 'true_false' && (
+                    <div className="space-y-2">
+                      <div className={`p-3 border rounded-md ${
+                        question.correct_answer === 'true' || question.correct_answer === true ? 'bg-green-100 border-green-500' : 'bg-background'
+                      }`}>
+                        True
+                      </div>
+                      <div className={`p-3 border rounded-md ${
+                        question.correct_answer === 'false' || question.correct_answer === false ? 'bg-green-100 border-green-500' : 'bg-background'
+                      }`}>
+                        False
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <Badge variant={question.difficulty === 'hard' ? 'destructive' : question.difficulty === 'medium' ? 'default' : 'secondary'}>
+                    {question.difficulty}
+                  </Badge>
+                  <span>Marks: {question.marks}</span>
+                  <span>Type: {question.question_type}</span>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

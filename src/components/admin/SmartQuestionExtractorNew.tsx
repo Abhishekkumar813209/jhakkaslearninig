@@ -1328,7 +1328,7 @@ export const SmartQuestionExtractorNew = ({
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredQuestions.map((q, idx) => {
                   const getTypeColor = (type: string) => {
                     switch(type) {
@@ -1357,14 +1357,14 @@ export const SmartQuestionExtractorNew = ({
                     <Card 
                       key={q.id || idx}
                       className={cn(
-                        "relative transition-all",
+                        "relative transition-all h-full flex flex-col",
                         q.id && publishedQuestionIds.has(q.id) 
                           ? "opacity-60 cursor-not-allowed bg-muted/50" 
                           : "",
                         q.id && selectedIds.has(q.id) && "ring-2 ring-primary"
                       )}
                     >
-                      <CardContent className="p-6 space-y-4">
+                      <CardContent className="p-4 space-y-3 flex-1">
                         {/* Top Section: Checkbox, Badges, Delete */}
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-2 flex-wrap">

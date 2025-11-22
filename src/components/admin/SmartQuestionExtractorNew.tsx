@@ -1233,446 +1233,229 @@ export const SmartQuestionExtractorNew = ({
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredQuestions.map((q, idx) => (
-                  <Card 
-                    key={q.id || idx}
-                    className={cn(
-                      "relative transition-all",
-                      q.id && publishedQuestionIds.has(q.id) 
-                        ? "opacity-60 cursor-not-allowed bg-muted/50" 
-                        : "cursor-pointer hover:shadow-md",
-                      q.id && selectedIds.has(q.id) && "ring-2 ring-primary"
-                    )}
-                    onClick={() => {
-                      if (q.id && !publishedQuestionIds.has(q.id)) {
-                        toggleSelection(q.id);
-                      }
-                    }}
-                  >
-                    <CardHeader className="p-4 pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          {q.id && (
-                            <Checkbox
-                              checked={selectedIds.has(q.id)}
-                              disabled={publishedQuestionIds.has(q.id)}
-                              onCheckedChange={() => toggleSelection(q.id)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          )}
-                          <div className="flex flex-wrap gap-1">
-                            <Badge variant="secondary" className="text-xs">
-                              Q{idx + 1}
-                            </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      {normalizeGameTypeForDisplay(q.question_type)}
-                    </Badge>
-                            {q.id && publishedQuestionIds.has(q.id) && (
-                              <Badge className="text-xs bg-green-600 hover:bg-green-600 text-white shadow-md">
-                                ✓ Already Added
-                              </Badge>
+                {filteredQuestions.map((q, idx) => {
+                  const getTypeColor = (type: string) => {
+                    switch(type) {
+                      case 'short_answer': return 'bg-pink-500 text-white';
+                      case 'true_false': return 'bg-yellow-500 text-white';
+                      case 'mcq': return 'bg-blue-500 text-white';
+                      case 'match_pair': case 'match_column': return 'bg-purple-500 text-white';
+                      case 'fill_blank': return 'bg-green-500 text-white';
+                      default: return 'bg-gray-500 text-white';
+                    }
+                  };
+
+                  const getTypeLabel = (type: string) => {
+                    switch(type) {
+                      case 'short_answer': return 'Short Answer';
+                      case 'true_false': return 'True/False';
+                      case 'mcq': return 'MCQ';
+                      case 'match_pair': return 'Match Pair';
+                      case 'match_column': return 'Match Column';
+                      case 'fill_blank': return 'Fill in the Blanks';
+                      default: return normalizeGameTypeForDisplay(type);
+                    }
+                  };
+
+                  return (
+                    <Card 
+                      key={q.id || idx}
+                      className={cn(
+                        "relative transition-all",
+                        q.id && publishedQuestionIds.has(q.id) 
+                          ? "opacity-60 cursor-not-allowed bg-muted/50" 
+                          : "",
+                        q.id && selectedIds.has(q.id) && "ring-2 ring-primary"
+                      )}
+                    >
+                      <CardContent className="p-6 space-y-4">
+                        {/* Top Section: Checkbox, Badges, Delete */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {q.id && (
+                              <Checkbox
+                                checked={selectedIds.has(q.id)}
+                                disabled={publishedQuestionIds.has(q.id)}
+                                onCheckedChange={() => toggleSelection(q.id)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
                             )}
+                            <Badge className={`${getTypeColor(q.question_type)} text-xs font-semibold px-3 py-1`}>
+                              {getTypeLabel(q.question_type)}
+                            </Badge>
+                            <Badge className="bg-orange-500 text-white text-xs px-3 py-1">
+                              medium confidence
+                            </Badge>
                             {q.difficulty && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge 
+                                variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}
+                                className="text-xs px-3 py-1"
+                              >
                                 {q.difficulty}
                               </Badge>
                             )}
-                            {q.marks && (
-                              <Badge variant="outline" className="text-xs">
-                                {q.marks}m
+                            {q.id && publishedQuestionIds.has(q.id) && (
+                              <Badge className="bg-green-600 text-white text-xs px-3 py-1">
+                                ✓ Already Added
                               </Badge>
                             )}
                           </div>
-                        </div>
-                        <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditQuestion(q);
-                            }}
-                            title="Edit Question"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePreviewQuestion(q);
-                            }}
-                            title="Preview Question"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (cropPdfFile) {
-                                // PDF available - open crop modal
-                                handleOpenCropModal(q);
-                              } else {
-                                // No PDF - prompt upload
-                                setCropQuestion(q);
-                                setShowUploadDialog(true);
-                                toast.info("Please upload the PDF containing this question");
-                              }
-                            }}
-                            title={cropPdfFile ? "Fix via Crop" : "Upload PDF to Crop"}
-                          >
-                            <Crop className="h-3 w-3" />
-                            {!cropPdfFile && <Upload className="h-3 w-3 ml-1" />}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
+                            className="h-8 w-8 p-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               q.id && handleDeleteQuestion(q.id);
                             }}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </div>
-                    </CardHeader>
 
-                    <CardContent className="p-4 pt-2 space-y-3">
-                      {/* Question Text */}
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">
-                          {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 0 
-                            ? `Sub-Question (1 of ${q.correct_answer.sub_questions.length})` 
-                            : q.question_type === 'match_pair' && q.correct_answer?.pairs?.length > 0
-                            ? `First Pair (1 of ${q.correct_answer.pairs.length})`
-                            : 'Question:'}
+                        {/* Question Metadata */}
+                        <div className="text-sm text-muted-foreground">
+                          Q{idx + 1} • {q.marks || 2} Marks | {q.marks || 2} XP
                         </div>
-                        {/* ✅ Match Pair: Plain text arrow (no renderWithImages to avoid "vector" artifacts) */}
-                        {q.question_type === 'match_pair' && q.correct_answer?.pairs?.[0] ? (
-                          <div className="text-sm bg-muted/30 p-3 rounded-md">
-                            {q.correct_answer.pairs[0].left} → {q.correct_answer.pairs[0].right}
-                          </div>
-                        ) : (
-                          <div 
-                            className="text-sm prose prose-sm max-w-none question-content bg-muted/30 p-3 rounded-md"
-                            dangerouslySetInnerHTML={{ 
-                              __html: renderWithImages(
-                                q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.[0]?.text
-                                  ? q.correct_answer.sub_questions[0].text
-                                  : q.question_text || 'No question text'
-                              ) 
-                            }}
-                          />
-                        )}
-                        {/* Multi-part badges */}
-                        {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 1 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {q.correct_answer.sub_questions.length} Sub-Questions
-                          </Badge>
-                        )}
-                        {q.question_type === 'match_pair' && q.correct_answer?.pairs?.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {q.correct_answer.pairs.length} Pairs
-                          </Badge>
-                        )}
-                      </div>
 
-                      {/* Multi-Statement True/False Preview */}
-                      {q.question_type === 'true_false' && q.correct_answer?.statements?.length > 0 && (
+                        {/* Question Text */}
                         <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Statements:</div>
-                          <div className="space-y-2">
-                            {q.correct_answer.statements.map((stmt: any, stmtIdx: number) => (
-                              <div key={stmtIdx} className="flex items-start gap-3 bg-muted/20 p-2 rounded">
-                                <Badge variant="outline" className="shrink-0 h-5 w-5 flex items-center justify-center p-0 text-xs font-mono">
-                                  {stmtIdx + 1}
-                                </Badge>
-                                <div 
-                                  className="flex-1 text-xs prose prose-xs max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text || '') }}
-                                />
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Switch
-                                    checked={stmt.answer === true}
-                                    disabled
-                                    className="data-[state=checked]:bg-blue-700 disabled:opacity-100"
-                                  />
-                                  <span className="text-xs font-medium w-10">
-                                    {stmt.answer ? 'True' : 'False'}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Options */}
-                      {q.options && q.options.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Options:</div>
-                          <div className="space-y-1.5">
-                            {q.options.map((opt, i) => (
-                              <div key={i} className="text-xs flex gap-2 items-start bg-muted/20 p-2 rounded">
-                                <span className="font-semibold shrink-0 text-primary">{String.fromCharCode(65 + i)}.</span>
-                                <span 
-                                  className="flex-1 prose prose-xs max-w-none" 
-                                  dangerouslySetInnerHTML={{ 
-                                    __html: renderWithImages(opt) 
-                                  }} 
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                       {/* Answer Input (always show for questions with IDs) */}
-                      {q.id && (() => {
-                        // Parse matching columns if missing
-                        if (q.question_type === 'match_column' && (!q.left_column || !q.right_column)) {
-                          const parseMatchingQuestion = (text: string) => {
-                            const columnIMatch = text.match(/Column I[:\s]*\n?([\s\S]*?)(?=Column II|$)/i);
-                            const columnIIMatch = text.match(/Column II[:\s]*\n?([\s\S]*?)$/i);
-                            
-                            const parseColumn = (colText: string) => {
-                              const items = [];
-                              const lines = colText.split('\n').filter(l => l.trim());
-                              for (const line of lines) {
-                                const match = line.match(/^\s*[A-Za-z0-9][\.\)]\s*(.+)/);
-                                if (match) items.push(match[1].trim());
-                              }
-                              return items;
-                            };
-                            
-                            return {
-                              leftColumn: columnIMatch ? parseColumn(columnIMatch[1]) : [],
-                              rightColumn: columnIIMatch ? parseColumn(columnIIMatch[1]) : []
-                            };
-                          };
-                          
-                          const { leftColumn, rightColumn } = parseMatchingQuestion(q.question_text);
-                          q.left_column = leftColumn;
-                          q.right_column = rightColumn;
-                        }
-                        
-                        // Inline Column Editor for match_column if columns still missing
-                        if (q.question_type === 'match_column' && (!q.left_column?.length || !q.right_column?.length)) {
-                          const currentEdit = editingColumns.get(q.id!) || { left: q.left_column || [''], right: q.right_column || [''] };
-                          
-                          return (
-                            <div onClick={(e) => e.stopPropagation()} className="space-y-3 border border-orange-500/50 rounded-lg p-3 bg-orange-50/50">
-                              <Alert className="py-2">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription className="text-xs">
-                                  Columns not detected. Add them manually below:
-                                </AlertDescription>
-                              </Alert>
-                              
-                              <div className="grid grid-cols-2 gap-3">
-                                {/* Left Column */}
-                                <div className="space-y-2">
-                                  <Label className="text-xs font-semibold">Column A (Left)</Label>
-                                  {currentEdit.left.map((item, idx) => (
-                                    <div key={idx} className="flex gap-1">
-                                      <Input
-                                        value={item}
-                                        onChange={(e) => {
-                                          const newEdit = { ...currentEdit };
-                                          newEdit.left[idx] = e.target.value;
-                                          setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
-                                        }}
-                                        placeholder={`Item ${idx + 1}`}
-                                        className="text-xs h-8"
-                                      />
-                                      {currentEdit.left.length > 1 && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 w-8 p-0"
-                                          onClick={() => {
-                                            const newEdit = { ...currentEdit };
-                                            newEdit.left = newEdit.left.filter((_, i) => i !== idx);
-                                            setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
-                                          }}
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full h-7 text-xs"
-                                    onClick={() => {
-                                      const newEdit = { ...currentEdit };
-                                      newEdit.left = [...newEdit.left, ''];
-                                      setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
-                                    }}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    Add Item
-                                  </Button>
-                                </div>
-                                
-                                {/* Right Column */}
-                                <div className="space-y-2">
-                                  <Label className="text-xs font-semibold">Column B (Right)</Label>
-                                  {currentEdit.right.map((item, idx) => (
-                                    <div key={idx} className="flex gap-1">
-                                      <Input
-                                        value={item}
-                                        onChange={(e) => {
-                                          const newEdit = { ...currentEdit };
-                                          newEdit.right[idx] = e.target.value;
-                                          setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
-                                        }}
-                                        placeholder={`Item ${idx + 1}`}
-                                        className="text-xs h-8"
-                                      />
-                                      {currentEdit.right.length > 1 && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 w-8 p-0"
-                                          onClick={() => {
-                                            const newEdit = { ...currentEdit };
-                                            newEdit.right = newEdit.right.filter((_, i) => i !== idx);
-                                            setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
-                                          }}
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full h-7 text-xs"
-                                    onClick={() => {
-                                      const newEdit = { ...currentEdit };
-                                      newEdit.right = [...newEdit.right, ''];
-                                      setEditingColumns(new Map(editingColumns).set(q.id!, newEdit));
-                                    }}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    Add Item
-                                  </Button>
-                                </div>
-                              </div>
-                              
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="w-full"
-                                onClick={() => {
-                                  const validLeft = currentEdit.left.filter(i => i.trim().length > 0);
-                                  const validRight = currentEdit.right.filter(i => i.trim().length > 0);
-                                  if (validLeft.length === 0 || validRight.length === 0) {
-                                    toast.error('Both columns need at least 1 item');
-                                    return;
-                                  }
-                                  // Update question with columns (local state)
-                                  setQuestions(prev => prev.map(question => 
-                                    question.id === q.id 
-                                      ? { ...question, left_column: validLeft, right_column: validRight }
-                                      : question
-                                  ));
-                                  // Mark as edited so Save Changes button appears and PATCH includes columns
-                                  setEditedQuestions(prev => {
-                                    const newMap = new Map(prev);
-                                    const existing = newMap.get(q.id!) || {};
-                                    newMap.set(q.id!, { ...existing, left_column: validLeft, right_column: validRight });
-                                    return newMap;
-                                  });
-                                  // Clear editing state
-                                  const newMap = new Map(editingColumns);
-                                  newMap.delete(q.id!);
-                                  setEditingColumns(newMap);
-                                  toast.success('Columns added! Now select the correct pairs below.');
-                                }}
-                              >
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Save Columns
-                              </Button>
+                          {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 0 ? (
+                            <div className="text-base font-medium leading-relaxed"
+                              dangerouslySetInnerHTML={{ 
+                                __html: renderWithImages(q.correct_answer.sub_questions[0].text) 
+                              }}
+                            />
+                          ) : q.question_type === 'match_pair' && q.correct_answer?.pairs?.[0] ? (
+                            <div className="text-base font-medium leading-relaxed">
+                              {q.correct_answer.pairs[0].left} → {q.correct_answer.pairs[0].right}
                             </div>
-                          );
-                        }
-                        
-                        return (
-                          <div onClick={(e) => e.stopPropagation()}>
-              <QuestionAnswerInput
-                questionType={q.question_type}
-                options={q.options}
-                leftColumn={q.left_column}
-                rightColumn={q.right_column}
-                currentAnswer={q.correct_answer}
-                onChange={(answer) => handleAnswerUpdate(q.id!, answer)}
-                useWordBank={q.use_word_bank}
-                blanksCount={q.correct_answer?.blanks?.length || q.correct_answer?.sub_questions?.length || 1}
-              />
-                          </div>
-                        );
-                      })()}
-
-                       {/* Answer Status */}
-                      {q.id && validateAnswer(q) && !editedQuestions.has(q.id) && (
-                        <Badge variant="default" className="w-full justify-center">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Answer Saved
-                        </Badge>
-                      )}
-
-                      {/* Unsaved Changes Indicator */}
-                      {q.id && editedQuestions.has(q.id) && (
-                        <Badge variant="outline" className="w-full justify-center gap-1 text-orange-600 border-orange-400">
-                          <AlertCircle className="h-3 w-3" />
-                          Unsaved Changes
-                        </Badge>
-                      )}
-
-                      {/* Save Changes Button (shown when question has edits) */}
-                      {q.id && editedQuestions.has(q.id) && (
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          className="w-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log('💾 [SmartExtractor] Save Changes clicked for:', q.id, {
-                              edits: editedQuestions.get(q.id),
-                              questionType: q.question_type
-                            });
-                            handleQuestionUpdate(q.id!);
-                          }}
-                          disabled={savingQuestionId === q.id}
-                        >
-                          {savingQuestionId === q.id ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                              Saving...
-                            </>
                           ) : (
-                            <>
-                              <Save className="h-3 w-3 mr-2" />
-                              Save Changes
-                            </>
+                            <div 
+                              className="text-base font-medium leading-relaxed"
+                              dangerouslySetInnerHTML={{ 
+                                __html: renderWithImages(q.question_text || 'No question text') 
+                              }}
+                            />
                           )}
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                          
+                          {/* Multi-part badges */}
+                          {q.question_type === 'fill_blank' && q.correct_answer?.sub_questions?.length > 1 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {q.correct_answer.sub_questions.length} Sub-Questions
+                            </Badge>
+                          )}
+                          {q.question_type === 'match_pair' && q.correct_answer?.pairs?.length > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {q.correct_answer.pairs.length} Pairs
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Answer/Options Display */}
+                        {(q.question_type === 'mcq' || q.question_type === 'true_false') && q.options && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-muted-foreground">
+                              Select Correct Answer
+                            </div>
+                            <div className="space-y-2">
+                              {q.options.map((option: any, optIdx: number) => {
+                                const isCorrect = q.correct_answer === option || 
+                                                 q.correct_answer === optIdx || 
+                                                 q.correct_answer?.toString() === optIdx.toString();
+                                return (
+                                  <div
+                                    key={optIdx}
+                                    className={`p-3 rounded-lg border-2 transition-all ${
+                                      isCorrect 
+                                        ? 'border-blue-500 bg-blue-50' 
+                                        : 'border-border bg-background'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
+                                        isCorrect ? 'border-blue-500 bg-blue-500 text-white' : 'border-muted-foreground'
+                                      }`}>
+                                        {String.fromCharCode(65 + optIdx)}
+                                      </div>
+                                      <span className="text-sm">{option}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {q.correct_answer && (
+                              <Badge className="bg-green-600 text-white text-xs">
+                                Valid
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {q.question_type === 'short_answer' && (
+                          <div className="p-4 bg-muted/50 rounded-lg border">
+                            <p className="text-sm text-muted-foreground text-center">
+                              No correct answer required for short answer questions
+                            </p>
+                            <Badge variant="secondary" className="text-xs mt-2">
+                              Subjective Question
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Multi-Statement True/False Preview */}
+                        {q.question_type === 'true_false' && q.correct_answer?.statements?.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium text-muted-foreground">Statements:</div>
+                            <div className="space-y-2">
+                              {q.correct_answer.statements.slice(0, 2).map((stmt: any, stmtIdx: number) => (
+                                <div key={stmtIdx} className="flex items-start gap-3 bg-muted/20 p-2 rounded">
+                                  <Badge variant={stmt.answer === 'true' || stmt.answer === true ? 'default' : 'destructive'} className="shrink-0 text-xs">
+                                    {stmt.answer === 'true' || stmt.answer === true ? 'T' : 'F'}
+                                  </Badge>
+                                  <div 
+                                    className="flex-1 text-xs"
+                                    dangerouslySetInnerHTML={{ __html: renderWithImages(stmt.text || '') }}
+                                  />
+                                </div>
+                              ))}
+                              {q.correct_answer.statements.length > 2 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{q.correct_answer.statements.length - 2} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons at Bottom */}
+                        <div className="flex gap-3 pt-2">
+                          <Button
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditQuestion(q);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePreviewQuestion(q);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </CardContent>

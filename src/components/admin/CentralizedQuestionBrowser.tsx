@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, BookOpen, CheckCircle2, Edit, Eye } from "lucide-react";
+import { Loader2, BookOpen, Edit, Eye } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { QuestionAnswerInput } from "./QuestionAnswerInput";
@@ -316,6 +316,29 @@ export const CentralizedQuestionBrowser = ({
 
   const selectableCount = filteredQuestions.filter(q => !q.already_added).length;
 
+  const getTypeColor = (type: string) => {
+    switch(type) {
+      case 'short_answer': return 'bg-pink-500 text-white';
+      case 'true_false': return 'bg-yellow-500 text-white';
+      case 'mcq': return 'bg-blue-500 text-white';
+      case 'match_pair': case 'match_column': return 'bg-purple-500 text-white';
+      case 'fill_blank': return 'bg-green-500 text-white';
+      default: return 'bg-gray-500 text-white';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch(type) {
+      case 'short_answer': return 'Short Answer';
+      case 'true_false': return 'True/False';
+      case 'mcq': return 'MCQ';
+      case 'match_pair': return 'Match Pair';
+      case 'match_column': return 'Match Column';
+      case 'fill_blank': return 'Fill in the Blanks';
+      default: return type;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -463,15 +486,16 @@ export const CentralizedQuestionBrowser = ({
                       key={q.id}
                       className={`transition-all ${
                         q.already_added
-                          ? 'opacity-60 bg-muted/50'
+                          ? 'opacity-60 bg-muted/50 cursor-not-allowed'
                           : selectedQuestionIds.has(q.id)
                           ? 'border-primary border-2 bg-primary/5 shadow-sm'
-                          : 'hover:border-primary/50 hover:shadow-md'
+                          : ''
                       }`}
                     >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
+                      <CardContent className="p-6 space-y-4">
+                        {/* Top Section: Checkbox, Badges */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Checkbox
                               checked={selectedQuestionIds.has(q.id)}
                               disabled={q.already_added}
@@ -480,74 +504,112 @@ export const CentralizedQuestionBrowser = ({
                                 handleToggleQuestion(q.id, q.already_added);
                               }}
                             />
-                            <Badge variant="outline" className="text-xs font-semibold">
-                              Q{index + 1}
+                            <Badge className={`${getTypeColor(q.question_type)} text-xs font-semibold px-3 py-1`}>
+                              {getTypeLabel(q.question_type)}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {q.question_type}
+                            <Badge className="bg-orange-500 text-white text-xs px-3 py-1">
+                              medium confidence
                             </Badge>
                             <Badge 
                               variant={q.difficulty === 'hard' ? 'destructive' : q.difficulty === 'medium' ? 'default' : 'secondary'}
-                              className="text-xs"
+                              className="text-xs px-3 py-1"
                             >
                               {q.difficulty}
                             </Badge>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditQuestion(q);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPreviewQuestionId(q.id);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            {q.already_added && (
+                              <Badge className="bg-green-600 text-white text-xs px-3 py-1">
+                                ✓ Already Added
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {/* Question text */}
-                        <p className="text-sm font-medium line-clamp-3 min-h-[60px]">
-                          {q.question_text || q.question_data?.text || 'Untitled Question'}
-                        </p>
 
-                        {/* Show options preview for MCQ */}
-                        {q.question_type === 'mcq' && q.options && (
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            {Object.entries(q.options).slice(0, 2).map(([key, value]) => (
-                              <div key={key} className="line-clamp-1">• {String(value)}</div>
-                            ))}
-                            {Object.keys(q.options).length > 2 && (
-                              <div className="italic">+{Object.keys(q.options).length - 2} more options</div>
+                        {/* Question Metadata */}
+                        <div className="text-sm text-muted-foreground">
+                          Q{index + 1} • {q.marks || 2} Marks | {q.marks || 2} XP
+                        </div>
+
+                        {/* Question Text */}
+                        <div className="space-y-2">
+                          <div className="text-base font-medium leading-relaxed">
+                            {q.question_text || q.question_data?.text || 'No question text'}
+                          </div>
+                        </div>
+
+                        {/* Answer/Options Display */}
+                        {(q.question_type === 'mcq' || q.question_type === 'true_false') && q.options && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-muted-foreground">
+                              Select Correct Answer
+                            </div>
+                            <div className="space-y-2">
+                              {q.options.map((option: any, optIdx: number) => {
+                                const isCorrect = q.correct_answer === option || 
+                                                 q.correct_answer === optIdx || 
+                                                 q.correct_answer?.toString() === optIdx.toString();
+                                return (
+                                  <div
+                                    key={optIdx}
+                                    className={`p-3 rounded-lg border-2 transition-all ${
+                                      isCorrect 
+                                        ? 'border-blue-500 bg-blue-50' 
+                                        : 'border-border bg-background'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
+                                        isCorrect ? 'border-blue-500 bg-blue-500 text-white' : 'border-muted-foreground'
+                                      }`}>
+                                        {String.fromCharCode(65 + optIdx)}
+                                      </div>
+                                      <span className="text-sm">{option}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {q.correct_answer && (
+                              <Badge className="bg-green-600 text-white text-xs">
+                                Valid
+                              </Badge>
                             )}
                           </div>
                         )}
 
-                        {/* Footer metadata */}
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <Badge variant="secondary" className="text-xs">
-                            {q.marks} mark{q.marks !== 1 ? 's' : ''}
-                          </Badge>
-                          {q.already_added && (
-                            <Badge className="bg-green-600 text-white text-xs">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Added
+                        {q.question_type === 'short_answer' && (
+                          <div className="p-4 bg-muted/50 rounded-lg border">
+                            <p className="text-sm text-muted-foreground text-center">
+                              No correct answer required for short answer questions
+                            </p>
+                            <Badge variant="secondary" className="text-xs mt-2">
+                              Subjective Question
                             </Badge>
-                          )}
+                          </div>
+                        )}
+
+                        {/* Action Buttons at Bottom */}
+                        <div className="flex gap-3 pt-2">
+                          <Button
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditQuestion(q);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewQuestionId(q.id);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -556,20 +618,20 @@ export const CentralizedQuestionBrowser = ({
               )}
 
               {/* Add Button */}
-              {filteredQuestions.length > 0 && (
-                <Button
-                  onClick={handleAddQuestions}
-                  disabled={selectedQuestionIds.size === 0 || adding}
+              {selectedQuestionIds.size > 0 && (
+                <Button 
+                  onClick={handleAddQuestions} 
+                  disabled={adding}
                   className="w-full"
                   size="lg"
                 >
                   {adding ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding...
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Adding Questions...
                     </>
                   ) : (
-                    `Add ${selectedQuestionIds.size} Selected Question${selectedQuestionIds.size !== 1 ? 's' : ''}`
+                    `Add ${selectedQuestionIds.size} Selected Questions to ${roadmapTopicName}`
                   )}
                 </Button>
               )}
@@ -579,64 +641,26 @@ export const CentralizedQuestionBrowser = ({
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingQuestionId} onOpenChange={() => {
-        setEditingQuestionId(null);
-        setEditFormData(null);
-      }}>
+      <Dialog open={editingQuestionId !== null} onOpenChange={(open) => !open && setEditingQuestionId(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Question</DialogTitle>
           </DialogHeader>
           {editFormData && (
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Question Text</label>
-                <textarea
-                  className="w-full mt-1 p-2 border rounded-md min-h-[100px]"
-                  value={editFormData.question_text}
-                  onChange={(e) => setEditFormData({ ...editFormData, question_text: e.target.value })}
-                />
-              </div>
-              
               <QuestionAnswerInput
                 questionType={editFormData.question_type}
-                options={editFormData.options}
                 currentAnswer={editFormData.correct_answer}
                 onChange={(answer) => setEditFormData({ ...editFormData, correct_answer: answer })}
+                options={editFormData.options}
               />
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Difficulty</label>
-                  <select
-                    className="w-full mt-1 p-2 border rounded-md"
-                    value={editFormData.difficulty}
-                    onChange={(e) => setEditFormData({ ...editFormData, difficulty: e.target.value })}
-                  >
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Marks</label>
-                  <input
-                    type="number"
-                    className="w-full mt-1 p-2 border rounded-md"
-                    value={editFormData.marks}
-                    onChange={(e) => setEditFormData({ ...editFormData, marks: parseInt(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => {
-                  setEditingQuestionId(null);
-                  setEditFormData(null);
-                }}>
+              <div className="flex gap-3 justify-end pt-4">
+                <Button variant="outline" onClick={() => setEditingQuestionId(null)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdit}>Save Changes</Button>
+                <Button onClick={handleSaveEdit}>
+                  Save Changes
+                </Button>
               </div>
             </div>
           )}
@@ -644,63 +668,38 @@ export const CentralizedQuestionBrowser = ({
       </Dialog>
 
       {/* Preview Dialog */}
-      <Dialog open={!!previewQuestionId} onOpenChange={() => setPreviewQuestionId(null)}>
+      <Dialog open={previewQuestionId !== null} onOpenChange={(open) => !open && setPreviewQuestionId(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Question Preview</DialogTitle>
           </DialogHeader>
-          {previewQuestionId && (() => {
-            const question = questions.find(q => q.id === previewQuestionId);
-            if (!question) return null;
-            
-            return (
-              <div className="space-y-4">
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <p className="font-medium mb-4">
-                    {question.question_text || question.question_data?.text}
-                  </p>
-                  
-                  {question.question_type === 'mcq' && question.options && (
-                    <div className="space-y-2">
-                      {Object.entries(question.options).map(([key, value]) => (
-                        <div
-                          key={key}
-                          className={`p-3 border rounded-md ${
-                            question.correct_answer === key ? 'bg-green-100 border-green-500' : 'bg-background'
-                          }`}
-                        >
-                          <span className="font-medium mr-2">{key}.</span> {String(value)}
-                        </div>
-                      ))}
+          {previewQuestionId && (
+            <div className="space-y-4">
+              {(() => {
+                const q = questions.find(qu => qu.id === previewQuestionId);
+                if (!q) return null;
+                return (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-muted/30 rounded">
+                      <p className="font-medium">{q.question_text || q.question_data?.text}</p>
                     </div>
-                  )}
-
-                  {question.question_type === 'true_false' && (
-                    <div className="space-y-2">
-                      <div className={`p-3 border rounded-md ${
-                        question.correct_answer === 'true' || question.correct_answer === true ? 'bg-green-100 border-green-500' : 'bg-background'
-                      }`}>
-                        True
+                    {q.options && (
+                      <div className="space-y-2">
+                        {q.options.map((opt: string, idx: number) => (
+                          <div key={idx} className="p-2 border rounded">
+                            {String.fromCharCode(65 + idx)}) {opt}
+                          </div>
+                        ))}
                       </div>
-                      <div className={`p-3 border rounded-md ${
-                        question.correct_answer === 'false' || question.correct_answer === false ? 'bg-green-100 border-green-500' : 'bg-background'
-                      }`}>
-                        False
-                      </div>
+                    )}
+                    <div className="text-sm text-muted-foreground">
+                      <strong>Correct Answer:</strong> {JSON.stringify(q.correct_answer)}
                     </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <Badge variant={question.difficulty === 'hard' ? 'destructive' : question.difficulty === 'medium' ? 'default' : 'secondary'}>
-                    {question.difficulty}
-                  </Badge>
-                  <span>Marks: {question.marks}</span>
-                  <span>Type: {question.question_type}</span>
-                </div>
-              </div>
-            );
-          })()}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

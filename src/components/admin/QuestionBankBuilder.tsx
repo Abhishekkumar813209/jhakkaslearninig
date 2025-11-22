@@ -31,6 +31,7 @@ interface Chapter {
   chapter_name: string;
   subject: string;
   roadmap_id: string;
+  chapter_library_id?: string;
 }
 
 interface Topic {
@@ -276,7 +277,7 @@ export const QuestionBankBuilder = () => {
 
     const { data, error } = await supabase
       .from("roadmap_chapters")
-      .select("id, chapter_name, subject, roadmap_id")
+      .select("id, chapter_name, subject, roadmap_id, chapter_library_id")
       .eq("roadmap_id", batch.linked_roadmap_id)
       .eq("subject", selectedSubject)
       .order("order_num");
@@ -675,6 +676,7 @@ export const QuestionBankBuilder = () => {
                 <SmartQuestionExtractorNew
                   key={refetchKey}
                   mode="batch"
+                  fetchMode="dual"
                   selectedTopic={selectedTopic.id}
                   selectedTopicName={selectedTopic.topic_name}
                   selectedChapter={selectedChapter.id}
@@ -682,6 +684,8 @@ export const QuestionBankBuilder = () => {
                   selectedBatch={selectedBatch}
                   selectedExamDomain={selectedDomain || ''}
                   selectedExamName={batches.find(b => b.id === selectedBatch)?.exam_name || selectedDomain || ''}
+                  chapterLibraryId={selectedChapter.chapter_library_id}
+                  centralizedTopicName={selectedTopic.topic_name}
                   onQuestionsAdded={handleQuestionsComplete}
                 />
               </TabsContent>

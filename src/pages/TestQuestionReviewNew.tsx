@@ -88,8 +88,7 @@ const TestQuestionReviewNew: React.FC = () => {
             order_num
           )
         `)
-        .eq('attempt_id', attemptId)
-        .order('questions(order_num)', { ascending: true });
+        .eq('attempt_id', attemptId);
 
       if (reviewError) throw reviewError;
 
@@ -142,6 +141,13 @@ const TestQuestionReviewNew: React.FC = () => {
           explanation: q.explanation,
           difficulty: q.difficulty
         };
+      });
+
+      // Sort by order_num in JavaScript to avoid PostgREST parsing issues
+      questionsData.sort((a, b) => {
+        const orderA = (reviewData.find((r: any) => r.questions.id === a.questionId) as any)?.questions?.order_num || 0;
+        const orderB = (reviewData.find((r: any) => r.questions.id === b.questionId) as any)?.questions?.order_num || 0;
+        return orderA - orderB;
       });
 
       setQuestions(questionsData);

@@ -77,6 +77,9 @@ interface SmartQuestionExtractorNewProps {
   enableBatchAssignment?: boolean;
   onAssignToBatch?: (questionIds: string[]) => Promise<void>;
   
+  // Refetch trigger
+  refetchKey?: number;
+  
   onQuestionsAdded?: (questions: ExtractedQuestion[]) => void;
 }
 
@@ -145,6 +148,7 @@ export const SmartQuestionExtractorNew = ({
   centralizedTopicName,
   enableBatchAssignment = false,
   onAssignToBatch,
+  refetchKey,
   onQuestionsAdded
 }: SmartQuestionExtractorNewProps) => {
   const [questions, setQuestions] = useState<ExtractedQuestion[]>([]);
@@ -212,7 +216,7 @@ export const SmartQuestionExtractorNew = ({
   const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<any>(null);
 
-  // Auto-load draft questions when topic changes
+  // Auto-load draft questions when topic changes or refetchKey updates
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/login') {
       return;
@@ -228,7 +232,7 @@ export const SmartQuestionExtractorNew = ({
       setQuestions([]);
       setSelectedIds(new Set());
     }
-  }, [selectedTopic]);
+  }, [selectedTopic, refetchKey]);
 
   // Load selections from localStorage
   useEffect(() => {
@@ -1424,6 +1428,9 @@ export const SmartQuestionExtractorNew = ({
                     }
                   };
 
+                  const isAssigned = (q as any)._isAssigned === true;
+                  const isBatchQuestion = (q as any)._source === 'batch';
+
                   return (
                     <Card 
                       key={q.id || idx}
@@ -1432,6 +1439,7 @@ export const SmartQuestionExtractorNew = ({
                         q.id && publishedQuestionIds.has(q.id) 
                           ? "opacity-60 cursor-not-allowed bg-muted/50" 
                           : "",
+                        isAssigned && "opacity-60 bg-muted/30",
                         q.id && selectedIds.has(q.id) && "ring-2 ring-primary"
                       )}
                     >
@@ -1444,7 +1452,8 @@ export const SmartQuestionExtractorNew = ({
                                 checked={selectedIds.has(q.id)}
                                 disabled={
                                   publishedQuestionIds.has(q.id) || 
-                                  (enableBatchAssignment && (q as any)._source === 'batch')
+                                  isAssigned ||
+                                  (enableBatchAssignment && isBatchQuestion)
                                 }
                                 onCheckedChange={() => toggleSelection(q.id)}
                                 onClick={(e) => e.stopPropagation()}
@@ -1474,6 +1483,11 @@ export const SmartQuestionExtractorNew = ({
                             {q.id && publishedQuestionIds.has(q.id) && (
                               <Badge className="bg-green-600 text-white text-xs px-3 py-1">
                                 ✓ Already Added
+                              </Badge>
+                            )}
+                            {isAssigned && (
+                              <Badge className="bg-green-600 text-white text-xs px-3 py-1">
+                                ✓ Assigned to Batch
                               </Badge>
                             )}
                           </div>

@@ -586,13 +586,41 @@ serve(async (req) => {
       let questions: any[] = [];
 
       if (mode === 'dual') {
-        // Dual mode: fetch both batch-specific and centralized questions in parallel
-        const [batchResult, centralizedResult] = await Promise.all([
+        // Dual mode: fetch batch-specific, assigned centralized, and available centralized questions
+        const [batchResult, assignedResult, centralizedResult] = await Promise.all([
+          // 1. Batch-specific questions
           serviceClient
             .from('question_bank')
             .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name')
             .eq('topic_id', topic_id)
             .order('created_at', { ascending: false }),
+          // 2. Assigned centralized questions (via batch_question_assignments)
+          serviceClient
+            .from('batch_question_assignments')
+            .select(`
+              id,
+              assignment_order,
+              question_id,
+              question_bank!inner (
+                id,
+                question_type,
+                question_data,
+                answer_data,
+                explanation,
+                difficulty,
+                marks,
+                subject,
+                chapter_id,
+                created_at,
+                is_centralized,
+                chapter_library_id,
+                centralized_topic_name
+              )
+            `)
+            .eq('roadmap_topic_id', topic_id)
+            .eq('is_active', true)
+            .order('assignment_order', { ascending: true }),
+          // 3. Available centralized questions (not yet assigned)
           serviceClient
             .from('question_bank')
             .select('id, question_type, question_data, answer_data, explanation, difficulty, marks, subject, chapter_id, created_at, is_centralized, chapter_library_id, centralized_topic_name')
@@ -606,20 +634,47 @@ serve(async (req) => {
           console.error('❌ Batch query error:', batchResult.error);
           throw batchResult.error;
         }
+        if (assignedResult.error) {
+          console.error('❌ Assigned query error:', assignedResult.error);
+          throw assignedResult.error;
+        }
         if (centralizedResult.error) {
           console.error('❌ Centralized query error:', centralizedResult.error);
           throw centralizedResult.error;
         }
 
         // Tag batch questions with source
-        const batchQuestions = (batchResult.data || []).map(q => ({ ...q, source: 'batch-specific' }));
-        // Tag centralized questions with source
-        const centralizedQuestions = (centralizedResult.data || []).map(q => ({ ...q, source: 'centralized' }));
+        const batchQuestions = (batchResult.data || []).map(q => ({ 
+          ...q, 
+          _source: 'batch',
+          _isAssigned: false
+        }));
 
-        // Merge results (batch first, then centralized)
-        questions = [...batchQuestions, ...centralizedQuestions];
+        // Extract and tag assigned centralized questions
+        const assignedQuestions = (assignedResult.data || []).map((assignment: any) => ({
+          ...assignment.question_bank,
+          _source: 'centralized',
+          _isAssigned: true,
+          _assignmentId: assignment.id,
+          _assignmentOrder: assignment.assignment_order
+        }));
 
-        console.log(`✅ Dual mode: Found ${batchQuestions.length} batch-specific + ${centralizedQuestions.length} centralized = ${questions.length} total`);
+        // Get assigned question IDs to filter them out from available centralized
+        const assignedQuestionIds = new Set(assignedQuestions.map(q => q.id));
+
+        // Tag available centralized questions (excluding already assigned)
+        const centralizedQuestions = (centralizedResult.data || [])
+          .filter(q => !assignedQuestionIds.has(q.id))
+          .map(q => ({ 
+            ...q, 
+            _source: 'centralized',
+            _isAssigned: false
+          }));
+
+        // Merge results (batch + assigned centralized + available centralized)
+        questions = [...batchQuestions, ...assignedQuestions, ...centralizedQuestions];
+
+        console.log(`✅ Dual mode: Found ${batchQuestions.length} batch + ${assignedQuestions.length} assigned + ${centralizedQuestions.length} available centralized = ${questions.length} total`);
       } else {
         // Single mode: build query based on mode
         let query = serviceClient

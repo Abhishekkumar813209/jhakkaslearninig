@@ -51,25 +51,51 @@ export const CentralizedQuestionBrowser = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      // Get highest current assignment_order for this topic
+      const { data: existingAssignments } = await supabase
+        .from('batch_question_assignments')
+        .select('assignment_order')
+        .eq('roadmap_topic_id', roadmapTopicId)
+        .order('assignment_order', { ascending: false })
+        .limit(1);
+
+      const startOrder = existingAssignments?.[0]?.assignment_order ?? -1;
+
+      const assignments = questionIds.map((qId, index) => ({
+        batch_id: batchId,
+        roadmap_topic_id: roadmapTopicId,
+        question_id: qId,
+        chapter_library_id: chapterLibrary!.id,
+        assigned_by: user.id,
+        assignment_order: startOrder + index + 1,
+        is_active: true,
+      }));
+
+      // Use upsert with onConflict to handle duplicates gracefully
       const { data, error } = await supabase
         .from('batch_question_assignments')
-        .insert(
-          questionIds.map(qId => ({
-            batch_id: batchId,
-            roadmap_topic_id: roadmapTopicId,
-            question_id: qId,
-            chapter_library_id: chapterLibrary!.id,
-            assigned_by: user.id,
-            is_active: true
-          }))
-        );
-      
+        .upsert(assignments, { 
+          onConflict: 'batch_id,roadmap_topic_id,question_id',
+          ignoreDuplicates: false 
+        })
+        .select();
+
       if (error) throw error;
-      
-      toast({
-        title: "Questions Assigned",
-        description: `${questionIds.length} centralized question(s) added to "${roadmapTopicName}"`,
-      });
+
+      const newAssignments = data?.length || 0;
+      const alreadyAssigned = questionIds.length - newAssignments;
+
+      if (newAssignments > 0) {
+        toast({
+          title: "Questions Assigned",
+          description: `Successfully assigned ${newAssignments} new question(s) to "${roadmapTopicName}"${alreadyAssigned > 0 ? ` (${alreadyAssigned} already assigned)` : ''}`,
+        });
+      } else {
+        toast({
+          title: "Already Assigned",
+          description: `All ${questionIds.length} question(s) were already assigned to this batch topic`,
+        });
+      }
       
       onQuestionsAdded();
     } catch (error: any) {

@@ -266,6 +266,23 @@ export const SmartQuestionExtractorNew = ({
       
       // Dual mode: Use single fetch_mode='dual' to get all questions in one call
       if (effectiveFetchMode === 'dual') {
+        // Build request body - only include centralized params if they exist
+        const body: any = { 
+          action: 'get_topic_questions', 
+          topic_id: selectedTopic,
+          fetch_mode: 'dual'
+        };
+        
+        // Only include centralized params if they exist (Centralized tab use-case)
+        if (chapterLibraryId) {
+          body.chapter_library_id = chapterLibraryId;
+        }
+        if (centralizedTopicName) {
+          body.centralized_topic_name = centralizedTopicName;
+        }
+        
+        console.log('📤 Dual mode request body:', body);
+        
         const response = await invokeWithAuth<any, { 
           success: boolean; 
           questions: ExtractedQuestion[];
@@ -275,13 +292,7 @@ export const SmartQuestionExtractorNew = ({
           totalCount?: number;
         }>({
           name: 'topic-questions-api',
-          body: { 
-            action: 'get_topic_questions', 
-            topic_id: selectedTopic,
-            chapter_library_id: chapterLibraryId,
-            centralized_topic_name: centralizedTopicName,
-            fetch_mode: 'dual'
-          }
+          body
         });
         
         if (response.success) {

@@ -124,15 +124,43 @@ export const BatchQuestionReorder = ({ topicId, topicName, batchId, onReorderCom
 
       if (error) throw error;
 
-      const formattedQuestions: AssignedQuestion[] = (data || []).map((item: any) => ({
-        assignment_id: item.id,
-        assignment_order: item.assignment_order,
-        question_id: item.question_id,
-        question_text: item.question_bank.question_data?.question || 'No question text',
-        question_type: item.question_bank.question_type,
-        difficulty: item.question_bank.difficulty || 'medium',
-        marks: item.question_bank.marks || 2
-      }));
+      const formattedQuestions: AssignedQuestion[] = (data || []).map((item: any) => {
+        const qData = item.question_bank.question_data || {};
+        
+        // Robust question text parser (Bug #4)
+        let questionText = 'No question text';
+        
+        if (qData.text) {
+          questionText = qData.text;
+        } else if (qData.question) {
+          questionText = qData.question;
+        } else if (qData.sub_questions && qData.sub_questions.length > 0) {
+          // Fill-in-Blanks: show first sub-question
+          questionText = qData.sub_questions[0].text || qData.sub_questions[0].question || 'No question text';
+        } else if (qData.pairs && qData.pairs.length > 0) {
+          // Match Pairs: show first pair
+          questionText = `Match: ${qData.pairs[0].left} → ${qData.pairs[0].right}`;
+        } else if (qData.items && qData.items.length > 0) {
+          // Drag-Drop Sequence: show first item
+          questionText = `Sequence: ${qData.items[0]}`;
+        } else if (qData.statements && qData.statements.length > 0) {
+          // True/False: show first statement
+          questionText = qData.statements[0].text || qData.statements[0];
+        } else if (qData.options && qData.options.length > 0) {
+          // MCQ without explicit question text
+          questionText = `Multiple Choice (${qData.options.length} options)`;
+        }
+
+        return {
+          assignment_id: item.id,
+          assignment_order: item.assignment_order,
+          question_id: item.question_id,
+          question_text: questionText,
+          question_type: item.question_bank.question_type,
+          difficulty: item.question_bank.difficulty || 'medium',
+          marks: item.question_bank.marks || 2
+        };
+      });
 
       setQuestions(formattedQuestions);
       setHasChanges(false);

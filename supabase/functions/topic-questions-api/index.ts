@@ -704,6 +704,7 @@ serve(async (req) => {
       }
 
       // Return JSONB data as-is for frontend to parse
+      // CRITICAL: Preserve _source, _isAssigned, _assignmentId, _assignmentOrder flags from dual mode merge
       const normalized = questions.map(q => ({
         id: q.id,
         question_type: q.question_type || 'mcq',
@@ -718,11 +719,30 @@ serve(async (req) => {
         is_centralized: q.is_centralized,
         chapter_library_id: q.chapter_library_id,
         centralized_topic_name: q.centralized_topic_name,
-        source: q.source // Include source tag for dual mode
+        source: q.source, // Include source tag for dual mode (legacy)
+        _source: q._source, // NEW: Preserve source flag ('batch' | 'centralized')
+        _isAssigned: q._isAssigned, // NEW: Preserve assignment status
+        _assignmentId: q._assignmentId, // NEW: Preserve assignment ID for reordering
+        _assignmentOrder: q._assignmentOrder // NEW: Preserve assignment order
       }));
 
+      // Calculate explicit counts for UI (Bugs #2, #6)
+      const assignedCount = normalized.filter(q => q._isAssigned === true).length;
+      const batchCount = normalized.filter(q => q._source === 'batch').length;
+      const centralizedCount = normalized.filter(q => q._source === 'centralized').length;
+      const totalCount = normalized.length;
+
+      console.log(`📊 Counts: Assigned=${assignedCount}, Batch=${batchCount}, Central=${centralizedCount}, Total=${totalCount}`);
+
       return new Response(
-        JSON.stringify({ success: true, questions: normalized }),
+        JSON.stringify({ 
+          success: true, 
+          questions: normalized,
+          assignedCount,
+          batchCount,
+          centralizedCount,
+          totalCount
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

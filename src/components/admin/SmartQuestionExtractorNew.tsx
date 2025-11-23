@@ -1221,7 +1221,15 @@ export const SmartQuestionExtractorNew = ({
                           .map(q => q.id!);
                         
                         if (centralizedQuestionIds.length === 0) {
-                          toast.error("Please select at least one centralized question");
+                          // Better error message (Bug #3 fix - will work now that _source is preserved)
+                          const selectedCount = selectedIds.size;
+                          const batchCount = questions.filter(q => q.id && selectedIds.has(q.id) && (q as any)._source === 'batch').length;
+                          
+                          if (batchCount > 0 && selectedCount === batchCount) {
+                            toast.error("All selected questions are batch-specific. Please select centralized questions to assign.");
+                          } else {
+                            toast.error("Please select at least one centralized question");
+                          }
                           return;
                         }
                         
@@ -1468,11 +1476,12 @@ export const SmartQuestionExtractorNew = ({
                                 checked={selectedIds.has(q.id)}
                                 disabled={
                                   publishedQuestionIds.has(q.id) || 
-                                  isAssigned ||
+                                  (isAssigned && !selectedIds.has(q.id)) || // Bug #5 Fix: Only prevent CHECKING already assigned, allow UNCHECKING
                                   (enableBatchAssignment && isBatchQuestion)
                                 }
                                 onCheckedChange={() => toggleSelection(q.id)}
                                 onClick={(e) => e.stopPropagation()}
+                                title={isAssigned && !selectedIds.has(q.id) ? "Already assigned to this batch" : ""}
                               />
                             )}
                             <Badge className={`${getTypeColor(q.question_type)} text-xs font-semibold px-3 py-1`}>

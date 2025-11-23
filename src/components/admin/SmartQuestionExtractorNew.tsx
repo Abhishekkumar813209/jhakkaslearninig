@@ -264,36 +264,37 @@ export const SmartQuestionExtractorNew = ({
       
       console.log('🔍 Loading questions with effectiveFetchMode:', effectiveFetchMode);
       
-      // Dual mode: Fetch BOTH batch-specific AND centralized questions
+      // Dual mode: Use single fetch_mode='dual' to get all questions in one call
       if (effectiveFetchMode === 'dual') {
-        // Parallel fetch for performance
-        const [batchData, centralData] = await Promise.all([
-          // Fetch batch-specific questions
-          invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
-            name: 'topic-questions-api',
-            body: { action: 'get_topic_questions', topic_id: selectedTopic, fetch_mode: 'batch' }
-          }),
-          // Fetch centralized questions
-          invokeWithAuth<any, { success: boolean; questions: ExtractedQuestion[] }>({
-            name: 'topic-questions-api',
-            body: { 
-              action: 'get_topic_questions', 
-              chapter_library_id: chapterLibraryId,
-              centralized_topic_name: centralizedTopicName,
-              fetch_mode: 'centralized'
-            }
-          })
-        ]);
+        const response = await invokeWithAuth<any, { 
+          success: boolean; 
+          questions: ExtractedQuestion[];
+          batchCount?: number;
+          assignedCount?: number;
+          centralizedCount?: number;
+          totalCount?: number;
+        }>({
+          name: 'topic-questions-api',
+          body: { 
+            action: 'get_topic_questions', 
+            topic_id: selectedTopic,
+            chapter_library_id: chapterLibraryId,
+            centralized_topic_name: centralizedTopicName,
+            fetch_mode: 'dual'
+          }
+        });
         
-        // Merge results with source tagging
-        const batchQuestions = (batchData.success ? batchData.questions : []).map(q => ({ ...q, _source: 'batch' }));
-        const centralQuestions = (centralData.success ? centralData.questions : []).map(q => ({ ...q, _source: 'centralized' }));
-        
-        allQuestions = [...batchQuestions, ...centralQuestions];
-        setBatchQuestionCount(batchQuestions.length);
-        setCentralQuestionCount(centralQuestions.length);
-        
-        console.log(`✅ Dual-mode fetch: ${batchQuestions.length} batch + ${centralQuestions.length} central = ${allQuestions.length} total`);
+        if (response.success) {
+          allQuestions = response.questions || [];
+          console.log('✅ Dual mode fetch complete:', {
+            total: allQuestions.length,
+            assigned: allQuestions.filter((q: any) => q._isAssigned).length,
+            batch: allQuestions.filter((q: any) => q._source === 'batch').length,
+            centralized: allQuestions.filter((q: any) => q._source === 'centralized').length
+          });
+        } else {
+          throw new Error('Failed to fetch dual mode questions');
+        }
       } else {
         // Single mode: Fetch only one type
         const body: any = { action: 'get_topic_questions', fetch_mode: effectiveFetchMode };
@@ -1359,8 +1360,23 @@ export const SmartQuestionExtractorNew = ({
                   </div>
                 )}
 
-                <div className="text-sm text-muted-foreground">
-                  Found {filteredQuestions.length} questions
+                <div className="flex flex-wrap gap-2 text-sm">
+                  {effectiveFetchMode === 'dual' && (
+                    <>
+                      <Badge variant="default" className="bg-green-600 text-white">
+                        {questions.filter((q: any) => q._isAssigned).length} Assigned
+                      </Badge>
+                      <Badge variant="default" className="bg-blue-600 text-white">
+                        {questions.filter((q: any) => q._source === 'batch' && !q._isAssigned).length} Batch
+                      </Badge>
+                      <Badge variant="default" className="bg-purple-600 text-white">
+                        {questions.filter((q: any) => q._source === 'centralized' && !q._isAssigned).length} Central
+                      </Badge>
+                    </>
+                  )}
+                  <Badge variant="secondary">
+                    {questions.length} Total
+                  </Badge>
                 </div>
               </div>
             )}

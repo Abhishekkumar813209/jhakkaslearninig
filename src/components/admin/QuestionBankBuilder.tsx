@@ -12,6 +12,7 @@ import { useBoardClassHierarchy } from "@/hooks/useBoardClassHierarchy";
 import { SmartQuestionExtractorNew } from "./SmartQuestionExtractorNew";
 import { ManualQuestionEntry } from "./ManualQuestionEntry";
 import { CentralizedQuestionBrowser } from "./CentralizedQuestionBrowser";
+import { BatchQuestionReorder } from "./BatchQuestionReorder";
 import * as LucideIcons from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -666,17 +667,20 @@ export const QuestionBankBuilder = () => {
             </Button>
             
             <Tabs defaultValue="view" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="view">View All Questions</TabsTrigger>
                 <TabsTrigger value="manual">Manual Entry</TabsTrigger>
                 <TabsTrigger value="centralized">Centralized</TabsTrigger>
+                <TabsTrigger value="reorder">Reorder Games</TabsTrigger>
               </TabsList>
 
               <TabsContent value="view">
                 <SmartQuestionExtractorNew
                   key={refetchKey}
+                  refetchKey={refetchKey}
                   mode="batch"
                   fetchMode="dual"
+                  enableBatchAssignment={true}
                   selectedTopic={selectedTopic.id}
                   selectedTopicName={selectedTopic.topic_name}
                   selectedChapter={selectedChapter.id}
@@ -713,6 +717,15 @@ export const QuestionBankBuilder = () => {
                   roadmapTopicId={selectedTopic.id}
                   roadmapTopicName={selectedTopic.topic_name}
                   onQuestionsAdded={handleQuestionsComplete}
+                />
+              </TabsContent>
+
+              <TabsContent value="reorder">
+                <BatchQuestionReorder
+                  topicId={selectedTopic.id}
+                  topicName={selectedTopic.topic_name}
+                  batchId={selectedBatch}
+                  onReorderComplete={handleQuestionsComplete}
                 />
               </TabsContent>
             </Tabs>

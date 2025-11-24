@@ -142,6 +142,9 @@ export const QuestionBankBuilder = () => {
 
   // Restore state from URL on mount
   useEffect(() => {
+    // Don't run until examTypes is loaded
+    if (examTypes.length === 0) return;
+    
     const domain = searchParams.get('domain');
     const board = searchParams.get('board');
     const classParam = searchParams.get('class');
@@ -150,52 +153,72 @@ export const QuestionBankBuilder = () => {
     const chapter = searchParams.get('chapter');
     const topic = searchParams.get('topic');
     
+    console.log('🔍 QuestionBankBuilder URL Init:', {
+      domain,
+      board,
+      classParam,
+      batch,
+      subject,
+      chapter,
+      topic,
+      currentSelectedDomain: selectedDomain,
+      currentStep,
+      examTypesLoaded: examTypes.length
+    });
+    
     if (topic && chapter && subject && batch && domain) {
-      setSelectedDomain(domain);
-      if (board) setBoard(board);
-      if (classParam) setClass(classParam);
-      setSelectedBatch(batch);
-      setSelectedSubject(subject);
-      setCurrentStep(7);
+      if (!selectedDomain) setSelectedDomain(domain);
+      if (board && !selectedBoard) setBoard(board);
+      if (classParam && !selectedClass) setClass(classParam);
+      if (!selectedBatch) setSelectedBatch(batch);
+      if (!selectedSubject) setSelectedSubject(subject);
+      if (currentStep < 7) setCurrentStep(7);
       
-      // Restore chapter and topic
-      supabase.from('roadmap_chapters').select('*').eq('id', chapter).single().then(({ data }) => {
-        if (data) setSelectedChapter(data);
-      });
-      supabase.from('roadmap_topics').select('*').eq('id', topic).single().then(({ data }) => {
-        if (data) setSelectedTopic(data);
-      });
+      // Restore chapter and topic (only if not already set)
+      if (!selectedChapter) {
+        supabase.from('roadmap_chapters').select('*').eq('id', chapter).single().then(({ data }) => {
+          if (data) setSelectedChapter(data);
+        });
+      }
+      if (!selectedTopic) {
+        supabase.from('roadmap_topics').select('*').eq('id', topic).single().then(({ data }) => {
+          if (data) setSelectedTopic(data);
+        });
+      }
     } else if (chapter && subject && batch && domain) {
-      setSelectedDomain(domain);
-      if (board) setBoard(board);
-      if (classParam) setClass(classParam);
-      setSelectedBatch(batch);
-      setSelectedSubject(subject);
-      setCurrentStep(6);
-      supabase.from('roadmap_chapters').select('*').eq('id', chapter).single().then(({ data }) => {
-        if (data) setSelectedChapter(data);
-      });
+      if (!selectedDomain) setSelectedDomain(domain);
+      if (board && !selectedBoard) setBoard(board);
+      if (classParam && !selectedClass) setClass(classParam);
+      if (!selectedBatch) setSelectedBatch(batch);
+      if (!selectedSubject) setSelectedSubject(subject);
+      if (currentStep < 6) setCurrentStep(6);
+      if (!selectedChapter) {
+        supabase.from('roadmap_chapters').select('*').eq('id', chapter).single().then(({ data }) => {
+          if (data) setSelectedChapter(data);
+        });
+      }
     } else if (subject && batch && domain) {
-      setSelectedDomain(domain);
-      if (board) setBoard(board);
-      if (classParam) setClass(classParam);
-      setSelectedBatch(batch);
-      setSelectedSubject(subject);
-      setCurrentStep(5);
+      if (!selectedDomain) setSelectedDomain(domain);
+      if (board && !selectedBoard) setBoard(board);
+      if (classParam && !selectedClass) setClass(classParam);
+      if (!selectedBatch) setSelectedBatch(batch);
+      if (!selectedSubject) setSelectedSubject(subject);
+      if (currentStep < 5) setCurrentStep(5);
     } else if (batch && domain) {
-      setSelectedDomain(domain);
-      if (board) setBoard(board);
-      if (classParam) setClass(classParam);
-      setSelectedBatch(batch);
-      setCurrentStep(4);
+      if (!selectedDomain) setSelectedDomain(domain);
+      if (board && !selectedBoard) setBoard(board);
+      if (classParam && !selectedClass) setClass(classParam);
+      if (!selectedBatch) setSelectedBatch(batch);
+      if (currentStep < 4) setCurrentStep(4);
     } else if (domain) {
-      setSelectedDomain(domain);
-      if (board) setBoard(board);
-      if (classParam) setClass(classParam);
+      if (!selectedDomain) setSelectedDomain(domain);
+      if (board && !selectedBoard) setBoard(board);
+      if (classParam && !selectedClass) setClass(classParam);
       const examType = examTypes.find(t => t.code === domain);
-      setCurrentStep(examType?.requires_board ? 2 : 3);
+      const targetStep = examType?.requires_board ? 2 : 3;
+      if (currentStep < targetStep) setCurrentStep(targetStep);
     }
-  }, []);
+  }, [examTypes.length, searchParams]);
 
   // Fetch batches when domain/board/class changes
   useEffect(() => {

@@ -9,130 +9,134 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { XP_REWARDS } from '@/lib/xpConfig';
 
-interface GameXPRow {
+interface AssignedQuestionRow {
   id: string;
   question_text: string;
-  exercise_type: string;
+  question_type: string;
   difficulty: string;
   marks: number;
-  xp_reward: number;
-  game_order: number;
+  xp_reward: number | null;
+  assignment_order: number;
+  source: 'centralized' | 'batch';
 }
 
-interface GameXPTableProps {
-  topicId: string;
-  mode?: 'dual' | 'legacy-only';
-}
-
-export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps) => {
-  const [games, setGames] = useState<GameXPRow[]>([]);
+export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
+  const [questions, setQuestions] = useState<AssignedQuestionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [modified, setModified] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchGames();
+    fetchAssignedQuestions();
   }, [topicId]);
 
-  const fetchGames = async () => {
+  const fetchAssignedQuestions = async () => {
     try {
       setLoading(true);
       
-    const { data, error } = await supabase
-      .from('gamified_exercises')
-      .select(`
-        id,
-        exercise_data,
-        exercise_type,
-        difficulty,
-        marks,
-        xp_reward,
-        game_order,
-        topic_content_mapping!inner(topic_id)
-      `)
-      .eq('topic_content_mapping.topic_id', topicId)
-      .order('game_order');
+      const { data, error } = await supabase
+        .from('batch_question_assignments')
+        .select(`
+          id,
+          xp_reward,
+          difficulty,
+          assignment_order,
+          question_bank!inner(
+            id,
+            question_text,
+            question_type,
+            difficulty,
+            marks,
+            is_centralized
+          )
+        `)
+        .eq('roadmap_topic_id', topicId)
+        .order('assignment_order');
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const transformedData = data?.map(game => ({
-      ...game,
-      question_text: (game.exercise_data as any)?.question || '',
-    })) || [];
+      const transformedData = data?.map(assignment => ({
+        id: assignment.id,
+        question_text: assignment.question_bank.question_text || '',
+        question_type: assignment.question_bank.question_type,
+        difficulty: assignment.difficulty || assignment.question_bank.difficulty || 'medium',
+        marks: assignment.question_bank.marks || 1,
+        xp_reward: assignment.xp_reward,
+        assignment_order: assignment.assignment_order || 0,
+        source: assignment.question_bank.is_centralized ? 'centralized' as const : 'batch' as const,
+      })) || [];
 
-    setGames(transformedData);
+      setQuestions(transformedData);
       setModified(new Set());
     } catch (error: any) {
-      console.error('Error fetching games:', error);
-      toast.error('Failed to load games');
+      console.error('Error fetching assigned questions:', error);
+      toast.error('Failed to load assigned questions');
     } finally {
       setLoading(false);
     }
   };
 
-  const updateGame = (gameId: string, field: keyof GameXPRow, value: any) => {
-    setGames(prev => prev.map(game => 
-      game.id === gameId ? { ...game, [field]: value } : game
+  const updateQuestion = (assignmentId: string, field: keyof AssignedQuestionRow, value: any) => {
+    setQuestions(prev => prev.map(q => 
+      q.id === assignmentId ? { ...q, [field]: value } : q
     ));
-    setModified(prev => new Set(prev).add(gameId));
+    setModified(prev => new Set(prev).add(assignmentId));
   };
 
-  const saveGame = async (gameId: string) => {
+  const saveQuestion = async (assignmentId: string) => {
     try {
-      setSaving(gameId);
-      const game = games.find(g => g.id === gameId);
-      if (!game) return;
+      setSaving(assignmentId);
+      const question = questions.find(q => q.id === assignmentId);
+      if (!question) return;
 
       const { error } = await supabase
-        .from('gamified_exercises')
+        .from('batch_question_assignments')
         .update({
-          xp_reward: game.xp_reward,
-          marks: game.marks,
-          difficulty: game.difficulty,
+          xp_reward: question.xp_reward,
+          difficulty: question.difficulty,
         })
-        .eq('id', gameId);
+        .eq('id', assignmentId);
 
       if (error) throw error;
 
       setModified(prev => {
         const next = new Set(prev);
-        next.delete(gameId);
+        next.delete(assignmentId);
         return next;
       });
 
-      toast.success('Game XP updated');
+      toast.success('XP updated');
     } catch (error: any) {
-      console.error('Error updating game:', error);
-      toast.error('Failed to update game XP');
+      console.error('Error updating assignment:', error);
+      toast.error('Failed to update XP');
     } finally {
       setSaving(null);
     }
   };
 
-  const saveAllGames = async () => {
+  const saveAllQuestions = async () => {
     try {
       setSaving('all');
-      const updates = Array.from(modified).map(gameId => {
-        const game = games.find(g => g.id === gameId);
-        if (!game) return null;
+      const updates = Array.from(modified).map(assignmentId => {
+        const question = questions.find(q => q.id === assignmentId);
+        if (!question) return null;
 
         return supabase
-          .from('gamified_exercises')
+          .from('batch_question_assignments')
           .update({
-            xp_reward: game.xp_reward,
-            marks: game.marks,
-            difficulty: game.difficulty,
+            xp_reward: question.xp_reward,
+            difficulty: question.difficulty,
           })
-          .eq('id', gameId);
+          .eq('id', assignmentId);
       });
 
       await Promise.all(updates.filter(Boolean));
 
       setModified(new Set());
-      toast.success(`${updates.length} games updated successfully`);
+      toast.success(`${updates.length} questions updated successfully`);
     } catch (error: any) {
-      console.error('Error updating games:', error);
-      toast.error('Failed to update games');
+      console.error('Error updating questions:', error);
+      toast.error('Failed to update questions');
     } finally {
       setSaving(null);
     }
@@ -142,34 +146,37 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
     try {
       setSaving('all');
       
-      const updates = games.map(game => {
-        const difficulty = game.difficulty as 'easy' | 'medium' | 'hard';
-        const defaultXP = XP_REWARDS.game[difficulty] || 10;
+      const updates = questions.map(question => {
+        const difficulty = question.difficulty as 'easy' | 'medium' | 'hard';
+        const defaultXP = XP_REWARDS.game[difficulty] || 40;
         
         return supabase
-          .from('gamified_exercises')
+          .from('batch_question_assignments')
           .update({
             xp_reward: defaultXP,
           })
-          .eq('id', game.id);
+          .eq('id', question.id);
       });
 
       await Promise.all(updates);
-      await fetchGames();
+      await fetchAssignedQuestions();
       toast.success('Reset to default XP values');
     } catch (error: any) {
-      console.error('Error resetting games:', error);
+      console.error('Error resetting questions:', error);
       toast.error('Failed to reset XP values');
     } finally {
       setSaving(null);
     }
   };
 
-  const exerciseTypeLabels: Record<string, string> = {
+  const questionTypeLabels: Record<string, string> = {
     mcq: 'MCQ',
-    match_pairs: 'Match Pairs',
+    match_pair: 'Match Pairs',
+    match_column: 'Match Columns',
     fill_blank: 'Fill Blanks',
-    drag_drop: 'Drag & Drop',
+    true_false: 'True/False',
+    short_answer: 'Short Answer',
+    assertion_reason: 'Assertion-Reason',
   };
 
   if (loading) {
@@ -180,17 +187,17 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
     );
   }
 
-  if (games.length === 0 && mode === 'legacy-only') {
+  if (questions.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <p>No legacy games in this topic</p>
-        <p className="text-xs mt-1">Games from the old lesson library system</p>
+        <p>No assigned questions in this topic</p>
+        <p className="text-xs mt-1">Assign questions from the centralized question bank or add from lesson library</p>
       </div>
     );
   }
 
-  const totalXP = games.reduce((sum, game) => sum + (game.xp_reward || 0), 0);
-  const avgXP = games.length > 0 ? (totalXP / games.length).toFixed(1) : 0;
+  const totalXP = questions.reduce((sum, q) => sum + (q.xp_reward || 0), 0);
+  const avgXP = questions.length > 0 ? (totalXP / questions.length).toFixed(1) : 0;
 
   return (
     <div className="space-y-4">
@@ -201,6 +208,7 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
               <TableHead className="w-12">#</TableHead>
               <TableHead className="min-w-[250px]">Question</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Source</TableHead>
               <TableHead>Difficulty</TableHead>
               <TableHead className="w-24">Marks</TableHead>
               <TableHead className="w-24">XP Reward</TableHead>
@@ -208,22 +216,27 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
             </TableRow>
           </TableHeader>
           <TableBody>
-            {games.map((game, index) => (
-              <TableRow key={game.id} className={modified.has(game.id) ? 'bg-accent/50' : ''}>
+            {questions.map((question, index) => (
+              <TableRow key={question.id} className={modified.has(question.id) ? 'bg-accent/50' : ''}>
                 <TableCell className="font-medium">{index + 1}</TableCell>
                 <TableCell className="text-sm">
-                  {game.question_text?.substring(0, 100)}
-                  {(game.question_text?.length || 0) > 100 ? '...' : ''}
+                  {question.question_text?.substring(0, 100)}
+                  {(question.question_text?.length || 0) > 100 ? '...' : ''}
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">
-                    {exerciseTypeLabels[game.exercise_type] || game.exercise_type}
+                    {questionTypeLabels[question.question_type] || question.question_type}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={question.source === 'centralized' ? 'default' : 'secondary'}>
+                    {question.source === 'centralized' ? '🌐 Centralized' : '📚 Batch'}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <Select
-                    value={game.difficulty}
-                    onValueChange={(value) => updateGame(game.id, 'difficulty', value)}
+                    value={question.difficulty}
+                    onValueChange={(value) => updateQuestion(question.id, 'difficulty', value)}
                   >
                     <SelectTrigger className="w-28">
                       <SelectValue />
@@ -236,30 +249,25 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={game.marks}
-                    onChange={(e) => updateGame(game.id, 'marks', parseInt(e.target.value))}
-                    className="w-20"
-                  />
+                  <span className="text-sm">{question.marks}</span>
                 </TableCell>
                 <TableCell>
                   <Input
                     type="number"
                     min="0"
-                    value={game.xp_reward}
-                    onChange={(e) => updateGame(game.id, 'xp_reward', parseInt(e.target.value))}
+                    value={question.xp_reward ?? ''}
+                    placeholder="Auto"
+                    onChange={(e) => updateQuestion(question.id, 'xp_reward', e.target.value ? parseInt(e.target.value) : null)}
                     className="w-20"
                   />
                 </TableCell>
                 <TableCell>
                   <Button
                     size="sm"
-                    onClick={() => saveGame(game.id)}
-                    disabled={!modified.has(game.id) || saving === game.id}
+                    onClick={() => saveQuestion(question.id)}
+                    disabled={!modified.has(question.id) || saving === question.id}
                   >
-                    {saving === game.id ? (
+                    {saving === question.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Save className="h-4 w-4" />
@@ -276,8 +284,8 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
       <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
         <div className="flex gap-6 text-sm">
           <div>
-            <span className="text-muted-foreground">Total Games:</span>
-            <span className="font-semibold ml-2">{games.length}</span>
+            <span className="text-muted-foreground">Total Questions:</span>
+            <span className="font-semibold ml-2">{questions.length}</span>
           </div>
           <div>
             <span className="text-muted-foreground">Total XP:</span>
@@ -301,7 +309,7 @@ export const GameXPTable = ({ topicId, mode = 'legacy-only' }: GameXPTableProps)
           </Button>
           <Button
             size="sm"
-            onClick={saveAllGames}
+            onClick={saveAllQuestions}
             disabled={modified.size === 0 || saving === 'all'}
           >
             {saving === 'all' ? (

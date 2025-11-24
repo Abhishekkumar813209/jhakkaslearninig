@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GameXPTable } from './GameXPTable';
+import { BatchQuestionXPTable } from './BatchQuestionXPTable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -14,7 +16,8 @@ interface Topic {
   id: string;
   topic_name: string;
   day_number: number;
-  published_count: number; // Live games in gamified_exercises
+  published_count: number; // Live games in gamified_exercises (legacy)
+  assigned_count?: number; // Assigned questions from batch_question_assignments (new)
   ready_to_publish_count?: number; // Approved games in topic_learning_content
   missing_data_count?: number;
   sync_status?: 'synced' | 'pending' | 'incomplete';
@@ -40,21 +43,22 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
     try {
       setLoading(true);
       
-      // Use optimized database function for single-query fetch
-      const { data, error } = await supabase.rpc('get_topic_game_stats', {
+      // Fetch from both systems (dual-source)
+      const { data: statsData, error: statsError } = await supabase.rpc('get_batch_assignment_stats', {
         chapter_uuid: chapterId,
       });
 
-      if (error) throw error;
+      if (statsError) throw statsError;
 
-      const topicsWithCounts = (data || []).map((topic: any) => ({
+      const topicsWithCounts = (statsData || []).map((topic: any) => ({
         id: topic.id,
         topic_name: topic.topic_name,
         day_number: topic.day_number,
-        published_count: Number(topic.live_count) || 0,
-        ready_to_publish_count: Number(topic.ready_to_publish_count) || 0,
-        missing_data_count: Number(topic.incomplete_count) || 0,
-        sync_status: topic.sync_status as 'synced' | 'pending' | 'incomplete',
+        assigned_count: Number(topic.assigned_count) || 0, // New architecture
+        published_count: Number(topic.legacy_count) || 0, // Legacy architecture
+        ready_to_publish_count: 0, // Not needed for XP manager
+        missing_data_count: 0,
+        sync_status: 'synced' as const,
       }));
 
       setTopics(topicsWithCounts);
@@ -286,17 +290,14 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={topic.published_count > 0 ? "default" : "secondary"}>
-                      🎮 {topic.published_count} live
-                    </Badge>
-                    {topic.ready_to_publish_count !== undefined && topic.ready_to_publish_count > 0 && (
-                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                        📦 {topic.ready_to_publish_count} ready
+                    {topic.assigned_count !== undefined && topic.assigned_count > 0 && (
+                      <Badge variant="default">
+                        🎯 {topic.assigned_count} assigned
                       </Badge>
                     )}
-                    {topic.missing_data_count !== undefined && topic.missing_data_count > 0 && (
-                      <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
-                        ⚠️ {topic.missing_data_count} incomplete
+                    {topic.published_count > 0 && (
+                      <Badge variant="secondary">
+                        📚 {topic.published_count} legacy
                       </Badge>
                     )}
                   </div>
@@ -383,37 +384,30 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                     </div>
                   </div>
                 )}
-                {topic.published_count > 0 ? (
-                  <>
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={() => handleAutoDistribute(topic.id)}
-                        disabled={distributing}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        {distributing && currentTopicId === topic.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-3 w-3 mr-1.5" />
-                            Distribute XP
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <GameXPTable topicId={topic.id} />
-                  </>
+                {(topic.assigned_count && topic.assigned_count > 0) || (topic.published_count > 0) ? (
+                  <Tabs defaultValue="assigned" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="assigned" className="flex items-center gap-2">
+                        <span>🎯 Assigned Questions</span>
+                        <Badge variant="secondary" className="ml-auto">{topic.assigned_count || 0}</Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="legacy" className="flex items-center gap-2">
+                        <span>📚 Legacy Games</span>
+                        <Badge variant="secondary" className="ml-auto">{topic.published_count || 0}</Badge>
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="assigned" className="mt-4">
+                      <BatchQuestionXPTable topicId={topic.id} />
+                    </TabsContent>
+                    
+                    <TabsContent value="legacy" className="mt-4">
+                      <GameXPTable topicId={topic.id} mode="legacy-only" />
+                    </TabsContent>
+                  </Tabs>
                 ) : (
                   <p className="text-muted-foreground text-sm py-4">
-                    {topic.ready_to_publish_count && topic.ready_to_publish_count > 0 
-                      ? `${topic.ready_to_publish_count} game(s) ready to publish (in lesson library)`
-                      : topic.missing_data_count && topic.missing_data_count > 0
-                      ? `${topic.missing_data_count} game(s) approved but missing data`
-                      : 'No games in this topic'}
+                    No questions assigned to this topic. Assign questions from the centralized question bank.
                   </p>
                 )}
               </CardContent>

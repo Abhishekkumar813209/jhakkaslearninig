@@ -104,7 +104,7 @@ export const ChapterLibraryManager = () => {
   // Initialize filters from URL on mount
   useEffect(() => {
     if (isClient) {
-      const examDomain = searchParams.get('exam_domain');
+      const examDomain = searchParams.get('domain');
       const board = searchParams.get('board');
       const studentClass = searchParams.get('class');
       const subject = searchParams.get('subject');
@@ -120,7 +120,7 @@ export const ChapterLibraryManager = () => {
   useEffect(() => {
     if (isClient && selectedDomain) {
       const params = new URLSearchParams(searchParams);
-      params.set('exam_domain', selectedDomain);
+      params.set('domain', selectedDomain);
       navigate(`?${params.toString()}`, { replace: true });
     }
   }, [selectedDomain, isClient]);

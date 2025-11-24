@@ -3815,17 +3815,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_game_id"
+            foreignKeyName: "student_question_attempts_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false
-            referencedRelation: "gamified_exercises"
+            referencedRelation: "batch_question_assignments"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "student_question_attempts_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "gamified_exercises"
+            referencedRelation: "question_bank"
             referencedColumns: ["id"]
           },
         ]

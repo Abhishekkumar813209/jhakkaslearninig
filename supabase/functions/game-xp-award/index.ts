@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
         .from('batch_question_assignments')
         .select(`
           id,
+          question_id,
           question_bank!inner(
             id,
             difficulty,
@@ -184,8 +185,8 @@ Deno.serve(async (req) => {
         .from('student_question_attempts')
         .insert({
           student_id: user.id,
-          question_id: game_id, // Keep for backward compatibility
-          game_id: game_id,
+          question_id: assignmentInfo.question_id, // Use actual question_bank.id
+          game_id: game_id, // batch_question_assignments.id
           topic_id: topic_id,
           is_correct: is_correct,
           status: is_correct ? 'completed' : 'attempted',

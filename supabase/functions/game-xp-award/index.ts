@@ -100,6 +100,8 @@ Deno.serve(async (req) => {
         .select(`
           id,
           question_id,
+          xp_reward,
+          difficulty,
           question_bank!inner(
             id,
             difficulty,
@@ -114,11 +116,19 @@ Deno.serve(async (req) => {
         throw new Error(`Assignment ${game_id} not found in batch_question_assignments`);
       }
 
-      const questionData = assignmentInfo.question_bank;
-      const difficulty = questionData.difficulty || 'medium';
-
-      // Calculate XP based on difficulty (matching frontend logic)
-      const baseXP = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 40 : 30;
+      // XP calculation: prioritize custom xp_reward, fallback to difficulty-based
+      let baseXP: number;
+      
+      if (assignmentInfo.xp_reward !== null && assignmentInfo.xp_reward !== undefined) {
+        // Use admin-configured custom XP
+        baseXP = assignmentInfo.xp_reward;
+        console.log(`[XP Award] Using custom XP: ${baseXP} for assignment ${game_id}`);
+      } else {
+        // Fallback to difficulty-based XP
+        const difficulty = assignmentInfo.difficulty || assignmentInfo.question_bank.difficulty || 'medium';
+        baseXP = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 40 : 30;
+        console.log(`[XP Award] Using difficulty-based XP: ${baseXP} (${difficulty}) for assignment ${game_id}`);
+      }
 
       // Get existing attempts
       const { data: existingAttempts, error: attemptsError } = await supabase

@@ -66,11 +66,13 @@ export type Database = {
           batch_id: string
           chapter_library_id: string | null
           created_at: string | null
+          difficulty: string | null
           id: string
           is_active: boolean | null
           last_synced_at: string | null
           question_id: string
           roadmap_topic_id: string
+          xp_reward: number | null
         }
         Insert: {
           assigned_at?: string | null
@@ -79,11 +81,13 @@ export type Database = {
           batch_id: string
           chapter_library_id?: string | null
           created_at?: string | null
+          difficulty?: string | null
           id?: string
           is_active?: boolean | null
           last_synced_at?: string | null
           question_id: string
           roadmap_topic_id: string
+          xp_reward?: number | null
         }
         Update: {
           assigned_at?: string | null
@@ -92,11 +96,13 @@ export type Database = {
           batch_id?: string
           chapter_library_id?: string | null
           created_at?: string | null
+          difficulty?: string | null
           id?: string
           is_active?: boolean | null
           last_synced_at?: string | null
           question_id?: string
           roadmap_topic_id?: string
+          xp_reward?: number | null
         }
         Relationships: [
           {
@@ -5544,6 +5550,18 @@ export type Database = {
           p_student_class: string
         }
         Returns: string
+      }
+      get_batch_assignment_stats: {
+        Args: { chapter_uuid: string }
+        Returns: {
+          assigned_count: number
+          avg_xp: number
+          day_number: number
+          id: string
+          legacy_count: number
+          topic_name: string
+          total_xp: number
+        }[]
       }
       get_chapter_stats: {
         Args: { roadmap_uuid: string; subject_text: string }

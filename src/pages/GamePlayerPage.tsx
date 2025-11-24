@@ -443,7 +443,13 @@ const GamePlayerPage = () => {
 
   // Normalize exercise_type to handle variations, synonyms, and database inconsistencies
   const normalizeExerciseType = (type: string): string => {
-    if (!type) return '';
+    if (!type) {
+      console.warn('⚠️ Empty or undefined question_type received:', {
+        gameId: gameData?.id,
+        availableFields: gameData ? Object.keys(gameData) : []
+      });
+      return '';
+    }
     
     // Step 1: Basic cleanup
     let normalized = type.trim().toLowerCase();
@@ -686,6 +692,61 @@ const GamePlayerPage = () => {
           />
         );
 
+      case 'short_answer':
+        const shortAnswerData = {
+          question: gameData.question_text || gameData.question_data?.text || '',
+          correctAnswer: gameData.answer_data?.correct_answer || gameData.answer_data?.answer || '',
+          explanation: gameData.question_data?.explanation || gameData.answer_data?.explanation || '',
+          marks: gameData.question_data?.marks || gameData.marks || 2,
+          difficulty: gameData.question_data?.difficulty || gameData.difficulty || 'medium'
+        };
+        
+        console.log('[GamePlayerPage] Short Answer Data:', shortAnswerData);
+        
+        if (!shortAnswerData.question) {
+          return (
+            <div className="text-center p-8">
+              <p className="text-destructive">Short answer question text is missing</p>
+              <Button onClick={handleExit} className="mt-4">Back to Topic</Button>
+            </div>
+          );
+        }
+        
+        return (
+          <Card className="max-w-3xl mx-auto p-6">
+            <CardContent>
+              <h2 className="text-2xl font-bold mb-4">Short Answer Question</h2>
+              <p className="text-lg mb-6">{shortAnswerData.question}</p>
+              <div className="bg-muted p-4 rounded-md">
+                <h3 className="font-semibold mb-2">Expected Answer:</h3>
+                <p className="whitespace-pre-wrap">{shortAnswerData.correctAnswer}</p>
+              </div>
+              {shortAnswerData.explanation && (
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-md">
+                  <h3 className="font-semibold mb-2">Explanation:</h3>
+                  <p>{shortAnswerData.explanation}</p>
+                </div>
+              )}
+              <div className="flex gap-4 mt-6">
+                {navInfo?.previousGameId && (
+                  <Button onClick={handlePrevious} variant="outline">
+                    Previous
+                  </Button>
+                )}
+                {navInfo?.nextGameId ? (
+                  <Button onClick={handleNext} className="ml-auto">
+                    Next Question
+                  </Button>
+                ) : (
+                  <Button onClick={handleExit} className="ml-auto">
+                    Back to Topic
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       case 'interactive_blanks':
         // Keep InteractiveBlanks for its own type
         return (
@@ -801,11 +862,29 @@ const GamePlayerPage = () => {
         );
       
       default:
+        // Log for debugging
+        console.error('❌ Unsupported game type:', {
+          exerciseType,
+          rawType,
+          gameId: gameData.id,
+          supportedTypes: ['mcq', 'match_column', 'match_pair', 'fill_blank', 'true_false', 'short_answer', 'assertion_reason', 'interactive_blanks', 'drag_drop_sort']
+        });
+        
         return (
           <div className="text-center p-8">
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-4">
               Game type "{exerciseType}" is not yet supported.
             </p>
+            <div className="bg-muted p-4 rounded-md text-left max-w-md mx-auto">
+              <p className="text-sm font-semibold mb-2">Debug Info:</p>
+              <pre className="text-xs overflow-auto">
+                {JSON.stringify({ 
+                  type: exerciseType, 
+                  rawType: rawType,
+                  gameId: gameData.id 
+                }, null, 2)}
+              </pre>
+            </div>
             <Button onClick={handleExit} className="mt-4">
               Back to Topic
             </Button>

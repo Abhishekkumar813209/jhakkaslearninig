@@ -487,14 +487,16 @@ const GamePlayerPage = () => {
   const renderGame = () => {
     if (!gameData) return null;
 
-    const rawType = gameData.exercise_type;
+    const rawType = gameData.question_type;
     const exerciseType = normalizeExerciseType(rawType);
     
-    console.log('[GamePlayerPage] Exercise Type Debug:', {
+    console.log('🎮 Game Type Debug:', {
       rawType,
       normalizedType: exerciseType,
       gameId: gameData.id,
-      hasExerciseData: !!gameData.exercise_data
+      hasQuestionData: !!gameData.question_data,
+      hasAnswerData: !!gameData.answer_data,
+      availableFields: Object.keys(gameData)
     });
     
     // For MCQ: Use parser to extract from JSONB columns

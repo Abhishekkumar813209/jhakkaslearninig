@@ -109,7 +109,20 @@ export const ChapterLibraryManager = () => {
       const studentClass = searchParams.get('class');
       const subject = searchParams.get('subject');
       
-      if (examDomain && !selectedDomain) setSelectedDomain(examDomain);
+      console.log('🔍 URL Initialization Effect:', {
+        examDomain,
+        board,
+        studentClass,
+        subject,
+        currentSelectedDomain: selectedDomain,
+        examTypesCount: examTypes.length,
+        examTypesCodes: examTypes.map(t => t.code)
+      });
+      
+      if (examDomain && !selectedDomain) {
+        console.log('✅ Setting selectedDomain to:', examDomain);
+        setSelectedDomain(examDomain);
+      }
       if (board && !selectedBoard) setSelectedBoard(board);
       if (studentClass && !selectedClass) setSelectedClass(studentClass);
       if (subject && !selectedSubject) setSelectedSubject(subject);
@@ -755,7 +768,10 @@ export const ChapterLibraryManager = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Exam Domain</label>
-              <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+              <Select value={selectedDomain} onValueChange={(value) => {
+                console.log('📝 Dropdown onChange:', value);
+                setSelectedDomain(value);
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select exam" />
                 </SelectTrigger>
@@ -767,6 +783,9 @@ export const ChapterLibraryManager = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="text-xs text-muted-foreground mt-1">
+                Current value: {selectedDomain || 'none'}
+              </div>
             </div>
 
             {requiresBoard && (

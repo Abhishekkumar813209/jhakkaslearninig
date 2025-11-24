@@ -103,18 +103,18 @@ export const ChapterLibraryManager = () => {
 
   // Initialize filters from URL on mount
   useEffect(() => {
-    if (isClient) {
+    if (isClient && !loading && examTypes.length > 0) {
       const examDomain = searchParams.get('domain');
       const board = searchParams.get('board');
       const studentClass = searchParams.get('class');
       const subject = searchParams.get('subject');
       
-      if (examDomain) setSelectedDomain(examDomain);
-      if (board) setSelectedBoard(board);
-      if (studentClass) setSelectedClass(studentClass);
-      if (subject) setSelectedSubject(subject);
+      if (examDomain && !selectedDomain) setSelectedDomain(examDomain);
+      if (board && !selectedBoard) setSelectedBoard(board);
+      if (studentClass && !selectedClass) setSelectedClass(studentClass);
+      if (subject && !selectedSubject) setSelectedSubject(subject);
     }
-  }, [isClient]);
+  }, [isClient, loading, examTypes.length, searchParams]);
 
   // Sync selectedDomain with URL
   useEffect(() => {
@@ -123,7 +123,7 @@ export const ChapterLibraryManager = () => {
       params.set('domain', selectedDomain);
       navigate(`?${params.toString()}`, { replace: true });
     }
-  }, [selectedDomain, isClient]);
+  }, [selectedDomain, isClient, navigate, searchParams]);
 
   // Sync selectedBoard with URL
   useEffect(() => {
@@ -132,7 +132,7 @@ export const ChapterLibraryManager = () => {
       params.set('board', selectedBoard);
       navigate(`?${params.toString()}`, { replace: true });
     }
-  }, [selectedBoard, isClient]);
+  }, [selectedBoard, isClient, navigate, searchParams]);
 
   // Sync selectedClass with URL
   useEffect(() => {
@@ -141,7 +141,7 @@ export const ChapterLibraryManager = () => {
       params.set('class', selectedClass);
       navigate(`?${params.toString()}`, { replace: true });
     }
-  }, [selectedClass, isClient]);
+  }, [selectedClass, isClient, navigate, searchParams]);
 
   // Sync selectedSubject with URL
   useEffect(() => {
@@ -150,7 +150,7 @@ export const ChapterLibraryManager = () => {
       params.set('subject', selectedSubject);
       navigate(`?${params.toString()}`, { replace: true });
     }
-  }, [selectedSubject, isClient]);
+  }, [selectedSubject, isClient, navigate, searchParams]);
 
   // Fetch classes when board/domain selected
   useEffect(() => {

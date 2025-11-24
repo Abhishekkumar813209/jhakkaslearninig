@@ -45,6 +45,12 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || parsed?.action || 'award_xp';
 
+    console.log('🧪 game-xp-award Request:', {
+      action,
+      userId: user.id,
+      body: parsed
+    });
+
     // Action: Get attempt count for a game
     if (action === 'get_attempts') {
       const gameId = url.searchParams.get('game_id') || parsed?.game_id;
@@ -88,16 +94,30 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get game XP reward
-      const { data: gameInfo, error: gameError } = await supabase
-        .from('gamified_exercises')
-        .select('xp_reward')
+      // Query batch_question_assignments to get question details from question_bank
+      const { data: assignmentInfo, error: assignmentError } = await supabase
+        .from('batch_question_assignments')
+        .select(`
+          id,
+          question_bank!inner(
+            id,
+            difficulty,
+            marks
+          )
+        `)
         .eq('id', game_id)
         .single();
 
-      if (gameError) throw gameError;
+      if (assignmentError || !assignmentInfo) {
+        console.error('❌ Assignment not found:', { game_id, error: assignmentError });
+        throw new Error(`Assignment ${game_id} not found in batch_question_assignments`);
+      }
 
-      const baseXP = gameInfo?.xp_reward || 10;
+      const questionData = assignmentInfo.question_bank;
+      const difficulty = questionData.difficulty || 'medium';
+
+      // Calculate XP based on difficulty (matching frontend logic)
+      const baseXP = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 40 : 30;
 
       // Get existing attempts
       const { data: existingAttempts, error: attemptsError } = await supabase
@@ -207,6 +227,16 @@ Deno.serve(async (req) => {
         console.log(`[Practice Mode] Game: ${game_id}, Attempt: ${attemptNumber} - No XP awarded (practice mode)`);
       }
 
+      console.log('✅ XP Award Response:', {
+        game_id,
+        student_id: user.id,
+        xp_awarded: xpAmount,
+        attempt_number: attemptNumber,
+        is_practice_mode: attemptNumber > 2,
+        difficulty,
+        baseXP
+      });
+
       return new Response(JSON.stringify({
         xp_awarded: xpAmount,
         attempt_number: attemptNumber,
@@ -224,8 +254,16 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in game-xp-award:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('❌ Error in game-xp-award:', {
+      message: error.message,
+      stack: error.stack,
+      errorType: error.constructor.name
+    });
+    
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: 'Check edge function logs for more information'
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

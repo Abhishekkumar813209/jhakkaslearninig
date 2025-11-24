@@ -23,6 +23,13 @@ interface Topic {
   sync_status?: 'synced' | 'pending' | 'incomplete';
 }
 
+// Helper function to calculate total XP from both sources
+const calculateTotalXP = (topic: Topic): number => {
+  const assignedXP = (topic.assigned_count || 0) * 40; // Default 40 XP per assigned question
+  const legacyXP = (topic.published_count || 0) * 40; // Default 40 XP per legacy game
+  return assignedXP + legacyXP;
+};
+
 export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -307,22 +314,22 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
             
             <CollapsibleContent>
               <CardContent className="pt-0 space-y-3">
-                {/* Status Overview */}
+                {/* Status Overview - Dual Source Architecture */}
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="bg-primary/5 border border-primary/20 rounded p-2">
-                    <p className="text-muted-foreground">Live Games</p>
-                    <p className="text-lg font-semibold text-primary">🎮 {topic.published_count}</p>
-                    <p className="text-[10px] text-muted-foreground">In gamified_exercises</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                    <p className="text-muted-foreground">Assigned Questions</p>
+                    <p className="text-lg font-semibold text-blue-700">🎯 {topic.assigned_count || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">From centralized bank</p>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-200 rounded p-2">
+                    <p className="text-muted-foreground">Legacy Games</p>
+                    <p className="text-lg font-semibold text-gray-600">📚 {topic.published_count || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">From lesson library</p>
                   </div>
                   <div className="bg-green-50 border border-green-200 rounded p-2">
-                    <p className="text-muted-foreground">Ready to Publish</p>
-                    <p className="text-lg font-semibold text-green-700">📦 {topic.ready_to_publish_count || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">In lesson library (approved)</p>
-                  </div>
-                  <div className="bg-orange-50 border border-orange-200 rounded p-2">
-                    <p className="text-muted-foreground">Incomplete</p>
-                    <p className="text-lg font-semibold text-orange-700">⚠️ {topic.missing_data_count || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">Missing game_data</p>
+                    <p className="text-muted-foreground">Total XP Available</p>
+                    <p className="text-lg font-semibold text-green-700">⚡ {calculateTotalXP(topic)}</p>
+                    <p className="text-[10px] text-muted-foreground">Combined from both</p>
                   </div>
                 </div>
 
@@ -406,9 +413,12 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
                     </TabsContent>
                   </Tabs>
                 ) : (
-                  <p className="text-muted-foreground text-sm py-4">
-                    No questions assigned to this topic. Assign questions from the centralized question bank.
-                  </p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm font-medium">No games in this topic</p>
+                    <p className="text-xs mt-1">
+                      Assign questions from the centralized question bank or add from lesson library
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </CollapsibleContent>

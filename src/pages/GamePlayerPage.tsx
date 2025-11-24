@@ -275,10 +275,13 @@ const GamePlayerPage = () => {
     }
   };
 
-  const handleCorrectAnswer = async (result?: SubQuestionResult) => {
+  const handleSubmitAnswer = async (answer: any, result?: SubQuestionResult): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !gameData) return;
+      if (!user || !gameData) return false;
+
+      // Determine if answer is correct based on result
+      const isCorrect = result ? result.correctCount > 0 : true;
 
       // Call backend to handle XP award and attempt tracking
       const awardResult = await invokeWithAuth<any, GameXPAwardResponse>({
@@ -287,7 +290,7 @@ const GamePlayerPage = () => {
           action: 'award_xp',
           game_id: gameData.id,
           topic_id: topicId!,
-          is_correct: true,
+          is_correct: isCorrect,
           sub_question_result: result && result.totalSubQuestions > 1 ? {
             totalSubQuestions: result.totalSubQuestions,
             correctCount: result.correctCount,
@@ -295,7 +298,8 @@ const GamePlayerPage = () => {
           } : undefined
         }
       });
-      // Show appropriate toast
+
+      // Backend succeeded - show appropriate toast
       if (awardResult.xp_awarded > 0) {
         const attemptText = result?.attemptNumber ? ` (${result.attemptNumber === 1 ? '1st' : result.attemptNumber === 2 ? '2nd' : `${result.attemptNumber}th`} attempt)` : '';
         toast({
@@ -306,7 +310,6 @@ const GamePlayerPage = () => {
           duration: 3000
         });
 
-        // Trigger visual XP fly animation towards navbar and refresh XP counter
         window.dispatchEvent(new CustomEvent('xp-fly', { detail: { amount: awardResult.xp_awarded } }));
         window.dispatchEvent(new Event('xp-updated'));
       } else if (awardResult.is_practice_mode) {
@@ -320,7 +323,7 @@ const GamePlayerPage = () => {
       // Mark game as completed in progress table
       await markGameCompleted(user.id, topicId!, gameData.id);
 
-      // Update progress percentage using navInfo
+      // Update progress percentage
       const { data: progress } = await supabase
         .from('student_topic_game_progress')
         .select('completed_game_ids')
@@ -333,17 +336,26 @@ const GamePlayerPage = () => {
       const percentage = totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
       setProgressPercentage(Math.round(percentage));
 
-      // After successful correct answer handling, move to next game automatically
-      handleGameComplete();
+      // After successful answer handling, move to next game automatically
+      if (isCorrect) {
+        handleGameComplete();
+      }
+
+      return true; // Success
 
     } catch (error) {
       console.error("Error saving progress:", error);
       toast({
         title: "Error",
-        description: "Failed to save progress",
+        description: "Failed to save progress. Please try again.",
         variant: "destructive"
       });
+      return false; // Failure
     }
+  };
+
+  const handleCorrectAnswer = async (result?: SubQuestionResult) => {
+    await handleSubmitAnswer(null, result);
   };
 
   const handleWrongAnswer = async () => {
@@ -800,8 +812,7 @@ const GamePlayerPage = () => {
         return (
           <TrueFalseGame
             gameData={tfData}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
+            onSubmit={handleSubmitAnswer}
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
             hasMoreQuestions={!!navInfo?.nextGameId}

@@ -27,8 +27,7 @@ interface TrueFalseGameData {
 
 interface TrueFalseGameProps {
   gameData: TrueFalseGameData;
-  onCorrect: (result?: SubQuestionResult) => void;
-  onWrong: () => void;
+  onSubmit: (answer: any, result?: SubQuestionResult) => Promise<boolean>;
   onComplete: () => void;
   onNext?: () => void;
   hasMoreQuestions?: boolean;
@@ -37,8 +36,7 @@ interface TrueFalseGameProps {
 
 export function TrueFalseGame({
   gameData,
-  onCorrect,
-  onWrong,
+  onSubmit,
   onComplete,
   onNext,
   hasMoreQuestions = false,
@@ -49,6 +47,7 @@ export function TrueFalseGame({
   const [isCorrect, setIsCorrect] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [attemptCount, setAttemptCount] = useState(initialAttemptCount);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Multi-part states
   const [multiAnswers, setMultiAnswers] = useState<{ [key: number]: boolean }>({});
@@ -71,78 +70,105 @@ export function TrueFalseGame({
     setSelectedAnswer(value);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const currentAttempt = attemptCount + 1;
     setAttemptCount(currentAttempt);
+    setIsSubmitting(true);
     
-    if (isMultiPart) {
-      // Check all statements answered
-      if (Object.keys(multiAnswers).length !== gameData.statements!.length) return;
-      
-      setHasSubmitted(true);
-      
-      // Check all answers and calculate partial credit
-      const totalSubQuestions = gameData.statements!.length;
-      let correctCount = 0;
-      
-      gameData.statements!.forEach((stmt, idx) => {
-        if (multiAnswers[idx] === stmt.answer) {
-          correctCount++;
+    try {
+      if (isMultiPart) {
+        // Check all statements answered
+        if (Object.keys(multiAnswers).length !== gameData.statements!.length) {
+          setIsSubmitting(false);
+          return;
         }
-      });
-      
-      const allCorrect = correctCount === totalSubQuestions;
-      const percentage = correctCount / totalSubQuestions;
-      setIsCorrect(allCorrect);
-      
-      console.log('[TrueFalse Multi] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
-      
-      // Award partial credit XP regardless of all correct or not
-      if (correctCount > 0) {
-        playSound('correct');
-        if (allCorrect) {
+        
+        // Calculate partial credit
+        const totalSubQuestions = gameData.statements!.length;
+        let correctCount = 0;
+        
+        gameData.statements!.forEach((stmt, idx) => {
+          if (multiAnswers[idx] === stmt.answer) {
+            correctCount++;
+          }
+        });
+        
+        const allCorrect = correctCount === totalSubQuestions;
+        const percentage = correctCount / totalSubQuestions;
+        
+        console.log('[TrueFalse Multi] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
+        
+        // Call backend FIRST - wait for confirmation
+        const success = await onSubmit(multiAnswers, { 
+          totalSubQuestions, 
+          correctCount, 
+          percentage,
+          attemptNumber: currentAttempt
+        });
+        
+        if (!success) {
+          // Backend failed - don't show success UI
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Backend succeeded - NOW show success UI
+        setHasSubmitted(true);
+        setIsCorrect(allCorrect);
+        
+        if (correctCount > 0) {
+          playSound('correct');
+          if (allCorrect) {
+            confetti({
+              particleCount: 150,
+              spread: 100,
+              origin: { y: 0.6 },
+              colors: ["#FFD700", "#FFA500", "#FF6347"],
+            });
+          }
+        } else {
+          playSound('wrong');
+        }
+      } else {
+        // Single statement
+        if (selectedAnswer === null) {
+          setIsSubmitting(false);
+          return;
+        }
+        
+        const parsedCorrect = parseBoolean(gameData.correctAnswer);
+        const correct = selectedAnswer === parsedCorrect;
+        
+        // Call backend FIRST - wait for confirmation
+        const success = await onSubmit(selectedAnswer);
+        
+        if (!success) {
+          // Backend failed - don't show success UI
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Backend succeeded - NOW show success UI
+        setHasSubmitted(true);
+        setIsCorrect(correct);
+        
+        if (correct) {
+          playSound("correct");
           confetti({
             particleCount: 150,
             spread: 100,
             origin: { y: 0.6 },
             colors: ["#FFD700", "#FFA500", "#FF6347"],
           });
+        } else {
+          playSound("wrong");
         }
-        onCorrect({ 
-          totalSubQuestions, 
-          correctCount, 
-          percentage,
-          attemptNumber: currentAttempt
-        });
-      } else {
-        playSound('wrong');
-        onWrong();
       }
-    } else {
-      // Single statement
-      if (selectedAnswer === null) return;
-
-      setHasSubmitted(true);
-      const parsedCorrect = parseBoolean(gameData.correctAnswer);
-      const correct = selectedAnswer === parsedCorrect;
-      setIsCorrect(correct);
-
-      if (correct) {
-        playSound("correct");
-        confetti({
-          particleCount: 150,
-          spread: 100,
-          origin: { y: 0.6 },
-          colors: ["#FFD700", "#FFA500", "#FF6347"],
-        });
-        onCorrect();
-      } else {
-        playSound("wrong");
-        onWrong();
-      }
+      
+      setShowExplanation(true);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setShowExplanation(true);
   };
 
   const handleContinue = () => {
@@ -353,14 +379,14 @@ export function TrueFalseGame({
           {!hasSubmitted ? (
             <Button 
               onClick={handleSubmit} 
-              disabled={isMultiPart 
+              disabled={isSubmitting || (isMultiPart 
                 ? Object.keys(multiAnswers).length !== gameData.statements!.length 
-                : selectedAnswer === null
+                : selectedAnswer === null)
               } 
               className="flex-1" 
               size="lg"
             >
-              Submit Answer
+              {isSubmitting ? "Submitting..." : "Submit Answer"}
             </Button>
           ) : (
             <Button onClick={handleContinue} className="flex-1" size="lg">

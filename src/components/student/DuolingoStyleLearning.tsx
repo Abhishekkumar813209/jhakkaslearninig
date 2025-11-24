@@ -207,6 +207,22 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
     }
   };
 
+  // Adapter for TrueFalseGame's new onSubmit interface
+  const handleTrueFalseSubmit = async (answer: any, result?: SubQuestionResult): Promise<boolean> => {
+    try {
+      await handleCorrectAnswer(result);
+      return true;
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save progress",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
   const completeLesson = async () => {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
@@ -575,8 +591,7 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
         return (
           <TrueFalseGame
             gameData={parsedTF as any}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
+            onSubmit={handleTrueFalseSubmit}
             onComplete={completeLesson}
           />
         );

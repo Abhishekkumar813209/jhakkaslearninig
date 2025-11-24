@@ -361,6 +361,18 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
     }
   };
 
+  
+  // Adapter for TrueFalseGame's new onSubmit interface
+  const handleTrueFalseSubmit = async (answer: any, result?: any): Promise<boolean> => {
+    try {
+      await handleCorrectAnswer();
+      return true;
+    } catch (error) {
+      console.error("Submission error:", error);
+      return false;
+    }
+  };
+
   const markTopicComplete = async () => {
     try {
       // Mark progress as complete
@@ -668,8 +680,7 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
           return (
             <TrueFalseGame
               gameData={tfGameData}
-              onCorrect={handleCorrectAnswer}
-              onWrong={handleWrongAnswer}
+              onSubmit={handleTrueFalseSubmit}
               onComplete={markTopicComplete}
             />
           );

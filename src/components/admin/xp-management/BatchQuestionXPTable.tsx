@@ -26,10 +26,27 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [modified, setModified] = useState<Set<string>>(new Set());
+  const [topicInfo, setTopicInfo] = useState<{ difficulty: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchAssignedQuestions();
+    fetchTopicInfo();
   }, [topicId]);
+
+  const fetchTopicInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('roadmap_topics')
+        .select('topic_name, difficulty')
+        .eq('id', topicId)
+        .single();
+
+      if (error) throw error;
+      setTopicInfo({ difficulty: data.difficulty || 'medium', name: data.topic_name });
+    } catch (error) {
+      console.error('Error fetching topic info:', error);
+    }
+  };
 
   const fetchAssignedQuestions = async () => {
     try {
@@ -144,30 +161,42 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
     }
   };
 
-  const resetToDefaults = async () => {
+  const recalculateTopicXP = async (force = false) => {
     try {
       setSaving('all');
       
-      const updates = questions.map(question => {
-        const difficulty = question.difficulty as 'easy' | 'medium' | 'hard';
-        const defaultXP = XP_REWARDS.game[difficulty] || 40;
-        
-        return supabase
-          .from('batch_question_assignments')
-          .update({
-            xp_reward: defaultXP,
-          })
-          .eq('id', question.id);
+      const { data, error } = await supabase.functions.invoke('auto-distribute-topic-xp', {
+        body: { 
+          topic_id: topicId,
+          force_recalculate: force
+        }
       });
 
-      await Promise.all(updates);
-      await fetchAssignedQuestions();
-      toast.success('Reset to default XP values');
+      if (error) throw error;
+
+      if (data.success) {
+        await fetchAssignedQuestions();
+        toast.success(`XP distributed: ${data.questions_count} questions, ${data.budget} XP total`);
+      } else {
+        toast.error(data.message || 'Failed to distribute XP');
+      }
     } catch (error: any) {
-      console.error('Error resetting questions:', error);
-      toast.error('Failed to reset XP values');
+      console.error('Error recalculating XP:', error);
+      toast.error('Failed to recalculate XP');
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleRecalculateClick = () => {
+    const hasManualValues = questions.some(q => q.xp_reward !== null);
+    
+    if (hasManualValues) {
+      if (confirm('This will reset all manual XP values based on topic difficulty. Continue?')) {
+        recalculateTopicXP(true);
+      }
+    } else {
+      recalculateTopicXP(false);
     }
   };
 
@@ -200,9 +229,38 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
 
   const totalXP = questions.reduce((sum, q) => sum + (q.xp_reward || 0), 0);
   const avgXP = questions.length > 0 ? (totalXP / questions.length).toFixed(1) : 0;
+  const topicBudget = topicInfo?.difficulty === 'hard' ? 50 
+                    : topicInfo?.difficulty === 'medium' ? 40 
+                    : 30;
+  const budgetMatch = totalXP === topicBudget;
 
   return (
     <div className="space-y-4">
+      {/* Topic XP Budget Header */}
+      {topicInfo && (
+        <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Topic Difficulty:</span>
+            <Badge variant={
+              topicInfo.difficulty === 'easy' ? 'secondary' :
+              topicInfo.difficulty === 'medium' ? 'default' :
+              'destructive'
+            }>
+              {topicInfo.difficulty}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">XP Budget:</span>
+            <span className="font-semibold">{topicBudget} XP</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Assigned:</span>
+            <span className={`font-semibold ${budgetMatch ? 'text-green-600' : 'text-red-600'}`}>
+              {totalXP} XP {budgetMatch ? '✓' : `(${totalXP > topicBudget ? '+' : ''}${totalXP - topicBudget})`}
+            </span>
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto border rounded-lg">
         <Table>
           <TableHeader>
@@ -303,11 +361,11 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={resetToDefaults}
+            onClick={handleRecalculateClick}
             disabled={saving === 'all'}
           >
             <RotateCcw className="h-4 w-4 mr-2" />
-            Reset to Default
+            Recalculate XP
           </Button>
           <Button
             size="sm"

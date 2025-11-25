@@ -136,12 +136,14 @@ export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
   const questionData = question.exercise_data || question.question_data || {};
   const answerData = question.answer_data || {};
   
-  // Detect if this is match_pair (pairs array) or match_column (leftColumn/rightColumn)
-  const hasPairs = questionData.pairs || answerData.pairs;
+  // ✅ Enhanced detection
+  const hasQuestionPairs = Array.isArray(questionData.pairs) && questionData.pairs.length > 0;
+  const hasAnswerPairs = Array.isArray(answerData.pairs) && answerData.pairs.length > 0;
   const hasColumns = questionData.leftColumn || questionData.left_column || question.left_column;
   
   // For match_pair: use pairs array format [{id, left, right}]
-  if (hasPairs && !hasColumns) {
+  if ((hasQuestionPairs || hasAnswerPairs) && !hasColumns) {
+    // ✅ Prefer question_data.pairs, fallback to answer_data.pairs
     const pairs = questionData.pairs || answerData.pairs || [];
     return {
       question: questionData.question || questionData.text || question.question_text || '',
@@ -149,7 +151,7 @@ export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
       leftColumn: [],
       rightColumn: [],
       correctPairs: [],
-      explanation: questionData.explanation || question.explanation || ''
+      explanation: answerData.explanation || questionData.explanation || question.explanation || ''
     };
   }
   
@@ -159,6 +161,7 @@ export const parseMatchPairsData = (question: any): ParsedMatchPairsData => {
     leftColumn: questionData.leftColumn || questionData.left_column || question.left_column || [],
     rightColumn: questionData.rightColumn || questionData.right_column || question.right_column || [],
     correctPairs: answerData.pairs || questionData.correctPairs || question.correct_answer?.pairs || [],
+    pairs: [], // Empty for match_column
     explanation: questionData.explanation || answerData.explanation || question.explanation || ''
   };
 };

@@ -641,26 +641,36 @@ const GamePlayerPage = () => {
         );
 
       case 'match_pair': // ✅ Use singular to match normalization
-        // Use parser and convert to pairs format
         const parsedMatchPairs = parseMatchPairsData(gameData);
         
-        // Convert leftColumn/rightColumn/correctPairs to pairs format
-        const pairs = parsedMatchPairs.correctPairs.map((pair, index) => ({
-          id: `pair-${index}`,
-          left: parsedMatchPairs.leftColumn[pair.left] || '',
-          right: parsedMatchPairs.rightColumn[pair.right] || ''
-        }));
+        let pairs: { id: string; left: string; right: string }[] = [];
         
-        const matchPairsData = {
-          pairs,
-          time_limit: 180,
-          max_attempts: 3
-        };
+        // ✅ Priority 1: Use pairs array directly (match_pair format)
+        if (parsedMatchPairs.pairs && parsedMatchPairs.pairs.length > 0) {
+          pairs = parsedMatchPairs.pairs.map((pair: any, index: number) => ({
+            id: pair.id || `pair-${index}`,
+            left: pair.left || '',
+            right: pair.right || ''
+          }));
+        }
+        // ✅ Priority 2: Fallback - build from answer_data.pairs if question_data.pairs missing
+        else if (gameData.answer_data?.pairs && gameData.answer_data.pairs.length > 0) {
+          pairs = gameData.answer_data.pairs.map((pair: any, index: number) => ({
+            id: pair.id || `pair-${index}`,
+            left: pair.left || '',
+            right: pair.right || ''
+          }));
+        }
+        // ✅ Priority 3: Convert from leftColumn/rightColumn/correctPairs (match_column format)
+        else if (parsedMatchPairs.leftColumn?.length && parsedMatchPairs.correctPairs?.length) {
+          pairs = parsedMatchPairs.correctPairs.map((pair, index) => ({
+            id: `pair-${index}`,
+            left: parsedMatchPairs.leftColumn[pair.left] || '',
+            right: parsedMatchPairs.rightColumn[pair.right] || ''
+          }));
+        }
         
-        console.log('[GamePlayerPage] Match Pairs Data (parsed):', {
-          pairsCount: pairs.length,
-          pairs
-        });
+        console.log('[GamePlayerPage] Match Pairs Data (parsed):', { pairsCount: pairs.length, pairs });
         
         if (!pairs.length) {
           console.error('[GamePlayerPage] Match pairs data missing');
@@ -671,6 +681,12 @@ const GamePlayerPage = () => {
             </div>
           );
         }
+        
+        const matchPairsData = {
+          pairs,
+          time_limit: 180,
+          max_attempts: 3
+        };
         
         return (
           <MatchPairsGame

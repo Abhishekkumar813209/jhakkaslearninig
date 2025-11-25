@@ -123,14 +123,23 @@ Deno.serve(async (req) => {
       // 3. Question difficulty (from question_bank or assignment)
       // 4. Default fallback (40)
       let baseXP: number;
+      let effectiveDifficulty: 'easy' | 'medium' | 'hard';
       
       if (assignmentInfo.xp_reward !== null && assignmentInfo.xp_reward !== undefined) {
         baseXP = assignmentInfo.xp_reward;
-        console.log(`[XP Award] Using custom XP reward: ${baseXP}`);
+        
+        // Determine difficulty for logging even when using custom xp_reward
+        const topicDifficulty = assignmentInfo.roadmap_topics?.difficulty as 'easy' | 'medium' | 'hard' | null;
+        effectiveDifficulty = topicDifficulty 
+          || assignmentInfo.difficulty 
+          || assignmentInfo.question_bank?.difficulty 
+          || 'medium';
+          
+        console.log(`[XP Award] Using custom XP reward: ${baseXP} (difficulty: ${effectiveDifficulty})`);
       } else {
         // Use topic difficulty first, fallback to question/assignment difficulty
-        const topicDifficulty = assignmentInfo.roadmap_topics?.difficulty;
-        const effectiveDifficulty = topicDifficulty 
+        const topicDifficulty = assignmentInfo.roadmap_topics?.difficulty as 'easy' | 'medium' | 'hard' | null;
+        effectiveDifficulty = topicDifficulty 
           || assignmentInfo.difficulty 
           || assignmentInfo.question_bank?.difficulty 
           || 'medium';
@@ -240,7 +249,7 @@ Deno.serve(async (req) => {
         xp_awarded: xpAmount,
         attempt_number: attemptNumber,
         is_practice_mode: attemptNumber > 2,
-        difficulty,
+        difficulty: effectiveDifficulty,
         baseXP,
         fraction_correct: fractionCorrect,
         total_sub_questions: totalSubQuestions,

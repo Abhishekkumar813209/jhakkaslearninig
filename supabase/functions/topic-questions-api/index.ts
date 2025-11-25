@@ -1469,29 +1469,48 @@ serve(async (req) => {
 
     // ========== delete_question ==========
     if (action === 'delete_question') {
-      const { question_id } = body;
+      const { question_id, topic_id } = body;
       
       if (!question_id) {
         throw new Error('Missing question_id');
       }
 
-      console.log(`🗑️ Deleting question: ${question_id}`);
+      console.log(`🗑️ Removing question ${question_id} from batch assignment`);
 
-      // Delete from question_bank
-      const { error } = await serviceClient
-        .from('question_bank')
-        .delete()
-        .eq('id', question_id);
-      
-      if (error) throw error;
-
-      // Also cleanup any linked content (will cascade via FK constraints)
-      await serviceClient
-        .from('topic_content_mapping')
+      // Delete from batch_question_assignments (NOT question_bank)
+      // This preserves the canonical question for reuse in other batches
+      const deleteQuery = serviceClient
+        .from('batch_question_assignments')
         .delete()
         .eq('question_id', question_id);
+      
+      // If topic_id provided, only delete from that specific topic
+      if (topic_id) {
+        deleteQuery.eq('roadmap_topic_id', topic_id);
+      }
+      
+      const { error } = await deleteQuery;
+      
+      if (error) {
+        console.error('Delete error:', error);
+        return new Response(JSON.stringify({ error: 'Failed to remove question from batch' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
 
-      console.log(`✅ Question deleted: ${question_id}`);
+      // After deletion, redistribute XP for this topic if topic_id provided
+      if (topic_id) {
+        const { error: redistributeError } = await serviceClient.functions.invoke('auto-distribute-topic-xp', {
+          body: { topic_id: topic_id, force_recalculate: false }
+        });
+
+        if (redistributeError) {
+          console.warn('Failed to auto-redistribute XP after deletion:', redistributeError);
+        }
+      }
+
+      console.log(`✅ Question removed from batch assignment, question_bank row preserved`);
 
       return new Response(
         JSON.stringify({ success: true }),

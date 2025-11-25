@@ -23,23 +23,28 @@ interface MCQGameData {
 
 interface MCQGameProps {
   gameData: MCQGameData;
-  onCorrect: () => void;
-  onWrong: () => void;
+  onSubmit: (answer: any, result?: SubQuestionResult) => Promise<boolean>;
   onComplete: () => void;
-  onNext?: () => void; // Optional: called when Continue is clicked
-  onPrevious?: () => void; // Optional: called when Previous is clicked
-  onExit?: () => void; // Optional: called when Exit is clicked
-  hasMoreQuestions?: boolean; // If true, shows "Next" instead of completing
-  currentQuestionNum?: number; // For progress display
-  totalQuestions?: number; // For progress display
-  autoAdvanceDelay?: number; // Default 3000ms - time to wait before auto-advancing
-  initialAttemptCount?: number; // Backend-known attempts so far for badge display
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onExit?: () => void;
+  hasMoreQuestions?: boolean;
+  currentQuestionNum?: number;
+  totalQuestions?: number;
+  autoAdvanceDelay?: number;
+  initialAttemptCount?: number;
+}
+
+interface SubQuestionResult {
+  totalSubQuestions: number;
+  correctCount: number;
+  percentage: number;
+  attemptNumber?: number;
 }
 
 export function MCQGame({ 
   gameData, 
-  onCorrect, 
-  onWrong, 
+  onSubmit, 
   onComplete,
   onNext,
   onPrevious,
@@ -79,28 +84,35 @@ export function MCQGame({
     };
   }, [autoAdvanceTimer]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (selectedAnswer === null) return;
-    setHasSubmitted(true);
     
-    // Validate correct answer index
-    if (gameData.correct_answer >= gameData.options.length) {
-      console.warn('[MCQGame] Correct answer index out of range:', {
-        correctIndex: gameData.correct_answer,
-        optionsLength: gameData.options.length
-      });
-    }
-    
+    // Frontend decides correctness (0-based indexing)
     const correct = selectedAnswer === gameData.correct_answer;
-    setIsCorrect(correct);
     
-    // Dev log for debugging
     console.log('[MCQGame] Answer check:', {
       selected: selectedAnswer,
       correct: gameData.correct_answer,
       isCorrect: correct,
       optionsCount: gameData.options.length
     });
+
+    // Call parent's onSubmit with result (BACKEND-FIRST PATTERN)
+    const success = await onSubmit?.(selectedAnswer, {
+      totalSubQuestions: 1,
+      correctCount: correct ? 1 : 0,
+      percentage: correct ? 1.0 : 0.0,
+      attemptNumber: (initialAttemptCount || 0) + 1
+    });
+
+    if (!success) {
+      // Backend failed - don't show success UI
+      return;
+    }
+
+    // Backend succeeded - NOW show success UI
+    setHasSubmitted(true);
+    setIsCorrect(correct);
 
     if (correct) {
       playSound('correct');
@@ -110,21 +122,14 @@ export function MCQGame({
         origin: { y: 0.6 },
         colors: ['#FFD700', '#FFA500', '#FF6347']
       });
-      onCorrect();
     } else {
       playSound('wrong');
-      onWrong();
     }
 
-    // Show explanation after a brief delay
     setTimeout(() => {
       setShowExplanation(true);
-      
-      // Start auto-advance timer (only if has more questions)
       if (derivedHasMore && onNext) {
-        const timer = setTimeout(() => {
-          handleContinue();
-        }, autoAdvanceDelay);
+        const timer = setTimeout(() => handleContinue(), autoAdvanceDelay);
         setAutoAdvanceTimer(timer);
       }
     }, 500);

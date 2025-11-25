@@ -47,21 +47,40 @@ export const GameFloatingChatbot: React.FC<GameFloatingChatbotProps> = ({
 
   const checkAttemptCount = async () => {
     try {
-      const result = await invokeWithAuth<
+      // Get attempt count
+      const attemptsResult = await invokeWithAuth<
         { game_id: string; action: string },
-        { attempt_count: number }
+        { attempt_count: number; has_correct_attempt: boolean }
       >({
         name: 'game-xp-award',
         body: { game_id: gameId, action: 'get_attempts' }
       });
 
-      if (result) {
-        setAttemptCount(result.attempt_count);
-        // Show chatbot only if attempts > 2
-        setIsVisible(result.attempt_count > 2);
+      // Get view count
+      const viewsResult = await invokeWithAuth<
+        { game_id: string },
+        { view_count: number; is_struggling: boolean }
+      >({
+        name: 'game-view-track',
+        body: { game_id: gameId }
+      });
+
+      if (attemptsResult && viewsResult) {
+        setAttemptCount(attemptsResult.attempt_count);
+        
+        // Show chatbot if: views >= 3 AND no fully correct attempt
+        const shouldShow = viewsResult.view_count >= 3 && !attemptsResult.has_correct_attempt;
+        setIsVisible(shouldShow);
+        
+        console.log('[Chatbot Visibility]', {
+          views: viewsResult.view_count,
+          attempts: attemptsResult.attempt_count,
+          hasCorrect: attemptsResult.has_correct_attempt,
+          shouldShow
+        });
       }
     } catch (error) {
-      console.error('Error checking attempt count:', error);
+      console.error('Error checking visibility:', error);
     }
   };
 

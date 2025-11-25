@@ -31,15 +31,13 @@ import {
 } from "@/lib/questionDataHelpers";
 
 interface GameXPAwardResponse {
+  success: boolean;
   xp_awarded: number;
   attempt_number: number;
   is_practice_mode: boolean;
-  should_advance: boolean;
-  sub_question_info?: {
-    totalSubQuestions: number;
-    correctCount: number;
-    percentage: number;
-  };
+  fraction_correct: number;
+  total_sub_questions: number;
+  correct_count: number;
 }
 
 interface GetAttemptsResponse {
@@ -59,6 +57,7 @@ const GamePlayerPage = () => {
   const [showDebugData, setShowDebugData] = useState(false);
   const [initialAttemptCount, setInitialAttemptCount] = useState<number>(0);
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
+  const [viewCount, setViewCount] = useState<number>(0);
 
   useEffect(() => {
     // Guard against invalid params
@@ -67,6 +66,7 @@ const GamePlayerPage = () => {
       return;
     }
     loadGameData();
+    trackGameView();
     
     // Listen for game deletion/deactivation while student is playing
     const channel = supabase
@@ -275,13 +275,33 @@ const GamePlayerPage = () => {
     }
   };
 
+  const trackGameView = async () => {
+    if (!gameData?.id) return;
+    
+    try {
+      const result = await invokeWithAuth<{ game_id: string }, { view_count: number; is_struggling: boolean }>({
+        name: 'game-view-track',
+        body: { game_id: gameData.id }
+      });
+
+      if (result) {
+        setViewCount(result.view_count);
+        console.log(`[Game View] View #${result.view_count}`, result.is_struggling ? '(Student is struggling)' : '');
+      }
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
+  };
+
   const handleSubmitAnswer = async (answer: any, result?: SubQuestionResult): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !gameData) return false;
 
-      // Determine if answer is correct based on result
-      const isCorrect = result ? result.correctCount > 0 : true;
+      // Extract correctness data (FRONTEND DECIDES CORRECTNESS)
+      const totalSubQuestions = result?.totalSubQuestions || 1;
+      const correctCount = result?.correctCount || (result ? 0 : 1);
+      const isCorrect = correctCount === totalSubQuestions;
 
       // Call backend to handle XP award and attempt tracking
       const awardResult = await invokeWithAuth<any, GameXPAwardResponse>({
@@ -291,22 +311,31 @@ const GamePlayerPage = () => {
           game_id: gameData.id,
           topic_id: topicId!,
           is_correct: isCorrect,
-          sub_question_result: result && result.totalSubQuestions > 1 ? {
-            totalSubQuestions: result.totalSubQuestions,
-            correctCount: result.correctCount,
-            percentage: result.percentage
-          } : undefined
+          total_sub_questions: totalSubQuestions,
+          correct_count: correctCount
         }
       });
 
+      // Check for success response
+      if (!awardResult.success) {
+        throw new Error('Backend returned failure');
+      }
+
       // Backend succeeded - show appropriate toast
       if (awardResult.xp_awarded > 0) {
-        const attemptText = result?.attemptNumber ? ` (${result.attemptNumber === 1 ? '1st' : result.attemptNumber === 2 ? '2nd' : `${result.attemptNumber}th`} attempt)` : '';
+        const attemptText = awardResult.attempt_number === 1 
+          ? '1st attempt' 
+          : awardResult.attempt_number === 2 
+            ? '2nd attempt' 
+            : `${awardResult.attempt_number}th attempt`;
+        
+        const partialText = totalSubQuestions > 1
+          ? ` (${correctCount}/${totalSubQuestions} correct)`
+          : '';
+        
         toast({
           title: "Correct Answer! 🎉",
-          description: result && result.totalSubQuestions > 1
-            ? `+${awardResult.xp_awarded.toFixed(2)} XP (${result.correctCount}/${result.totalSubQuestions} correct${attemptText})`
-            : `+${awardResult.xp_awarded.toFixed(2)} XP earned`,
+          description: `+${awardResult.xp_awarded.toFixed(2)} XP${partialText} (${attemptText})`,
           duration: 3000
         });
 
@@ -318,9 +347,15 @@ const GamePlayerPage = () => {
           description: "Practice Mode - Keep practicing! 💪",
           duration: 3000
         });
+      } else if (correctCount < totalSubQuestions) {
+        toast({
+          title: "Partial Credit",
+          description: `${correctCount}/${totalSubQuestions} correct. ${awardResult.xp_awarded > 0 ? `+${awardResult.xp_awarded.toFixed(2)} XP` : 'No XP awarded'}`,
+          duration: 3000
+        });
       }
 
-      // Mark game as completed in progress table
+      // Mark game as completed
       await markGameCompleted(user.id, topicId!, gameData.id);
 
       // Update progress percentage
@@ -336,7 +371,7 @@ const GamePlayerPage = () => {
       const percentage = totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
       setProgressPercentage(Math.round(percentage));
 
-      // After successful answer handling, move to next game automatically
+      // Auto-advance if all correct
       if (isCorrect) {
         handleGameComplete();
       }
@@ -540,8 +575,7 @@ const GamePlayerPage = () => {
       return (
         <MCQGame
           gameData={mcqData}
-          onCorrect={handleCorrectAnswer}
-          onWrong={handleWrongAnswer}
+          onSubmit={handleSubmitAnswer}
           onComplete={handleGameComplete}
           onNext={navInfo?.nextGameId ? handleNext : undefined}
           onPrevious={navInfo?.previousGameId ? handlePrevious : undefined}
@@ -860,8 +894,7 @@ const GamePlayerPage = () => {
         return (
           <MCQGame
             gameData={arData}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
+            onSubmit={handleSubmitAnswer}
             onComplete={handleGameComplete}
             onNext={navInfo?.nextGameId ? handleNext : undefined}
             onPrevious={navInfo?.previousGameId ? handlePrevious : undefined}

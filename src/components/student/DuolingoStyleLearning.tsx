@@ -627,8 +627,26 @@ export function DuolingoStyleLearning({ lesson, topicId, onComplete, onExit }: D
       console.log(`🎲 [Match Pair Render] First pair:`, parsedGameData?.pairs?.[0]);
     }
 
+    // Type cast to any to handle different prop signatures between game types
+    const GameComponentAny = GameComponent as any;
+    
+    // Handle MCQGame with new onSubmit pattern
+    if (effectiveGameType === 'mcq') {
+      return (
+        <GameComponentAny
+          gameData={parsedGameData}
+          onSubmit={async (answer: any, result: any) => {
+            await handleCorrectAnswer(result);
+            return true;
+          }}
+          onComplete={completeLesson}
+        />
+      );
+    }
+    
+    // All other game types use old pattern with onCorrect/onWrong
     return (
-      <GameComponent
+      <GameComponentAny
         gameData={parsedGameData}
         onCorrect={handleCorrectAnswer}
         onWrong={handleWrongAnswer}

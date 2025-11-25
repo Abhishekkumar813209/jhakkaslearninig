@@ -9,11 +9,8 @@ interface AwardXPRequest {
   game_id: string;
   topic_id: string;
   is_correct: boolean;
-  sub_question_result?: {
-    totalSubQuestions: number;
-    correctCount: number;
-    percentage: number;
-  };
+  total_sub_questions?: number;
+  correct_count?: number;
 }
 
 Deno.serve(async (req) => {
@@ -85,7 +82,7 @@ Deno.serve(async (req) => {
     // Action: Award XP for game completion
     if (action === 'award_xp') {
       const body: AwardXPRequest = await req.json();
-      const { game_id, topic_id, is_correct, sub_question_result } = body;
+      const { game_id, topic_id, is_correct, total_sub_questions, correct_count } = body;
 
       if (!game_id || !topic_id) {
         return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -116,16 +113,18 @@ Deno.serve(async (req) => {
         throw new Error(`Assignment ${game_id} not found in batch_question_assignments`);
       }
 
+      // Determine difficulty FIRST (before XP calculation)
+      const difficulty = assignmentInfo.difficulty 
+        || assignmentInfo.question_bank?.difficulty 
+        || 'medium';
+
       // XP calculation: prioritize custom xp_reward, fallback to difficulty-based
       let baseXP: number;
       
       if (assignmentInfo.xp_reward !== null && assignmentInfo.xp_reward !== undefined) {
-        // Use admin-configured custom XP
         baseXP = assignmentInfo.xp_reward;
         console.log(`[XP Award] Using custom XP: ${baseXP} for assignment ${game_id}`);
       } else {
-        // Fallback to difficulty-based XP
-        const difficulty = assignmentInfo.difficulty || assignmentInfo.question_bank.difficulty || 'medium';
         baseXP = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 40 : 30;
         console.log(`[XP Award] Using difficulty-based XP: ${baseXP} (${difficulty}) for assignment ${game_id}`);
       }
@@ -143,66 +142,50 @@ Deno.serve(async (req) => {
       const hasCorrectAttempt = existingAttempts?.some(a => a.is_correct) || false;
       const attemptNumber = (existingAttempts?.length || 0) + 1;
 
-      // Block if already completed correctly
-      if (hasCorrectAttempt) {
-        return new Response(JSON.stringify({
-          xp_awarded: 0,
-          attempt_number: attemptNumber,
-          message: 'Already completed correctly',
-          should_advance: false
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+      // Extract partial correctness data
+      const totalSubQuestions = total_sub_questions || 1;
+      const correctCount = correct_count || (is_correct ? totalSubQuestions : 0);
+      const fractionCorrect = correctCount / totalSubQuestions;
 
       // Calculate XP with partial credit and attempt multipliers
       let xpAmount = 0;
       let shouldAwardXP = false;
 
-      if (is_correct) {
+      if (is_correct || correctCount > 0) {
         // Only award XP for first 2 attempts
         if (attemptNumber <= 2) {
           const attemptMultiplier = attemptNumber === 1 ? 1.0 : 0.3;
-          
-          if (sub_question_result && sub_question_result.totalSubQuestions > 1) {
-            // Partial credit for multi-part questions
-            const rawXP = baseXP * sub_question_result.percentage * attemptMultiplier;
-            xpAmount = Math.round(rawXP * 100) / 100; // Round immediately to 2 decimal places
-          } else {
-            // Full XP for single questions
-            const rawXP = baseXP * attemptMultiplier;
-            xpAmount = Math.round(rawXP * 100) / 100; // Round immediately to 2 decimal places
-          }
-          
+          const rawXP = baseXP * fractionCorrect * attemptMultiplier;
+          xpAmount = Math.round(rawXP * 100) / 100;
           shouldAwardXP = true;
           
-          // Detailed precision logging
-          console.log(`[XP Award] Detailed Calculation:`);
-          console.log(`  Game ID: ${game_id}`);
-          console.log(`  Attempt Number: ${attemptNumber}`);
+          console.log(`[XP Award] Calculation:`);
           console.log(`  Base XP: ${baseXP}`);
-          console.log(`  Percentage: ${sub_question_result?.percentage || 1} (${sub_question_result?.correctCount || 'N/A'}/${sub_question_result?.totalSubQuestions || 'N/A'})`);
-          console.log(`  Attempt Multiplier: ${attemptMultiplier}`);
-          console.log(`  Calculated XP: ${xpAmount.toFixed(4)} (rounded to ${xpAmount.toFixed(2)})`);
-          console.log(`  Formula: ${baseXP} × ${sub_question_result?.percentage || 1} × ${attemptMultiplier} = ${xpAmount.toFixed(2)}`);
+          console.log(`  Correct: ${correctCount}/${totalSubQuestions} (${(fractionCorrect * 100).toFixed(1)}%)`);
+          console.log(`  Attempt: ${attemptNumber} (multiplier: ${attemptMultiplier})`);
+          console.log(`  Final XP: ${xpAmount.toFixed(2)}`);
         } else {
-          console.log(`[Practice Mode] Game: ${game_id}, Attempt: ${attemptNumber} - No XP`);
+          console.log(`[Practice Mode] Attempt ${attemptNumber} - No XP`);
         }
       }
 
-      // Insert attempt record
+      // Insert attempt record with new schema columns
       const { error: insertError } = await supabase
         .from('student_question_attempts')
         .insert({
           student_id: user.id,
-          question_id: assignmentInfo.question_id, // Use actual question_bank.id
-          game_id: game_id, // batch_question_assignments.id
+          question_id: assignmentInfo.question_id,
+          game_id: game_id,
           topic_id: topic_id,
           is_correct: is_correct,
           status: is_correct ? 'completed' : 'attempted',
           time_spent_seconds: 0,
-          xp_awarded: shouldAwardXP,
-          attempt_number: attemptNumber
+          attempt_number: attemptNumber,
+          total_sub_questions: totalSubQuestions,
+          correct_count: correctCount,
+          fraction_correct: fractionCorrect,
+          base_xp: baseXP,
+          xp_awarded: xpAmount
         });
 
       if (insertError) throw insertError;
@@ -219,8 +202,8 @@ Deno.serve(async (req) => {
               topic_id: topic_id,
               attempt_number: attemptNumber,
               multiplier: attemptNumber === 1 ? 1.0 : 0.3,
-              partial_credit: sub_question_result 
-                ? `${sub_question_result.correctCount}/${sub_question_result.totalSubQuestions}`
+              partial_credit: totalSubQuestions > 1 
+                ? `${correctCount}/${totalSubQuestions}`
                 : undefined
             }
           },
@@ -245,15 +228,20 @@ Deno.serve(async (req) => {
         attempt_number: attemptNumber,
         is_practice_mode: attemptNumber > 2,
         difficulty,
-        baseXP
+        baseXP,
+        fraction_correct: fractionCorrect,
+        total_sub_questions: totalSubQuestions,
+        correct_count: correctCount
       });
 
       return new Response(JSON.stringify({
+        success: true,
         xp_awarded: xpAmount,
         attempt_number: attemptNumber,
         is_practice_mode: attemptNumber > 2,
-        should_advance: !is_correct || attemptNumber > 2,
-        sub_question_info: sub_question_result
+        fraction_correct: fractionCorrect,
+        total_sub_questions: totalSubQuestions,
+        correct_count: correctCount
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });

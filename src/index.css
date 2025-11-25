@@ -295,6 +295,11 @@
     @apply border-border;
   }
 
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
   }

@@ -199,8 +199,8 @@ const About = () => {
                 <FeatureShowcase icon={multiFormat} title="Learn Your Way" description="Access content in your preferred format - from YouTube videos and PDFs to interactive simulations." highlights={["Video Lessons", "PDF Content", "Simulations", "Math Support"]} />
               </CarouselItem>
             </CarouselContent>
-            <CarouselPrevious className="left-0 -translate-x-12" />
-            <CarouselNext className="right-0 translate-x-12" />
+              <CarouselPrevious className="left-2" />
+              <CarouselNext className="right-2" />
           </Carousel>
 
           {/* Statistics Bar */}

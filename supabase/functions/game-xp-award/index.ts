@@ -99,6 +99,10 @@ Deno.serve(async (req) => {
           question_id,
           xp_reward,
           difficulty,
+          roadmap_topic_id,
+          roadmap_topics!inner(
+            difficulty
+          ),
           question_bank!inner(
             id,
             difficulty,
@@ -113,20 +117,29 @@ Deno.serve(async (req) => {
         throw new Error(`Assignment ${game_id} not found in batch_question_assignments`);
       }
 
-      // Determine difficulty FIRST (before XP calculation)
-      const difficulty = assignmentInfo.difficulty 
-        || assignmentInfo.question_bank?.difficulty 
-        || 'medium';
-
-      // XP calculation: prioritize custom xp_reward, fallback to difficulty-based
+      // XP calculation priority:
+      // 1. Custom xp_reward (from batch_question_assignments)
+      // 2. Topic difficulty (from roadmap_topics)
+      // 3. Question difficulty (from question_bank or assignment)
+      // 4. Default fallback (40)
       let baseXP: number;
       
       if (assignmentInfo.xp_reward !== null && assignmentInfo.xp_reward !== undefined) {
         baseXP = assignmentInfo.xp_reward;
-        console.log(`[XP Award] Using custom XP: ${baseXP} for assignment ${game_id}`);
+        console.log(`[XP Award] Using custom XP reward: ${baseXP}`);
       } else {
-        baseXP = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 40 : 30;
-        console.log(`[XP Award] Using difficulty-based XP: ${baseXP} (${difficulty}) for assignment ${game_id}`);
+        // Use topic difficulty first, fallback to question/assignment difficulty
+        const topicDifficulty = assignmentInfo.roadmap_topics?.difficulty;
+        const effectiveDifficulty = topicDifficulty 
+          || assignmentInfo.difficulty 
+          || assignmentInfo.question_bank?.difficulty 
+          || 'medium';
+        
+        baseXP = effectiveDifficulty === 'hard' ? 50 
+          : effectiveDifficulty === 'medium' ? 40 
+          : 30;
+        
+        console.log(`[XP Award] Using ${topicDifficulty ? 'topic' : 'question'} difficulty-based XP: ${baseXP} (${effectiveDifficulty})`);
       }
 
       // Get existing attempts

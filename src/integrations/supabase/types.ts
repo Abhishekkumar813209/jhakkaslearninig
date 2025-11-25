@@ -2340,7 +2340,7 @@ export type Database = {
           options: Json | null
           question_data: Json | null
           question_number: string | null
-          question_text: string
+          question_text: string | null
           question_type: string
           reason: string | null
           reviewed_at: string | null
@@ -2379,7 +2379,7 @@ export type Database = {
           options?: Json | null
           question_data?: Json | null
           question_number?: string | null
-          question_text: string
+          question_text?: string | null
           question_type: string
           reason?: string | null
           reviewed_at?: string | null
@@ -2418,7 +2418,7 @@ export type Database = {
           options?: Json | null
           question_data?: Json | null
           question_number?: string | null
-          question_text?: string
+          question_text?: string | null
           question_type?: string
           reason?: string | null
           reviewed_at?: string | null
@@ -3348,6 +3348,44 @@ export type Database = {
         }
         Relationships: []
       }
+      student_game_views: {
+        Row: {
+          created_at: string | null
+          game_id: string
+          id: string
+          last_viewed_at: string | null
+          student_id: string
+          updated_at: string | null
+          view_count: number
+        }
+        Insert: {
+          created_at?: string | null
+          game_id: string
+          id?: string
+          last_viewed_at?: string | null
+          student_id: string
+          updated_at?: string | null
+          view_count?: number
+        }
+        Update: {
+          created_at?: string | null
+          game_id?: string
+          id?: string
+          last_viewed_at?: string | null
+          student_id?: string
+          updated_at?: string | null
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_game_views_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "batch_question_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_gamification: {
         Row: {
           created_at: string | null
@@ -3776,7 +3814,10 @@ export type Database = {
       student_question_attempts: {
         Row: {
           attempt_number: number | null
+          base_xp: number | null
+          correct_count: number | null
           created_at: string | null
+          fraction_correct: number | null
           game_id: string | null
           id: string
           is_correct: boolean | null
@@ -3786,12 +3827,16 @@ export type Database = {
           student_id: string
           time_spent_seconds: number | null
           topic_id: string
+          total_sub_questions: number | null
           updated_at: string | null
-          xp_awarded: boolean | null
+          xp_awarded: number | null
         }
         Insert: {
           attempt_number?: number | null
+          base_xp?: number | null
+          correct_count?: number | null
           created_at?: string | null
+          fraction_correct?: number | null
           game_id?: string | null
           id?: string
           is_correct?: boolean | null
@@ -3801,12 +3846,16 @@ export type Database = {
           student_id: string
           time_spent_seconds?: number | null
           topic_id: string
+          total_sub_questions?: number | null
           updated_at?: string | null
-          xp_awarded?: boolean | null
+          xp_awarded?: number | null
         }
         Update: {
           attempt_number?: number | null
+          base_xp?: number | null
+          correct_count?: number | null
           created_at?: string | null
+          fraction_correct?: number | null
           game_id?: string | null
           id?: string
           is_correct?: boolean | null
@@ -3816,8 +3865,9 @@ export type Database = {
           student_id?: string
           time_spent_seconds?: number | null
           topic_id?: string
+          total_sub_questions?: number | null
           updated_at?: string | null
-          xp_awarded?: boolean | null
+          xp_awarded?: number | null
         }
         Relationships: [
           {

@@ -41,12 +41,13 @@ async function fetchGamesForTopic(topicId: string): Promise<GameData[]> {
 
   if (!profile?.batch_id) return [];
 
-  // Fetch assigned questions with JOIN to question_bank
+  // Fetch assigned questions with JOIN to question_bank (including xp_reward)
   const { data, error } = await supabase
     .from('batch_question_assignments')
     .select(`
       id,
       assignment_order,
+      xp_reward,
       question_bank!inner(
         id,
         question_type,
@@ -68,6 +69,11 @@ async function fetchGamesForTopic(topicId: string): Promise<GameData[]> {
 
   return (data || []).map((assignment: any) => {
     const q = assignment.question_bank;
+    
+    // ✅ Priority: assignment.xp_reward > difficulty-based fallback
+    const xpReward = assignment.xp_reward ?? 
+      (q.difficulty === 'hard' ? 50 : q.difficulty === 'medium' ? 40 : 30);
+    
     return {
       id: assignment.id, // Use assignment ID as game ID
       question_text: extractQuestionText(q), // ✅ Use helper to extract from JSONB
@@ -75,7 +81,7 @@ async function fetchGamesForTopic(topicId: string): Promise<GameData[]> {
       question_data: q.question_data,
       answer_data: q.answer_data,
       difficulty: q.difficulty || 'medium',
-      xp_reward: q.difficulty === 'hard' ? 50 : q.difficulty === 'medium' ? 40 : 30,
+      xp_reward: xpReward, // ✅ Use distributed XP from assignments
       assignment_order: assignment.assignment_order
     };
   });
@@ -131,6 +137,7 @@ export async function loadGameById(assignmentId: string): Promise<GameData | nul
       id,
       assignment_order,
       roadmap_topic_id,
+      xp_reward,
       question_bank!inner(
         id,
         question_type,
@@ -149,6 +156,11 @@ export async function loadGameById(assignmentId: string): Promise<GameData | nul
   }
 
   const q = data.question_bank;
+  
+  // ✅ Priority: assignment.xp_reward > difficulty-based fallback
+  const xpReward = data.xp_reward ?? 
+    (q.difficulty === 'hard' ? 50 : q.difficulty === 'medium' ? 40 : 30);
+  
   return {
     id: data.id,
     question_text: extractQuestionText(q), // ✅ Use helper to extract from JSONB
@@ -156,7 +168,7 @@ export async function loadGameById(assignmentId: string): Promise<GameData | nul
     question_data: q.question_data,
     answer_data: q.answer_data,
     difficulty: q.difficulty || 'medium',
-    xp_reward: q.difficulty === 'hard' ? 50 : q.difficulty === 'medium' ? 40 : 30,
+    xp_reward: xpReward, // ✅ Use distributed XP from assignments
     assignment_order: data.assignment_order
   };
 }

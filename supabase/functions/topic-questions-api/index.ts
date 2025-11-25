@@ -847,7 +847,7 @@ serve(async (req) => {
       if (!question) {
         const { data: qbQuestion } = await serviceClient
           .from('question_bank')
-          .select('*')
+          .select('id, question_type, question_data, answer_data, difficulty, marks, topic_id, subject, batch_id, exam_domain, is_centralized, chapter_library_id, centralized_topic_name')
           .eq('id', question_id)
           .single();
         
@@ -999,7 +999,7 @@ serve(async (req) => {
 
       const { data: questions } = await serviceClient
         .from('question_bank')
-        .select('*')
+        .select('id, question_type, question_data, answer_data, difficulty, marks, is_centralized, chapter_library_id, centralized_topic_name')
         .in('id', question_ids);
 
       // 🛡️ VALIDATION: Check all MCQ questions have valid answers
@@ -1373,42 +1373,16 @@ serve(async (req) => {
           }
         }
         
-        // Prepare legacy fields for dual-write compatibility
-        const legacyFields: any = {
-          question_text: q.question_text || question_data.text || question_data.question || '',
-        };
-
-        // Populate legacy columns based on question type
-        if (q.question_type === 'mcq' || q.question_type === 'MCQ') {
-          legacyFields.options = q.options || question_data.options || null;
-          legacyFields.correct_answer = q.correct_answer || (answer_data.correctIndex !== undefined ? answer_data.correctIndex.toString() : null);
-        } else if (q.question_type === 'match_column' || q.question_type === 'Match_Column') {
-          legacyFields.left_column = q.left_column || question_data.leftColumn || null;
-          legacyFields.right_column = q.right_column || question_data.rightColumn || null;
-          legacyFields.correct_answer = q.correct_answer || (answer_data.pairs ? JSON.stringify(answer_data.pairs) : null);
-        } else if (q.question_type === 'match_pair' || q.question_type === 'match_pairs' || q.question_type === 'Match_Pairs') {
-          // ✅ Use question_data.pairs as source of truth (now that we store it there)
-          legacyFields.correct_answer = q.correct_answer || (question_data.pairs ? JSON.stringify(question_data.pairs) : null);
-        } else if (q.question_type === 'true_false' || q.question_type === 'True_False') {
-          legacyFields.correct_answer = q.correct_answer || (answer_data.value !== undefined ? answer_data.value.toString() : null);
-        } else if (q.question_type === 'fill_blank' || q.question_type === 'Fill_Blank') {
-          legacyFields.correct_answer = q.correct_answer || (answer_data.blanks ? JSON.stringify(answer_data.blanks) : null);
-        } else if (q.question_type === 'assertion_reason' || q.question_type === 'Assertion_Reason') {
-          legacyFields.assertion = q.assertion || question_data.assertion || null;
-          legacyFields.reason = q.reason || question_data.reason || null;
-          legacyFields.correct_answer = q.correct_answer || answer_data.value || null;
-        }
-        
-        console.log('✨ Dual-write conversion:', { 
+        // ✅ JSONB-ONLY WRITE: No legacy column population
+        console.log('✨ JSONB-only storage:', { 
           type: q.question_type, 
           question_data_keys: Object.keys(question_data),
           question_data_sample: JSON.stringify(question_data).substring(0, 150),
           answer_data_keys: Object.keys(answer_data),
-          answer_data_sample: JSON.stringify(answer_data).substring(0, 150),
-          legacy_fields_keys: Object.keys(legacyFields)
+          answer_data_sample: JSON.stringify(answer_data).substring(0, 150)
         });
         
-        // 🛡️ STEP 8: Optional JSONB validation guard
+        // 🛡️ JSONB validation guard
         const qd_keys = Object.keys(question_data);
         const ad_keys = Object.keys(answer_data);
         const hasMinimalData = qd_keys.includes('text') && question_data.text?.trim();
@@ -1423,13 +1397,10 @@ serve(async (req) => {
         }
         
         const insertPayload = {
-          // JSONB columns (NEW)
+          // JSONB columns (PRIMARY SOURCE OF TRUTH)
           question_type: q.question_type,
           question_data: question_data,
           answer_data: answer_data,
-          
-          // Legacy columns (for compatibility during transition)
-          ...legacyFields,
           
           // Metadata columns
           explanation: q.explanation || null,
@@ -1600,7 +1571,7 @@ serve(async (req) => {
       // Get existing question to determine type if not provided
       const { data: existingQuestion, error: fetchError } = await serviceClient
         .from('question_bank')
-        .select('*')
+        .select('id, question_type, question_data, answer_data, difficulty, marks, topic_id, subject, is_centralized, chapter_library_id, centralized_topic_name, admin_reviewed, created_at, updated_at')
         .eq('id', question_id)
         .single();
 

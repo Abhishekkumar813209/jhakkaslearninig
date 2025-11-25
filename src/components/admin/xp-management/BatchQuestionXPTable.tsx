@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { XP_REWARDS } from '@/lib/xpConfig';
+import { extractQuestionText } from '@/lib/questionTextHelpers';
 
 interface AssignedQuestionRow {
   id: string;
@@ -43,8 +44,9 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
           assignment_order,
           question_bank!inner(
             id,
-            question_text,
             question_type,
+            question_data,
+            answer_data,
             difficulty,
             marks,
             is_centralized
@@ -57,7 +59,7 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
 
       const transformedData = data?.map(assignment => ({
         id: assignment.id,
-        question_text: assignment.question_bank.question_text || '',
+        question_text: extractQuestionText(assignment.question_bank), // ✅ Use helper to extract from JSONB
         question_type: assignment.question_bank.question_type,
         difficulty: assignment.difficulty || assignment.question_bank.difficulty || 'medium',
         marks: assignment.question_bank.marks || 1,

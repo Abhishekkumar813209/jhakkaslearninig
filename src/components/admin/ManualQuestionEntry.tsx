@@ -247,7 +247,7 @@ export const ManualQuestionEntry = ({
       const finalLeftColumn = leftColumnData && leftColumnData.length > 0 ? leftColumnData : null;
       const finalRightColumn = rightColumnData && rightColumnData.length > 0 ? rightColumnData : null;
 
-      // === STEP 5: DUAL-WRITE MODE (JSONB + Legacy) ===
+      // === JSONB-ONLY WRITE MODE ===
       // Build unified JSONB structures for new columns
       let questionDataJSON: any = {
         marks: questionData.marks || 1
@@ -266,77 +266,45 @@ export const ManualQuestionEntry = ({
         explanation: questionData.explanation || ''
       };
 
-      // Legacy fields for backward compatibility
-      const legacyFields: any = {
-        question_text: questionData.questionText
-      };
-
       switch (gameType) {
         case 'mcq':
           questionDataJSON.options = gameData.options || [];
           answerDataJSON.correctIndex = gameData.correctAnswerIndex || 0;
-          
-          // Legacy
-          legacyFields.options = gameData.options || [];
-          legacyFields.correct_answer = gameData.correctAnswerIndex?.toString() || '0';
           break;
 
         case 'true_false':
-          // Store only answers array
           answerDataJSON.answers = gameData.answers || [];
-          
-          // Legacy - for backward compatibility
-          legacyFields.correct_answer = JSON.stringify({ 
-            answers: gameData.answers || []
-          });
           break;
 
         case 'fill_blank':
           if (gameData.sub_questions?.length >= 1) {
             questionDataJSON.sub_questions = gameData.sub_questions;
             questionDataJSON.numbering_style = gameData.numbering_style || '1,2,3';
-            questionDataJSON.use_word_bank = gameData.use_word_bank !== undefined ? gameData.use_word_bank : true; // Store flag
+            questionDataJSON.use_word_bank = gameData.use_word_bank !== undefined ? gameData.use_word_bank : true;
             answerDataJSON.blanks = gameData.blanks || [];
           } else {
             answerDataJSON.blanks = gameData.blanks || [];
-            questionDataJSON.use_word_bank = gameData.use_word_bank !== undefined ? gameData.use_word_bank : true; // Store flag
+            questionDataJSON.use_word_bank = gameData.use_word_bank !== undefined ? gameData.use_word_bank : true;
           }
-          
-          // Legacy
-          legacyFields.correct_answer = JSON.stringify({ blanks: gameData.blanks || [] });
           break;
 
         case 'match_column':
           questionDataJSON.leftColumn = finalLeftColumn || [];
           questionDataJSON.rightColumn = finalRightColumn || [];
           answerDataJSON.pairs = gameData.correctPairs || [];
-          
-          // Legacy
-          legacyFields.left_column = finalLeftColumn || [];
-          legacyFields.right_column = finalRightColumn || [];
-          legacyFields.correct_answer = JSON.stringify(gameData.correctPairs || []);
           break;
 
         case 'match_pairs':
           answerDataJSON.pairs = gameData.pairs || [];
-          
-          // Legacy
-          legacyFields.correct_answer = JSON.stringify(gameData.pairs || []);
           break;
 
         case 'sequence_order':
           questionDataJSON.items = gameData.items || gameData.options || [];
           answerDataJSON.correctOrder = gameData.correctSequence || [];
-          
-          // Legacy
-          legacyFields.correct_answer = JSON.stringify({ correctSequence: gameData.correctSequence || [] });
           break;
 
         case 'card_memory':
           answerDataJSON.pairs = gameData.pairs || [];
-          
-          // Legacy
-          legacyFields.correct_answer = JSON.stringify(gameData.pairs || []);
           break;
 
         case 'typing_race':
@@ -344,46 +312,30 @@ export const ManualQuestionEntry = ({
           questionDataJSON.timeLimit = gameData.timeLimit || 60;
           answerDataJSON.targetText = gameData.targetText || questionData.questionText;
           answerDataJSON.minAccuracy = gameData.minAccuracy || 90;
-          
-          // Legacy
-          legacyFields.correct_answer = JSON.stringify({
-            targetText: gameData.targetText || questionData.questionText,
-            timeLimit: gameData.timeLimit || 60,
-            minAccuracy: gameData.minAccuracy || 90
-          });
           break;
 
         case 'interactive_blanks':
           answerDataJSON.blanks = gameData.blanks || [];
-          
-          // Legacy
-          legacyFields.correct_answer = JSON.stringify({ blanks: gameData.blanks || [] });
           break;
 
         default:
           answerDataJSON.value = gameData;
-          legacyFields.correct_answer = JSON.stringify(gameData);
       }
 
-
-      console.log('💾 Saving question (DUAL-WRITE MODE):', {
+      console.log('💾 Saving question (JSONB-ONLY MODE):', {
         gameType,
         question_data_keys: Object.keys(questionDataJSON),
         answer_data_keys: Object.keys(answerDataJSON),
-        legacy_fields_keys: Object.keys(legacyFields),
         question_data_sample: JSON.stringify(questionDataJSON).substring(0, 150),
         answer_data_sample: JSON.stringify(answerDataJSON).substring(0, 150)
       });
 
-      // Save to question_bank (DUAL-WRITE: JSONB + Legacy columns)
+      // Save to question_bank (JSONB-ONLY: No legacy columns)
       const insertData: any = {
-        // JSONB columns (NEW)
+        // JSONB columns (PRIMARY SOURCE OF TRUTH)
         question_type: gameType,
         question_data: questionDataJSON,
         answer_data: answerDataJSON,
-        
-        // Legacy columns (for compatibility)
-        ...legacyFields,
         
         // Metadata
         explanation: questionData.explanation || null,

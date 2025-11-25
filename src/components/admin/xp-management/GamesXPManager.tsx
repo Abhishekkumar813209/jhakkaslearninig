@@ -16,6 +16,7 @@ interface Topic {
   id: string;
   topic_name: string;
   day_number: number;
+  difficulty?: 'easy' | 'medium' | 'hard'; // Topic difficulty for XP budget calculation
   published_count: number; // Live games in gamified_exercises (legacy)
   assigned_count?: number; // Assigned questions from batch_question_assignments (new)
   ready_to_publish_count?: number; // Approved games in topic_learning_content
@@ -25,9 +26,15 @@ interface Topic {
 
 // Helper function to calculate total XP from both sources
 const calculateTotalXP = (topic: Topic): number => {
-  const assignedXP = (topic.assigned_count || 0) * 40; // Default 40 XP per assigned question
-  const legacyXP = (topic.published_count || 0) * 40; // Default 40 XP per legacy game
-  return assignedXP + legacyXP;
+  // Topic budget based on difficulty (fixed per topic)
+  const topicBudget = topic.difficulty === 'hard' ? 50 
+                    : topic.difficulty === 'medium' ? 40 
+                    : 30;
+  
+  // Legacy games still use old calculation (if any)
+  const legacyXP = (topic.published_count || 0) * 40;
+  
+  return topicBudget + legacyXP; // Topic budget + legacy
 };
 
 export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
@@ -57,10 +64,22 @@ export const GamesXPManager = ({ chapterId }: { chapterId: string }) => {
 
       if (statsError) throw statsError;
 
+      // Fetch topic difficulty for each topic
+      const topicIds = statsData?.map((t: any) => t.id) || [];
+      const { data: topicDetails } = await supabase
+        .from('roadmap_topics')
+        .select('id, difficulty')
+        .in('id', topicIds);
+
+      const difficultyMap = new Map(
+        topicDetails?.map(t => [t.id, t.difficulty]) || []
+      );
+
       const topicsWithCounts = (statsData || []).map((topic: any) => ({
         id: topic.id,
         topic_name: topic.topic_name,
         day_number: topic.day_number,
+        difficulty: (difficultyMap.get(topic.id) || 'medium') as 'easy' | 'medium' | 'hard', // Add difficulty from roadmap_topics
         assigned_count: Number(topic.assigned_count) || 0, // New architecture
         published_count: Number(topic.legacy_count) || 0, // Legacy architecture
         ready_to_publish_count: 0, // Not needed for XP manager

@@ -797,6 +797,12 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
       // Insert topics for this chapter
       if (chapter.topics && Array.isArray(chapter.topics)) {
         for (const topic of chapter.topics) {
+          // Preserve difficulty from chapter library
+          const topicDifficulty = topic.difficulty || 'medium';
+          const topicXPBudget = topicDifficulty === 'hard' ? 50 
+                              : topicDifficulty === 'medium' ? 40 
+                              : 30;
+
           const { data: insertedTopic, error: topicError } = await supabase
             .from('roadmap_topics')
             .insert({
@@ -805,7 +811,8 @@ Return ONLY the JSON structure (no markdown, no extra text).` : ''}
               order_num: topic.order_num,
               estimated_hours: topic.estimated_hours || 2,
               day_number: null,
-              xp_reward: 50,
+              difficulty: topicDifficulty, // ✅ Copy from chapter library
+              xp_reward: topicXPBudget, // ✅ Set based on difficulty
               coin_reward: 10
             })
             .select()

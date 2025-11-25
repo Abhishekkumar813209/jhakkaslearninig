@@ -2782,6 +2782,7 @@ export type Database = {
           coin_reward: number | null
           created_at: string | null
           day_number: number
+          difficulty: string | null
           estimated_hours: number
           id: string
           is_wellness_mode: boolean | null
@@ -2795,6 +2796,7 @@ export type Database = {
           coin_reward?: number | null
           created_at?: string | null
           day_number: number
+          difficulty?: string | null
           estimated_hours: number
           id?: string
           is_wellness_mode?: boolean | null
@@ -2808,6 +2810,7 @@ export type Database = {
           coin_reward?: number | null
           created_at?: string | null
           day_number?: number
+          difficulty?: string | null
           estimated_hours?: number
           id?: string
           is_wellness_mode?: boolean | null

@@ -647,8 +647,15 @@ export const TopicStudyView = ({ topicId, topicName, onBack }: TopicStudyViewPro
               marks: currentQ.xp_reward,
               difficulty: currentQ.difficulty
             }}
-            onCorrect={handleCorrectAnswer}
-            onWrong={handleWrongAnswer}
+            onSubmit={async (answer, result) => {
+              const isCorrect = answer === (parsedData.correctIndex ?? 0);
+              if (isCorrect) {
+                await handleCorrectAnswer();
+                return true;
+                await handleWrongAnswer();
+              }
+              return true;
+            }}
             onNext={handleNextQuestion}
             onPrevious={() => questionQueue.previousQuestion()}
             onExit={() => setShowExercises(false)}

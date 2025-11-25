@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { extractQuestionText } from "./questionTextHelpers";
 
 /**
  * Option B: Reference-based game navigation (zero duplication)
@@ -48,7 +49,6 @@ async function fetchGamesForTopic(topicId: string): Promise<GameData[]> {
       assignment_order,
       question_bank!inner(
         id,
-        question_text,
         question_type,
         question_data,
         answer_data,
@@ -70,7 +70,7 @@ async function fetchGamesForTopic(topicId: string): Promise<GameData[]> {
     const q = assignment.question_bank;
     return {
       id: assignment.id, // Use assignment ID as game ID
-      question_text: q.question_text,
+      question_text: extractQuestionText(q), // ✅ Use helper to extract from JSONB
       question_type: q.question_type,
       question_data: q.question_data,
       answer_data: q.answer_data,
@@ -133,7 +133,6 @@ export async function loadGameById(assignmentId: string): Promise<GameData | nul
       roadmap_topic_id,
       question_bank!inner(
         id,
-        question_text,
         question_type,
         question_data,
         answer_data,
@@ -152,7 +151,7 @@ export async function loadGameById(assignmentId: string): Promise<GameData | nul
   const q = data.question_bank;
   return {
     id: data.id,
-    question_text: q.question_text,
+    question_text: extractQuestionText(q), // ✅ Use helper to extract from JSONB
     question_type: q.question_type,
     question_data: q.question_data,
     answer_data: q.answer_data,

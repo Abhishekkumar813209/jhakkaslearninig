@@ -371,10 +371,8 @@ const GamePlayerPage = () => {
       const percentage = totalGames > 0 ? (completedCount / totalGames) * 100 : 0;
       setProgressPercentage(Math.round(percentage));
 
-      // Auto-advance if all correct
-      if (isCorrect) {
-        handleGameComplete();
-      }
+      // ✅ Always advance after successful backend save, regardless of correctness
+      handleGameComplete();
 
       return true; // Success
 
@@ -514,9 +512,10 @@ const GamePlayerPage = () => {
       // Match column variants (singular)
       'match_columns': 'match_column',
       
-      // Match pairs variants (singular)
+      // Match pairs variants - normalize to match_pair (singular)
       'match_pairs': 'match_pair',
       'matching': 'match_pair',
+      'match_pair': 'match_pair', // ✅ Ensure singular is preserved
       
       // Drag drop variants
       'drag_drop_sequence': 'drag_drop_sort',
@@ -641,7 +640,7 @@ const GamePlayerPage = () => {
           />
         );
 
-      case 'match_pairs':
+      case 'match_pair': // ✅ Use singular to match normalization
         // Use parser and convert to pairs format
         const parsedMatchPairs = parseMatchPairsData(gameData);
         

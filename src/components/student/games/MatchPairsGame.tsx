@@ -175,10 +175,6 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete, initi
 
     const allCorrect = correctCount === totalSubQuestions;
     if (correctCount > 0) {
-      if (allCorrect) {
-        setGameStatus('won');
-        setTimeout(() => onComplete(), 1500);
-      }
       onCorrect({ 
         totalSubQuestions, 
         correctCount, 

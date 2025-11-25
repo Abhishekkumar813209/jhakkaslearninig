@@ -109,14 +109,20 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         const filteredLeft = leftColumn.filter(item => item.trim());
         const filteredRight = rightColumn.filter(item => item.trim());
         
-        console.log('🔍 Match Column Data (DynamicQuestionInput):', {
-          leftColumn: filteredLeft,
-          rightColumn: filteredRight,
-          pairs: pairs,
-          pairsLength: pairs.length,
+        // ✅ Validation: Check if all pairs are defined
+        const allPairsPresent = pairs.length === filteredLeft.length;
+        
+        console.log('[Save Match Column]', {
           leftColumnLength: filteredLeft.length,
-          rightColumnLength: filteredRight.length
+          rightColumnLength: filteredRight.length,
+          pairCount: pairs.length,
+          pairs,
+          allPairsPresent
         });
+        
+        if (!allPairsPresent) {
+          console.warn('⚠️ Not all pairs defined - some matches missing');
+        }
         
         gameData = {
           question: questionText,

@@ -295,6 +295,8 @@ export const ManualQuestionEntry = ({
           break;
 
         case 'match_pairs':
+          // ✅ Write pairs to BOTH question_data and answer_data
+          questionDataJSON.pairs = gameData.pairs || [];
           answerDataJSON.pairs = gameData.pairs || [];
           break;
 

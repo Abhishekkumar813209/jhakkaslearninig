@@ -259,6 +259,13 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
       } else {
         answer_data.pairs = [];
       }
+      
+      console.log('[Save Match Column]', {
+        leftColumnLength: question_data.leftColumn?.length,
+        rightColumnLength: question_data.rightColumn?.length,
+        pairCount: answer_data.pairs?.length,
+        pairs: answer_data.pairs
+      });
       break;
 
     case 'match_pair':      // ✅ SINGULAR standardized
@@ -284,7 +291,12 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
       // ✅ Dual-write: pairs go to BOTH locations
       question_data.pairs = pairsArray;  // For preview/display
       answer_data.pairs = pairsArray;    // For grading/validation
-      console.log(`✅ match_pair dual-write: ${pairsArray.length} pairs stored in question_data + answer_data`);
+      console.log('[Save Match Pair]', {
+        questionType: qType,
+        questionPairs: pairsArray.length,
+        answerPairs: pairsArray.length,
+        pairs: pairsArray
+      });
       break;
 
     case 'short_answer':

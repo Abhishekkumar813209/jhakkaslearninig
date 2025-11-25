@@ -193,21 +193,31 @@ export function LineMatchingGame({
     setAttemptCount(currentAttempt);
     setHasSubmitted(true);
 
+    // ✅ Convert to set-based comparison (order-independent)
+    const userPairSet = new Set(userPairs.map(p => `${p.left}-${p.right}`));
+    const correctPairSet = new Set(gameData.correctPairs.map(p => `${p.left}-${p.right}`));
+    
     const newResults: { [key: number]: boolean } = {};
     let correctCount = 0;
-    const totalSubQuestions = gameData.leftColumn.length;
+    const totalSubQuestions = gameData.correctPairs.length;
 
     userPairs.forEach((userPair) => {
-      const isCorrect = gameData.correctPairs.some(
-        (correctPair) => correctPair.left === userPair.left && correctPair.right === userPair.right
-      );
+      const pairKey = `${userPair.left}-${userPair.right}`;
+      const isCorrect = correctPairSet.has(pairKey);
       newResults[userPair.left] = isCorrect;
       if (isCorrect) correctCount++;
     });
 
     const percentage = correctCount / totalSubQuestions;
     
-    console.log('[LineMatching] Partial Credit:', { correctCount, totalSubQuestions, percentage, attemptNumber: currentAttempt });
+    console.log('[LineMatching] Partial Credit:', { 
+      correctCount, 
+      totalSubQuestions, 
+      percentage, 
+      attemptNumber: currentAttempt,
+      userPairSet: Array.from(userPairSet),
+      correctPairSet: Array.from(correctPairSet)
+    });
 
     setResults(newResults);
     

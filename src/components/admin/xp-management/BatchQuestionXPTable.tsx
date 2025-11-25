@@ -365,7 +365,7 @@ export const BatchQuestionXPTable = ({ topicId }: { topicId: string }) => {
             disabled={saving === 'all'}
           >
             <RotateCcw className="h-4 w-4 mr-2" />
-            Recalculate XP
+            Redistribute XP
           </Button>
           <Button
             size="sm"

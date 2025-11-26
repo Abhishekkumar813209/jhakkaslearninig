@@ -5587,6 +5587,13 @@ export type Database = {
           total_attempts: number
         }[]
       }
+      check_parent_exists_by_phone_or_email: {
+        Args: { p_email: string; p_phone: string }
+        Returns: {
+          parent_id: string
+          parent_role: string
+        }[]
+      }
       complete_withdrawal: {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined

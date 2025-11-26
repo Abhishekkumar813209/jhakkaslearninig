@@ -688,14 +688,12 @@ const Login = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="p-0 h-auto text-sm"
-                          onClick={() => setForgotPhonePassword(true)}
+                        <Link
+                          to="/parent-forgot-password"
+                          className="text-sm text-primary hover:underline"
                         >
                           Forgot Password?
-                        </Button>
+                        </Link>
                       </div>
                       <Button type="submit" className="w-full" disabled={loading}>
                         {loading ? 'Signing in...' : 'Login with Phone'}

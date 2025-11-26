@@ -823,14 +823,18 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
                 onChange={(e) => {
                   const rightIdx = parseInt(e.target.value);
                   const newPairs = pairs.filter(p => p.left !== idx);
-                  if (!isNaN(rightIdx)) {
-                    newPairs.push({ left: idx, right: rightIdx });
-                  }
+                  
+                  // Always add a pair - use default if invalid value
+                  const validRightCount = rightColumn.filter(i => i.trim()).length;
+                  const effectiveRight = isNaN(rightIdx) 
+                    ? Math.min(idx, validRightCount - 1)  // Default to matching index
+                    : rightIdx;
+                  
+                  newPairs.push({ left: idx, right: effectiveRight });
                   setPairs(newPairs);
                   setTimeout(() => handleDataChange(), 0);
                 }}
               >
-                <option value="">Select...</option>
                 {rightColumn.filter(i => i.trim()).map((rItem, rIdx) => (
                   <option key={rIdx} value={rIdx}>
                     {String.fromCharCode(105 + rIdx)} - {rItem.substring(0, 20)}

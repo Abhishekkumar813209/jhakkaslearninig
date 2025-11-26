@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { AddParentMenuItem } from './AddParentMenuItem';
 
 interface StudentAppSidebarProps {
   onNavigate?: () => void;
@@ -22,7 +23,7 @@ interface StudentAppSidebarProps {
 
 export const StudentAppSidebar = ({ onNavigate }: StudentAppSidebarProps) => {
   const navigate = useNavigate();
-  const { isAdmin, signOut } = useAuth();
+  const { isAdmin, signOut, user } = useAuth();
 
   const handleNavigate = (path: string) => {
     navigate(path);
@@ -74,6 +75,9 @@ export const StudentAppSidebar = ({ onNavigate }: StudentAppSidebarProps) => {
             <span className="text-sm font-medium">{item.label}</span>
           </Button>
         ))}
+
+        {/* Link Parent - one-time option */}
+        {user && <AddParentMenuItem studentUserId={user.id} onNavigate={onNavigate} />}
 
         {isAdmin && (
           <>

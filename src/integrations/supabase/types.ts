@@ -5598,6 +5598,14 @@ export type Database = {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined
       }
+      create_parent_student_link: {
+        Args: {
+          p_parent_id: string
+          p_relationship?: string
+          p_student_id: string
+        }
+        Returns: string
+      }
       deduct_referral_credits: {
         Args: { p_amount: number; p_student_id: string }
         Returns: undefined

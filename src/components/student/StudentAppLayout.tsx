@@ -41,7 +41,8 @@ export const StudentAppLayout = ({ children }: StudentAppLayoutProps) => {
             <Button variant="ghost" size="icon" className="hover:bg-muted">
               <Bell className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="hover:bg-muted">
+            {/* Profile icon - hidden on mobile, visible on desktop */}
+            <Button variant="ghost" size="icon" className="hidden md:inline-flex hover:bg-muted">
               <User className="h-5 w-5" />
             </Button>
           </div>

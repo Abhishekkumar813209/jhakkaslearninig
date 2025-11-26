@@ -811,7 +811,8 @@ serve(async (req) => {
             chapter_name,
             subject,
             day_start,
-            day_end
+            day_end,
+            estimated_days
           `)
           .eq('roadmap_id', studentRoadmap.batch_roadmap_id)
           .order('day_start', { ascending: true });
@@ -827,7 +828,82 @@ serve(async (req) => {
           );
         }
 
-        const chapterIds = chapters.map(c => c.id);
+        // Check for student-specific custom chapter days
+        const { data: customDays } = await supabase
+          .from('student_chapter_custom_days')
+          .select('chapter_id, custom_days')
+          .eq('student_id', studentId);
+
+        const customDaysMap = new Map(
+          (customDays || []).map(cd => [cd.chapter_id, cd.custom_days])
+        );
+
+        // Check for student-specific chapter orders
+        const { data: customChapterOrders } = await supabase
+          .from('student_chapter_order')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('roadmap_id', studentRoadmap.batch_roadmap_id);
+
+        // Apply custom chapter order and recalculate days if exists
+        let processedChapters = chapters;
+        if (customChapterOrders && customChapterOrders.length > 0) {
+          console.log(`[getRoadmapCalendarView] Applying custom chapter orders for ${customChapterOrders.length} subjects`);
+          
+          // Group chapters by subject
+          const chaptersBySubject = chapters.reduce((acc: any, ch: any) => {
+            if (!acc[ch.subject]) acc[ch.subject] = [];
+            acc[ch.subject].push(ch);
+            return acc;
+          }, {});
+
+          // Apply custom order per subject
+          processedChapters = [];
+          for (const [subject, subjectChapters] of Object.entries(chaptersBySubject)) {
+            const customOrder = customChapterOrders.find(co => co.subject === subject);
+            
+            if (customOrder && customOrder.chapter_order) {
+              // Reorder chapters based on student's preference
+              let currentDay = 1;
+              const orderedChapters: any[] = [];
+              
+              customOrder.chapter_order.forEach((chapterId: string) => {
+                const chapter = (subjectChapters as any[]).find((c: any) => c.id === chapterId);
+                if (chapter) {
+                  // Use custom days if available, otherwise estimated_days
+                  const days = customDaysMap.get(chapter.id) || chapter.estimated_days || 3;
+                  // Recalculate day_start and day_end for student's custom order
+                  orderedChapters.push({
+                    ...chapter,
+                    day_start: currentDay,
+                    day_end: currentDay + days - 1
+                  });
+                  currentDay += days;
+                }
+              });
+              
+              // Add any chapters not in custom order (safety check)
+              (subjectChapters as any[]).forEach((c: any) => {
+                if (!customOrder.chapter_order.includes(c.id)) {
+                  const days = customDaysMap.get(c.id) || c.estimated_days || 3;
+                  orderedChapters.push({
+                    ...c,
+                    day_start: currentDay,
+                    day_end: currentDay + days - 1
+                  });
+                  currentDay += days;
+                }
+              });
+              
+              processedChapters.push(...orderedChapters);
+            } else {
+              // No custom order for this subject, keep original
+              processedChapters.push(...(subjectChapters as any[]));
+            }
+          }
+        }
+
+        const chapterIds = processedChapters.map(c => c.id);
 
         // Get all topics for these chapters
         const { data: topics } = await supabase
@@ -870,7 +946,7 @@ serve(async (req) => {
         }, {});
 
         // Calculate chapter progress with auto-distributed topics
-        const chaptersWithTopics = chapters.map((chapter: any) => {
+        const chaptersWithTopics = processedChapters.map((chapter: any) => {
           const chapterTopics = topicsByChapter[chapter.id] || [];
           const chapterDays = (chapter.day_end - chapter.day_start + 1);
           

@@ -49,6 +49,7 @@ export const StudentAppSidebar = ({ onNavigate }: StudentAppSidebarProps) => {
     { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' },
     { icon: Download, label: 'Downloads', path: '#', disabled: true },
     { icon: User, label: 'Profile', path: '/profile' },
+    { icon: Settings, label: 'Change Password', path: '/change-password' },
   ];
 
   return (

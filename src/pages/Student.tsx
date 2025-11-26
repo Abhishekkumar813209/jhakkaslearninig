@@ -26,7 +26,7 @@ const Student = () => {
     <StudentAppLayout>
       <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
+          <TabsList className="w-full grid grid-cols-2 rounded-none border-b hidden md:grid">
             <TabsTrigger value="batch-roadmap" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               My Roadmap

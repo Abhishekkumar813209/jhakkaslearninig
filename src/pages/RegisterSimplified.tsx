@@ -166,13 +166,13 @@ const RegisterSimplified = () => {
             parentId = existingParent.id;
           }
 
-          // Link parent to student
-          await supabase
+          // Link parent to student (use student_id not student_user_id)
+          await (supabase as any)
             .from('parent_student_links')
             .insert({
               parent_id: parentId,
-              student_user_id: studentUserId,
-            } as any);
+              student_id: studentUserId,
+            });
 
         } catch (parentError: any) {
           console.error('Parent linking failed:', parentError);

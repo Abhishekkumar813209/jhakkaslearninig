@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ParentAppLayout } from "@/components/parent/ParentAppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -9,7 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Loader2, Users, TrendingUp, Trophy, Flame, Target, AlertOctagon, AlertTriangle, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import ParentNavbar from "@/components/ParentNavbar";
+// Removed ParentNavbar import - using ParentAppLayout now
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 import { ParentRoadmapCalendar } from "@/components/parent/ParentRoadmapCalendar";
@@ -246,16 +248,17 @@ export default function ParentDashboard() {
 
   if (loading && linkedStudents.length === 0) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <ParentAppLayout>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </ParentAppLayout>
     );
   }
 
   if (linkedStudents.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
-        <ParentNavbar />
+      <ParentAppLayout>
         <div className="container mx-auto px-4 py-8">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -267,13 +270,12 @@ export default function ParentDashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </ParentAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <ParentNavbar />
+    <ParentAppLayout>
       
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         {/* Child Selector */}
@@ -592,6 +594,6 @@ export default function ParentDashboard() {
           </div>
         )}
       </div>
-    </div>
+    </ParentAppLayout>
   );
 }

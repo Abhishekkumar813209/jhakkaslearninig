@@ -149,25 +149,24 @@ const RegisterSimplified = () => {
             // Parent exists - sibling scenario - AUTO-LINK
             console.log('ℹ️ Parent already exists (sibling scenario) - auto-linking student to parent');
             
-            // Create parent-student link automatically
-            const { error: linkError } = await supabase
-              .from('parent_student_links')
-              .insert({
-                parent_id: existingParent.parent_id,
-                student_id: studentUserId,
-                relationship: 'parent',
-                is_primary_contact: true,
+            // Create parent-student link using SECURITY DEFINER function to bypass RLS
+            const { data: linkId, error: linkError } = await supabase
+              .rpc('create_parent_student_link', {
+                p_parent_id: existingParent.parent_id,
+                p_student_id: studentUserId,
+                p_relationship: 'parent'
               });
 
             if (linkError) {
               console.error('❌ Auto-link failed:', linkError);
-              if (!linkError.message.includes('duplicate') && linkError.code !== '23505') {
+              // Only throw if it's not a duplicate link error
+              if (linkError.code !== '23505' && !linkError.message.includes('duplicate')) {
                 throw linkError;
               } else {
-                console.log('ℹ️ Link already exists, skipping');
+                console.log('ℹ️ Link already exists (RPC returned gracefully)');
               }
             } else {
-              console.log('✅ Student auto-linked to existing parent');
+              console.log('✅ Student auto-linked to existing parent, link ID:', linkId);
             }
             
             // Reset loading state before returning
@@ -276,26 +275,25 @@ const RegisterSimplified = () => {
 
           console.log('✅ Parent profile and role created');
 
-          // Link parent to student
+          // Link parent to student using SECURITY DEFINER function to bypass RLS
           console.log('🔗 Creating parent-student link...', { parent_id: parentId, student_id: studentUserId });
-          const { error: linkError } = await supabase
-            .from('parent_student_links')
-            .insert({
-              parent_id: parentId,
-              student_id: studentUserId,
-              relationship: 'parent',
-              is_primary_contact: true,
+          const { data: linkId, error: linkError } = await supabase
+            .rpc('create_parent_student_link', {
+              p_parent_id: parentId,
+              p_student_id: studentUserId,
+              p_relationship: 'parent'
             });
 
           if (linkError) {
             console.error('❌ Parent-student link creation failed:', linkError);
-            if (!linkError.message.includes('duplicate') && linkError.code !== '23505') {
+            // Only throw if it's not a duplicate link error
+            if (linkError.code !== '23505' && !linkError.message.includes('duplicate')) {
               throw linkError;
             } else {
-              console.log('ℹ️ Link already exists, skipping');
+              console.log('ℹ️ Link already exists (RPC returned gracefully)');
             }
           } else {
-            console.log('✅ Parent linked successfully to student');
+            console.log('✅ Parent linked successfully to student, link ID:', linkId);
           }
           
           toast({

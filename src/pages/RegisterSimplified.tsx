@@ -128,93 +128,114 @@ const RegisterSimplified = () => {
           
           const parentEmail = `${parentPhone}@parent.app`;
           
-          // Check if parent profile already exists by phone
-          const { data: existingParent } = await supabase
+          // PRE-CHECK: Check if parent already exists by phone OR email
+          const { data: existingParentByPhone } = await supabase
             .from('profiles')
             .select('id, phone_number')
             .eq('phone_number', parentPhone)
             .maybeSingle();
 
-          // Check if phone is already used by a student
+          const { data: existingParentByEmail } = await supabase
+            .from('profiles')
+            .select('id, phone_number')
+            .eq('email', parentEmail)
+            .maybeSingle();
+
+          const existingParent = existingParentByPhone || existingParentByEmail;
+
+          // If parent already exists in profiles, this is the sibling scenario
           if (existingParent) {
+            // Check if it's actually a parent role (not a student using same phone)
             const { data: roleData } = await supabase
               .from('user_roles')
               .select('role')
               .eq('user_id', existingParent.id)
-              .single();
+              .maybeSingle();
 
             if (roleData?.role === 'student') {
               throw new Error('This phone number is already registered as a student account');
             }
+
+            // Parent exists - sibling scenario
+            console.log('ℹ️ Parent already exists (sibling scenario) - student created successfully');
+            toast({
+              title: 'Student Account Created',
+              description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
+            });
+            // Don't attempt parent creation, exit gracefully
+            return;
           }
 
+          // Parent does NOT exist, proceed with creation
           let parentId: string;
 
-          if (!existingParent) {
-            // Create new parent auth user - with sibling scenario handling
-            const { data: parentAuth, error: parentAuthError } = await supabase.auth.signUp({
-              email: parentEmail,
-              password: parentPassword,
-            });
+          // Create new parent auth user
+          const { data: parentAuth, error: parentAuthError } = await supabase.auth.signUp({
+            email: parentEmail,
+            password: parentPassword,
+          });
 
-            // Check for "already registered" error (sibling scenario - parent exists)
-            if (parentAuthError) {
-              const errorMsg = parentAuthError.message.toLowerCase();
-              
-              if (errorMsg.includes('already') || errorMsg.includes('registered') || errorMsg.includes('exists')) {
-                // Parent already exists (sibling scenario) - student signup succeeded, notify user
-                console.log('ℹ️ Parent phone already exists (sibling scenario) - student created successfully');
-                toast({
-                  title: 'Student Account Created',
-                  description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
-                });
-                // Don't throw - student signup succeeded, just skip parent creation
-                return; // Exit parent linking gracefully
-              }
-              
-              // Other auth errors - throw to be caught by outer catch
-              console.error('❌ Parent auth creation failed:', parentAuthError);
-              throw parentAuthError;
+          // FALLBACK: Handle auth-level "user_already_exists" error
+          if (parentAuthError) {
+            // Check both error code and message for "already exists" scenarios
+            const errorCode = (parentAuthError as any)?.code;
+            const errorMsg = parentAuthError.message?.toLowerCase() || '';
+            
+            if (
+              errorCode === 'user_already_exists' ||
+              errorMsg.includes('already') || 
+              errorMsg.includes('registered') || 
+              errorMsg.includes('exists')
+            ) {
+              // Auth user exists but we missed it in pre-check - treat as sibling scenario
+              console.log('ℹ️ Parent auth already exists (caught at auth level) - student created successfully');
+              toast({
+                title: 'Student Account Created',
+                description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
+              });
+              // Don't throw - student signup succeeded, just skip parent creation
+              return;
             }
-
-            console.log('✅ Parent auth created:', parentAuth.user?.id);
-
-            if (!parentAuth.user?.id) {
-              throw new Error('Failed to create parent account');
-            }
-
-            parentId = parentAuth.user.id;
-
-            // Profile auto-created by trigger, update with parent info
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .update({
-                full_name: parentName,
-                phone_number: parentPhone,
-              })
-              .eq('id', parentId);
-
-            if (profileError) {
-              console.error('❌ Profile update failed:', profileError);
-            }
-
-            // Assign parent role
-            const { error: roleError } = await supabase
-              .from('user_roles')
-              .upsert({
-                user_id: parentId,
-                role: 'parent',
-              }, { onConflict: 'user_id' });
-
-            if (roleError) {
-              console.error('❌ Role assignment failed:', roleError);
-            }
-
-            console.log('✅ Parent profile and role created');
-          } else {
-            console.log('ℹ️ Parent profile already exists, ID:', existingParent.id);
-            parentId = existingParent.id;
+            
+            // Other auth errors - throw to be caught by outer catch
+            console.error('❌ Parent auth creation failed:', parentAuthError);
+            throw parentAuthError;
           }
+
+          console.log('✅ Parent auth created:', parentAuth.user?.id);
+
+          if (!parentAuth.user?.id) {
+            throw new Error('Failed to create parent account');
+          }
+
+          parentId = parentAuth.user.id;
+
+          // Profile auto-created by trigger, update with parent info
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              full_name: parentName,
+              phone_number: parentPhone,
+            })
+            .eq('id', parentId);
+
+          if (profileError) {
+            console.error('❌ Profile update failed:', profileError);
+          }
+
+          // Assign parent role
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .upsert({
+              user_id: parentId,
+              role: 'parent',
+            }, { onConflict: 'user_id' });
+
+          if (roleError) {
+            console.error('❌ Role assignment failed:', roleError);
+          }
+
+          console.log('✅ Parent profile and role created');
 
           // Link parent to student
           console.log('🔗 Creating parent-student link...', { parent_id: parentId, student_id: studentUserId });

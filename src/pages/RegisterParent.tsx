@@ -17,6 +17,8 @@ const RegisterParent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Note: Name is optional in this flow, but phone + password are required
+
   const validatePhone = (phone: string) => {
     return /^[6-9]\d{9}$/.test(phone);
   };
@@ -24,15 +26,7 @@ const RegisterParent = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!fullName.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please enter your full name',
-      });
-      return;
-    }
-
+    // Name is optional but phone and password are required
     if (!validatePhone(phoneNumber)) {
       toast({
         variant: 'destructive',
@@ -120,7 +114,9 @@ const RegisterParent = () => {
 
       toast({
         title: 'Registration Successful!',
-        description: 'Admin will link your child\'s account soon. You can login now using your phone number.',
+        description: fullName.trim() 
+          ? 'Your parent account has been created. You can login now using your phone number.'
+          : 'Your parent account has been created. You can login now and update your name in settings.',
       });
 
       // Redirect to login after a short delay
@@ -176,19 +172,21 @@ const RegisterParent = () => {
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">Full Name (Optional)</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="fullName"
                   type="text"
-                  placeholder="Your full name"
+                  placeholder="Your full name (optional)"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="pl-10"
-                  required
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                You can update this later if you prefer
+              </p>
             </div>
 
             <div className="space-y-2">

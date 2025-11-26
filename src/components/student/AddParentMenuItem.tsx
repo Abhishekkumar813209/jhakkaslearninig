@@ -20,7 +20,7 @@ export const AddParentMenuItem = ({ studentUserId, onNavigate }: AddParentMenuIt
 
   const checkParentLink = async () => {
     try {
-      const { data: parentCheck, error } = await (supabase as any)
+      const { data: parentCheck, error } = await supabase
         .from('parent_student_links')
         .select('id')
         .eq('student_id', studentUserId)

@@ -128,41 +128,45 @@ const RegisterSimplified = () => {
           
           const parentEmail = `${parentPhone}@parent.app`;
           
-          // PRE-CHECK: Check if parent already exists by phone OR email
-          const { data: existingParentByPhone } = await supabase
-            .from('profiles')
-            .select('id, phone_number')
-            .eq('phone_number', parentPhone)
-            .maybeSingle();
+          // PRE-CHECK: Use RPC function to check if parent exists (bypasses RLS)
+          const { data: existingParentData, error: checkError } = await supabase
+            .rpc('check_parent_exists_by_phone_or_email', {
+              p_phone: parentPhone,
+              p_email: parentEmail
+            });
 
-          const { data: existingParentByEmail } = await supabase
-            .from('profiles')
-            .select('id, phone_number')
-            .eq('email', parentEmail)
-            .maybeSingle();
-
-          const existingParent = existingParentByPhone || existingParentByEmail;
-
-          // If parent already exists in profiles, this is the sibling scenario
-          if (existingParent) {
+          if (checkError) {
+            console.error('❌ Error checking for existing parent:', checkError);
+            // Continue with parent creation if check fails
+          } else if (existingParentData && existingParentData.length > 0) {
+            const existingParent = existingParentData[0];
+            
             // Check if it's actually a parent role (not a student using same phone)
-            const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', existingParent.id)
-              .maybeSingle();
-
-            if (roleData?.role === 'student') {
+            if (existingParent.parent_role === 'student') {
               throw new Error('This phone number is already registered as a student account');
             }
 
             // Parent exists - sibling scenario
             console.log('ℹ️ Parent already exists (sibling scenario) - student created successfully');
+            
+            // Reset loading state before returning
+            setLoading(false);
+            
             toast({
               title: 'Student Account Created',
               description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
             });
-            // Don't attempt parent creation, exit gracefully
+            
+            // Auto-login the student
+            if (data?.session) {
+              await supabase.auth.setSession({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token
+              });
+            }
+            
+            // Navigate after successful student signup
+            navigate('/profile');
             return;
           }
 
@@ -189,11 +193,25 @@ const RegisterSimplified = () => {
             ) {
               // Auth user exists but we missed it in pre-check - treat as sibling scenario
               console.log('ℹ️ Parent auth already exists (caught at auth level) - student created successfully');
+              
+              // Reset loading state
+              setLoading(false);
+              
               toast({
                 title: 'Student Account Created',
                 description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
               });
-              // Don't throw - student signup succeeded, just skip parent creation
+              
+              // Auto-login the student
+              if (data?.session) {
+                await supabase.auth.setSession({
+                  access_token: data.session.access_token,
+                  refresh_token: data.session.refresh_token
+                });
+              }
+              
+              // Navigate after successful student signup
+              navigate('/profile');
               return;
             }
             

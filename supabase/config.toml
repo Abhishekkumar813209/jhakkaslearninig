@@ -51,3 +51,12 @@ verify_jwt = true
 [functions.generate-full-chapter-topics]
 verify_jwt = true
 
+[functions.parent-send-otp]
+verify_jwt = false
+
+[functions.parent-verify-otp]
+verify_jwt = false
+
+[functions.parent-reset-password]
+verify_jwt = false
+

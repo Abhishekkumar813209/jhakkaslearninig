@@ -260,11 +260,26 @@ function convertQuestionToJSONB(question: any): { question_data: any; answer_dat
         answer_data.pairs = [];
       }
       
+      // 🛡️ STRICT VALIDATION: Ensure pairs.length === leftColumn.length
+      const filteredLeft = question_data.leftColumn.filter((item: string) => item?.trim?.());
+      const filteredRight = question_data.rightColumn.filter((item: string) => item?.trim?.());
+      
+      if (answer_data.pairs.length !== filteredLeft.length) {
+        console.warn(`⚠️ [Match Column] Auto-completing pairs: had ${answer_data.pairs.length} pairs for ${filteredLeft.length} items`);
+        
+        // Auto-complete missing pairs
+        answer_data.pairs = filteredLeft.map((_: any, idx: number) => {
+          const existingPair = answer_data.pairs.find((p: any) => p.left === idx);
+          return existingPair || { left: idx, right: Math.min(idx, filteredRight.length - 1) };
+        });
+      }
+      
       console.log('[Save Match Column]', {
         leftColumnLength: question_data.leftColumn?.length,
         rightColumnLength: question_data.rightColumn?.length,
         pairCount: answer_data.pairs?.length,
-        pairs: answer_data.pairs
+        pairs: answer_data.pairs,
+        allPairsComplete: answer_data.pairs.length === filteredLeft.length
       });
       break;
 

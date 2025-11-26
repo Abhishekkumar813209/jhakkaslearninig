@@ -1901,6 +1901,39 @@ export type Database = {
           },
         ]
       }
+      parent_password_resets: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          otp: string
+          phone: string
+          reset_id: string
+          used: boolean | null
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          otp: string
+          phone: string
+          reset_id?: string
+          used?: boolean | null
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          otp?: string
+          phone?: string
+          reset_id?: string
+          used?: boolean | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       parent_student_links: {
         Row: {
           created_at: string

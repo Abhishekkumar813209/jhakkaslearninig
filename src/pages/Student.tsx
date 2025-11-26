@@ -1,12 +1,15 @@
-import Navbar from "@/components/Navbar";
 import { useProfile } from '@/hooks/useProfile';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentBatchRoadmap } from "@/components/student/StudentBatchRoadmap";
 import StudentLearningPaths from "@/components/student/StudentLearningPaths";
-import { Target, Youtube } from "lucide-react";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
+import { StudentHomeDashboard } from "@/components/student/StudentHomeDashboard";
+import { Target, Youtube, Home } from "lucide-react";
+import { useState } from "react";
 
 const Student = () => {
   const { loading } = useProfile();
+  const [activeTab, setActiveTab] = useState("home");
 
   if (loading) {
     return (
@@ -20,31 +23,42 @@ const Student = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="batch-roadmap" className="space-y-3">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+    <StudentAppLayout>
+      <div className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-3 rounded-none border-b">
+            <TabsTrigger value="home" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Home
+            </TabsTrigger>
             <TabsTrigger value="batch-roadmap" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
-              My Batch Roadmap
+              My Roadmap
             </TabsTrigger>
             <TabsTrigger value="custom-paths" className="flex items-center gap-2">
               <Youtube className="h-4 w-4" />
-              Custom YouTube Paths
+              YouTube Paths
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="batch-roadmap" className="space-y-4">
-            <StudentBatchRoadmap />
+          <TabsContent value="home" className="mt-0">
+            <StudentHomeDashboard />
           </TabsContent>
 
-          <TabsContent value="custom-paths" className="space-y-4">
-            <StudentLearningPaths />
+          <TabsContent value="batch-roadmap" className="mt-0">
+            <div className="container mx-auto px-4 py-6">
+              <StudentBatchRoadmap />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="custom-paths" className="mt-0">
+            <div className="container mx-auto px-4 py-6">
+              <StudentLearningPaths />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

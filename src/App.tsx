@@ -124,6 +124,11 @@ const App = () => (
                 <LiveRacing />
               </ProtectedRoute>
             } />
+            <Route path="/racing" element={
+              <ProtectedRoute>
+                <LiveRacing />
+              </ProtectedRoute>
+            } />
             <Route path="/student/tests" element={
               <ProtectedRoute>
                 <StudentTests />

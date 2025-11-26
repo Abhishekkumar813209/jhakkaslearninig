@@ -15,6 +15,7 @@ import Register from "./pages/Register";
 import RegisterSimplified from "./pages/RegisterSimplified";
 import RegisterParent from "./pages/RegisterParent";
 import ResetPassword from "./pages/ResetPassword";
+import ChangePassword from "./pages/ChangePassword";
 import Profile from "./pages/Profile";
 import StudentDashboardPage from "./pages/StudentDashboardPage";
 import Tests from "./pages/Tests";
@@ -191,6 +192,11 @@ const App = () => (
             <Route path="/profile" element={
               <ProtectedRoute requireProfileComplete={false}>
                 <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/change-password" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <ChangePassword />
               </ProtectedRoute>
             } />
             

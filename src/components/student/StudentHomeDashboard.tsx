@@ -112,8 +112,8 @@ export const StudentHomeDashboard = () => {
         </p>
       </div>
 
-      {/* Banner Section */}
-      <Card className="overflow-hidden">
+      {/* Banner Section - hidden on mobile, visible on tablet/desktop */}
+      <Card className="hidden md:block overflow-hidden">
         <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
           <h2 className="text-xl font-bold mb-2">Start Learning Today!</h2>
           <p className="text-sm opacity-90">

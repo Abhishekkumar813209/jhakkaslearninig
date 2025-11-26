@@ -56,7 +56,7 @@ const Navbar = () => {
             </Link>
           )}
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation - hidden on mobile, visible on tablet/desktop */}
           <div className="hidden md:flex items-center space-x-2">
             {isTestRoute && (
               <Button 
@@ -167,7 +167,7 @@ const Navbar = () => {
             ) : null}
           </div>
 
-          {/* Desktop Actions */}
+          {/* Desktop Actions - hidden on mobile, visible on tablet/desktop */}
           <div className="hidden md:flex items-center space-x-4">
             {!user ? (
               // Guest Actions

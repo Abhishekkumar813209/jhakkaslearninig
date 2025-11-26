@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { invokeWithAuth } from '@/lib/invokeWithAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -22,8 +23,15 @@ export const ContinueWatchingCard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDismissed, setIsDismissed] = useState(false);
   const navigate = useNavigate();
+  const { userRole, loading: authLoading } = useAuth();
 
   useEffect(() => {
+    // Don't fetch if not a student or still loading auth
+    if (authLoading || userRole !== 'student') {
+      setIsLoading(false);
+      return;
+    }
+
     const dismissed = localStorage.getItem('continue-watching-dismissed');
     if (dismissed) {
       const dismissedData = JSON.parse(dismissed);
@@ -35,7 +43,7 @@ export const ContinueWatchingCard = () => {
     }
 
     fetchContinueWatching();
-  }, []);
+  }, [authLoading, userRole]);
 
   const fetchContinueWatching = async () => {
     try {

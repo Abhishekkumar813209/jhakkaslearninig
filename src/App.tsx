@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Suspense, lazy } from "react";
+import React from "react";
 import Index from "./pages/Index";
 import Courses from "./pages/Courses";
 import Quiz from "./pages/Quiz";
@@ -273,6 +274,39 @@ const App = () => (
               <ProtectedRoute requireProfileComplete={false}>
                 <ParentDashboard />
               </ProtectedRoute>
+            } />
+            <Route path="/parent/studies" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/parent/ParentStudies')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/parent/tests" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/parent/ParentTests')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/parent/rankings" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/parent/ParentRankings')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/parent/change-password" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/parent/ParentChangePassword')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/parent-forgot-password" element={
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                {React.createElement(lazy(() => import('./pages/parent/ParentForgotPassword')))}
+              </Suspense>
             } />
             
             {/* UI Guide - public route for reference */}

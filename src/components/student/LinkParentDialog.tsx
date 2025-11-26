@@ -89,13 +89,13 @@ export const LinkParentDialog = ({ open, onOpenChange, studentUserId, onSuccess 
         parentId = existingParent.id;
       }
 
-      // Create parent-student link
-      const { error: linkError } = await supabase
+      // Create parent-student link (use student_id not student_user_id)
+      const { error: linkError } = await (supabase as any)
         .from('parent_student_links')
         .insert({
           parent_id: parentId,
-          student_user_id: studentUserId,
-        } as any);
+          student_id: studentUserId,
+        });
 
       if (linkError) throw linkError;
 

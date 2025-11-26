@@ -47,20 +47,15 @@ export default function ParentForgotPassword() {
 
       toast({
         title: 'OTP Sent!',
-        description: 'Please check your phone for the OTP code.',
+        description: 'OTP has been sent to your registered mobile number.',
       });
 
       setResetId(data.reset_id);
       setStep(1); // Keep on step 1 but show OTP input
 
-      // Development mode: Show OTP in console/UI for testing
-      if (data.otp_dev) {
+      // Development mode: Silent console log only (no UI display)
+      if (process.env.NODE_ENV === 'development' && data.otp_dev) {
         console.log('[DEV] OTP:', data.otp_dev);
-        toast({
-          title: '🔧 Dev Mode',
-          description: `OTP: ${data.otp_dev}`,
-          duration: 10000,
-        });
       }
       
     } catch (error: any) {

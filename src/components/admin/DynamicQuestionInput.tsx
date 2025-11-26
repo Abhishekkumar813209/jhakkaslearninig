@@ -109,26 +109,25 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
         const filteredLeft = leftColumn.filter(item => item.trim());
         const filteredRight = rightColumn.filter(item => item.trim());
         
-        // ✅ Validation: Check if all pairs are defined
-        const allPairsPresent = pairs.length === filteredLeft.length;
-        
-        console.log('[Save Match Column]', {
-          leftColumnLength: filteredLeft.length,
-          rightColumnLength: filteredRight.length,
-          pairCount: pairs.length,
-          pairs,
-          allPairsPresent
+        // ✅ BUG FIX 1: Ensure pairs array has one entry per left column item
+        let validatedPairs = filteredLeft.map((_, idx) => {
+          const existingPair = pairs.find(p => p.left === idx);
+          return existingPair || { left: idx, right: Math.min(idx, filteredRight.length - 1) };
         });
         
-        if (!allPairsPresent) {
-          console.warn('⚠️ Not all pairs defined - some matches missing');
-        }
+        console.log('[Save Match Column] Validated:', {
+          leftColumnLength: filteredLeft.length,
+          rightColumnLength: filteredRight.length,
+          pairCount: validatedPairs.length,
+          pairs: validatedPairs,
+          allPairsComplete: validatedPairs.length === filteredLeft.length
+        });
         
         gameData = {
           question: questionText,
           leftColumn: filteredLeft,
           rightColumn: filteredRight,
-          correctPairs: pairs,
+          correctPairs: validatedPairs, // ✅ Always complete
           marks,
           difficulty
         };
@@ -226,6 +225,32 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
     // Trigger data change only once after reset
     setTimeout(() => handleDataChange(), 0);
   }, [gameType]);
+
+  // ✅ BUG FIX 1: Auto-initialize pairs when columns change (match_column)
+  useEffect(() => {
+    if (gameType === 'match_column') {
+      const validLeft = leftColumn.filter(item => item.trim());
+      const validRight = rightColumn.filter(item => item.trim());
+      
+      if (validLeft.length === 0 || validRight.length === 0) return;
+      
+      // Auto-create default pairs for any left items without a pair
+      // Default: left[i] maps to right[min(i, validRight.length-1)]
+      const newPairs = validLeft.map((_, idx) => {
+        const existingPair = pairs.find(p => p.left === idx);
+        if (existingPair && existingPair.right < validRight.length) {
+          return existingPair;
+        }
+        // Default to matching index, or last right item if out of bounds
+        return { left: idx, right: Math.min(idx, validRight.length - 1) };
+      });
+      
+      // Only update if pairs actually changed
+      if (JSON.stringify(newPairs) !== JSON.stringify(pairs)) {
+        setPairs(newPairs);
+      }
+    }
+  }, [leftColumn, rightColumn, gameType]);
 
   // Smart default: Auto-suggest disabling word bank for >3 sub-questions (fill_blank only)
   useEffect(() => {

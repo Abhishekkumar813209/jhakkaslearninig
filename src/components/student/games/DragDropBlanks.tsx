@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
 import { SubQuestionResult } from "@/lib/xpConfig";
+import { shuffleArray } from "@/lib/shuffleUtils";
 
 interface BlankAnswer {
   correctAnswer: string;
@@ -190,7 +191,8 @@ export function DragDropBlanks({
       console.error('[DragDropBlanks] No valid blanks or sub_questions data:', gameData);
     }
     
-    setWordBank(allWords.sort(() => Math.random() - 0.5));
+    // ✅ BUG FIX 3: Use Fisher-Yates shuffle instead of unreliable sort
+    setWordBank(shuffleArray(allWords));
     
     console.log('[DragDropBlanks] Word bank initialized:', {
       useFullWordBank,

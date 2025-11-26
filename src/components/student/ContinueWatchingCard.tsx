@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeWithAuth } from '@/lib/invokeWithAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -39,16 +39,12 @@ export const ContinueWatchingCard = () => {
 
   const fetchContinueWatching = async () => {
     try {
-      // Get current session for auth headers
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
-      
-      const { data: response, error } = await supabase.functions.invoke('chapter-lectures-api', {
-        body: { action: 'get_continue_watching' },
-        headers
+      const response = await invokeWithAuth<{ action: string }, { success: boolean; data: ContinueWatchingData | null }>({
+        name: 'chapter-lectures-api',
+        body: { action: 'get_continue_watching' }
       });
 
-      if (error || !response?.success || !response?.data) {
+      if (!response?.success || !response?.data) {
         setData(null);
         return;
       }

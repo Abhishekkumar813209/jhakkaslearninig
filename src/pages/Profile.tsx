@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { authAPI } from '@/services/api';
-import Navbar from '@/components/Navbar';
+import { StudentAppLayout } from '@/components/student/StudentAppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -266,8 +266,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto space-y-8">
           <div className="text-center">
@@ -544,7 +543,7 @@ const Profile = () => {
           )}
         </div>
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

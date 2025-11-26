@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { playSound } from "@/lib/soundEffects";
 import { SubQuestionResult } from "@/lib/xpConfig";
+import { shuffleArray } from "@/lib/shuffleUtils";
 
 interface MatchPair {
   left: number;
@@ -127,6 +128,13 @@ export function LineMatchingGame({
   const svgRef = useRef<SVGSVGElement>(null);
   const leftRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rightRefs = useRef<(HTMLDivElement | null)[]>([]);
+  
+  // ✅ BUG FIX 2: Shuffled right column with original indices preserved
+  interface ShuffledRightItem {
+    text: string;
+    originalIndex: number;
+  }
+  const [shuffledRight, setShuffledRight] = useState<ShuffledRightItem[]>([]);
 
   useEffect(() => {
     // Reset state when game data changes
@@ -136,6 +144,16 @@ export function LineMatchingGame({
     setResults({});
     setShowExplanation(false);
     setAttemptCount(initialAttemptCount);
+    
+    // ✅ BUG FIX 2: Create shuffled version with original indices preserved
+    if (gameData?.rightColumn) {
+      const rightWithIndices = gameData.rightColumn.map((text, index) => ({
+        text,
+        originalIndex: index,
+      }));
+      
+      setShuffledRight(shuffleArray(rightWithIndices));
+    }
   }, [gameData, initialAttemptCount]);
 
   const handleLeftClick = (index: number) => {
@@ -143,8 +161,11 @@ export function LineMatchingGame({
     setSelectedLeft(index);
   };
 
-  const handleRightClick = (rightIndex: number) => {
+  const handleRightClick = (shuffledIndex: number) => {
     if (hasSubmitted || selectedLeft === null) return;
+
+    // ✅ BUG FIX 2: Convert shuffled index back to original index for comparison
+    const originalRightIndex = shuffledRight[shuffledIndex].originalIndex;
 
     // Check if this left item already has a connection
     const existingPairIndex = userPairs.findIndex((p) => p.left === selectedLeft);
@@ -152,11 +173,11 @@ export function LineMatchingGame({
     if (existingPairIndex !== -1) {
       // Update existing pair
       const newPairs = [...userPairs];
-      newPairs[existingPairIndex] = { left: selectedLeft, right: rightIndex };
+      newPairs[existingPairIndex] = { left: selectedLeft, right: originalRightIndex };
       setUserPairs(newPairs);
     } else {
       // Add new pair
-      setUserPairs([...userPairs, { left: selectedLeft, right: rightIndex }]);
+      setUserPairs([...userPairs, { left: selectedLeft, right: originalRightIndex }]);
     }
 
     setSelectedLeft(null);
@@ -166,9 +187,14 @@ export function LineMatchingGame({
     setUserPairs(userPairs.filter((p) => p.left !== leftIndex));
   };
 
-  const getLineCoordinates = (leftIndex: number, rightIndex: number) => {
+  const getLineCoordinates = (leftIndex: number, rightOriginalIndex: number) => {
+    // ✅ BUG FIX 2: Find the shuffled index for this original right index
+    const shuffledIndex = shuffledRight.findIndex(
+      item => item.originalIndex === rightOriginalIndex
+    );
+    
     const leftEl = leftRefs.current[leftIndex];
-    const rightEl = rightRefs.current[rightIndex];
+    const rightEl = rightRefs.current[shuffledIndex]; // Use shuffled position
 
     if (!leftEl || !rightEl || !svgRef.current) return null;
 
@@ -349,16 +375,16 @@ export function LineMatchingGame({
               })}
             </div>
 
-            {/* Right Column */}
+            {/* Right Column - SHUFFLED */}
             <div className="space-y-3">
-              {gameData.rightColumn.map((item, index) => {
+              {shuffledRight.map((item, shuffledIndex) => {
                 const isTargeted = selectedLeft !== null;
 
                 return (
                   <motion.div
-                    key={`right-${index}`}
-                    ref={(el) => (rightRefs.current[index] = el)}
-                    onClick={() => handleRightClick(index)}
+                    key={`right-${item.originalIndex}`}
+                    ref={(el) => (rightRefs.current[shuffledIndex] = el)}
+                    onClick={() => handleRightClick(shuffledIndex)}
                     className={cn(
                       "p-4 rounded-lg border-2 cursor-pointer transition-all text-center font-medium",
                       isTargeted && "border-primary/50 bg-primary/5 hover:border-primary hover:bg-primary/10",
@@ -367,7 +393,7 @@ export function LineMatchingGame({
                     whileHover={isTargeted ? { scale: 1.02 } : {}}
                     whileTap={isTargeted ? { scale: 0.98 } : {}}
                   >
-                    <span className="text-sm">{item}</span>
+                    <span className="text-sm">{item.text}</span>
                   </motion.div>
                 );
               })}

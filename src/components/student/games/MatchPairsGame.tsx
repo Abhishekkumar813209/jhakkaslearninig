@@ -8,6 +8,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SubQuestionResult } from '@/lib/xpConfig';
+import { shuffleArray } from '@/lib/shuffleUtils';
 
 interface Pair {
   id: string;
@@ -109,8 +110,8 @@ export const MatchPairsGame = ({ gameData, onCorrect, onWrong, onComplete, initi
     }
     
     const left = gameData.pairs.map(p => ({ id: p.id, text: p.left }));
-    const right = gameData.pairs.map(p => ({ id: p.id, text: p.right }))
-      .sort(() => Math.random() - 0.5);
+    // ✅ BUG FIX 4: Use Fisher-Yates shuffle for match_pair right column
+    const right = shuffleArray(gameData.pairs.map(p => ({ id: p.id, text: p.right })));
     
     setLeftItems(left);
     setRightItems(right);

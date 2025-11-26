@@ -136,19 +136,20 @@ export const LinkParentDialog = ({ open, onOpenChange, studentUserId, onSuccess 
         return;
       }
 
-      // Create parent-student link
-      const { error: linkError } = await supabase
-        .from('parent_student_links')
-        .insert({
-          parent_id: existingParent.parent_id,
-          student_id: studentUserId,
-          relationship: 'parent',
-          is_primary_contact: true,
+      // Create parent-student link using SECURITY DEFINER function to bypass RLS
+      const { data: linkId, error: linkError } = await supabase
+        .rpc('create_parent_student_link', {
+          p_parent_id: existingParent.parent_id,
+          p_student_id: studentUserId,
+          p_relationship: 'parent'
         });
 
       if (linkError) {
+        console.error('❌ Link creation failed:', linkError);
         throw linkError;
       }
+      
+      console.log('✅ Parent linked successfully, link ID:', linkId);
 
       toast({
         title: 'Parent Linked Successfully',
@@ -245,19 +246,20 @@ export const LinkParentDialog = ({ open, onOpenChange, studentUserId, onSuccess 
         console.error('Role assignment error:', roleError);
       }
 
-      // Create parent-student link
-      const { error: linkError } = await supabase
-        .from('parent_student_links')
-        .insert({
-          parent_id: parentId,
-          student_id: studentUserId,
-          relationship: 'parent',
-          is_primary_contact: true,
+      // Create parent-student link using SECURITY DEFINER function to bypass RLS
+      const { data: linkId, error: linkError } = await supabase
+        .rpc('create_parent_student_link', {
+          p_parent_id: parentId,
+          p_student_id: studentUserId,
+          p_relationship: 'parent'
         });
 
       if (linkError) {
+        console.error('❌ Link creation failed:', linkError);
         throw linkError;
       }
+      
+      console.log('✅ Parent created and linked successfully, link ID:', linkId);
 
       toast({
         title: 'Parent Account Created and Linked',

@@ -151,7 +151,7 @@ export const ManualQuestionEntry = ({
     if (questionData.question_type === 'match_column') {
       const leftColumn = questionData.gameData?.leftColumn || [];
       const rightColumn = questionData.gameData?.rightColumn || [];
-      const pairs = questionData.gameData?.correctPairs || [];
+      let pairs = questionData.gameData?.correctPairs || [];
 
       // Filter to non-empty items
       const filteredLeft = leftColumn.filter((item: string) => item.trim());
@@ -166,6 +166,27 @@ export const ManualQuestionEntry = ({
         toast.error("Left and right columns must have the same number of filled items");
         return;
       }
+
+      // STRICT VALIDATION: Ensure pairs.length === leftColumn.length
+      if (pairs.length !== filteredLeft.length) {
+        console.warn(`[Match Column] Auto-completing pairs: had ${pairs.length} pairs for ${filteredLeft.length} items`);
+        
+        // Auto-complete missing pairs
+        pairs = filteredLeft.map((_: any, idx: number) => {
+          const existingPair = pairs.find((p: any) => p.left === idx);
+          return existingPair || { left: idx, right: Math.min(idx, filteredRight.length - 1) };
+        });
+        
+        // Update gameData with complete pairs
+        questionData.gameData.correctPairs = pairs;
+      }
+
+      console.log('[Match Column Save]', {
+        leftColumnLength: filteredLeft.length,
+        rightColumnLength: filteredRight.length,
+        pairsLength: pairs.length,
+        allPairsComplete: pairs.length === filteredLeft.length
+      });
 
       if (pairs.length === 0) {
         toast.error("Please define at least one correct pair");

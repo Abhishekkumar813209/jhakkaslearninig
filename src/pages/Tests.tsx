@@ -1,9 +1,9 @@
 import React from 'react';
-import Navbar from '@/components/Navbar';
 import StudentTests from '@/components/student/StudentTests';
 import SEOHead from '@/components/SEOHead';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
+import { StudentAppLayout } from '@/components/student/StudentAppLayout';
 
 const Tests = () => {
   const { user, loading } = useAuth();
@@ -30,12 +30,11 @@ const Tests = () => {
         description="Access our comprehensive test library with practice tests, mock exams, and assessments. Free test available, premium subscription for unlimited access."
         keywords="practice tests, mock exams, assessments, test series, online tests, student evaluation"
       />
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
+      <StudentAppLayout>
+        <div className="container mx-auto px-4 py-6">
           <StudentTests />
         </div>
-      </div>
+      </StudentAppLayout>
     </>
   );
 };

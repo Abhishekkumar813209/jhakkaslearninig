@@ -124,13 +124,20 @@ const RegisterSimplified = () => {
       // If link parent is enabled, create and link parent
       if (linkParent && studentUserId) {
         try {
+          console.log('🔗 Starting parent linking process for student:', studentUserId);
+          
           const parentEmail = `${parentPhone}@parent.app`;
           const { data: parentAuth, error: parentAuthError } = await supabase.auth.signUp({
             email: parentEmail,
             password: parentPassword,
           });
 
-          if (parentAuthError) throw parentAuthError;
+          if (parentAuthError) {
+            console.error('❌ Parent auth creation failed:', parentAuthError);
+            throw parentAuthError;
+          }
+
+          console.log('✅ Parent auth created:', parentAuth.user?.id);
 
           // Check if parent exists (using type assertion)
           const { data: existingParent } = await (supabase as any)
@@ -143,6 +150,7 @@ const RegisterSimplified = () => {
 
           if (!existingParent) {
             // Insert new parent
+            console.log('📝 Inserting new parent record...');
             const { data: newParent, error: insertError } = await (supabase as any)
               .from('parents')
               .insert({
@@ -153,9 +161,14 @@ const RegisterSimplified = () => {
               .select()
               .single();
 
-            if (insertError) throw insertError;
+            if (insertError) {
+              console.error('❌ Parent insert failed:', insertError);
+              throw insertError;
+            }
             parentId = newParent.id;
+            console.log('✅ Parent created with ID:', parentId);
           } else {
+            console.log('ℹ️ Parent already exists, ID:', existingParent.id);
             // Update only auth_user_id if null, do NOT overwrite name
             if (!existingParent.auth_user_id) {
               await (supabase as any)
@@ -167,19 +180,33 @@ const RegisterSimplified = () => {
           }
 
           // Link parent to student (use student_id not student_user_id)
-          await (supabase as any)
+          console.log('🔗 Creating parent-student link...', { parent_id: parentId, student_id: studentUserId });
+          const { error: linkError } = await (supabase as any)
             .from('parent_student_links')
             .insert({
               parent_id: parentId,
               student_id: studentUserId,
             });
 
+          if (linkError) {
+            console.error('❌ Parent-student link creation failed:', linkError);
+            throw linkError;
+          }
+
+          console.log('✅ Parent linked successfully to student');
+          
+          toast({
+            title: 'Success!',
+            description: 'Your account and parent account have been created and linked successfully.',
+          });
+
         } catch (parentError: any) {
-          console.error('Parent linking failed:', parentError);
+          console.error('❌ Parent linking error:', parentError);
           // Don't block student registration if parent linking fails
           toast({
-            title: 'Student Registered',
-            description: 'Your account was created but parent linking failed. You can link a parent later.',
+            variant: 'destructive',
+            title: 'Parent Linking Failed',
+            description: `Student account created successfully, but parent linking failed: ${parentError.message || 'Unknown error'}. You can link a parent later from the sidebar.`,
           });
         }
       }

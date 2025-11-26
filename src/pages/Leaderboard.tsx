@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Navbar from '@/components/Navbar';
+import { StudentAppLayout } from '@/components/student/StudentAppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -244,20 +244,18 @@ const Leaderboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Leaderboard</h1>
@@ -655,7 +653,7 @@ const Leaderboard = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

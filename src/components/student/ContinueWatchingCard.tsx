@@ -50,8 +50,13 @@ export const ContinueWatchingCard = () => {
       }
 
       setData(response.data);
-    } catch (err) {
-      console.error('Error fetching continue watching:', err);
+    } catch (err: any) {
+      // Silently handle auth errors (parent accessing student route)
+      if (err?.code === 401 || err?.message?.includes('authenticated')) {
+        console.log('Auth error - likely parent accessing student route');
+      } else {
+        console.error('Error fetching continue watching:', err);
+      }
       setData(null);
     } finally {
       setIsLoading(false);

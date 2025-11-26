@@ -146,15 +146,36 @@ const RegisterSimplified = () => {
               throw new Error('This phone number is already registered as a student account');
             }
 
-            // Parent exists - sibling scenario
-            console.log('ℹ️ Parent already exists (sibling scenario) - student created successfully');
+            // Parent exists - sibling scenario - AUTO-LINK
+            console.log('ℹ️ Parent already exists (sibling scenario) - auto-linking student to parent');
+            
+            // Create parent-student link automatically
+            const { error: linkError } = await supabase
+              .from('parent_student_links')
+              .insert({
+                parent_id: existingParent.parent_id,
+                student_id: studentUserId,
+                relationship: 'parent',
+                is_primary_contact: true,
+              });
+
+            if (linkError) {
+              console.error('❌ Auto-link failed:', linkError);
+              if (!linkError.message.includes('duplicate') && linkError.code !== '23505') {
+                throw linkError;
+              } else {
+                console.log('ℹ️ Link already exists, skipping');
+              }
+            } else {
+              console.log('✅ Student auto-linked to existing parent');
+            }
             
             // Reset loading state before returning
             setLoading(false);
             
             toast({
-              title: 'Student Account Created',
-              description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
+              title: 'Student and Parent Linked Successfully',
+              description: 'This parent already had an account, so we linked this student to the existing parent.',
             });
             
             // Auto-login the student

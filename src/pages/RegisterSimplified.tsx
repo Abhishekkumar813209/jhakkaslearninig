@@ -151,13 +151,28 @@ const RegisterSimplified = () => {
           let parentId: string;
 
           if (!existingParent) {
-            // Create new parent auth user
+            // Create new parent auth user - with sibling scenario handling
             const { data: parentAuth, error: parentAuthError } = await supabase.auth.signUp({
               email: parentEmail,
               password: parentPassword,
             });
 
+            // Check for "already registered" error (sibling scenario - parent exists)
             if (parentAuthError) {
+              const errorMsg = parentAuthError.message.toLowerCase();
+              
+              if (errorMsg.includes('already') || errorMsg.includes('registered') || errorMsg.includes('exists')) {
+                // Parent already exists (sibling scenario) - student signup succeeded, notify user
+                console.log('ℹ️ Parent phone already exists (sibling scenario) - student created successfully');
+                toast({
+                  title: 'Student Account Created',
+                  description: 'This phone number is already used for a parent account. You can link your parent later from the "Link Parent" section in the sidebar.',
+                });
+                // Don't throw - student signup succeeded, just skip parent creation
+                return; // Exit parent linking gracefully
+              }
+              
+              // Other auth errors - throw to be caught by outer catch
               console.error('❌ Parent auth creation failed:', parentAuthError);
               throw parentAuthError;
             }

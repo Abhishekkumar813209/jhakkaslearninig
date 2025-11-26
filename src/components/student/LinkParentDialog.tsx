@@ -43,61 +43,116 @@ export const LinkParentDialog = ({ open, onOpenChange, studentUserId, onSuccess 
     setLoading(true);
 
     try {
-      // Create parent auth user
+      // Check for existing parent account by phone/email
       const parentEmail = `${parentPhone}@parent.app`;
-      const { data: parentAuth, error: authError } = await supabase.auth.signUp({
-        email: parentEmail,
-        password: parentPassword,
-      });
+      
+      // First check if parent profile already exists
+      const { data: existingParent } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone_number')
+        .eq('phone_number', parentPhone)
+        .maybeSingle();
 
-      if (authError) throw authError;
+      // Check if phone is already used by a student account
+      if (existingParent) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', existingParent.id)
+          .single();
 
-      // Check if parent already exists in parents table (using type assertion)
-      const { data: existingParent } = await (supabase as any)
-        .from('parents')
-        .select('*')
-        .eq('phone', parentPhone)
-        .single();
+        if (roleData?.role === 'student') {
+          toast({
+            variant: 'destructive',
+            title: 'Phone Already Used',
+            description: 'This phone number is already registered as a student account.',
+          });
+          setLoading(false);
+          return;
+        }
+      }
 
       let parentId: string;
 
       if (!existingParent) {
-        // Insert new parent
-        const { data: newParent, error: insertError } = await (supabase as any)
-          .from('parents')
-          .insert({
-            phone: parentPhone,
-            name: parentName,
-            auth_user_id: parentAuth.user?.id,
-          })
-          .select()
-          .single();
+        // Create new parent auth user
+        const { data: parentAuth, error: authError } = await supabase.auth.signUp({
+          email: parentEmail,
+          password: parentPassword,
+        });
 
-        if (insertError) throw insertError;
-        parentId = newParent.id;
-      } else {
-        // Update existing parent only if auth_user_id is null
-        if (!existingParent.auth_user_id) {
-          const { error: updateError } = await (supabase as any)
-            .from('parents')
-            .update({ auth_user_id: parentAuth.user?.id })
-            .eq('id', existingParent.id);
-
-          if (updateError) throw updateError;
+        if (authError) {
+          if (authError.message.toLowerCase().includes('already registered')) {
+            toast({
+              variant: 'destructive',
+              title: 'Phone Already Registered',
+              description: 'This phone number is already registered. Ask them to login instead.',
+            });
+          } else {
+            throw authError;
+          }
+          setLoading(false);
+          return;
         }
-        // Do NOT overwrite name if it already exists
+
+        if (!parentAuth.user?.id) {
+          throw new Error('Failed to create parent account');
+        }
+
+        parentId = parentAuth.user.id;
+
+        // Profile is auto-created by trigger, but update it with parent-specific info
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: parentName,
+            phone_number: parentPhone,
+          })
+          .eq('id', parentId);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+        }
+
+        // Assign parent role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({
+            user_id: parentId,
+            role: 'parent',
+          }, { onConflict: 'user_id' });
+
+        if (roleError) {
+          console.error('Role assignment error:', roleError);
+        }
+      } else {
+        // Use existing parent profile
         parentId = existingParent.id;
       }
 
-      // Create parent-student link (use student_id not student_user_id)
-      const { error: linkError } = await (supabase as any)
+      // Create parent-student link
+      const { error: linkError } = await supabase
         .from('parent_student_links')
         .insert({
           parent_id: parentId,
           student_id: studentUserId,
+          relationship: 'parent',
+          is_primary_contact: true,
         });
 
-      if (linkError) throw linkError;
+      if (linkError) {
+        if (linkError.message.includes('duplicate') || linkError.code === '23505') {
+          toast({
+            variant: 'destructive',
+            title: 'Already Linked',
+            description: 'This parent is already linked to your account.',
+          });
+        } else {
+          throw linkError;
+        }
+        setLoading(false);
+        return;
+      }
 
       toast({
         title: 'Parent Linked Successfully',

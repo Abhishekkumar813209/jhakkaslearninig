@@ -41,12 +41,27 @@ export default function ParentForgotPassword() {
 
       if (error) throw error;
 
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+
       toast({
         title: 'OTP Sent!',
         description: 'Please check your phone for the OTP code.',
       });
 
       setResetId(data.reset_id);
+      setStep(1); // Keep on step 1 but show OTP input
+
+      // Development mode: Show OTP in console/UI for testing
+      if (data.otp_dev) {
+        console.log('[DEV] OTP:', data.otp_dev);
+        toast({
+          title: '🔧 Dev Mode',
+          description: `OTP: ${data.otp_dev}`,
+          duration: 10000,
+        });
+      }
       
     } catch (error: any) {
       console.error('OTP send error:', error);

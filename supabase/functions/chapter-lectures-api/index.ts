@@ -173,8 +173,14 @@ serve(async (req) => {
       }
 
       case 'get_continue_watching': {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        if (authError || !user) {
+          console.error('Auth error in get_continue_watching:', authError);
+          return new Response(
+            JSON.stringify({ error: 'Not authenticated', details: authError?.message || 'User not found' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         const { data: continueData, error: continueError } = await supabaseClient
           .from('student_lecture_progress')

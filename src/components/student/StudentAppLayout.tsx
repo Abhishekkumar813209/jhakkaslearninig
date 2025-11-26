@@ -1,8 +1,10 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Menu, Bell, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { StudentAppSidebar } from './StudentAppSidebar';
+import { useAuth } from '@/hooks/useAuth';
 
 interface StudentAppLayoutProps {
   children: ReactNode;
@@ -10,6 +12,15 @@ interface StudentAppLayoutProps {
 
 export const StudentAppLayout = ({ children }: StudentAppLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { userRole, loading } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect parents to parent portal
+  useEffect(() => {
+    if (!loading && userRole === 'parent') {
+      navigate('/parent', { replace: true });
+    }
+  }, [userRole, loading, navigate]);
 
   return (
     <div className="min-h-screen bg-background">

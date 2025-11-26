@@ -40,7 +40,7 @@ export const StudentAppSidebar = ({ onNavigate }: StudentAppSidebarProps) => {
   };
 
   const menuItems = [
-    { icon: Home, label: 'Home', path: '/student' },
+    { icon: Home, label: 'Home', path: '/' },
     { icon: Target, label: 'My Roadmap', path: '/student' },
     { icon: BookOpen, label: 'My Courses', path: '/courses' },
     { icon: FileText, label: 'Tests', path: '/tests' },

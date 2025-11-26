@@ -1,13 +1,13 @@
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
+import { StudentHomeDashboard } from "@/components/student/StudentHomeDashboard";
 import Hero from "@/components/Hero";
 import CourseCard from "@/components/CourseCard";
 import { FeatureShowcase } from "@/components/FeatureShowcase";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { BookOpen, Users, Award, Target, PlayCircle, Clock, Star, TrendingUp, CheckCircle, Zap } from "lucide-react";
+import { BookOpen, Users, Award, PlayCircle, Zap, CheckCircle } from "lucide-react";
 
 import gamifiedLearning from "@/assets/features/gamified-learning.png";
 import aiPowered from "@/assets/features/ai-powered.png";
@@ -120,8 +120,11 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
+      {/* Student Dashboard at the top */}
+      <StudentHomeDashboard />
+
+      {/* Landing page content below */}
       <Hero />
 
       {/* Features Section */}
@@ -303,7 +306,7 @@ const Index = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </StudentAppLayout>
   );
 };
 

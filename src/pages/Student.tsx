@@ -9,7 +9,7 @@ import { useState } from "react";
 
 const Student = () => {
   const { loading } = useProfile();
-  const [activeTab, setActiveTab] = useState("home");
+  const [activeTab, setActiveTab] = useState("batch-roadmap");
 
   if (loading) {
     return (
@@ -26,11 +26,7 @@ const Student = () => {
     <StudentAppLayout>
       <div className="w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-3 rounded-none border-b">
-            <TabsTrigger value="home" className="flex items-center gap-2">
-              <Home className="h-4 w-4" />
-              Home
-            </TabsTrigger>
+          <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
             <TabsTrigger value="batch-roadmap" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               My Roadmap
@@ -40,10 +36,6 @@ const Student = () => {
               YouTube Paths
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="home" className="mt-0">
-            <StudentHomeDashboard />
-          </TabsContent>
 
           <TabsContent value="batch-roadmap" className="mt-0">
             <div className="container mx-auto px-4 py-6">

@@ -87,7 +87,6 @@ serve(async (req: Request) => {
           throw new Error('Failed to send SMS')
         }
 
-        console.log(`OTP sent via SMS to ${phone.substring(0, 3)}***`)
 
         return new Response(
           JSON.stringify({
@@ -103,7 +102,7 @@ serve(async (req: Request) => {
       }
     } else {
       // Development mode: Return OTP in response (no SMS)
-      console.log(`[DEV] OTP generated for phone ${phone.substring(0, 3)}***: ${otp}`)
+      // Silent logging - OTP only in response for dev testing
 
       return new Response(
         JSON.stringify({

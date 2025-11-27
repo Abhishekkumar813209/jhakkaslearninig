@@ -145,8 +145,12 @@ const TestBuilder: React.FC = () => {
   }, [newQuestion, showQuestionDialog, questionStorageKey]);
 
   useEffect(() => {
-    if (testId) {
+    // FIX BUG #1: Only fetch if testId exists and is NOT "new"
+    if (testId && testId !== 'new') {
       fetchTestData();
+    } else if (testId === 'new') {
+      // For new tests, initialize from URL params instead of fetching
+      initializeNewTestFromParams();
     }
   }, [testId]);
 
@@ -166,9 +170,57 @@ const TestBuilder: React.FC = () => {
     };
   }, [test, questions]);
 
+  // FIX BUG #1: Initialize new test from URL params (centralized mode)
+  const initializeNewTestFromParams = () => {
+    try {
+      setLoading(true);
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      const isCentralized = urlParams.get('context') === 'centralized';
+      const chapterLibraryId = urlParams.get('chapter_library_id') || '';
+      const examDomain = urlParams.get('exam_domain') || '';
+      const board = urlParams.get('board') || '';
+      const studentClass = urlParams.get('class') || '';
+      const subject = urlParams.get('subject') || '';
+      
+      console.log('📝 [TestBuilder] Initializing NEW test:', {
+        isCentralized,
+        chapterLibraryId,
+        examDomain,
+        board,
+        studentClass,
+        subject
+      });
+
+      // Initialize empty test with metadata pre-filled
+      setTest({
+        id: '',
+        title: '',
+        description: '',
+        subject: subject || '',
+        class: studentClass || '',
+        difficulty: 'medium',
+        duration_minutes: 60,
+        total_marks: 100,
+        passing_marks: 50,
+        status: 'draft',
+        instructions: '',
+        is_published: false,
+        exam_domain: examDomain || ''
+      } as Test);
+      
+      setQuestions([]);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ [TestBuilder] Error initializing new test:', error);
+      setLoading(false);
+    }
+  };
+
   const fetchTestData = async () => {
     try {
       setLoading(true);
+      console.log(`📥 [TestBuilder] Fetching test ${testId}...`);
       
       const { data: { session } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('tests-api', {
@@ -176,19 +228,28 @@ const TestBuilder: React.FC = () => {
         headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [TestBuilder] tests-api error:', error);
+        throw error;
+      }
 
       if (data.success) {
+        console.log('✅ [TestBuilder] Test loaded successfully');
         setTest(data.test);
         setQuestions(data.questions || []);
       }
     } catch (error) {
-      console.error('Error fetching test data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load test data. Please try again.",
-        variant: "destructive"
-      });
+      console.error('❌ [TestBuilder] Error fetching test data:', error);
+      
+      // Only show "Test not found" if this is an existing test (not new)
+      if (testId !== 'new') {
+        toast({
+          title: "Test Not Found",
+          description: "This test may have been deleted or you don't have access.",
+          variant: "destructive"
+        });
+        navigate('/admin?tab=tests');
+      }
     } finally {
       setLoading(false);
     }
@@ -220,7 +281,95 @@ const TestBuilder: React.FC = () => {
     }
   };
 
+  // FIX BUG #3: Create new centralized test in database
+  const createNewTest = async (urlParams: URLSearchParams): Promise<string | null> => {
+    try {
+      console.log('📝 [TestBuilder] Creating new centralized test...');
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const isCentralized = urlParams.get('context') === 'centralized';
+      const chapterLibraryId = urlParams.get('chapter_library_id') || undefined;
+      const examDomain = urlParams.get('exam_domain') || undefined;
+      const board = urlParams.get('board') || undefined;
+      const studentClass = urlParams.get('class') || undefined;
+      const subject = urlParams.get('subject') || '';
+
+      const testPayload: any = {
+        title: `New ${isCentralized ? 'Centralized ' : ''}Test - ${subject || 'Untitled'}`,
+        description: '',
+        subject: subject || '',
+        difficulty: 'medium' as const,
+        duration_minutes: 60,
+        total_marks: 100,
+        passing_marks: 50,
+        status: 'draft',
+        instructions: '',
+        is_published: false,
+        default_xp: 100,
+        created_by: user.id
+      };
+
+      // Add optional fields only if they exist
+      if (studentClass) testPayload.target_class = studentClass;
+      if (board) testPayload.target_board = board;
+      if (examDomain) testPayload.exam_domain = examDomain;
+      if (isCentralized) {
+        testPayload.is_centralized = true;
+        if (chapterLibraryId) testPayload.chapter_library_id = chapterLibraryId;
+      }
+
+      console.log('💾 [TestBuilder] Inserting test:', testPayload);
+
+      const { data, error } = await supabase
+        .from('tests')
+        .insert([testPayload])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ [TestBuilder] Test creation error:', error);
+        throw error;
+      }
+
+      console.log('✅ [TestBuilder] Test created with ID:', data.id);
+      return data.id;
+    } catch (error) {
+      console.error('❌ [TestBuilder] Failed to create test:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create test. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
   const handleBulkAddQuestions = async (questionsToAdd: any[]) => {
+    // FIX BUG #3: If testId is "new", create test first, then use real ID for questions
+    let actualTestId = testId;
+    
+    if (testId === 'new') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const newTestId = await createNewTest(urlParams);
+      
+      if (!newTestId) {
+        toast({
+          title: "Error",
+          description: "Failed to create test. Please try again.",
+          variant: "destructive"
+        });
+        return 0;
+      }
+      
+      actualTestId = newTestId;
+      // Redirect to the new test ID
+      navigate(`/admin/test-builder/${newTestId}${window.location.search}`);
+      // Wait for redirect
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     let successCount = 0;
     const totalCount = questionsToAdd.length;
     const MAX_RETRIES = 2;
@@ -229,7 +378,7 @@ const TestBuilder: React.FC = () => {
     const headers = { Authorization: `Bearer ${session?.access_token ?? ''}` };
     
     // Show initial progress using console (toast doesn't support real-time updates)
-    console.log(`📊 Starting bulk add: 0/${totalCount} questions`);
+    console.log(`📊 [TestBuilder] Starting bulk add: 0/${totalCount} questions`);
     
     try {
       for (const q of questionsToAdd) {
@@ -239,7 +388,7 @@ const TestBuilder: React.FC = () => {
         while (retries <= MAX_RETRIES && !success) {
           try {
             const questionData = {
-              test_id: testId,
+              test_id: actualTestId,
               question_text: q.question_text,
               qtype: q.question_type === 'short_answer' ? 'subjective' : 'mcq',
               marks: q.marks || 1,
@@ -294,11 +443,34 @@ const TestBuilder: React.FC = () => {
   };
 
   const handleAddQuestion = async () => {
+    // FIX BUG #3: If testId is "new", create test first, then redirect with real ID
+    let actualTestId = testId;
+    
+    if (testId === 'new') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const newTestId = await createNewTest(urlParams);
+      
+      if (!newTestId) {
+        toast({
+          title: "Error",
+          description: "Failed to create test. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      actualTestId = newTestId;
+      // Redirect to the new test ID
+      navigate(`/admin/test-builder/${newTestId}${window.location.search}`);
+      // Wait for redirect to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     try {
       const questionData = {
         ...newQuestion,
         marks: Number(newQuestion.marks),
-        test_id: testId,
+        test_id: actualTestId,
         position: questions.length + 1
       };
 

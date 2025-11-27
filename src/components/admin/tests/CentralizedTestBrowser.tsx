@@ -55,6 +55,17 @@ export const CentralizedTestBrowser = ({
   const fetchCentralizedTests = async () => {
     try {
       setLoading(true);
+      
+      // FIX BUG #2: Don't query if chapterLibraryId is empty/invalid
+      if (!chapterLibraryId || chapterLibraryId.trim() === '') {
+        console.log('⚠️ [CentralizedTestBrowser] No chapter_library_id, skipping fetch');
+        setTests([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`📦 [CentralizedTestBrowser] Fetching centralized tests for chapter: ${chapterLibraryId}`);
+      
       const { data, error } = await supabase
         .from('tests')
         .select('*')
@@ -62,15 +73,23 @@ export const CentralizedTestBrowser = ({
         .eq('chapter_library_id', chapterLibraryId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [CentralizedTestBrowser] Query error:', error);
+        throw error;
+      }
+      
+      console.log(`✅ [CentralizedTestBrowser] Found ${data?.length || 0} centralized tests`);
       setTests(data || []);
-    } catch (error) {
-      console.error('Error fetching centralized tests:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch centralized tests",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      console.error('❌ [CentralizedTestBrowser] Error fetching centralized tests:', error);
+      // FIX BUG #4: Only show toast for genuine errors, not missing data
+      if (error.code !== '22P02') {
+        toast({
+          title: "Error",
+          description: "Failed to fetch centralized tests",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -142,14 +161,16 @@ export const CentralizedTestBrowser = ({
     );
   }
 
-  if (!chapterLibraryId) {
+  // FIX BUG #4: Show calm informational message, not scary error
+  if (!chapterLibraryId || chapterLibraryId.trim() === '') {
     return (
-      <Card>
+      <Card className="border-blue-200 bg-blue-50/10">
         <CardContent className="p-8 text-center">
-          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <FileText className="h-12 w-12 mx-auto mb-4 text-blue-500" />
           <h3 className="text-lg font-semibold mb-2">No Centralized Library Link</h3>
-          <p className="text-sm text-muted-foreground">
-            This chapter is not linked to the centralized library. Tests cannot be browsed.
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            This chapter is not linked to the centralized chapter library, so centralized tests are not available here.
+            You can still create batch-specific tests using the "Create Test" tab.
           </p>
         </CardContent>
       </Card>

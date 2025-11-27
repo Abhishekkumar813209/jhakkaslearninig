@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy, User, History, BarChart3 } from 'lucide-react';
+import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy, User, History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
@@ -35,7 +35,6 @@ const StudentTests: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showPaywallModal, setShowPaywallModal] = useState(false);
   const [completedTests, setCompletedTests] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'batch-specific' | 'centralized' | 'history'>('batch-specific');
   const { toast } = useToast();
   const navigate = useNavigate();
   const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus, markFreeTestUsed } = useSubscription();
@@ -44,7 +43,7 @@ const StudentTests: React.FC = () => {
   useEffect(() => {
     fetchAvailableTests();
     fetchCompletedTests();
-  }, [activeTab]);
+  }, []);
 
   const fetchCompletedTests = async () => {
     try {
@@ -153,7 +152,7 @@ const StudentTests: React.FC = () => {
   const fetchAvailableTests = async () => {
     try {
       setLoading(true);
-      console.log("🟦 [StudentTests] Active Tab:", activeTab);
+      console.log("🟦 [StudentTests] Fetching available tests...");
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -167,10 +166,10 @@ const StudentTests: React.FC = () => {
 
       console.log("👤 [StudentTests] User batch_id:", profileData?.batch_id);
 
-      if (activeTab === 'batch-specific' && profileData?.batch_id) {
+      // Fetch batch-assigned tests only
+      if (profileData?.batch_id) {
         console.log("📦 [StudentTests] Fetching batch-assigned tests...");
         
-        // Fetch batch-assigned tests
         const { data, error } = await supabase
           .from('batch_tests')
           .select(`
@@ -207,20 +206,8 @@ const StudentTests: React.FC = () => {
         console.log("✅ [StudentTests] Batch tests loaded:", batchTests.length);
         setTests(batchTests);
       } else {
-        console.log("📚 [StudentTests] Fetching centralized tests...");
-        
-        // Fetch centralized tests (original behavior)
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
-        
-        const { data, error } = await supabase.functions.invoke('tests-api', {
-          body: { action: 'getAllTests', orderBy: 'created_at', order: 'desc' },
-          headers
-        });
-
-        if (error) throw error;
-        console.log("✅ [StudentTests] Centralized tests loaded:", data.tests?.length || 0);
-        setTests(data.tests || []);
+        console.log("⚠️ [StudentTests] No batch assigned to student");
+        setTests([]);
       }
     } catch (error) {
       console.error('❌ [StudentTests] Error fetching tests:', error);
@@ -247,7 +234,6 @@ const StudentTests: React.FC = () => {
       const subscriptionSection = document.getElementById('subscription-section');
       if (subscriptionSection) {
         subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Add brief highlight animation
         subscriptionSection.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
         setTimeout(() => {
           subscriptionSection.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
@@ -341,7 +327,6 @@ const StudentTests: React.FC = () => {
             const subscriptionSection = document.getElementById('subscription-section');
             if (subscriptionSection) {
               subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              // Add brief highlight animation
               subscriptionSection.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
               setTimeout(() => {
                 subscriptionSection.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
@@ -351,63 +336,15 @@ const StudentTests: React.FC = () => {
         />
       )}
 
-      {/* Tab Navigation - PROMINENT */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              variant={activeTab === 'batch-specific' ? 'default' : 'outline'}
-              onClick={() => {
-                console.log("🔄 [StudentTests] Switching to batch-specific tab");
-                setActiveTab('batch-specific');
-              }}
-              className="flex-1"
-            >
-              <BookOpen className="h-4 w-4 mr-2" />
-              Batch Assigned Tests
-            </Button>
-            <Button
-              variant={activeTab === 'centralized' ? 'default' : 'outline'}
-              onClick={() => {
-                console.log("🔄 [StudentTests] Switching to centralized tab");
-                setActiveTab('centralized');
-              }}
-              className="flex-1"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Centralized Bank
-            </Button>
-            <Button
-              variant={activeTab === 'history' ? 'default' : 'outline'}
-              onClick={() => {
-                console.log("🔄 [StudentTests] Switching to history tab");
-                setActiveTab('history');
-              }}
-              className="flex-1"
-            >
-              <History className="h-4 w-4 mr-2" />
-              Test History ({completedTests.length})
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Batch-Specific Tests Tab */}
-      {activeTab === 'batch-specific' && (
-        <>
-          {availableTests.length === 0 ? (
+      {/* Available Tests */}
+      {availableTests.length === 0 ? (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardContent className="text-center py-12">
             <BookOpen className="h-16 w-16 text-blue-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Tests Assigned Yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Your teacher hasn't assigned any tests for your batch yet. 
-              Check back later or explore tests in the Centralized Bank tab.
+            <p className="text-muted-foreground">
+              Your teacher hasn't assigned any tests for your batch yet. Check back later!
             </p>
-            <Button variant="outline" onClick={() => setActiveTab('centralized')}>
-              <FileText className="h-4 w-4 mr-2" />
-              Browse Centralized Tests
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -457,224 +394,119 @@ const StudentTests: React.FC = () => {
                       <span>{test.total_marks} marks</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                      <span>{test.passing_marks}% to pass</span>
-                    </div>
-                  </div>
-
-                   <Button 
-                     className="w-full" 
-                     onClick={() => handleStartTest(test)}
-                     disabled={!test.question_count || test.question_count === 0}
-                     variant={isPremiumTest ? "outline" : "default"}
-                   >
-                     <Play className="h-4 w-4 mr-2" />
-                     {test.question_count === 0 
-                       ? 'No Questions' 
-                       : isPremiumTest
-                         ? 'Unlock with Premium' 
-                         : 'Start Test'
-                     }
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-        </>
-      )}
-
-      {/* Centralized Tests Tab */}
-      {activeTab === 'centralized' && (
-        <>
-          {availableTests.length === 0 ? (
-        <Card className="border-purple-200 bg-purple-50/50">
-          <CardContent className="text-center py-12">
-            <FileText className="h-16 w-16 text-purple-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Centralized Tests Available</h3>
-            <p className="text-muted-foreground">
-              No tests are currently available in the centralized bank. 
-              Check your batch-assigned tests instead.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {availableTests.map((test, index) => {
-            const isFreeTest = test.is_free === true;
-            const isPremiumTest = !hasActiveSubscription && !isFreeTest;
-            
-            return (
-              <Card 
-                key={test.id} 
-                className={`hover:shadow-lg transition-all ${isPremiumTest ? 'border-2 border-primary/30' : ''}`}
-              >
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{test.title}</CardTitle>
-                      {isFreeTest && (
-                        <Badge variant="secondary" className="text-xs bg-green-500 text-white">✅ Free</Badge>
-                      )}
-                      {isPremiumTest && (
-                        <Badge variant="outline" className="text-xs text-primary border-primary">🔒 Premium</Badge>
-                      )}
-                    </div>
-                    {getDifficultyBadge(test.difficulty)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {test.subject} • Class {test.target_class} • {test.target_board}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">{test.description}</p>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{test.duration_minutes}m</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span>{test.question_count} questions</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                      <span>{test.total_marks} marks</span>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <Trophy className="h-4 w-4 text-muted-foreground" />
                       <span>{test.xp_reward || 100} XP</span>
                     </div>
                   </div>
 
                    <Button 
-                     className="w-full" 
-                     onClick={() => handleStartTest(test)}
-                     disabled={!test.question_count || test.question_count === 0}
-                     variant={isPremiumTest ? "outline" : "default"}
-                   >
-                     <Play className="h-4 w-4 mr-2" />
-                     {test.question_count === 0 
-                       ? 'No Questions' 
-                       : isPremiumTest
-                         ? 'Unlock with Premium' 
-                         : 'Start Test'
-                     }
-                  </Button>
+                      className="w-full" 
+                      onClick={() => handleStartTest(test)}
+                      disabled={!test.question_count || test.question_count === 0}
+                      variant={isPremiumTest ? "outline" : "default"}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      {test.question_count === 0 
+                        ? 'No Questions' 
+                        : isPremiumTest
+                          ? 'Unlock with Premium' 
+                          : 'Start Test'
+                      }
+                   </Button>
                 </CardContent>
               </Card>
             );
           })}
         </div>
       )}
-        </>
-      )}
 
-      {/* Analytics History Tab */}
-      {activeTab === 'history' && (
-        <div className="space-y-4">
-          {completedTests.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-8">
-                <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No test history yet</h3>
-                <p className="text-muted-foreground">Complete a test to see detailed analytics here</p>
-              </CardContent>
-            </Card>
-          ) : (
-            completedTests.map((attempt) => (
-              <Card key={attempt.id} className="hover:shadow-lg transition-all">
+      {/* Test History Section */}
+      {completedTests.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+            <History className="h-6 w-6" />
+            Recent Test History
+          </h2>
+          <div className="space-y-4">
+          {completedTests.map((attempt) => {
+            const test = attempt.tests;
+            const percentage = attempt.percentage || 0;
+            const passed = percentage >= (test?.passing_marks || 50);
+
+            return (
+              <Card key={attempt.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">{(attempt.tests as any)?.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {(attempt.tests as any)?.subject} • {new Date(attempt.submitted_at).toLocaleDateString()}
-                      </p>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg mb-1">{test?.title}</h3>
+                      <div className="flex flex-wrap gap-2 text-sm text-muted-foreground mb-3">
+                        <span className="flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" />
+                          {test?.subject}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          {new Date(attempt.submitted_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <div className="text-2xl font-bold">{attempt.score}/{attempt.total_marks}</div>
+                          <div className="text-sm text-muted-foreground">Score</div>
+                        </div>
+                        <div>
+                          <div className={`text-2xl font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}>
+                            {percentage.toFixed(1)}%
+                          </div>
+                          <div className="text-sm text-muted-foreground">Percentage</div>
+                        </div>
+                        {attempt.rank && (
+                          <div>
+                            <div className="text-2xl font-bold text-purple-600">#{attempt.rank}</div>
+                            <div className="text-sm text-muted-foreground">Rank</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant={attempt.percentage >= 75 ? 'default' : 'secondary'}>
-                      {attempt.percentage}%
+                    <Badge variant={passed ? 'default' : 'destructive'} className="ml-4">
+                      {passed ? '✓ Passed' : '✗ Failed'}
                     </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Score</p>
-                      <p className="font-semibold">{attempt.score}/{attempt.total_marks}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Rank</p>
-                      <p className="font-semibold">#{attempt.rank || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Difficulty</p>
-                      <p className="font-semibold">{(attempt.tests as any)?.difficulty}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1"
-                      variant="default"
-                      onClick={() => navigate(`/analytics/test/${attempt.id}`)}
-                    >
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      📊 Full Analytics
-                    </Button>
-                    
-                    <Button
-                      className="flex-1"
-                      variant="outline"
-                      onClick={() => navigate(`/test/review/${attempt.id}`)}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      📝 Review Questions
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
+            );
+          })}
+        </div>
         </div>
       )}
 
-      {/* Single Subscription Section - Only for non-premium users */}
+      {/* Subscription Section - Only visible if no active subscription */}
       {!hasActiveSubscription && (
-        <>
-          <div className="border-t my-8"></div>
-          <div id="subscription-section" className="mt-8 transition-all duration-300">
-            <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold mb-2">🏆 Get Premium Access</h2>
-              <p className="text-muted-foreground">Unlock unlimited tests, learning paths, analytics, and rankings</p>
-            </div>
-            <SubscriptionCard
-              hasActiveSubscription={hasActiveSubscription}
-              hasFreeTestUsed={hasFreeTestUsed}
-              onSubscriptionSuccess={async () => {
-                await fetchSubscriptionStatus();
-                await fetchAvailableTests();
-              }}
-            />
-          </div>
-        </>
+        <div id="subscription-section" className="scroll-mt-20 transition-all duration-300">
+          <Card className="bg-gradient-to-r from-primary/10 to-purple-500/10">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trophy className="h-6 w-6 text-primary" />
+                <CardTitle>Get Premium Access</CardTitle>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Unlock unlimited tests, learning paths, analytics, and rankings
+              </p>
+            </CardHeader>
+            <CardContent>
+              <SubscriptionCard onSubscribeSuccess={fetchAvailableTests} />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <PaywallModal
         isOpen={showPaywallModal}
         onClose={() => setShowPaywallModal(false)}
-        onSubscribe={() => {
-          setShowPaywallModal(false);
-          const subscriptionSection = document.getElementById('subscription-section');
-          if (subscriptionSection) {
-            subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }}
-        title="Premium Test Access"
-        description="Scroll down to view our premium subscription plans and unlock unlimited access."
+        onSubscribe={handleSubscribeNow}
+        title="Premium Required"
+        message="This test requires an active premium subscription. Subscribe now for ₹299/month to access unlimited tests and features."
       />
-
     </div>
   );
 };

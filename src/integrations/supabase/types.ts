@@ -243,6 +243,81 @@ export type Database = {
           },
         ]
       }
+      batch_tests: {
+        Row: {
+          assigned_at: string | null
+          batch_id: string
+          central_test_id: string
+          created_by: string | null
+          end_date: string | null
+          id: string
+          is_free: boolean | null
+          max_attempts: number | null
+          start_date: string | null
+          xp_override: number | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          batch_id: string
+          central_test_id: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          is_free?: boolean | null
+          max_attempts?: number | null
+          start_date?: string | null
+          xp_override?: number | null
+        }
+        Update: {
+          assigned_at?: string | null
+          batch_id?: string
+          central_test_id?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          is_free?: boolean | null
+          max_attempts?: number | null
+          start_date?: string | null
+          xp_override?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_tests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_tests_central_test_id_fkey"
+            columns: ["central_test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_tests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_tests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_tests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "student_subscription_details"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       batches: {
         Row: {
           auto_assign_enabled: boolean | null
@@ -4687,6 +4762,7 @@ export type Database = {
         Row: {
           achievements_awarded: Json | null
           attempt_number: number
+          batch_test_id: string | null
           created_at: string | null
           feedback: string | null
           graded_at: string | null
@@ -4709,6 +4785,7 @@ export type Database = {
         Insert: {
           achievements_awarded?: Json | null
           attempt_number?: number
+          batch_test_id?: string | null
           created_at?: string | null
           feedback?: string | null
           graded_at?: string | null
@@ -4731,6 +4808,7 @@ export type Database = {
         Update: {
           achievements_awarded?: Json | null
           attempt_number?: number
+          batch_test_id?: string | null
           created_at?: string | null
           feedback?: string | null
           graded_at?: string | null
@@ -4751,6 +4829,13 @@ export type Database = {
           xp_earned?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "test_attempts_batch_test_id_fkey"
+            columns: ["batch_test_id"]
+            isOneToOne: false
+            referencedRelation: "batch_tests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "test_attempts_test_id_fkey"
             columns: ["test_id"]
@@ -4857,12 +4942,16 @@ export type Database = {
         Row: {
           allow_retakes: boolean | null
           base_xp_reward: number | null
+          board: string | null
           bonus_xp_on_perfect: number | null
           chapter_id: string | null
+          chapter_library_id: string | null
           class: string | null
+          counts_for_parent_progress: boolean | null
           course_id: string | null
           created_at: string | null
           created_by: string
+          default_xp: number | null
           description: string | null
           difficulty: Database["public"]["Enums"]["test_difficulty"]
           duration_minutes: number
@@ -4870,6 +4959,7 @@ export type Database = {
           expires_at: string | null
           id: string
           instructions: string | null
+          is_centralized: boolean | null
           is_free: boolean | null
           is_published: boolean | null
           max_attempts: number | null
@@ -4887,12 +4977,16 @@ export type Database = {
         Insert: {
           allow_retakes?: boolean | null
           base_xp_reward?: number | null
+          board?: string | null
           bonus_xp_on_perfect?: number | null
           chapter_id?: string | null
+          chapter_library_id?: string | null
           class?: string | null
+          counts_for_parent_progress?: boolean | null
           course_id?: string | null
           created_at?: string | null
           created_by: string
+          default_xp?: number | null
           description?: string | null
           difficulty: Database["public"]["Enums"]["test_difficulty"]
           duration_minutes: number
@@ -4900,6 +4994,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           instructions?: string | null
+          is_centralized?: boolean | null
           is_free?: boolean | null
           is_published?: boolean | null
           max_attempts?: number | null
@@ -4917,12 +5012,16 @@ export type Database = {
         Update: {
           allow_retakes?: boolean | null
           base_xp_reward?: number | null
+          board?: string | null
           bonus_xp_on_perfect?: number | null
           chapter_id?: string | null
+          chapter_library_id?: string | null
           class?: string | null
+          counts_for_parent_progress?: boolean | null
           course_id?: string | null
           created_at?: string | null
           created_by?: string
+          default_xp?: number | null
           description?: string | null
           difficulty?: Database["public"]["Enums"]["test_difficulty"]
           duration_minutes?: number
@@ -4930,6 +5029,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           instructions?: string | null
+          is_centralized?: boolean | null
           is_free?: boolean | null
           is_published?: boolean | null
           max_attempts?: number | null
@@ -4950,6 +5050,13 @@ export type Database = {
             columns: ["chapter_id"]
             isOneToOne: false
             referencedRelation: "roadmap_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tests_chapter_library_id_fkey"
+            columns: ["chapter_library_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_library"
             referencedColumns: ["id"]
           },
           {

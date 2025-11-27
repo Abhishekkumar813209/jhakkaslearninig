@@ -492,39 +492,48 @@ const TestManagement: React.FC = () => {
         />
       ) : (
         <>
-          <Card className="animate-fade-in bg-gradient-to-r from-primary/10 to-primary/5">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const examType = examTypes.find(e => e.code === selectedDomain);
-                  const IconComponent = examType?.icon_name 
-                    ? iconMap[examType.icon_name] || LucideIcons.BookOpen 
-                    : LucideIcons.BookOpen;
-                  return (
-                    <>
-                      <div className={`p-3 rounded-lg ${examType?.color_class || 'bg-primary/20'}`}>
-                        <IconComponent className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{examType?.display_name}</h3>
-                        {selectedDomain === 'school' && (
-                          <p className="text-sm text-muted-foreground">
-                            {selectedBoard} • Class {selectedClass}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
+          {/* Test Management Mode Selector - Prominent UI like Question Bank */}
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold mb-1">Test Management Mode</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {mode === 'batch-specific' 
+                      ? 'Assign centralized tests to specific batches'
+                      : 'Create and manage centralized test bank'}
+                  </p>
+                </div>
               </div>
-              <Badge className="text-lg px-4 py-2">{filteredTests.length} tests</Badge>
+              
+              {/* Mode Toggle Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant={mode === 'batch-specific' ? 'default' : 'outline'}
+                  onClick={() => setMode('batch-specific')}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Batch Test Assignment
+                </Button>
+                <Button
+                  variant={mode === 'centralized' ? 'default' : 'outline'}
+                  onClick={() => setMode('centralized')}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Centralized Test Bank
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
-          {/* NEW: Centralized Test Bank & Batch Assignment Tabs */}
-          <TestManagementTabs />
+          {/* Render based on selected mode */}
+          {mode === 'centralized' || mode === 'batch-specific' ? (
+            <TestManagementTabs />
+          ) : null}
 
-          {/* LEGACY: Original Test Management (kept for backward compatibility) */}
+          {/* Legacy Test Management - Collapsible Section */}
           <Card className="mt-8">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -533,21 +542,22 @@ const TestManagement: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                This section shows tests created before the centralized system. 
-                Use the tabs above for new centralized tests and batch assignments.
-              </p>
-            </CardContent>
-          </Card>
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  This section shows tests created before the centralized system. 
+                  Use the mode selector above for new centralized tests and batch assignments.
+                </AlertDescription>
+              </Alert>
 
-          <div className="flex justify-end mt-4">
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2" onClick={handleOpenCreateDialog}>
-                  <Plus className="h-4 w-4" />
-                  Create Test
-                </Button>
-              </DialogTrigger>
+              <div className="flex justify-end mt-4">
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2" onClick={handleOpenCreateDialog}>
+                      <Plus className="h-4 w-4" />
+                      Create Legacy Test
+                    </Button>
+                  </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Create New Test</DialogTitle>
@@ -761,12 +771,9 @@ const TestManagement: React.FC = () => {
               </DialogContent>
             </Dialog>
           </div>
-        </>
-      )}
 
-      {selectedDomain && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Legacy Test Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Domain Tests</CardTitle>
@@ -793,8 +800,8 @@ const TestManagement: React.FC = () => {
             </Card>
           </div>
 
-      {/* Tests Table */}
-      <Card>
+          {/* Legacy Tests Table */}
+          <Card className="mt-4">
         <CardHeader>
           <CardTitle>All Tests</CardTitle>
         </CardHeader>
@@ -866,7 +873,7 @@ const TestManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {selectedDomain && filteredTests.length === 0 && (
+      {filteredTests.length === 0 && (
         <Card className="text-center p-12 animate-scale-in">
           <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No tests in this domain yet</h3>
@@ -879,6 +886,8 @@ const TestManagement: React.FC = () => {
           </Button>
         </Card>
       )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

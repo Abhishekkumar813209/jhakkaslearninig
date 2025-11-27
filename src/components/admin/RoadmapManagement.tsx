@@ -112,6 +112,9 @@ const RoadmapManagement = () => {
   // State for EditRoadmapDialog
   const [editManualDialogOpen, setEditManualDialogOpen] = useState(false);
   const [editManualRoadmapId, setEditManualRoadmapId] = useState<string | null>(null);
+  
+  // NEW: State for ManualRoadmapBuilder in edit mode
+  const [editManualBuilderId, setEditManualBuilderId] = useState<string | null>(null);
 
   const fetchRoadmaps = async () => {
     try {
@@ -629,12 +632,14 @@ const RoadmapManagement = () => {
       />
 
       <ManualRoadmapBuilder
-        open={isManualBuilding}
+        open={isManualBuilding || !!editManualBuilderId}
         onOpenChange={(open) => {
           setIsManualBuilding(open);
+          setEditManualBuilderId(null);
           if (!open) setManualBuilderPrefillData(null);
         }}
         onSuccess={fetchRoadmaps}
+        editRoadmapId={editManualBuilderId}
         prefillData={{
           ...manualBuilderPrefillData,
           selectedBoard: selectedBoard || undefined,
@@ -743,8 +748,7 @@ const RoadmapManagement = () => {
                   className="flex-1 gap-1"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setEditManualRoadmapId(roadmap.id);
-                    setEditManualDialogOpen(true);
+                    setEditManualBuilderId(roadmap.id);
                   }}
                 >
                   <Edit className="h-3 w-3" />

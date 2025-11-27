@@ -26,6 +26,7 @@ interface ManualRoadmapBuilderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  editRoadmapId?: string | null; // NEW: Support editing existing roadmaps
   prefillData?: {
     batchId?: string;
     examType?: string;
@@ -43,6 +44,7 @@ interface ChapterRow {
   name: string;
   estimatedDays: number;
   isEditing?: boolean;
+  dbId?: string; // NEW: Database ID for existing chapters (if editing)
 }
 
 interface SubjectColumn {
@@ -146,7 +148,7 @@ const SortableChapter = ({
   );
 };
 
-export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillData }: ManualRoadmapBuilderProps) => {
+export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, editRoadmapId, prefillData }: ManualRoadmapBuilderProps) => {
   const {
     data: builderData,
     setData: setBuilderData,
@@ -220,8 +222,12 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
     if (open) {
       fetchBatches();
       
-      // Prioritize prefill data over saved progress
-      if (prefillData) {
+      // NEW: Load existing roadmap for editing
+      if (editRoadmapId) {
+        console.log('[Step4] Loading existing roadmap for editing:', editRoadmapId);
+        loadExistingRoadmap(editRoadmapId);
+      } else if (prefillData) {
+        // Prioritize prefill data over saved progress
         setBuilderData({
           roadmapTitle: prefillData.roadmapTitle || '',
           description: '',
@@ -232,7 +238,72 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
         setHasUnsavedChanges(true);
       }
     }
-  }, [open, prefillData]);
+  }, [open, editRoadmapId, prefillData]);
+
+  const loadExistingRoadmap = async (roadmapId: string) => {
+    try {
+      console.log('[Step4] Fetching roadmap data from DB...');
+      // Fetch roadmap metadata
+      const { data: roadmap, error: roadmapError } = await supabase
+        .from('batch_roadmaps')
+        .select('*')
+        .eq('id', roadmapId)
+        .single();
+
+      if (roadmapError) throw roadmapError;
+
+      // Fetch chapters
+      const { data: dbChapters, error: chaptersError } = await supabase
+        .from('roadmap_chapters')
+        .select('*')
+        .eq('roadmap_id', roadmapId)
+        .order('order_num', { ascending: true });
+
+      if (chaptersError) throw chaptersError;
+
+      console.log('[Step4] Loaded roadmap with', dbChapters?.length || 0, 'chapters from DB');
+
+      // Group chapters by subject
+      const subjectMap = new Map<string, ChapterRow[]>();
+      
+      (dbChapters || []).forEach((dbCh) => {
+        const subject = dbCh.subject || 'Other';
+        if (!subjectMap.has(subject)) {
+          subjectMap.set(subject, []);
+        }
+        
+        subjectMap.get(subject)!.push({
+          id: crypto.randomUUID(), // Local UI id
+          dbId: dbCh.id, // Store DB id for updates
+          name: dbCh.chapter_name,
+          estimatedDays: dbCh.estimated_days || 1,
+          isEditing: false,
+        });
+      });
+
+      // Convert to SubjectColumn array
+      const loadedSubjects: SubjectColumn[] = Array.from(subjectMap.entries()).map(([subjectName, chapters]) => ({
+        id: crypto.randomUUID(),
+        name: subjectName,
+        chapters,
+        isEditingName: false,
+      }));
+
+      setBuilderData({
+        roadmapTitle: roadmap.title,
+        description: roadmap.description || '',
+        selectedBatchId: roadmap.batch_id,
+        startDate: roadmap.start_date ? new Date(roadmap.start_date) : null,
+        subjects: loadedSubjects,
+      });
+
+      console.log('[Step4] Roadmap data initialized with', loadedSubjects.length, 'subjects');
+      setHasUnsavedChanges(false);
+    } catch (error: any) {
+      console.error('[Step4] Error loading roadmap:', error);
+      toast.error('Failed to load roadmap');
+    }
+  };
 
   const fetchBatches = async () => {
     try {
@@ -330,12 +401,101 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
     ));
   };
 
-  const deleteChapter = (subjectId: string, chapterId: string) => {
-    setSubjects(subjects.map(s => 
-      s.id === subjectId 
-        ? { ...s, chapters: s.chapters.filter(ch => ch.id !== chapterId) }
-        : s
-    ));
+  // NEW: Save chapter edit to database immediately
+  const saveChapterEdit = async (subjectId: string, chapterId: string) => {
+    if (!editRoadmapId) {
+      // Not in edit mode, just toggle edit state
+      toggleEditChapter(subjectId, chapterId);
+      return;
+    }
+
+    const subject = subjects.find(s => s.id === subjectId);
+    const chapter = subject?.chapters.find(ch => ch.id === chapterId);
+    
+    if (!chapter || !chapter.dbId) {
+      toast.error('Chapter not found or not saved yet');
+      return;
+    }
+
+    try {
+      console.log('[Step4] Updating chapter in DB:', chapter.name, '→', chapter.estimatedDays, 'days');
+      
+      const { error } = await supabase
+        .from('roadmap_chapters')
+        .update({
+          chapter_name: chapter.name,
+          estimated_days: chapter.estimatedDays,
+        })
+        .eq('id', chapter.dbId);
+
+      if (error) throw error;
+
+      console.log('[Step4] DB update success');
+      toast.success('Chapter updated');
+      toggleEditChapter(subjectId, chapterId);
+      
+      // Refetch to ensure UI matches DB
+      if (editRoadmapId) {
+        await loadExistingRoadmap(editRoadmapId);
+      }
+    } catch (error: any) {
+      console.error('[Step4] Error saving chapter:', error);
+      toast.error('Failed to save chapter');
+    }
+  };
+
+  const deleteChapter = async (subjectId: string, chapterId: string) => {
+    if (!editRoadmapId) {
+      // Not in edit mode, just remove from local state
+      setSubjects(subjects.map(s => 
+        s.id === subjectId 
+          ? { ...s, chapters: s.chapters.filter(ch => ch.id !== chapterId) }
+          : s
+      ));
+      return;
+    }
+
+    const subject = subjects.find(s => s.id === subjectId);
+    const chapter = subject?.chapters.find(ch => ch.id === chapterId);
+    
+    if (!chapter || !chapter.dbId) {
+      // Chapter not in DB yet, just remove from local state
+      setSubjects(subjects.map(s => 
+        s.id === subjectId 
+          ? { ...s, chapters: s.chapters.filter(ch => ch.id !== chapterId) }
+          : s
+      ));
+      return;
+    }
+
+    try {
+      console.log('[Step4] Deleting chapter from DB:', chapter.name);
+      
+      const { error } = await supabase
+        .from('roadmap_chapters')
+        .delete()
+        .eq('id', chapter.dbId);
+
+      if (error) throw error;
+
+      console.log('[Step4] DB delete success');
+      toast.success('Chapter deleted');
+      
+      // Remove from local state
+      setSubjects(subjects.map(s => 
+        s.id === subjectId 
+          ? { ...s, chapters: s.chapters.filter(ch => ch.id !== chapterId) }
+          : s
+      ));
+      
+      // Refetch to ensure UI matches DB
+      if (editRoadmapId) {
+        await loadExistingRoadmap(editRoadmapId);
+      }
+    } catch (error: any) {
+      console.error('[Step4] Error deleting chapter:', error);
+      toast.error('Failed to delete chapter');
+    }
   };
 
   const toggleEditChapter = (subjectId: string, chapterId: string) => {
@@ -594,7 +754,7 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
       >
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle>Manual Roadmap Builder</DialogTitle>
+          <DialogTitle>{editRoadmapId ? 'Edit Roadmap (Manual)' : 'Manual Roadmap Builder'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -750,7 +910,7 @@ export const ManualRoadmapBuilder = ({ open, onOpenChange, onSuccess, prefillDat
                               isEditing={chapter.isEditing || false}
                               onNameChange={(value) => updateChapter(subject.id, chapter.id, 'name', value)}
                               onDaysChange={(value) => updateChapter(subject.id, chapter.id, 'estimatedDays', value)}
-                              onSaveEdit={() => toggleEditChapter(subject.id, chapter.id)}
+                              onSaveEdit={() => saveChapterEdit(subject.id, chapter.id)}
                               onToggleEdit={() => toggleEditChapter(subject.id, chapter.id)}
                               onDelete={() => deleteChapter(subject.id, chapter.id)}
                             />

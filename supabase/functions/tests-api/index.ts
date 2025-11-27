@@ -217,6 +217,17 @@ serve(async (req: Request) => {
           case 'getTests':
             return await getAllTests(supabase, req)
           case 'getTestWithQuestions':
+            // FIX BUG: Defensive check - reject "new" or invalid testId
+            console.log('[tests-api] getTestWithQuestions called with testId:', testId);
+            
+            if (!testId || testId === 'new') {
+              console.error('[tests-api] Invalid testId provided:', testId);
+              return new Response(
+                JSON.stringify({ error: 'Invalid testId' }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+            
             // Use service role for admins/teachers to bypass RLS safely after verifying role
             const clientToUse = isAdminTeacher
               ? createClient(

@@ -64,6 +64,9 @@ const TestManagement: React.FC = () => {
   const [availableChapters, setAvailableChapters] = useState<any[]>([]);
   const [selectedChapterId, setSelectedChapterId] = useState<string>('');
 
+  // Get mode from URL
+  const mode = (searchParams.get('mode') as 'batch-specific' | 'centralized') || 'batch-specific';
+
   // Hydrate from URL on mount
   useEffect(() => {
     const domain = searchParams.get('domain');
@@ -121,7 +124,6 @@ const TestManagement: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [mode, setMode] = useState<'batch-specific' | 'centralized'>('batch-specific');
   
   // Form persistence for test creation
   const {
@@ -414,90 +416,68 @@ const TestManagement: React.FC = () => {
     resetFromBoard();
   };
 
+  const handleModeSwitch = (newMode: 'batch-specific' | 'centralized') => {
+    const params = new URLSearchParams(searchParams);
+    params.set('mode', newMode);
+    setSearchParams(params);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold">Test Management</h2>
+          <h2 className="text-3xl font-bold">Tests</h2>
           <p className="text-muted-foreground mt-1">
-            {selectedDomain 
-              ? `Managing tests for ${examTypes.find(t => t.code === selectedDomain)?.display_name}` 
-              : "Select an exam domain to manage tests"}
+            Manage batch-specific and centralized test assignments
           </p>
         </div>
-        {selectedDomain && (
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={handleChangeDomain} variant="outline">
-              Change Domain
-            </Button>
-            
-            {selectedDomain === 'school' && selectedBoard && (
-              <Button variant="outline" onClick={resetFromBoard}>
-                Change Board
-              </Button>
-            )}
-            
-            {selectedDomain === 'school' && selectedBoard && selectedClass && (
-              <Button variant="outline" onClick={resetToBoard}>
-                Change Class
-              </Button>
-            )}
-          </div>
-        )}
       </div>
 
-      {!selectedDomain ? (
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Select Exam Domain</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {examTypes.map((examType, index) => {
-              const IconComponent = examType.icon_name 
-                ? iconMap[examType.icon_name] || LucideIcons.BookOpen 
-                : LucideIcons.BookOpen;
-              const count = getDomainTestCount(examType.code);
+      {/* Mode Selector - Prominent like Question Bank */}
+      <Card className="border-2 border-primary/20">
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold mb-1">Test Management Mode</h3>
+                <p className="text-sm text-muted-foreground">
+                  {mode === 'batch-specific' 
+                    ? 'Assign tests to batches from centralized bank' 
+                    : 'Create and manage reusable tests in centralized library'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant={mode === 'batch-specific' ? 'default' : 'outline'}
+                onClick={() => handleModeSwitch('batch-specific')}
+                className="flex-1 h-auto py-4"
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  <span className="font-semibold">Batch-Specific</span>
+                </div>
+              </Button>
               
-              return (
-                <Card 
-                  key={examType.id}
-                  className="cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in hover:scale-105 border-2 hover:border-primary"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => handleDomainSelect(examType.code)}
-                >
-                  <CardContent className="p-6">
-                    <div className={`w-full h-24 ${examType.color_class || 'bg-gradient-to-br from-gray-500 to-gray-600'} rounded-lg mb-4 flex items-center justify-center`}>
-                      <IconComponent className="h-12 w-12 text-white" />
-                    </div>
-                    <h4 className="font-semibold text-lg mb-2">{examType.display_name}</h4>
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{count} tests</span>
-                      <Badge variant="secondary">{count}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+              <Button
+                variant={mode === 'centralized' ? 'default' : 'outline'}
+                onClick={() => handleModeSwitch('centralized')}
+                className="flex-1 h-auto py-4"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  <span className="font-semibold">Centralized Bank</span>
+                </div>
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : selectedDomain === 'school' && (!selectedBoard || !selectedClass) ? (
-        <BoardClassSelector
-          examType={selectedDomain}
-          selectedBoard={selectedBoard}
-          selectedClass={selectedClass}
-          onBoardSelect={handleBoardSelect}
-          onClassSelect={handleClassSelect}
-          onReset={resetFromBoardURL}
-          onResetToBoard={resetToBoardURL}
-          studentCounts={getTestCounts()}
-          countLabel="tests"
-        />
-      ) : (
-        <>
-          {/* Test Management Mode Selector - Prominent UI like Question Bank */}
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold mb-1">Test Management Mode</h3>
+        </CardContent>
+      </Card>
+
+      {/* Render mode-specific component */}
+      {mode === 'batch-specific' ? (
+        <TestManagementTabs />
                   <p className="text-sm text-muted-foreground">
                     {mode === 'batch-specific' 
                       ? 'Assign centralized tests to specific batches'

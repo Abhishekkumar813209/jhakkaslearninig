@@ -19,6 +19,7 @@ import { BoardClassSelector } from './BoardClassSelector';
 import { useBoardClassHierarchy } from '@/hooks/useBoardClassHierarchy';
 import { useFormPersistence } from '@/hooks/useFormPersistence';
 import * as LucideIcons from 'lucide-react';
+import { TestManagementTabs } from './tests/TestManagementTabs';
 
 interface Test {
   id: string;
@@ -120,6 +121,7 @@ const TestManagement: React.FC = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [mode, setMode] = useState<'batch-specific' | 'centralized'>('batch-specific');
   
   // Form persistence for test creation
   const {
@@ -519,7 +521,26 @@ const TestManagement: React.FC = () => {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
+          {/* NEW: Centralized Test Bank & Batch Assignment Tabs */}
+          <TestManagementTabs />
+
+          {/* LEGACY: Original Test Management (kept for backward compatibility) */}
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Legacy Tests (Old System)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                This section shows tests created before the centralized system. 
+                Use the tabs above for new centralized tests and batch assignments.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end mt-4">
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-2" onClick={handleOpenCreateDialog}>

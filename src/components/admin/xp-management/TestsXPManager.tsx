@@ -41,112 +41,88 @@ export const TestsXPManager = ({ chapterId, subject, batchId, chapterLibraryId }
     try {
       setLoading(true);
       
-      console.log(`📦 [TestsXPManager] Fetching tests for chapter ${chapterId}, batch ${batchId}, library ${chapterLibraryId}`);
-      
-      // PART 1: Fetch batch-specific tests (legacy)
-      // Get test IDs from questions that belong to this specific chapter
-      // @ts-ignore - Supabase type inference issue
-      const { data: questionData, error: questionsError } = await supabase
-        .from('questions')
-        .select('test_id')
-        .eq('chapter_id', chapterId);
-      
-      if (questionsError) throw questionsError;
+      console.log('[TestsXPManager] Loading tests for XP', {
+        chapterId,
+        batchId,
+        chapterLibraryId,
+        subject,
+      });
 
-      // Extract unique test IDs from questions
-      const batchTestIds = [...new Set(
-        (questionData || [])
-          .map((q) => q.test_id)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0)
-      )];
-
-      console.log(`  ✅ Found ${batchTestIds.length} batch-specific test IDs from questions`);
-
-      // PART 2: Fetch centralized tests assigned to this batch (NEW)
-      const centralizedTestIds: string[] = [];
-      
-      if (batchId && chapterLibraryId) {
-        const { data: batchTests, error: batchTestsError } = await supabase
-          .from('batch_tests')
-          .select('central_test_id')
-          .eq('batch_id', batchId);
-
-        if (batchTestsError) {
-          console.warn('⚠️ [TestsXPManager] Error fetching batch_tests:', batchTestsError);
-        } else if (batchTests && batchTests.length > 0) {
-          // Get centralized test IDs for this chapter_library_id
-          const centralIds = batchTests.map(bt => bt.central_test_id);
-          
-          const { data: centralTests, error: centralTestsError } = await supabase
-            .from('tests')
-            .select('id')
-            .in('id', centralIds)
-            .eq('is_centralized', true)
-            .eq('chapter_library_id', chapterLibraryId)
-            .eq('subject', subject);
-
-          if (centralTestsError) {
-            console.warn('⚠️ [TestsXPManager] Error fetching centralized tests:', centralTestsError);
-          } else {
-            centralizedTestIds.push(...(centralTests || []).map(t => t.id));
-            console.log(`  ✅ Found ${centralizedTestIds.length} centralized tests assigned to batch`);
-          }
-        }
-      }
-
-      // Combine both sources
-      const allTestIds = [...new Set([...batchTestIds, ...centralizedTestIds])];
-      
-      console.log(`  📊 Total unique test IDs: ${allTestIds.length}`);
-
-      if (allTestIds.length === 0) {
-        setTests([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch test details for all test IDs
-      const { data: testsData, error: testsError } = await supabase
+      // 1) Batch-specific tests linked directly to this chapter
+      const { data: batchSpecificTests, error: batchSpecificError } = await supabase
         .from('tests')
         .select('*')
-        .in('id', allTestIds)
-        .eq('subject', subject);
-      
-      if (testsError) throw testsError;
+        .eq('chapter_id', chapterId);
 
-      // Get question counts for each test
-      const testsWithCounts: Test[] = [];
-      for (const test of testsData || []) {
-        // For batch-specific tests, count questions from this chapter
-        // For centralized tests, count total questions
-        let count = 0;
-        
-        if (test.is_centralized) {
-          const { count: totalCount } = await supabase
-            .from('questions')
-            .select('id', { count: 'exact', head: true })
-            .eq('test_id', test.id);
-          count = totalCount || 0;
+      if (batchSpecificError) throw batchSpecificError;
+
+      // 2) Centralized tests assigned to this batch (via batch_tests)
+      let centralizedTestsWithMeta: any[] = [];
+
+      if (batchId && chapterLibraryId) {
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('batch_tests')
+          .select(`
+            id,
+            xp_override,
+            tests:central_test_id (*)
+          `)
+          .eq('batch_id', batchId);
+
+        if (assignmentsError) {
+          console.warn('[TestsXPManager] Error fetching batch_tests:', assignmentsError);
         } else {
-          const { count: chapterCount } = await supabase
-            .from('questions')
-            .select('id', { count: 'exact', head: true })
-            .eq('test_id', test.id)
-            .eq('chapter_id', chapterId);
-          count = chapterCount || 0;
+          centralizedTestsWithMeta =
+            (assignments || []).filter((row: any) => {
+              const t = row.tests;
+              return t && t.chapter_library_id === chapterLibraryId && t.subject === subject;
+            });
         }
-        
-        testsWithCounts.push({ 
-          ...test, 
-          question_count: count 
+      }
+
+      console.log('[TestsXPManager] Loaded tests', {
+        batchSpecificCount: batchSpecificTests?.length || 0,
+        centralizedAssignedCount: centralizedTestsWithMeta.length,
+      });
+
+      // 3) Get question counts for each test
+      const testsWithCounts: Test[] = [];
+
+      // Process batch-specific tests
+      for (const test of batchSpecificTests || []) {
+        const { count: questionCount } = await supabase
+          .from('questions')
+          .select('id', { count: 'exact', head: true })
+          .eq('test_id', test.id);
+
+        testsWithCounts.push({
+          ...test,
+          question_count: questionCount || 0,
+          is_centralized: false,
         });
       }
 
-      console.log(`  ✅ Loaded ${testsWithCounts.length} tests with question counts`);
+      // Process centralized tests
+      for (const row of centralizedTestsWithMeta) {
+        const test = row.tests;
+        const { count: questionCount } = await supabase
+          .from('questions')
+          .select('id', { count: 'exact', head: true })
+          .eq('test_id', test.id);
+
+        testsWithCounts.push({
+          ...test,
+          question_count: questionCount || 0,
+          is_centralized: true,
+        });
+      }
+
+      console.log(`[TestsXPManager] ✅ Loaded ${testsWithCounts.length} tests with question counts`);
       setTests(testsWithCounts);
     } catch (error: any) {
-      console.error('❌ [TestsXPManager] Error fetching tests:', error);
+      console.error('[TestsXPManager] ❌ Failed to load tests for XP:', error);
       toast.error('Failed to load tests');
+      setTests([]);
     } finally {
       setLoading(false);
     }

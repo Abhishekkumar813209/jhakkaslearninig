@@ -27,6 +27,7 @@ interface Test {
   is_published: boolean;
   question_count?: number;
   is_free?: boolean;
+  xp_reward?: number;
 }
 
 const StudentTests: React.FC = () => {
@@ -34,7 +35,7 @@ const StudentTests: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showPaywallModal, setShowPaywallModal] = useState(false);
   const [completedTests, setCompletedTests] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'available' | 'history'>('available');
+  const [activeTab, setActiveTab] = useState<'batch-specific' | 'centralized' | 'history'>('batch-specific');
   const { toast } = useToast();
   const navigate = useNavigate();
   const { hasActiveSubscription, hasFreeTestUsed, fetchSubscriptionStatus, markFreeTestUsed } = useSubscription();
@@ -43,7 +44,7 @@ const StudentTests: React.FC = () => {
   useEffect(() => {
     fetchAvailableTests();
     fetchCompletedTests();
-  }, []);
+  }, [activeTab]);
 
   const fetchCompletedTests = async () => {
     try {
@@ -153,19 +154,65 @@ const StudentTests: React.FC = () => {
     try {
       setLoading(true);
 
-      // Use tests-api which automatically filters by class/board for students
-      // Order by creation date (newest first) so oldest test is last in array
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
-      
-      const { data, error } = await supabase.functions.invoke('tests-api', {
-        body: { action: 'getAllTests', orderBy: 'created_at', order: 'desc' },
-        headers
-      })
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) throw error;
+      // Get user's profile to find batch
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('batch_id')
+        .eq('id', user.id)
+        .single();
 
-      setTests(data.tests || []);
+      if (activeTab === 'batch-specific' && profileData?.batch_id) {
+        // Fetch batch-assigned tests
+        const { data, error } = await supabase
+          .from('batch_tests')
+          .select(`
+            *,
+            tests (
+              id,
+              title,
+              description,
+              subject,
+              difficulty,
+              duration_minutes,
+              total_marks,
+              passing_marks,
+              is_published,
+              target_class,
+              target_board
+            )
+          `)
+          .eq('batch_id', profileData.batch_id);
+
+        if (error) throw error;
+
+        // Transform to expected format
+        const batchTests = (data || []).map(bt => {
+          const test = bt.tests as any;
+          return {
+            ...test,
+            is_free: bt.is_free,
+            xp_reward: bt.xp_override || test.default_xp || 100,
+            question_count: 0 // Will be fetched separately if needed
+          };
+        }).filter(t => t.id); // Filter out null tests
+
+        setTests(batchTests);
+      } else {
+        // Fetch centralized tests (original behavior)
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+        
+        const { data, error } = await supabase.functions.invoke('tests-api', {
+          body: { action: 'getAllTests', orderBy: 'created_at', order: 'desc' },
+          headers
+        });
+
+        if (error) throw error;
+        setTests(data.tests || []);
+      }
     } catch (error) {
       console.error('Error fetching tests:', error);
       toast({
@@ -298,11 +345,18 @@ const StudentTests: React.FC = () => {
       {/* Tab Navigation */}
       <div className="flex gap-2 mb-6">
         <Button
-          variant={activeTab === 'available' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('available')}
+          variant={activeTab === 'batch-specific' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('batch-specific')}
         >
           <BookOpen className="h-4 w-4 mr-2" />
-          Available Tests
+          Batch-Specific Tests
+        </Button>
+        <Button
+          variant={activeTab === 'centralized' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('centralized')}
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Centralized Bank
         </Button>
         <Button
           variant={activeTab === 'history' ? 'default' : 'outline'}
@@ -313,8 +367,8 @@ const StudentTests: React.FC = () => {
         </Button>
       </div>
 
-      {/* Available Tests Tab */}
-      {activeTab === 'available' && (
+      {/* Batch-Specific Tests Tab */}
+      {activeTab === 'batch-specific' && (
         <>
           {availableTests.length === 0 ? (
         <Card>
@@ -373,6 +427,90 @@ const StudentTests: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-muted-foreground" />
                       <span>{test.passing_marks}% to pass</span>
+                    </div>
+                  </div>
+
+                   <Button 
+                     className="w-full" 
+                     onClick={() => handleStartTest(test)}
+                     disabled={!test.question_count || test.question_count === 0}
+                     variant={isPremiumTest ? "outline" : "default"}
+                   >
+                     <Play className="h-4 w-4 mr-2" />
+                     {test.question_count === 0 
+                       ? 'No Questions' 
+                       : isPremiumTest
+                         ? 'Unlock with Premium' 
+                         : 'Start Test'
+                     }
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Centralized Tests Tab */}
+      {activeTab === 'centralized' && (
+        <>
+          {availableTests.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No tests available</h3>
+            <p className="text-muted-foreground">Check back later for new tests and assessments</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {availableTests.map((test, index) => {
+            const isFreeTest = test.is_free === true;
+            const isPremiumTest = !hasActiveSubscription && !isFreeTest;
+            
+            return (
+              <Card 
+                key={test.id} 
+                className={`hover:shadow-lg transition-all ${isPremiumTest ? 'border-2 border-primary/30' : ''}`}
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{test.title}</CardTitle>
+                      {isFreeTest && (
+                        <Badge variant="secondary" className="text-xs bg-green-500 text-white">✅ Free</Badge>
+                      )}
+                      {isPremiumTest && (
+                        <Badge variant="outline" className="text-xs text-primary border-primary">🔒 Premium</Badge>
+                      )}
+                    </div>
+                    {getDifficultyBadge(test.difficulty)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {test.subject} • Class {test.target_class} • {test.target_board}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">{test.description}</p>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.duration_minutes}m</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.question_count} questions</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.total_marks} marks</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-muted-foreground" />
+                      <span>{test.xp_reward || 100} XP</span>
                     </div>
                   </div>
 

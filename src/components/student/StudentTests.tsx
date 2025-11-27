@@ -153,6 +153,7 @@ const StudentTests: React.FC = () => {
   const fetchAvailableTests = async () => {
     try {
       setLoading(true);
+      console.log("🟦 [StudentTests] Active Tab:", activeTab);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -164,7 +165,11 @@ const StudentTests: React.FC = () => {
         .eq('id', user.id)
         .single();
 
+      console.log("👤 [StudentTests] User batch_id:", profileData?.batch_id);
+
       if (activeTab === 'batch-specific' && profileData?.batch_id) {
+        console.log("📦 [StudentTests] Fetching batch-assigned tests...");
+        
         // Fetch batch-assigned tests
         const { data, error } = await supabase
           .from('batch_tests')
@@ -199,8 +204,11 @@ const StudentTests: React.FC = () => {
           };
         }).filter(t => t.id); // Filter out null tests
 
+        console.log("✅ [StudentTests] Batch tests loaded:", batchTests.length);
         setTests(batchTests);
       } else {
+        console.log("📚 [StudentTests] Fetching centralized tests...");
+        
         // Fetch centralized tests (original behavior)
         const { data: { session } } = await supabase.auth.getSession();
         const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
@@ -211,10 +219,11 @@ const StudentTests: React.FC = () => {
         });
 
         if (error) throw error;
+        console.log("✅ [StudentTests] Centralized tests loaded:", data.tests?.length || 0);
         setTests(data.tests || []);
       }
     } catch (error) {
-      console.error('Error fetching tests:', error);
+      console.error('❌ [StudentTests] Error fetching tests:', error);
       toast({
         title: "Error",
         description: "Failed to fetch available tests. Please try again.",
@@ -342,40 +351,63 @@ const StudentTests: React.FC = () => {
         />
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 mb-6">
-        <Button
-          variant={activeTab === 'batch-specific' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('batch-specific')}
-        >
-          <BookOpen className="h-4 w-4 mr-2" />
-          Batch-Specific Tests
-        </Button>
-        <Button
-          variant={activeTab === 'centralized' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('centralized')}
-        >
-          <FileText className="h-4 w-4 mr-2" />
-          Centralized Bank
-        </Button>
-        <Button
-          variant={activeTab === 'history' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('history')}
-        >
-          <History className="h-4 w-4 mr-2" />
-          Analytics History ({completedTests.length})
-        </Button>
-      </div>
+      {/* Tab Navigation - PROMINENT */}
+      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant={activeTab === 'batch-specific' ? 'default' : 'outline'}
+              onClick={() => {
+                console.log("🔄 [StudentTests] Switching to batch-specific tab");
+                setActiveTab('batch-specific');
+              }}
+              className="flex-1"
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Batch Assigned Tests
+            </Button>
+            <Button
+              variant={activeTab === 'centralized' ? 'default' : 'outline'}
+              onClick={() => {
+                console.log("🔄 [StudentTests] Switching to centralized tab");
+                setActiveTab('centralized');
+              }}
+              className="flex-1"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Centralized Bank
+            </Button>
+            <Button
+              variant={activeTab === 'history' ? 'default' : 'outline'}
+              onClick={() => {
+                console.log("🔄 [StudentTests] Switching to history tab");
+                setActiveTab('history');
+              }}
+              className="flex-1"
+            >
+              <History className="h-4 w-4 mr-2" />
+              Test History ({completedTests.length})
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Batch-Specific Tests Tab */}
       {activeTab === 'batch-specific' && (
         <>
           {availableTests.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No tests available</h3>
-            <p className="text-muted-foreground">Check back later for new tests and assessments</p>
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="text-center py-12">
+            <BookOpen className="h-16 w-16 text-blue-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No Tests Assigned Yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Your teacher hasn't assigned any tests for your batch yet. 
+              Check back later or explore tests in the Centralized Bank tab.
+            </p>
+            <Button variant="outline" onClick={() => setActiveTab('centralized')}>
+              <FileText className="h-4 w-4 mr-2" />
+              Browse Centralized Tests
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -457,11 +489,14 @@ const StudentTests: React.FC = () => {
       {activeTab === 'centralized' && (
         <>
           {availableTests.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No tests available</h3>
-            <p className="text-muted-foreground">Check back later for new tests and assessments</p>
+        <Card className="border-purple-200 bg-purple-50/50">
+          <CardContent className="text-center py-12">
+            <FileText className="h-16 w-16 text-purple-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No Centralized Tests Available</h3>
+            <p className="text-muted-foreground">
+              No tests are currently available in the centralized bank. 
+              Check your batch-assigned tests instead.
+            </p>
           </CardContent>
         </Card>
       ) : (

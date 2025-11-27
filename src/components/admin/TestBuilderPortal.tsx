@@ -173,15 +173,27 @@ const TestBuilderPortal: React.FC = () => {
   }, [newQuestion, showQuestionDialog, questionStorageKey]);
 
   useEffect(() => {
-    if (testId) {
+    console.log('[TestBuilderPortal] useEffect testId =', testId);
+    
+    // FIX: Only fetch if testId exists and is NOT "new"
+    if (testId && testId !== 'new') {
+      console.log('[TestBuilderPortal] Calling fetchTestData for existing test');
       fetchTestData();
+    } else if (testId === 'new') {
+      console.warn('[TestBuilderPortal] ⚠️ Should NOT receive "new" - wrapper should handle this!');
     }
   }, [testId]);
 
   const fetchTestData = async () => {
+    // FIX: Defensive check - never fetch with "new" or invalid testId
+    if (!testId || testId === 'new') {
+      console.warn('[TestBuilderPortal] fetchTestData called with invalid testId:', testId);
+      return;
+    }
+    
     try {
       setLoading(true);
-      console.log('Fetching test data for:', testId);
+      console.log('[TestBuilderPortal] Fetching test data for:', testId);
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {

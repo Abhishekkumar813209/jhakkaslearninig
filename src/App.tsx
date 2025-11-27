@@ -25,6 +25,7 @@ import FeesManagement from "./pages/FeesManagement";
 import NotFound from "./pages/NotFound";
 import TestBuilder from "@/components/admin/TestBuilder";
 import TestBuilderPortal from "@/components/admin/TestBuilderPortal";
+import TestBuilderPage from "./pages/admin/TestBuilderPage";
 import OnlineTestInterface from "@/components/student/OnlineTestInterface";
 import StudentTests from "@/components/student/StudentTests";
 import TakeTest from "@/components/student/TakeTest";
@@ -237,7 +238,7 @@ const App = () => (
             } />
             <Route path="/admin/test-builder/:testId" element={
               <ProtectedRoute adminOnly={true} requireProfileComplete={false}>
-                <TestBuilderPortal />
+                <TestBuilderPage />
               </ProtectedRoute>
             } />
             <Route path="/fees" element={

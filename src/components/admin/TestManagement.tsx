@@ -1,92 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { Users, BookOpen } from 'lucide-react';
-import { TestManagementTabs } from './tests/TestManagementTabs';
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { FileText, Library } from "lucide-react";
+import { TestBankBuilder } from "./tests/TestBankBuilder";
+import { CentralizedTestBankBuilder } from "./tests/CentralizedTestBankBuilder";
 
-const TestManagement: React.FC = () => {
+const TestManagement = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { toast } = useToast();
+  const [mode, setMode] = useState<'batch-specific' | 'centralized'>('batch-specific');
+  const [isClient, setIsClient] = useState(false);
 
-  // Get mode from URL
-  const mode = (searchParams.get('mode') as 'batch-specific' | 'centralized') || 'batch-specific';
+  // Hydration fix: only render URL-based content on client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  const handleModeSwitch = (newMode: 'batch-specific' | 'centralized') => {
+  // Sync mode with URL and set default if missing
+  useEffect(() => {
+    if (isClient) {
+      const urlMode = searchParams.get('mode');
+      if (urlMode === 'centralized' || urlMode === 'batch-specific') {
+        setMode(urlMode);
+      } else {
+        // Set default mode if missing
+        const params = new URLSearchParams(searchParams);
+        params.set('mode', 'batch-specific');
+        setSearchParams(params, { replace: true });
+      }
+    }
+  }, [isClient, searchParams, setSearchParams]);
+
+  const handleModeChange = (newMode: 'batch-specific' | 'centralized') => {
+    setMode(newMode);
     const params = new URLSearchParams(searchParams);
     params.set('mode', newMode);
+    // Clear all navigation params when switching modes
+    params.delete('domain');
+    params.delete('board');
+    params.delete('class');
+    params.delete('batch');
+    params.delete('subject');
+    params.delete('chapter');
+    
+    // Use window.history.replaceState for immediate URL update
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
     setSearchParams(params);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold">Tests</h2>
-          <p className="text-muted-foreground mt-1">
-            Manage batch-specific and centralized test assignments
-          </p>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/admin">Admin Dashboard</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Tests</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-lg bg-primary/10">
+            <FileText className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">Tests</h1>
+            <p className="text-muted-foreground">Manage batch-specific and centralized test assignments</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 p-1 bg-muted rounded-lg">
+          <button
+            onClick={() => handleModeChange('batch-specific')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              mode === 'batch-specific'
+                ? 'bg-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FileText className="h-4 w-4 inline mr-2" />
+            Batch-Specific
+          </button>
+          <button
+            onClick={() => handleModeChange('centralized')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              mode === 'centralized'
+                ? 'bg-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Library className="h-4 w-4 inline mr-2" />
+            Centralized Bank
+          </button>
         </div>
       </div>
 
-      {/* Mode Selector - Prominent like Question Bank */}
-      <Card className="border-2 border-primary/20">
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-1">Test Management Mode</h3>
-                <p className="text-sm text-muted-foreground">
-                  {mode === 'batch-specific' 
-                    ? 'Assign tests to batches from centralized bank' 
-                    : 'Create and manage reusable tests in centralized library'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <Button
-                variant={mode === 'batch-specific' ? 'default' : 'outline'}
-                onClick={() => handleModeSwitch('batch-specific')}
-                className="flex-1 h-auto py-4"
-              >
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  <span className="font-semibold">Batch-Specific</span>
-                </div>
-              </Button>
-              
-              <Button
-                variant={mode === 'centralized' ? 'default' : 'outline'}
-                onClick={() => handleModeSwitch('centralized')}
-                className="flex-1 h-auto py-4"
-              >
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  <span className="font-semibold">Centralized Bank</span>
-                </div>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Render mode-specific component */}
+      {/* Content */}
       {mode === 'batch-specific' ? (
-        <TestManagementTabs />
+        <TestBankBuilder />
       ) : (
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="p-6 text-center">
-              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Centralized Test Bank</h3>
-              <p className="text-sm text-muted-foreground">
-                Create and manage reusable tests that can be assigned to multiple batches.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <CentralizedTestBankBuilder />
       )}
     </div>
   );

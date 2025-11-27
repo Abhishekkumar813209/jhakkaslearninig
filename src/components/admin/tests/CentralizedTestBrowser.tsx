@@ -58,13 +58,16 @@ export const CentralizedTestBrowser = ({
       
       // FIX BUG #2: Don't query if chapterLibraryId is empty/invalid
       if (!chapterLibraryId || chapterLibraryId.trim() === '') {
-        console.log('⚠️ [CentralizedTestBrowser] No chapter_library_id, skipping fetch');
+        console.log('⚠️ [CentralizedTestBrowser] No chapter_library_id provided');
+        console.log(`   📍 Context: batch=${batchId}, domain=${examDomain}, subject=${subject}, chapter=${chapterName}`);
         setTests([]);
         setLoading(false);
         return;
       }
 
-      console.log(`📦 [CentralizedTestBrowser] Fetching centralized tests for chapter: ${chapterLibraryId}`);
+      console.log(`📦 [CentralizedTestBrowser] Fetching centralized tests`);
+      console.log(`   📍 chapter_library_id: ${chapterLibraryId}`);
+      console.log(`   📍 exam_domain: ${examDomain}, subject: ${subject}, chapter: ${chapterName}`);
       
       const { data, error } = await supabase
         .from('tests')
@@ -78,7 +81,10 @@ export const CentralizedTestBrowser = ({
         throw error;
       }
       
-      console.log(`✅ [CentralizedTestBrowser] Found ${data?.length || 0} centralized tests`);
+      console.log(`✅ [CentralizedTestBrowser] Found ${data?.length || 0} centralized tests for chapter_library_id: ${chapterLibraryId}`);
+      if (data && data.length > 0) {
+        console.log(`   📊 Tests: ${data.map(t => t.title).join(', ')}`);
+      }
       setTests(data || []);
     } catch (error: any) {
       console.error('❌ [CentralizedTestBrowser] Error fetching centralized tests:', error);

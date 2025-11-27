@@ -22,8 +22,8 @@ export const EnhancedXPManagement = () => {
   const selectedChapterId = searchParams.get('chapter') || null;
   
   // Local state for full objects
-  const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string } | null>(null);
-  const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
+  const [selectedRoadmap, setSelectedRoadmap] = useState<{ id: string; title: string; batch_id?: string | null } | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string; chapter_library_id?: string | null } | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
   
   // Hydrate board/class from URL continuously
@@ -301,6 +301,7 @@ export const EnhancedXPManagement = () => {
               roadmapId={selectedRoadmapId}
               subject={selectedSubject}
               chapter={selectedChapter}
+              batchId={selectedRoadmap?.batch_id || null}
             />
           </div>
           

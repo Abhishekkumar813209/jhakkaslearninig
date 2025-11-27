@@ -268,6 +268,14 @@ export const TestBankBuilder = () => {
   };
 
   const handleChapterSelect = (chapter: Chapter) => {
+    console.log(`📂 [TestBankBuilder] Chapter selected:`, {
+      id: chapter.id,
+      name: chapter.chapter_name,
+      subject: chapter.subject,
+      chapter_library_id: chapter.chapter_library_id || 'NULL (not linked)',
+      roadmap_id: chapter.roadmap_id
+    });
+    
     setSelectedChapter(chapter);
     const params = new URLSearchParams(searchParams);
     params.set('chapter', chapter.id);

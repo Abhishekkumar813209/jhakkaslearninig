@@ -494,7 +494,11 @@ const StudentTests: React.FC = () => {
               </p>
             </CardHeader>
             <CardContent>
-              <SubscriptionCard onSubscribeSuccess={fetchAvailableTests} />
+              <SubscriptionCard 
+                onSubscriptionSuccess={fetchAvailableTests}
+                hasActiveSubscription={hasActiveSubscription}
+                hasFreeTestUsed={hasFreeTestUsed}
+              />
             </CardContent>
           </Card>
         </div>
@@ -505,7 +509,6 @@ const StudentTests: React.FC = () => {
         onClose={() => setShowPaywallModal(false)}
         onSubscribe={handleSubscribeNow}
         title="Premium Required"
-        message="This test requires an active premium subscription. Subscribe now for ₹299/month to access unlimited tests and features."
       />
     </div>
   );

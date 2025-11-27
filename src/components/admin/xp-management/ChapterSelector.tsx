@@ -6,7 +6,7 @@ import { useRoadmapChapters } from '@/hooks/useRoadmapData';
 interface ChapterSelectorProps {
   roadmapId: string;
   subject: string;
-  onChapterSelect: (chapter: { id: string; name: string }) => void;
+  onChapterSelect: (chapter: { id: string; name: string; chapter_library_id?: string | null }) => void;
 }
 
 interface Chapter {
@@ -14,6 +14,7 @@ interface Chapter {
   chapter_name: string;
   topic_count: number;
   game_count: number;
+  chapter_library_id?: string | null;
 }
 
 export const ChapterSelector = ({ roadmapId, subject, onChapterSelect }: ChapterSelectorProps) => {
@@ -46,7 +47,11 @@ export const ChapterSelector = ({ roadmapId, subject, onChapterSelect }: Chapter
           <Card
             key={chapter.id}
             className="cursor-pointer hover:shadow-lg transition-all hover:border-primary"
-            onClick={() => onChapterSelect({ id: chapter.id, name: chapter.chapter_name })}
+            onClick={() => onChapterSelect({ 
+              id: chapter.id, 
+              name: chapter.chapter_name,
+              chapter_library_id: chapter.chapter_library_id 
+            })}
           >
             <CardHeader>
               <CardTitle className="flex items-center justify-between">

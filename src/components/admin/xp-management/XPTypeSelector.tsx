@@ -6,10 +6,11 @@ import { Gamepad2, FileText } from 'lucide-react';
 interface XPTypeSelectorProps {
   roadmapId: string;
   subject: string;
-  chapter: { id: string; name: string };
+  chapter: { id: string; name: string; chapter_library_id?: string | null };
+  batchId?: string | null; // Add batchId for centralized test fetching
 }
 
-export const XPTypeSelector = ({ roadmapId, subject, chapter }: XPTypeSelectorProps) => {
+export const XPTypeSelector = ({ roadmapId, subject, chapter, batchId }: XPTypeSelectorProps) => {
   // Defensive validation
   if (!roadmapId || !subject || !chapter) {
     return (
@@ -18,6 +19,13 @@ export const XPTypeSelector = ({ roadmapId, subject, chapter }: XPTypeSelectorPr
       </div>
     );
   }
+
+  console.log(`📊 [XPTypeSelector] Rendering for chapter:`, {
+    id: chapter.id,
+    name: chapter.name,
+    chapter_library_id: chapter.chapter_library_id || 'NULL',
+    batchId: batchId || 'NULL'
+  });
 
   return (
     <div>
@@ -43,6 +51,8 @@ export const XPTypeSelector = ({ roadmapId, subject, chapter }: XPTypeSelectorPr
           <TestsXPManager
             chapterId={chapter.id}
             subject={subject}
+            batchId={batchId || undefined}
+            chapterLibraryId={chapter.chapter_library_id || undefined}
           />
         </TabsContent>
       </Tabs>

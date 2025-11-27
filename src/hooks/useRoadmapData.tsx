@@ -8,7 +8,7 @@ export const useRoadmaps = (examType: string, board: string | null, targetClass:
     queryFn: async () => {
       let query = supabase
         .from('batch_roadmaps')
-        .select('id, title, description, total_days, start_date, end_date, status')
+        .select('id, title, description, total_days, start_date, end_date, status, batch_id')
         .eq('exam_type', examType)
         .order('created_at', { ascending: false });
 
@@ -65,6 +65,7 @@ export const useRoadmapChapters = (roadmapId: string | null, subject: string | n
         chapter_name: chapter.chapter_name,
         topic_count: Number(chapter.topic_count) || 0,
         game_count: Number(chapter.game_count) || 0,
+        chapter_library_id: chapter.chapter_library_id || null, // Include for centralized tests
       }));
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

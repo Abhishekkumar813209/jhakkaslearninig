@@ -8,7 +8,7 @@ interface RoadmapSelectorProps {
   examType: string;
   board: string | null;
   targetClass: string | null;
-  onRoadmapSelect: (roadmap: { id: string; title: string }) => void;
+  onRoadmapSelect: (roadmap: { id: string; title: string; batch_id?: string | null }) => void;
 }
 
 interface Roadmap {
@@ -19,6 +19,7 @@ interface Roadmap {
   start_date: string;
   end_date: string;
   status: string;
+  batch_id?: string | null; // Add batch_id to fetch centralized tests
 }
 
 export const RoadmapSelector = ({ examType, board, targetClass, onRoadmapSelect }: RoadmapSelectorProps) => {
@@ -62,7 +63,11 @@ export const RoadmapSelector = ({ examType, board, targetClass, onRoadmapSelect 
             <Card
               key={roadmap.id}
               className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => onRoadmapSelect({ id: roadmap.id, title: roadmap.title })}
+              onClick={() => onRoadmapSelect({ 
+                id: roadmap.id, 
+                title: roadmap.title,
+                batch_id: roadmap.batch_id 
+              })}
             >
               <CardHeader>
                 <div className="flex items-start justify-between mb-2">

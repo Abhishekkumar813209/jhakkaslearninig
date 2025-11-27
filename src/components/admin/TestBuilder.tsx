@@ -145,10 +145,14 @@ const TestBuilder: React.FC = () => {
   }, [newQuestion, showQuestionDialog, questionStorageKey]);
 
   useEffect(() => {
+    console.log('[TestBuilder] useEffect testId =', testId);
+    
     // FIX BUG #1: Only fetch if testId exists and is NOT "new"
     if (testId && testId !== 'new') {
+      console.log('[TestBuilder] Calling fetchTestData for existing test');
       fetchTestData();
     } else if (testId === 'new') {
+      console.log('[TestBuilder] Initializing NEW test, skipping fetchTestData');
       // For new tests, initialize from URL params instead of fetching
       initializeNewTestFromParams();
     }
@@ -218,6 +222,12 @@ const TestBuilder: React.FC = () => {
   };
 
   const fetchTestData = async () => {
+    // FIX BUG #2: Hard defensive check - never fetch with "new" or invalid testId
+    if (!testId || testId === 'new') {
+      console.warn('[TestBuilder] fetchTestData called with invalid testId:', testId);
+      return;
+    }
+    
     try {
       setLoading(true);
       console.log(`📥 [TestBuilder] Fetching test ${testId}...`);

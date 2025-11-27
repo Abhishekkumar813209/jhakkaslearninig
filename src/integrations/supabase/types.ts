@@ -5774,6 +5774,7 @@ export type Database = {
       get_chapter_stats: {
         Args: { roadmap_uuid: string; subject_text: string }
         Returns: {
+          chapter_library_id: string
           chapter_name: string
           game_count: number
           id: string

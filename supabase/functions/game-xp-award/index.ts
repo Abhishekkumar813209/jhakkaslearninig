@@ -169,25 +169,23 @@ Deno.serve(async (req) => {
       const correctCount = correct_count || (is_correct ? totalSubQuestions : 0);
       const fractionCorrect = correctCount / totalSubQuestions;
 
-      // Calculate XP with partial credit and attempt multipliers
+      // Calculate XP with partial credit - ONLY first attempt gets XP
       let xpAmount = 0;
       let shouldAwardXP = false;
 
       if (is_correct || correctCount > 0) {
-        // Only award XP for first 2 attempts
-        if (attemptNumber <= 2) {
-          const attemptMultiplier = attemptNumber === 1 ? 1.0 : 0.3;
-          const rawXP = baseXP * fractionCorrect * attemptMultiplier;
+        // Only award XP for FIRST attempt only
+        if (attemptNumber === 1) {
+          const rawXP = baseXP * fractionCorrect;
           xpAmount = Math.round(rawXP * 100) / 100;
           shouldAwardXP = true;
           
-          console.log(`[XP Award] Calculation:`);
+          console.log(`[XP Award] First Attempt - Calculation:`);
           console.log(`  Base XP: ${baseXP}`);
           console.log(`  Correct: ${correctCount}/${totalSubQuestions} (${(fractionCorrect * 100).toFixed(1)}%)`);
-          console.log(`  Attempt: ${attemptNumber} (multiplier: ${attemptMultiplier})`);
           console.log(`  Final XP: ${xpAmount.toFixed(2)}`);
         } else {
-          console.log(`[Practice Mode] Attempt ${attemptNumber} - No XP`);
+          console.log(`[Practice Mode] Attempt ${attemptNumber} - No XP (only first attempt gets XP)`);
         }
       }
 
@@ -223,7 +221,7 @@ Deno.serve(async (req) => {
               game_id: game_id,
               topic_id: topic_id,
               attempt_number: attemptNumber,
-              multiplier: attemptNumber === 1 ? 1.0 : 0.3,
+              first_attempt_only: true,
               partial_credit: totalSubQuestions > 1 
                 ? `${correctCount}/${totalSubQuestions}`
                 : undefined
@@ -239,8 +237,8 @@ Deno.serve(async (req) => {
         } else {
           console.log(`[XP Award Success] ✅ Awarded ${xpAmount.toFixed(2)} XP to user ${user.id} for game ${game_id} (attempt ${attemptNumber})`);
         }
-      } else if (attemptNumber > 2) {
-        console.log(`[Practice Mode] Game: ${game_id}, Attempt: ${attemptNumber} - No XP awarded (practice mode)`);
+      } else if (attemptNumber > 1) {
+        console.log(`[Practice Mode] Game: ${game_id}, Attempt: ${attemptNumber} - No XP awarded (only first attempt gets XP)`);
       }
 
       console.log('✅ XP Award Response:', {
@@ -248,7 +246,7 @@ Deno.serve(async (req) => {
         student_id: user.id,
         xp_awarded: xpAmount,
         attempt_number: attemptNumber,
-        is_practice_mode: attemptNumber > 2,
+        is_practice_mode: attemptNumber > 1,
         difficulty: effectiveDifficulty,
         baseXP,
         fraction_correct: fractionCorrect,
@@ -260,7 +258,7 @@ Deno.serve(async (req) => {
         success: true,
         xp_awarded: xpAmount,
         attempt_number: attemptNumber,
-        is_practice_mode: attemptNumber > 2,
+        is_practice_mode: attemptNumber > 1,
         fraction_correct: fractionCorrect,
         total_sub_questions: totalSubQuestions,
         correct_count: correctCount

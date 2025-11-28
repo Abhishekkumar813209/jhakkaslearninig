@@ -43,17 +43,31 @@ export const BatchAssignedTestsView = ({ batchId, chapterId }: BatchAssignedTest
   const fetchBatchTests = async () => {
     try {
       setLoading(true);
+      
+      // Fetch ALL tests assigned to this batch
       const { data, error } = await supabase
         .from('batch_tests')
         .select(`
           *,
           tests!inner(*)
         `)
-        .eq('batch_id', batchId)
-        .eq('tests.chapter_library_id', chapterId);
+        .eq('batch_id', batchId);
 
       if (error) throw error;
-      setBatchTests(data as any || []);
+      
+      // Filter by chapter_library_id on client side to show tests for this chapter
+      const filteredTests = (data || []).filter((bt: any) => 
+        bt.tests && bt.tests.chapter_library_id === chapterId
+      );
+      
+      console.log('[BatchAssignedTestsView] Fetched batch tests:', {
+        batchId,
+        chapterId,
+        totalAssigned: data?.length || 0,
+        filteredForChapter: filteredTests.length
+      });
+      
+      setBatchTests(filteredTests as any);
     } catch (error) {
       console.error('Error fetching batch tests:', error);
       toast({

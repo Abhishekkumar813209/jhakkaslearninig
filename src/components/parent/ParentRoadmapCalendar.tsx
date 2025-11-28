@@ -62,7 +62,7 @@ interface ParentRoadmapCalendarProps {
   startDate: Date;
   totalDays: number;
   subjectsData: SubjectData[];
-  chapterStatuses: Record<string, number>;
+  chapterStatuses: Record<string, { total: number; completed: number }>;
   testAnalysis: Record<string, TestAttempt[]>;
 }
 

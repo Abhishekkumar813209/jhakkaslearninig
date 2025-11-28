@@ -1002,6 +1002,111 @@ serve(async (req) => {
         );
       }
 
+      case 'getChapterTestProgress': {
+        if (!studentId) {
+          return new Response(
+            JSON.stringify({ error: 'studentId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verify parent has access to this student
+        const { data: linkCheck } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id)
+          .eq('student_id', studentId)
+          .maybeSingle();
+
+        if (!linkCheck) {
+          throw new Error('Access denied: Not authorized to view this student');
+        }
+
+        // Get student's batch
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('batch_id')
+          .eq('id', studentId)
+          .single();
+
+        if (!profileData?.batch_id) {
+          return new Response(
+            JSON.stringify({ chapterStatuses: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get student's roadmap
+        const { data: roadmap } = await supabase
+          .from('batch_roadmaps')
+          .select('id')
+          .eq('batch_id', profileData.batch_id)
+          .maybeSingle();
+
+        if (!roadmap) {
+          return new Response(
+            JSON.stringify({ chapterStatuses: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get all chapters from roadmap
+        const { data: chapters } = await supabase
+          .from('roadmap_chapters')
+          .select('id, chapter_library_id')
+          .eq('roadmap_id', roadmap.id);
+
+        if (!chapters || chapters.length === 0) {
+          return new Response(
+            JSON.stringify({ chapterStatuses: {} }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // For each chapter, count total and completed tests
+        const chapterStatuses: Record<string, { total: number; completed: number }> = {};
+
+        for (const chapter of chapters) {
+          // Count total tests assigned for this chapter
+          const { data: assignedTests } = await supabase
+            .from('batch_tests')
+            .select('central_test_id')
+            .eq('batch_id', profileData.batch_id);
+
+          if (!assignedTests) continue;
+
+          // Filter tests that belong to this chapter
+          const { data: chapterTests } = await supabase
+            .from('tests')
+            .select('id')
+            .eq('chapter_library_id', chapter.chapter_library_id)
+            .in('id', assignedTests.map(t => t.central_test_id));
+
+          const totalTests = chapterTests?.length || 0;
+
+          // Count completed tests (student has submitted attempt)
+          const testIds = chapterTests?.map(t => t.id) || [];
+          const { data: completedAttempts } = await supabase
+            .from('test_attempts')
+            .select('test_id')
+            .eq('student_id', studentId)
+            .in('test_id', testIds)
+            .in('status', ['submitted', 'auto_submitted']);
+
+          const completedTests = completedAttempts?.length || 0;
+
+          chapterStatuses[chapter.id] = {
+            total: totalTests,
+            completed: completedTests
+          };
+        }
+
+        return new Response(
+          JSON.stringify({ chapterStatuses }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         throw new Error('Invalid action');
     }

@@ -67,7 +67,7 @@ export default function ParentDashboard() {
   const [selectedRace, setSelectedRace] = useState<RaceType>('class');
   const [testAnalysis, setTestAnalysis] = useState<any>({});
   const [roadmapCalendar, setRoadmapCalendar] = useState<any>(null);
-  const [chapterStatuses, setChapterStatuses] = useState<Record<string, number>>({});
+  const [chapterStatuses, setChapterStatuses] = useState<Record<string, { total: number; completed: number }>>({});
   const [manualZone, setManualZone] = useState<'red' | 'yellow' | 'green'>('red');
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function ParentDashboard() {
 
       console.log('[ParentDashboard] Fetching data for student:', studentId);
 
-      const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult, testAnalysisData, calendarData] = await Promise.all([
+      const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult, testAnalysisData, calendarData, chapterProgressData] = await Promise.all([
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getStudentProgress', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
@@ -171,6 +171,10 @@ export default function ParentDashboard() {
         supabase.functions.invoke('parent-portal', {
           body: { action: 'getRoadmapCalendarView', studentId },
           headers: { Authorization: `Bearer ${session.access_token}` }
+        }),
+        supabase.functions.invoke('parent-portal', {
+          body: { action: 'getChapterTestProgress', studentId },
+          headers: { Authorization: `Bearer ${session.access_token}` }
         })
       ]);
 
@@ -187,6 +191,7 @@ export default function ParentDashboard() {
       setZoneData(zoneStatusData.data?.zoneStatus || null);
       setTestAnalysis(testAnalysisData.data?.testAnalysis || {});
       setRoadmapCalendar(calendarData.data || null);
+      setChapterStatuses(chapterProgressData.data?.chapterStatuses || {});
       
       // Handle racing data with proper fallback
       if (racingResult.data?.success) {

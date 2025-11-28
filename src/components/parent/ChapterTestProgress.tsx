@@ -26,7 +26,7 @@ interface SubjectData {
 interface ChapterTestProgressProps {
   roadmapData: SubjectData[];
   testAnalysis: Record<string, TestAttempt[]>;
-  chapterStatuses: Record<string, number>;
+  chapterStatuses: Record<string, { total: number; completed: number }>;
 }
 
 export function ChapterTestProgress({
@@ -48,36 +48,47 @@ export function ChapterTestProgress({
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {subject.chapters.map((chapter) => {
-              const completedTests = chapterStatuses[chapter.id] || 0;
-              const hasTests = completedTests > 0;
+              const chapterData = chapterStatuses[chapter.id] || { total: 0, completed: 0 };
+              const { total, completed } = chapterData;
+              const completionPercentage = total > 0 ? (completed / total) * 100 : 0;
               
               return (
                 <div
                   key={chapter.id}
-                  className={`
-                    p-4 rounded-lg border-2 transition-all
-                    ${hasTests
-                      ? 'bg-green-50 border-green-300 dark:bg-green-950 dark:border-green-800'
-                      : 'bg-red-50 border-red-300 dark:bg-red-950 dark:border-red-800'}
-                  `}
+                  className="relative p-4 rounded-lg border-2 transition-all overflow-hidden"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-semibold text-sm flex-1">
-                      {chapter.chapter_name}
-                    </h4>
-                    {hasTests ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                    )}
-                  </div>
+                  {/* Background gradient fill based on completion */}
+                  <div
+                    className="absolute inset-0 transition-all duration-500"
+                    style={{
+                      background: completionPercentage === 0 
+                        ? 'hsl(var(--destructive) / 0.1)'
+                        : completionPercentage === 100
+                        ? 'hsl(142 76% 36% / 0.1)'
+                        : `linear-gradient(to right, hsl(142 76% 36% / 0.1) ${completionPercentage}%, hsl(var(--destructive) / 0.1) ${completionPercentage}%)`
+                    }}
+                  />
                   
-                  <Badge
-                    variant={hasTests ? "default" : "destructive"}
-                    className="text-xs"
-                  >
-                    {completedTests} tests completed
-                  </Badge>
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-sm flex-1">
+                        {chapter.chapter_name}
+                      </h4>
+                      {completed === total && total > 0 ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                      )}
+                    </div>
+                    
+                    <Badge
+                      variant={completed === total && total > 0 ? "default" : "destructive"}
+                      className="text-xs"
+                    >
+                      {completed} / {total} tests completed
+                    </Badge>
+                  </div>
                 </div>
               );
             })}

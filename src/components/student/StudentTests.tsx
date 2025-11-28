@@ -28,6 +28,7 @@ interface Test {
   question_count?: number;
   is_free?: boolean;
   xp_reward?: number;
+  chapter_name?: string;
 }
 
 const StudentTests: React.FC = () => {
@@ -185,14 +186,15 @@ const StudentTests: React.FC = () => {
               passing_marks,
               is_published,
               target_class,
-              target_board
+              target_board,
+              chapter_library_id
             )
           `)
           .eq('batch_id', profileData.batch_id);
 
         if (error) throw error;
 
-        // Transform to expected format and fetch question counts
+        // Transform to expected format and fetch question counts + chapter names
         const batchTests = await Promise.all((data || []).map(async (bt) => {
           const test = bt.tests as any;
           if (!test) return null;
@@ -203,11 +205,24 @@ const StudentTests: React.FC = () => {
             .select('*', { count: 'exact', head: true })
             .eq('test_id', test.id);
           
+          // Fetch chapter name if chapter_library_id exists
+          let chapterName = null;
+          if (test.chapter_library_id) {
+            const { data: chapterData } = await supabase
+              .from('chapter_library')
+              .select('chapter_name')
+              .eq('id', test.chapter_library_id)
+              .single();
+            
+            chapterName = chapterData?.chapter_name;
+          }
+          
           return {
             ...test,
             is_free: bt.is_free,
             xp_reward: bt.xp_override || test.default_xp || 100,
-            question_count: count || 0
+            question_count: count || 0,
+            chapter_name: chapterName
           };
         }));
 
@@ -384,6 +399,9 @@ const StudentTests: React.FC = () => {
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {test.subject} • Class {test.target_class} • {test.target_board}
+                    {test.chapter_name && (
+                      <div className="mt-1">Chapter: <span className="font-medium">{test.chapter_name}</span></div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

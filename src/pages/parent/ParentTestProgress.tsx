@@ -33,11 +33,13 @@ export default function ParentTestProgress() {
   const [loading, setLoading] = useState(true);
   const [studentName, setStudentName] = useState('');
   const [testAttempts, setTestAttempts] = useState<TestAttempt[]>([]);
+  const [assignedTests, setAssignedTests] = useState<any[]>([]);
 
   useEffect(() => {
     if (studentId) {
       fetchStudentData();
       fetchTestAttempts();
+      fetchAssignedTests();
     }
   }, [studentId]);
 
@@ -53,6 +55,39 @@ export default function ParentTestProgress() {
       setStudentName(data.full_name || 'Student');
     } catch (error) {
       console.error('Error fetching student data:', error);
+    }
+  };
+
+  const fetchAssignedTests = async () => {
+    try {
+      // Get student's batch
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('batch_id')
+        .eq('id', studentId)
+        .single();
+
+      if (!profile?.batch_id) return;
+
+      // Fetch assigned tests via batch_tests
+      const { data, error } = await supabase
+        .from('batch_tests')
+        .select(`
+          *,
+          tests (
+            id,
+            title,
+            subject,
+            total_marks,
+            passing_marks
+          )
+        `)
+        .eq('batch_id', profile.batch_id);
+
+      if (error) throw error;
+      setAssignedTests((data || []).filter(bt => bt.tests).map(bt => bt.tests));
+    } catch (error) {
+      console.error('Error fetching assigned tests:', error);
     }
   };
 
@@ -135,7 +170,11 @@ export default function ParentTestProgress() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{assignedTests.length}</div>
+                <div className="text-sm text-muted-foreground">Tests Assigned</div>
+              </div>
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">{testAttempts.length}</div>
                 <div className="text-sm text-muted-foreground">Tests Taken</div>

@@ -28,17 +28,17 @@ interface BatchTest {
 
 interface BatchAssignedTestsViewProps {
   batchId: string;
-  chapterId: string;
+  chapterLibraryId: string | null;
 }
 
-export const BatchAssignedTestsView = ({ batchId, chapterId }: BatchAssignedTestsViewProps) => {
+export const BatchAssignedTestsView = ({ batchId, chapterLibraryId }: BatchAssignedTestsViewProps) => {
   const { toast } = useToast();
   const [batchTests, setBatchTests] = useState<BatchTest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchBatchTests();
-  }, [batchId, chapterId]);
+  }, [batchId, chapterLibraryId]);
 
   const fetchBatchTests = async () => {
     try {
@@ -57,12 +57,12 @@ export const BatchAssignedTestsView = ({ batchId, chapterId }: BatchAssignedTest
       
       // Filter by chapter_library_id on client side to show tests for this chapter
       const filteredTests = (data || []).filter((bt: any) => 
-        bt.tests && bt.tests.chapter_library_id === chapterId
+        bt.tests && bt.tests.chapter_library_id === chapterLibraryId
       );
       
       console.log('[BatchAssignedTestsView] Fetched batch tests:', {
         batchId,
-        chapterId,
+        chapterLibraryId,
         totalAssigned: data?.length || 0,
         filteredForChapter: filteredTests.length
       });

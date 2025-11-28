@@ -569,7 +569,7 @@ export const TestBankBuilder = () => {
             <TabsContent value="view-all">
               <BatchAssignedTestsView
                 batchId={selectedBatch}
-                chapterId={selectedChapter.id}
+                chapterLibraryId={selectedChapter.chapter_library_id || null}
               />
             </TabsContent>
             

@@ -192,19 +192,28 @@ const StudentTests: React.FC = () => {
 
         if (error) throw error;
 
-        // Transform to expected format
-        const batchTests = (data || []).map(bt => {
+        // Transform to expected format and fetch question counts
+        const batchTests = await Promise.all((data || []).map(async (bt) => {
           const test = bt.tests as any;
+          if (!test) return null;
+          
+          // Fetch question count for this test
+          const { count } = await supabase
+            .from('questions')
+            .select('*', { count: 'exact', head: true })
+            .eq('test_id', test.id);
+          
           return {
             ...test,
             is_free: bt.is_free,
             xp_reward: bt.xp_override || test.default_xp || 100,
-            question_count: 0 // Will be fetched separately if needed
+            question_count: count || 0
           };
-        }).filter(t => t.id); // Filter out null tests
+        }));
 
-        console.log("✅ [StudentTests] Batch tests loaded:", batchTests.length);
-        setTests(batchTests);
+        const validTests = batchTests.filter(t => t !== null);
+        console.log("✅ [StudentTests] Batch tests loaded:", validTests.length);
+        setTests(validTests);
       } else {
         console.log("⚠️ [StudentTests] No batch assigned to student");
         setTests([]);
@@ -267,7 +276,7 @@ const StudentTests: React.FC = () => {
     );
   }
 
-  const availableTests = tests.filter((t) => (t.question_count || 0) > 0);
+  const availableTests = tests; // Show all assigned tests
   
   // Always show all tests - lock them at the UI level, not hide them
   let showPaywall = false;

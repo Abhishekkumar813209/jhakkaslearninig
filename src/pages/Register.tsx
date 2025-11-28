@@ -14,6 +14,7 @@ import { useBoards } from '@/hooks/useBoards';
 import { Card as ExamCard, CardContent as ExamCardContent } from '@/components/ui/card';
 import * as LucideIcons from 'lucide-react';
 import { useEffect } from 'react';
+import { ParentLinkToggle } from '@/components/student/ParentLinkToggle';
 
 const Register = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -28,6 +29,10 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [referralCode, setReferralCode] = useState(referralCodeFromUrl);
+  const [linkParent, setLinkParent] = useState(false);
+  const [parentName, setParentName] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
+  const [parentPassword, setParentPassword] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { examTypes } = useExamTypes();
@@ -99,7 +104,11 @@ const Register = () => {
           exam_domain: examDomain,
           student_class: requiresClass ? studentClass : null,
           education_board: requiresBoard ? educationBoard : null,
-          referral_code: referralCode || null
+          referral_code: referralCode || null,
+          link_parent: linkParent,
+          parent_name: linkParent ? parentName : null,
+          parent_phone: linkParent ? parentPhone : null,
+          parent_password: linkParent ? parentPassword : null
         }
       });
 
@@ -406,6 +415,20 @@ const Register = () => {
                       ✓ Your friend will earn rewards when you subscribe!
                     </p>
                   )}
+                </div>
+
+                {/* Parent Linking Toggle */}
+                <div className="pt-2 border-t">
+                  <ParentLinkToggle
+                    enabled={linkParent}
+                    onToggle={setLinkParent}
+                    parentName={parentName}
+                    parentPhone={parentPhone}
+                    parentPassword={parentPassword}
+                    onParentNameChange={setParentName}
+                    onParentPhoneChange={setParentPhone}
+                    onParentPasswordChange={setParentPassword}
+                  />
                 </div>
                 
                 <Button type="submit" className="w-full" disabled={loading}>

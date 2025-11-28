@@ -296,6 +296,13 @@ const App = () => (
                 </Suspense>
               </ProtectedRoute>
             } />
+            <Route path="/parent/tests/:studentId" element={
+              <ProtectedRoute requireProfileComplete={false}>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/parent/ParentTestProgress')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
             <Route path="/parent/rankings" element={
               <ProtectedRoute requireProfileComplete={false}>
                 <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>

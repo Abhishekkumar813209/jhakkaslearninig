@@ -291,7 +291,7 @@ const Login = () => {
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: 'https://www.jhakkaslearning.com/reset-password',
     });
 
     if (error) {

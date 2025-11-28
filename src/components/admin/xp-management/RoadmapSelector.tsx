@@ -19,7 +19,9 @@ interface Roadmap {
   start_date: string;
   end_date: string;
   status: string;
-  batch_id?: string | null; // Add batch_id to fetch centralized tests
+  batch_id?: string | null;
+  batch_name?: string | null;
+  batch_level?: string | null;
 }
 
 export const RoadmapSelector = ({ examType, board, targetClass, onRoadmapSelect }: RoadmapSelectorProps) => {
@@ -71,7 +73,19 @@ export const RoadmapSelector = ({ examType, board, targetClass, onRoadmapSelect 
             >
               <CardHeader>
                 <div className="flex items-start justify-between mb-2">
-                  <CardTitle className="text-base">{roadmap.title}</CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="text-base">{roadmap.title}</CardTitle>
+                    {(roadmap as any).batch_name && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Batch: {(roadmap as any).batch_level} • {(roadmap as any).batch_name}
+                      </p>
+                    )}
+                    {!(roadmap as any).batch_name && roadmap.batch_id && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ⚠️ No batch linked
+                      </p>
+                    )}
+                  </div>
                   <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                 </div>
                 {roadmap.description && (

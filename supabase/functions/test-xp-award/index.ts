@@ -144,10 +144,13 @@ Deno.serve(async (req) => {
       console.log(`[Test XP Award Success] ✅ Awarded ${scaledXP} XP to user ${user.id} for test ${test_id}`);
     }
 
-    // Mark test attempt as XP awarded
+    // Mark test attempt as XP awarded and store the amount
     await supabase
       .from('test_attempts')
-      .update({ xp_awarded: true })
+      .update({ 
+        xp_awarded: true,
+        xp_earned: scaledXP 
+      })
       .eq('id', test_attempt_id);
 
     return new Response(JSON.stringify({

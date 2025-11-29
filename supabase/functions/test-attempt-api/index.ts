@@ -79,7 +79,7 @@ serve(async (req) => {
         return await saveAnswer(supabase, attemptId, questionId, selectedOption, textAnswer);
       
       case 'submitAttempt':
-        return await submitAttempt(supabase, attemptId, answers, timeTaken, autoSubmitted);
+        return await submitAttempt(supabase, attemptId, answers, timeTaken, autoSubmitted, token);
       
       case 'getAttemptResults':
         return await getAttemptResults(supabase, attemptId);
@@ -241,7 +241,7 @@ async function saveAnswer(supabase: any, attemptId: string, questionId: string, 
   }
 }
 
-async function submitAttempt(supabase: any, attemptId: string, answers: any[], timeTaken: number, autoSubmitted: boolean) {
+async function submitAttempt(supabase: any, attemptId: string, answers: any[], timeTaken: number, autoSubmitted: boolean, authToken: string) {
   try {
     // Get all questions for this attempt
     const { data: attempt, error: attemptError } = await supabase
@@ -346,6 +346,33 @@ async function submitAttempt(supabase: any, attemptId: string, answers: any[], t
     } catch (rankError) {
       console.error('Error updating ranks:', rankError);
       // Don't fail the submission if rank update fails
+    }
+
+    // Award XP for test completion
+    console.log('[Test Submit] Calling test-xp-award to award XP');
+    try {
+      const { error: xpError } = await supabase.functions.invoke('test-xp-award', {
+        body: {
+          test_id: attempt.test_id,
+          test_attempt_id: attemptId,
+          score: totalScore,
+          total_marks: computedTotalMarks,
+          percentage: percentage
+        },
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      });
+
+      if (xpError) {
+        console.error('[Test Submit] XP award failed:', xpError);
+        // Don't fail the submission if XP award fails
+      } else {
+        console.log('[Test Submit] ✅ XP awarded successfully');
+      }
+    } catch (xpError) {
+      console.error('[Test Submit] XP award exception:', xpError);
+      // Don't fail the submission if XP award fails
     }
 
     return new Response(JSON.stringify({ 

@@ -1077,14 +1077,18 @@ serve(async (req) => {
           );
         }
 
-        // Get student's roadmap
-        const { data: roadmap } = await supabase
-          .from('batch_roadmaps')
-          .select('id')
-          .eq('batch_id', profileData.batch_id)
+        // Get student's ACTIVE roadmap from student_roadmaps
+        const { data: studentRoadmap } = await supabase
+          .from('student_roadmaps')
+          .select('batch_roadmap_id')
+          .eq('student_id', studentId)
+          .eq('is_active', true)
           .maybeSingle();
 
-        if (!roadmap) {
+        console.log('[parent-portal] Student roadmap:', { studentId, roadmapId: studentRoadmap?.batch_roadmap_id });
+
+        if (!studentRoadmap?.batch_roadmap_id) {
+          console.log('[parent-portal] No active roadmap found for student');
           return new Response(
             JSON.stringify({ chapterStatuses: {} }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1095,7 +1099,7 @@ serve(async (req) => {
         const { data: chapters } = await supabase
           .from('roadmap_chapters')
           .select('id, chapter_library_id')
-          .eq('roadmap_id', roadmap.id);
+          .eq('roadmap_id', studentRoadmap.batch_roadmap_id);
 
         if (!chapters || chapters.length === 0) {
           return new Response(
@@ -1108,13 +1112,23 @@ serve(async (req) => {
         const chapterStatuses: Record<string, { total: number; completed: number }> = {};
 
         for (const chapter of chapters) {
+          // Skip if chapter has no library link
+          if (!chapter.chapter_library_id) {
+            console.log('[parent-portal] Skipping chapter without library link:', chapter.id);
+            chapterStatuses[chapter.id] = { total: 0, completed: 0 };
+            continue;
+          }
+
           // Count total tests assigned for this chapter
           const { data: assignedTests } = await supabase
             .from('batch_tests')
             .select('central_test_id')
             .eq('batch_id', profileData.batch_id);
 
-          if (!assignedTests) continue;
+          if (!assignedTests) {
+            chapterStatuses[chapter.id] = { total: 0, completed: 0 };
+            continue;
+          }
 
           // Filter tests that belong to this chapter
           const { data: chapterTests } = await supabase
@@ -1124,6 +1138,13 @@ serve(async (req) => {
             .in('id', assignedTests.map(t => t.central_test_id));
 
           const totalTests = chapterTests?.length || 0;
+          
+          console.log('[parent-portal] Chapter test progress:', {
+            chapterId: chapter.id,
+            chapterLibraryId: chapter.chapter_library_id,
+            totalTests,
+            assignedTestsCount: assignedTests.length
+          });
 
           // Count completed tests (student has submitted attempt)
           const testIds = chapterTests?.map(t => t.id) || [];

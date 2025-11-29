@@ -58,13 +58,13 @@ Deno.serve(async (req) => {
     // Check if this test attempt already received XP
     const { data: existingXP, error: checkError } = await supabase
       .from('test_attempts')
-      .select('xp_awarded')
+      .select('xp_earned')
       .eq('id', test_attempt_id)
       .single();
 
     if (checkError) throw checkError;
 
-    if (existingXP?.xp_awarded) {
+    if (existingXP?.xp_earned && existingXP.xp_earned > 0) {
       console.log('[Test XP] Already awarded for this attempt');
       return new Response(JSON.stringify({
         success: true,
@@ -148,7 +148,6 @@ Deno.serve(async (req) => {
     await supabase
       .from('test_attempts')
       .update({ 
-        xp_awarded: true,
         xp_earned: scaledXP 
       })
       .eq('id', test_attempt_id);

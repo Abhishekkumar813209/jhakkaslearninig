@@ -34,13 +34,6 @@ const TestManagement = () => {
     setMode(newMode);
     const params = new URLSearchParams(searchParams);
     params.set('mode', newMode);
-    // Clear all navigation params when switching modes
-    params.delete('domain');
-    params.delete('board');
-    params.delete('class');
-    params.delete('batch');
-    params.delete('subject');
-    params.delete('chapter');
     
     // Use window.history.replaceState for immediate URL update
     window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);

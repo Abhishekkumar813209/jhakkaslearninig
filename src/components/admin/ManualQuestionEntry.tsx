@@ -290,7 +290,10 @@ export const ManualQuestionEntry = ({
       switch (gameType) {
         case 'mcq':
           questionDataJSON.options = gameData.options || [];
-          answerDataJSON.correctIndex = gameData.correctAnswerIndex || 0;
+          // Fix: properly handle correctIndex = 0 (first option)
+          answerDataJSON.correctIndex = gameData.correctAnswerIndex !== undefined 
+            ? gameData.correctAnswerIndex 
+            : 0;
           break;
 
         case 'true_false':

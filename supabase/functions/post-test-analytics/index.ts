@@ -266,13 +266,13 @@ serve(async (req) => {
     const perfectScoreBonus = (testAttempt?.percentage === 100) ? perfectBonus : 0;
     const totalXP = baseXP + performanceBonus + speedBonus + perfectScoreBonus;
 
-    // Award XP through jhakkas-points-system
+    // Award XP through jhakkas-points-system with correct action and activity_type
     try {
       const { error: xpError } = await supabase.functions.invoke('jhakkas-points-system', {
         body: {
-          studentId,
-          action: 'complete_test',
-          xpAmount: totalXP,
+          action: 'add',
+          xp_amount: totalXP,
+          activity_type: 'test_completed',
           metadata: {
             testId,
             score: testAttempt?.score,

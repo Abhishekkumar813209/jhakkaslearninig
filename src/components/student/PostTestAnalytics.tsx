@@ -36,6 +36,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 interface PostTestAnalyticsProps {
   analyticsData: any;
+  attemptId?: string;
   onSubscribeClick: () => void;
   loading?: boolean;
 }
@@ -43,7 +44,8 @@ interface PostTestAnalyticsProps {
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#10b981', '#f59e0b', '#ef4444'];
 
 export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({ 
-  analyticsData, 
+  analyticsData,
+  attemptId,
   onSubscribeClick,
   loading = false 
 }) => {
@@ -313,49 +315,21 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span className="text-sm font-medium">Test Completion</span>
-                    </div>
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                      +{Number(xpRewards.baseXP).toFixed(2)} XP
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm font-medium">Performance ({testInfo.percentage}%)</span>
-                    </div>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      +{Number(xpRewards.performanceBonus).toFixed(2)} XP
-                    </Badge>
-                  </div>
-
-                  {xpRewards.speedBonus > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-orange-500" />
-                        <span className="text-sm font-medium">Speed Bonus</span>
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-white border-2 border-yellow-200">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                      <div>
+                        <div className="text-sm font-medium text-muted-foreground">You answered</div>
+                        <div className="text-lg font-bold">{testInfo.score} / {testInfo.totalMarks} correct</div>
                       </div>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                        +{Number(xpRewards.speedBonus).toFixed(2)} XP
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-muted-foreground">XP Earned</div>
+                      <Badge className="text-lg bg-yellow-500 text-white px-3 py-1">
+                        +{Number(xpRewards.totalXP).toFixed(0)} XP
                       </Badge>
                     </div>
-                  )}
-
-                  {xpRewards.perfectScoreBonus > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-yellow-200">
-                      <div className="flex items-center gap-2">
-                        <Star className="w-4 h-4 text-purple-500" />
-                        <span className="text-sm font-medium">Perfect Score!</span>
-                      </div>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                        +{Number(xpRewards.perfectScoreBonus).toFixed(2)} XP
-                      </Badge>
-                    </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="mt-4 p-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg border-2 border-yellow-300">
@@ -695,7 +669,7 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Button
                   variant="outline"
                   className="h-auto p-6 flex flex-col items-center gap-3 hover:bg-blue-50 hover:border-blue-300"
@@ -707,6 +681,20 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                     <p className="text-xs text-muted-foreground">View your progress</p>
                   </div>
                 </Button>
+
+                {attemptId && (
+                  <Button
+                    variant="outline"
+                    className="h-auto p-6 flex flex-col items-center gap-3 hover:bg-orange-50 hover:border-orange-300"
+                    onClick={() => navigate(`/test/review/${attemptId}`)}
+                  >
+                    <BookOpen className="w-8 h-8 text-orange-500" />
+                    <div className="text-center">
+                      <div className="font-semibold">Review Questions</div>
+                      <p className="text-xs text-muted-foreground">See correct answers</p>
+                    </div>
+                  </Button>
+                )}
 
                 <Button
                   variant="outline"

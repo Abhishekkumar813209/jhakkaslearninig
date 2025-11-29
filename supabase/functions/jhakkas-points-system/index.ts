@@ -190,6 +190,8 @@ serve(async (req) => {
         updateData.referral_xp = Math.round(((existingData?.referral_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'game_completed') {
         updateData.game_xp = Math.round(((existingData?.game_xp || 0) + xp_amount) * 100) / 100;
+      } else if (activity_type === 'test_completed') {
+        updateData.game_xp = Math.round(((existingData?.game_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'theory_read') {
         updateData.theory_xp = Math.round(((existingData?.theory_xp || 0) + xp_amount) * 100) / 100;
       } else if (activity_type === 'exercise_completed') {

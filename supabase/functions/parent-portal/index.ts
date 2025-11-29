@@ -983,6 +983,27 @@ serve(async (req) => {
           .eq('student_id', studentId)
           .in('topic_id', topicIds);
 
+        // Get student's batch_id to query batch_question_assignments
+        const { data: profileForBatch } = await supabase
+          .from('profiles')
+          .select('batch_id')
+          .eq('id', studentId)
+          .single();
+
+        // Query batch_question_assignments for actual total games per topic
+        const { data: totalGamesData } = await supabase
+          .from('batch_question_assignments')
+          .select('roadmap_topic_id')
+          .eq('batch_id', profileForBatch?.batch_id || '')
+          .in('roadmap_topic_id', topicIds);
+
+        // Create total games count map
+        const totalGamesMap = new Map<string, number>();
+        (totalGamesData || []).forEach(assignment => {
+          const count = totalGamesMap.get(assignment.roadmap_topic_id) || 0;
+          totalGamesMap.set(assignment.roadmap_topic_id, count + 1);
+        });
+
         const completionMap = new Map(
           (completionData || []).map(c => [c.topic_id, {
             status: c.status || 'grey',
@@ -1003,7 +1024,7 @@ serve(async (req) => {
             status: completion?.status || 'grey',
             progress_percentage: completion?.game_completion_rate || 0,
             games_completed: completion?.games_completed || 0,
-            total_games: completion?.total_games || 0
+            total_games: totalGamesMap.get(topic.id) || 0
           });
           return acc;
         }, {});

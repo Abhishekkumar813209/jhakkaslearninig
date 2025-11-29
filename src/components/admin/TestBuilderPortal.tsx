@@ -37,7 +37,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import TestSettingsDialog from './TestSettingsDialog';
 import { PDFQuestionExtractor } from './PDFQuestionExtractor';
 import { SmartQuestionExtractor } from './SmartQuestionExtractor';
@@ -85,6 +85,7 @@ interface Test {
 const TestBuilderPortal: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showQuestionDialog, setShowQuestionDialog] = useState(false);
@@ -232,6 +233,32 @@ const TestBuilderPortal: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    const context = searchParams.get('context');
+    const chapterLibraryId = searchParams.get('chapter_library_id');
+    const examDomain = searchParams.get('exam_domain');
+    const board = searchParams.get('board');
+    const studentClass = searchParams.get('class');
+    const subject = searchParams.get('subject');
+    
+    const params = new URLSearchParams();
+    params.set('tab', 'tests');
+    
+    if (context === 'centralized') {
+      params.set('mode', 'centralized');
+      if (examDomain) params.set('domain', examDomain);
+      if (board) params.set('board', board);
+      if (studentClass) params.set('class', studentClass);
+      if (subject) params.set('subject', subject);
+      if (chapterLibraryId) params.set('chapter', chapterLibraryId);
+    } else {
+      // Batch-specific mode - could be enhanced later
+      params.set('mode', 'batch-specific');
+    }
+    
+    navigate(`/admin?${params.toString()}`);
   };
 
   const handleAddQuestion = async () => {
@@ -1236,7 +1263,7 @@ const TestBuilderPortal: React.FC = () => {
     return (
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold mb-4">Test not found</h2>
-        <Button onClick={() => navigate('/admin')}>
+        <Button onClick={handleBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
@@ -1251,7 +1278,7 @@ const TestBuilderPortal: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate('/admin')}>
+          <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>

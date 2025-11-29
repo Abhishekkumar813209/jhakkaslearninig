@@ -372,28 +372,141 @@ export const QuestionBankBuilder = () => {
     
     if (selectedDomain) {
       const examType = examTypes.find(t => t.code === selectedDomain);
-      crumbs.push(examType?.display_name || selectedDomain);
+      crumbs.push({
+        label: examType?.display_name || selectedDomain,
+        onClick: () => handleBreadcrumbClick(1)
+      });
     }
-    if (selectedBoard) crumbs.push(selectedBoard);
-    if (selectedClass) crumbs.push(`Class ${selectedClass}`);
+    if (selectedBoard) {
+      crumbs.push({
+        label: selectedBoard,
+        onClick: () => handleBreadcrumbClick(2, 'board')
+      });
+    }
+    if (selectedClass) {
+      crumbs.push({
+        label: `Class ${selectedClass}`,
+        onClick: () => handleBreadcrumbClick(2, 'class')
+      });
+    }
     if (selectedBatch) {
       const batch = batches.find(b => b.id === selectedBatch);
-      crumbs.push(batch?.name || "Batch");
+      crumbs.push({
+        label: batch?.name || "Batch",
+        onClick: () => handleBreadcrumbClick(3)
+      });
     }
-    if (selectedSubject) crumbs.push(selectedSubject);
-    if (selectedChapter) crumbs.push(selectedChapter.chapter_name);
-    if (selectedTopic) crumbs.push(selectedTopic.topic_name);
+    if (selectedSubject) {
+      crumbs.push({
+        label: selectedSubject,
+        onClick: () => handleBreadcrumbClick(4)
+      });
+    }
+    if (selectedChapter) {
+      crumbs.push({
+        label: selectedChapter.chapter_name,
+        onClick: () => handleBreadcrumbClick(5)
+      });
+    }
+    if (selectedTopic) {
+      crumbs.push({
+        label: selectedTopic.topic_name,
+        onClick: () => handleBreadcrumbClick(6)
+      });
+    }
     
     return crumbs.length > 0 ? (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+      <div className="flex items-center gap-2 text-sm mb-4">
         {crumbs.map((crumb, idx) => (
           <span key={idx} className="flex items-center gap-2">
-            {crumb}
+            {idx < crumbs.length - 1 ? (
+              <button 
+                onClick={crumb.onClick} 
+                className="text-primary hover:underline cursor-pointer transition-colors"
+              >
+                {crumb.label}
+              </button>
+            ) : (
+              <span className="text-muted-foreground">{crumb.label}</span>
+            )}
             {idx < crumbs.length - 1 && <ChevronRight className="h-4 w-4" />}
           </span>
         ))}
       </div>
     ) : null;
+  };
+
+  const handleBreadcrumbClick = (step: number, level?: string) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (step === 1) {
+      // Domain click - clear everything downstream
+      params.delete('board');
+      params.delete('class');
+      params.delete('batch');
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+      resetBoardClass();
+      setSelectedBatch('');
+      setSelectedSubject('');
+      setSelectedChapter(null);
+      setSelectedTopic(null);
+      setCurrentStep(1);
+    } else if (step === 2) {
+      // Board/Class click
+      if (level === 'class') {
+        params.delete('class');
+        setClass(null);
+      } else if (level === 'board') {
+        params.delete('board');
+        params.delete('class');
+        resetFromBoard();
+      }
+      params.delete('batch');
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+      setSelectedBatch('');
+      setSelectedSubject('');
+      setSelectedChapter(null);
+      setSelectedTopic(null);
+      setCurrentStep(2);
+    } else if (step === 3) {
+      // Batch click
+      params.delete('batch');
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+      setSelectedBatch('');
+      setSelectedSubject('');
+      setSelectedChapter(null);
+      setSelectedTopic(null);
+      setCurrentStep(3);
+    } else if (step === 4) {
+      // Subject click
+      params.delete('subject');
+      params.delete('chapter');
+      params.delete('topic');
+      setSelectedSubject('');
+      setSelectedChapter(null);
+      setSelectedTopic(null);
+      setCurrentStep(4);
+    } else if (step === 5) {
+      // Chapter click
+      params.delete('chapter');
+      params.delete('topic');
+      setSelectedChapter(null);
+      setSelectedTopic(null);
+      setCurrentStep(5);
+    } else if (step === 6) {
+      // Topic click
+      params.delete('topic');
+      setSelectedTopic(null);
+      setCurrentStep(6);
+    }
+    
+    setSearchParams(params);
   };
 
   return (

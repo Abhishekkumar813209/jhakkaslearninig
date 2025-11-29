@@ -188,20 +188,60 @@ export const StudentRoadmapCalendar = ({
   const fetchTopicStatuses = async () => {
     if (!user?.id) return;
     
+    // Get student's batch_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('batch_id')
+      .eq('id', user.id)
+      .single();
+    
+    const batchId = profile?.batch_id;
+    
+    // Get topic status (for completion rate and games completed)
     const { data, error } = await supabase
       .from('student_topic_status')
-      .select('topic_id, game_completion_rate, games_completed, total_games')
+      .select('topic_id, game_completion_rate, games_completed')
       .eq('student_id', user.id);
 
+    // Get ACTUAL total games from batch_question_assignments for all topics
+    let totalGamesData: any[] = [];
+    if (batchId) {
+      const { data: assignments } = await supabase
+        .from('batch_question_assignments')
+        .select('roadmap_topic_id')
+        .eq('batch_id', batchId);
+      
+      totalGamesData = assignments || [];
+    }
+
     if (!error && data) {
+      // Count total games per topic
+      const totalGamesMap = new Map<string, number>();
+      totalGamesData.forEach(assignment => {
+        const count = totalGamesMap.get(assignment.roadmap_topic_id) || 0;
+        totalGamesMap.set(assignment.roadmap_topic_id, count + 1);
+      });
+      
       const statusMap: Record<string, { rate: number, completed: number, total: number }> = {};
       data.forEach(item => {
         statusMap[item.topic_id] = {
           rate: item.game_completion_rate || 0,
           completed: item.games_completed || 0,
-          total: item.total_games || 0
+          total: totalGamesMap.get(item.topic_id) || 0
         };
       });
+      
+      // Also add entries for topics that have assignments but no status yet (0/X display)
+      totalGamesMap.forEach((count, topicId) => {
+        if (!statusMap[topicId]) {
+          statusMap[topicId] = {
+            rate: 0,
+            completed: 0,
+            total: count
+          };
+        }
+      });
+      
       setTopicStatuses(statusMap);
     }
   };

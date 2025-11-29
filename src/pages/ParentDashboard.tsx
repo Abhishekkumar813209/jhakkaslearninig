@@ -69,6 +69,7 @@ export default function ParentDashboard() {
   const [roadmapCalendar, setRoadmapCalendar] = useState<any>(null);
   const [chapterStatuses, setChapterStatuses] = useState<Record<string, { total: number; completed: number }>>({});
   const [manualZone, setManualZone] = useState<'red' | 'yellow' | 'green'>('red');
+  const [currentDataStudentId, setCurrentDataStudentId] = useState<string | null>(null);
 
   useEffect(() => {
     checkParentRole();
@@ -77,6 +78,20 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     if (selectedStudent) {
+      // Clear all state immediately when switching students
+      setProgress(null);
+      setActivity(null);
+      setFees(null);
+      setZoneData(null);
+      setTopicsBySubject({});
+      setRacingData(null);
+      setTestAnalysis({});
+      setRoadmapCalendar(null);
+      setChapterStatuses({});
+      setCurrentDataStudentId(null);
+      setLoading(true);
+      
+      // Fetch fresh data for selected student
       fetchStudentData(selectedStudent);
     }
   }, [selectedStudent, selectedRace]);
@@ -127,6 +142,9 @@ export default function ParentDashboard() {
   };
 
   const fetchStudentData = async (studentId: string) => {
+    // Mark that we're fetching for this specific student (before try block for scope)
+    const fetchingForStudent = studentId;
+    
     setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -185,6 +203,13 @@ export default function ParentDashboard() {
 
       console.log('[ParentDashboard] Racing API response:', racingResult);
 
+      // CRITICAL: Only update state if we're still viewing the same student
+      // This prevents race conditions where data from Child A appears for Child B
+      if (selectedStudent !== fetchingForStudent) {
+        console.warn('[ParentDashboard] Discarding stale data for student:', fetchingForStudent, 'current:', selectedStudent);
+        return;
+      }
+
       setProgress(progressData.data);
       setActivity(activityData.data);
       setFees(feesData.data);
@@ -192,6 +217,7 @@ export default function ParentDashboard() {
       setTestAnalysis(testAnalysisData.data?.testAnalysis || {});
       setRoadmapCalendar(calendarData.data || null);
       setChapterStatuses(chapterProgressData.data?.chapterStatuses || {});
+      setCurrentDataStudentId(fetchingForStudent);
       
       // Handle racing data with proper fallback
       if (racingResult.data?.success) {
@@ -227,12 +253,19 @@ export default function ParentDashboard() {
         });
         return acc;
       }, {});
-      setTopicsBySubject(grouped);
+      
+      // Final check before setting topics
+      if (selectedStudent === fetchingForStudent) {
+        setTopicsBySubject(grouped);
+      }
     } catch (error) {
       console.error('Error fetching student data:', error);
       toast.error("Failed to load student data");
     } finally {
-      setLoading(false);
+      // Only clear loading if we're still on the same student
+      if (selectedStudent === fetchingForStudent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -316,7 +349,7 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {currentStudent && !loading && (
+        {currentStudent && !loading && currentDataStudentId === selectedStudent && (
           <div className="space-y-6">
             {/* Manual Zone Toggle - Top Section */}
             <Card className="border-2">

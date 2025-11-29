@@ -60,3 +60,62 @@ verify_jwt = false
 [functions.parent-reset-password]
 verify_jwt = false
 
+[functions.test-xp-award]
+verify_jwt = true
+
+[functions.test-attempt-api]
+verify_jwt = true
+
+[functions.test-analytics]
+verify_jwt = true
+
+[functions.tests-api]
+verify_jwt = true
+
+[functions.jhakkas-points-system]
+verify_jwt = true
+
+[functions.post-test-analytics]
+verify_jwt = true
+
+[functions.parent-portal]
+verify_jwt = true
+
+[functions.profile-management]
+verify_jwt = true
+
+[functions.student-roadmap-api]
+verify_jwt = true
+
+[functions.student-analytics]
+verify_jwt = true
+
+[functions.student-leaderboard]
+verify_jwt = true
+
+[functions.ai-roadmap-generator]
+verify_jwt = true
+
+[functions.batch-api]
+verify_jwt = true
+
+[functions.batch-management]
+verify_jwt = true
+
+[functions.courses-api]
+verify_jwt = true
+
+[functions.auth-logout]
+verify_jwt = false
+
+[functions.auth-google]
+verify_jwt = false
+
+[functions.student-batch-assignment]
+verify_jwt = true
+
+[functions.dashboard-schedule]
+verify_jwt = true
+
+[functions.assign-student-to-batch]
+verify_jwt = true

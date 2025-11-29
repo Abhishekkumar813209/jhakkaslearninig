@@ -58,6 +58,10 @@ export const TestBankBuilder = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
 
+  // Test counts for board/class cards
+  const [testCountsByBoard, setTestCountsByBoard] = useState<Record<string, number>>({});
+  const [testCountsByClass, setTestCountsByClass] = useState<Record<string, Record<string, number>>>({});
+
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
     BookOpen: LucideIcons.BookOpen,
@@ -120,6 +124,41 @@ export const TestBankBuilder = () => {
       }
     }
   }, [examTypes, searchParams, selectedDomain, selectedBoard, selectedClass, selectedBatch, selectedSubject, selectedChapter, currentStep]);
+
+  // Fetch test counts for board/class cards
+  useEffect(() => {
+    const fetchTestCounts = async () => {
+      if (selectedDomain !== 'school') return;
+      
+      const { data } = await supabase
+        .from('tests')
+        .select('target_board, target_class')
+        .eq('exam_domain', 'school')
+        .or('is_centralized.is.null,is_centralized.eq.false');
+      
+      if (!data) return;
+      
+      // Aggregate by board and class
+      const byBoard: Record<string, number> = {};
+      const byClass: Record<string, Record<string, number>> = {};
+      
+      data.forEach(test => {
+        if (test.target_board) {
+          byBoard[test.target_board] = (byBoard[test.target_board] || 0) + 1;
+          if (!byClass[test.target_board]) byClass[test.target_board] = {};
+          if (test.target_class) {
+            byClass[test.target_board][test.target_class] = 
+              (byClass[test.target_board][test.target_class] || 0) + 1;
+          }
+        }
+      });
+      
+      setTestCountsByBoard(byBoard);
+      setTestCountsByClass(byClass);
+    };
+    
+    fetchTestCounts();
+  }, [selectedDomain]);
 
   // Fetch batches when domain/board/class selected
   useEffect(() => {
@@ -406,6 +445,8 @@ export const TestBankBuilder = () => {
             onClassSelect={setClass}
             onReset={resetFromBoard}
             onResetToBoard={resetToBoard}
+            studentCounts={{ byBoard: testCountsByBoard, byClass: testCountsByClass }}
+            countLabel="tests"
           />
           <div className="mt-4">
             <Button onClick={handleBoardClassNext} size="lg">

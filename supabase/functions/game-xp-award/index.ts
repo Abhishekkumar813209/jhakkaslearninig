@@ -220,6 +220,10 @@ Deno.serve(async (req) => {
         .eq('topic_id', topic_id)
         .maybeSingle();
 
+      let gamesCompletedCount = 0;
+      let totalGamesCount = 0;
+      let gameCompletionRate = 0;
+
       if (existingProgress) {
         const completedGameIds = existingProgress.completed_game_ids || [];
         if (!completedGameIds.includes(game_id)) {
@@ -233,17 +237,21 @@ Deno.serve(async (req) => {
           .select('*', { count: 'exact', head: true })
           .eq('roadmap_topic_id', topic_id);
         
-        const isTopicComplete = completedGameIds.length >= (totalGames || 1);
-        console.log(`[Game Progress] Topic completion: ${completedGameIds.length}/${totalGames || 1} games, complete: ${isTopicComplete}`);
+        totalGamesCount = totalGames || 1;
+        gamesCompletedCount = completedGameIds.length;
+        const isTopicComplete = gamesCompletedCount >= totalGamesCount;
+        gameCompletionRate = (gamesCompletedCount / totalGamesCount) * 100;
+        
+        console.log(`[Game Progress] Topic completion: ${gamesCompletedCount}/${totalGamesCount} games (${gameCompletionRate.toFixed(1)}%), complete: ${isTopicComplete}`);
         
         await supabase
           .from('student_topic_game_progress')
           .update({
             completed_game_ids: completedGameIds,
             is_completed: isTopicComplete,
-            questions_completed: completedGameIds.length,
+            questions_completed: gamesCompletedCount,
             questions_correct: existingProgress.questions_correct + (is_correct ? 1 : 0),
-            total_questions: totalGames || 1
+            total_questions: totalGamesCount
           })
           .eq('student_id', user.id)
           .eq('topic_id', topic_id);
@@ -254,8 +262,12 @@ Deno.serve(async (req) => {
           .select('*', { count: 'exact', head: true })
           .eq('roadmap_topic_id', topic_id);
         
-        const isTopicComplete = (totalGames || 1) <= 1;
-        console.log(`[Game Progress] Creating new progress record: 1/${totalGames || 1} games, complete: ${isTopicComplete}`);
+        totalGamesCount = totalGames || 1;
+        gamesCompletedCount = 1;
+        const isTopicComplete = gamesCompletedCount >= totalGamesCount;
+        gameCompletionRate = (gamesCompletedCount / totalGamesCount) * 100;
+        
+        console.log(`[Game Progress] Creating new progress record: ${gamesCompletedCount}/${totalGamesCount} games (${gameCompletionRate.toFixed(1)}%), complete: ${isTopicComplete}`);
         
         await supabase
           .from('student_topic_game_progress')
@@ -264,10 +276,44 @@ Deno.serve(async (req) => {
             topic_id: topic_id,
             completed_game_ids: [game_id],
             is_completed: isTopicComplete,
-            questions_completed: 1,
+            questions_completed: gamesCompletedCount,
             questions_correct: is_correct ? 1 : 0,
-            total_questions: totalGames || 1
+            total_questions: totalGamesCount
           });
+      }
+
+      // Update student_topic_status for parent portal green topic display
+      console.log('[Topic Status] Updating student_topic_status for parent portal visibility');
+      
+      // Get chapter_id from roadmap_topics
+      const { data: topicInfo } = await supabase
+        .from('roadmap_topics')
+        .select('chapter_id')
+        .eq('id', topic_id)
+        .single();
+      
+      if (topicInfo) {
+        const topicStatus = gameCompletionRate >= 100 ? 'completed' : 
+                           gameCompletionRate >= 50 ? 'in_progress' : 'started';
+        
+        await supabase
+          .from('student_topic_status')
+          .upsert({
+            student_id: user.id,
+            topic_id: topic_id,
+            chapter_id: topicInfo.chapter_id,
+            status: topicStatus,
+            game_completion_rate: gameCompletionRate,
+            games_completed: gamesCompletedCount,
+            total_games: totalGamesCount,
+            total_xp_earned: xpAmount,
+            calculated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'student_id,topic_id'
+          });
+        
+        console.log(`[Topic Status] ✅ Updated topic status: ${topicStatus} (${gameCompletionRate.toFixed(1)}% complete)`);
       }
 
       // Award XP via jhakkas-points-system if > 0

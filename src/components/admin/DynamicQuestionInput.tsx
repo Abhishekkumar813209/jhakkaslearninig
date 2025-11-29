@@ -282,30 +282,30 @@ export const DynamicQuestionInput = ({ gameType, onChange }: DynamicQuestionInpu
 
         <div className="space-y-2">
           <Label>Options * (4 required)</Label>
-          {options.map((opt, idx) => (
-            <div key={idx} className="flex gap-2 items-center">
-              <RadioGroup 
-                value={correctAnswer.toString()} 
-                onValueChange={(v) => { 
-                  setCorrectAnswer(parseInt(v)); 
-                  setTimeout(() => handleDataChange(), 0);
-                }}
-              >
+          <RadioGroup 
+            value={correctAnswer.toString()} 
+            onValueChange={(v) => { 
+              setCorrectAnswer(parseInt(v)); 
+              setTimeout(() => handleDataChange(), 0);
+            }}
+          >
+            {options.map((opt, idx) => (
+              <div key={idx} className="flex gap-2 items-center">
                 <RadioGroupItem value={idx.toString()} />
-              </RadioGroup>
-              <Input
-                value={opt}
-                onChange={(e) => {
-                  const newOpts = [...options];
-                  newOpts[idx] = e.target.value;
-                  setOptions(newOpts);
-                  setTimeout(() => handleDataChange(), 0);
-                }}
-                placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                className={opt.trim() ? '' : 'border-orange-300'}
-              />
-            </div>
-          ))}
+                <Input
+                  value={opt}
+                  onChange={(e) => {
+                    const newOpts = [...options];
+                    newOpts[idx] = e.target.value;
+                    setOptions(newOpts);
+                    setTimeout(() => handleDataChange(), 0);
+                  }}
+                  placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                  className={opt.trim() ? '' : 'border-orange-300'}
+                />
+              </div>
+            ))}
+          </RadioGroup>
         </div>
 
         <div>

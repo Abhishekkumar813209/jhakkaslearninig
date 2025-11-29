@@ -1587,9 +1587,10 @@ export const SmartQuestionExtractorNew = ({
                             </div>
                             <div className="space-y-2">
                               {q.options.map((option: any, optIdx: number) => {
-                                const isCorrect = q.correct_answer === option || 
-                                                 q.correct_answer === optIdx || 
-                                                 q.correct_answer?.toString() === optIdx.toString();
+                                // Fix: properly read correctIndex from normalized answer_data structure
+                                const correctIdx = q.correct_answer?.index ?? 
+                                                  (typeof q.correct_answer === 'number' ? q.correct_answer : null);
+                                const isCorrect = correctIdx === optIdx;
                                 return (
                                   <div
                                     key={optIdx}

@@ -698,13 +698,13 @@ serve(async (req) => {
           throw attemptsError;
         }
 
-        // For each test, find the chapter_id via questions->topic->chapter
+        // For each test, find the chapter_id via questions->topic->chapter AND centralized tests via chapter_library_id
         const chapterCompletionMap: Record<string, number> = {};
         
         if (attempts && attempts.length > 0) {
           const testIds = attempts.map(a => a.test_id);
           
-          // Get questions with topic and chapter info
+          // METHOD 1: Old batch-specific tests (via questions->topic->chapter)
           const { data: questions } = await supabase
             .from('questions')
             .select(`
@@ -717,7 +717,7 @@ serve(async (req) => {
             .in('test_id', testIds)
             .not('topic_id', 'is', null);
 
-          // Build map of test_id -> chapter_id
+          // Build map of test_id -> chapter_id (old method)
           const testToChapterMap: Record<string, Set<string>> = {};
           (questions || []).forEach((q: any) => {
             const chapterId = q.roadmap_topics?.chapter_id;
@@ -729,7 +729,48 @@ serve(async (req) => {
             }
           });
 
-          // Count tests per chapter
+          // METHOD 2: New centralized tests (via tests.chapter_library_id -> roadmap_chapters.chapter_library_id)
+          const { data: centralizedTests } = await supabase
+            .from('tests')
+            .select('id, chapter_library_id, is_centralized')
+            .in('id', testIds)
+            .eq('is_centralized', true)
+            .not('chapter_library_id', 'is', null);
+
+          console.log('[getChapterTestCompletion] Found centralized tests:', centralizedTests?.length || 0);
+
+          // Get roadmap chapters to map chapter_library_id -> roadmap_chapter.id
+          if (centralizedTests && centralizedTests.length > 0) {
+            const { data: roadmapChapters } = await supabase
+              .from('roadmap_chapters')
+              .select('id, chapter_library_id')
+              .eq('roadmap_id', studentRoadmap.batch_roadmap_id)
+              .not('chapter_library_id', 'is', null);
+
+            console.log('[getChapterTestCompletion] Roadmap chapters with library links:', roadmapChapters?.length || 0);
+
+            // Build map of chapter_library_id -> roadmap_chapter.id
+            const libraryToChapterMap: Record<string, string> = {};
+            (roadmapChapters || []).forEach((rc: any) => {
+              if (rc.chapter_library_id) {
+                libraryToChapterMap[rc.chapter_library_id] = rc.id;
+              }
+            });
+
+            // Add centralized tests to the testToChapterMap
+            centralizedTests.forEach((test: any) => {
+              const roadmapChapterId = libraryToChapterMap[test.chapter_library_id];
+              if (roadmapChapterId) {
+                if (!testToChapterMap[test.id]) {
+                  testToChapterMap[test.id] = new Set();
+                }
+                testToChapterMap[test.id].add(roadmapChapterId);
+                console.log(`[getChapterTestCompletion] Linked centralized test ${test.id} to chapter ${roadmapChapterId}`);
+              }
+            });
+          }
+
+          // Count tests per chapter (merged from both old and new methods)
           attempts.forEach(attempt => {
             const chapterIds = testToChapterMap[attempt.test_id];
             if (chapterIds) {

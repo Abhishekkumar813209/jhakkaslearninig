@@ -210,6 +210,66 @@ Deno.serve(async (req) => {
 
       if (insertError) throw insertError;
 
+      // Update student_topic_game_progress to mark game as completed
+      console.log('[Game Progress] Updating topic progress for topic_id:', topic_id);
+      
+      const { data: existingProgress } = await supabase
+        .from('student_topic_game_progress')
+        .select('completed_game_ids, total_questions, questions_correct')
+        .eq('student_id', user.id)
+        .eq('topic_id', topic_id)
+        .maybeSingle();
+
+      if (existingProgress) {
+        const completedGameIds = existingProgress.completed_game_ids || [];
+        if (!completedGameIds.includes(game_id)) {
+          completedGameIds.push(game_id);
+          console.log('[Game Progress] Added game_id to completed list:', game_id);
+        }
+        
+        // Get total games for this topic
+        const { count: totalGames } = await supabase
+          .from('batch_question_assignments')
+          .select('*', { count: 'exact', head: true })
+          .eq('roadmap_topic_id', topic_id);
+        
+        const isTopicComplete = completedGameIds.length >= (totalGames || 1);
+        console.log(`[Game Progress] Topic completion: ${completedGameIds.length}/${totalGames || 1} games, complete: ${isTopicComplete}`);
+        
+        await supabase
+          .from('student_topic_game_progress')
+          .update({
+            completed_game_ids: completedGameIds,
+            is_completed: isTopicComplete,
+            questions_completed: completedGameIds.length,
+            questions_correct: existingProgress.questions_correct + (is_correct ? 1 : 0),
+            total_questions: totalGames || 1
+          })
+          .eq('student_id', user.id)
+          .eq('topic_id', topic_id);
+      } else {
+        // Create new progress record
+        const { count: totalGames } = await supabase
+          .from('batch_question_assignments')
+          .select('*', { count: 'exact', head: true })
+          .eq('roadmap_topic_id', topic_id);
+        
+        const isTopicComplete = (totalGames || 1) <= 1;
+        console.log(`[Game Progress] Creating new progress record: 1/${totalGames || 1} games, complete: ${isTopicComplete}`);
+        
+        await supabase
+          .from('student_topic_game_progress')
+          .insert({
+            student_id: user.id,
+            topic_id: topic_id,
+            completed_game_ids: [game_id],
+            is_completed: isTopicComplete,
+            questions_completed: 1,
+            questions_correct: is_correct ? 1 : 0,
+            total_questions: totalGames || 1
+          });
+      }
+
       // Award XP via jhakkas-points-system if > 0
       if (shouldAwardXP && xpAmount > 0) {
         const { error: xpError } = await supabase.functions.invoke('jhakkas-points-system', {

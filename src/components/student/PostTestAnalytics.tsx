@@ -60,6 +60,18 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
     }
   }, [analyticsData]);
 
+  // Trigger XP fly animation when analytics load with XP data
+  useEffect(() => {
+    if (analyticsData?.xpRewards?.totalXP > 0) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('xp-fly', { 
+          detail: { amount: analyticsData.xpRewards.totalXP } 
+        }));
+        window.dispatchEvent(new Event('xp-updated'));
+      }, 1000);
+    }
+  }, [analyticsData]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
@@ -319,8 +331,10 @@ export const PostTestAnalytics: React.FC<PostTestAnalyticsProps> = ({
                     <div className="flex items-center gap-3">
                       <CheckCircle className="w-6 h-6 text-green-500" />
                       <div>
-                        <div className="text-sm font-medium text-muted-foreground">You answered</div>
-                        <div className="text-lg font-bold">{testInfo.score} / {testInfo.totalMarks} correct</div>
+                        <div className="text-sm font-medium text-muted-foreground">XP Calculation</div>
+                        <div className="text-lg font-bold">
+                          {xpRewards.defaultXP || 100} XP × {testInfo.percentage}%
+                        </div>
                       </div>
                     </div>
                     <div className="text-right">

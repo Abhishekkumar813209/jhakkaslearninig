@@ -40,14 +40,13 @@ serve(async (req) => {
       .eq('id', studentId)
       .single();
 
-    // Get test attempt details along with test XP configuration
+    // Get test attempt details including XP earned
     const { data: testAttempt } = await supabase
       .from('test_attempts')
       .select(`
-        id, score, total_marks, percentage, time_taken_minutes, rank,
+        id, score, total_marks, percentage, time_taken_minutes, rank, xp_earned,
         tests (
-          id, title, subject, difficulty, duration_minutes,
-          base_xp_reward, xp_per_mark, bonus_xp_on_perfect
+          id, title, subject, difficulty, duration_minutes, default_xp
         )
       `)
       .eq('test_id', testId)
@@ -251,49 +250,14 @@ serve(async (req) => {
       insights.push("You're performing better than 90% of all students!");
     }
 
-    // Get test configuration for XP calculation
+    // Read XP from test_attempts (already awarded by test-xp-award edge function)
+    const totalXP = testAttempt?.xp_earned || 0;
     const testConfig = testAttempt?.tests as any;
-    const baseXP = testConfig?.base_xp_reward || 50;
-    const xpPerMark = testConfig?.xp_per_mark || 2;
-    const perfectBonus = testConfig?.bonus_xp_on_perfect || 50;
+    const defaultXP = testConfig?.default_xp || 100;
+    const percentage = testAttempt?.percentage || 0;
     
-    // Calculate XP rewards using configured values
-    const marksEarned = testAttempt?.score || 0;
-    const performanceBonus = marksEarned * xpPerMark;
-    const testDuration = testConfig?.duration_minutes || 60;
-    const timeTaken = testAttempt?.time_taken_minutes || 0;
-    const speedBonus = (timeTaken > 0 && timeTaken < testDuration * 0.5) ? 20 : 0;
-    const perfectScoreBonus = (testAttempt?.percentage === 100) ? perfectBonus : 0;
-    const totalXP = baseXP + performanceBonus + speedBonus + perfectScoreBonus;
-
-    // Award XP through jhakkas-points-system with correct action and activity_type
-    try {
-      const { error: xpError } = await supabase.functions.invoke('jhakkas-points-system', {
-        body: {
-          action: 'add',
-          xp_amount: totalXP,
-          activity_type: 'test_completed',
-          metadata: {
-            testId,
-            score: testAttempt?.score,
-            percentage: testAttempt?.percentage,
-            attemptId: testAttempt?.id
-          }
-        }
-      });
-
-      if (xpError) {
-        console.error('Error awarding XP:', xpError);
-      }
-
-      // Update test attempt with XP earned
-      await supabase
-        .from('test_attempts')
-        .update({ xp_earned: totalXP })
-        .eq('id', testAttempt?.id);
-    } catch (xpErr) {
-      console.error('Failed to award XP:', xpErr);
-    }
+    // For display only - show simple formula
+    const xpFormula = `${defaultXP} XP × ${percentage}% = ${totalXP} XP`;
 
     // Check and award achievements
     const achievementsAwarded = [];
@@ -400,19 +364,12 @@ serve(async (req) => {
             },
             insights,
             improvementSuggestions,
-            xpRewards: {
-              baseXP,
-              performanceBonus,
-              speedBonus,
-              perfectScoreBonus,
-              totalXP,
-              breakdown: {
-                base: `${baseXP} XP for completing test`,
-                performance: `${performanceBonus} XP for ${testAttempt?.percentage}% score`,
-                speed: speedBonus > 0 ? `${speedBonus} XP for quick completion` : null,
-                perfect: perfectScoreBonus > 0 ? `${perfectScoreBonus} XP for perfect score` : null
-              }
-            },
+      xpRewards: {
+        totalXP,
+        formula: xpFormula,
+        defaultXP,
+        percentage
+      },
             achievements: achievementsAwarded,
             nextSteps: {
               subscriptionRecommended: true,
@@ -462,19 +419,12 @@ serve(async (req) => {
       },
       insights,
       improvementSuggestions,
-      xpRewards: {
-        baseXP,
-        performanceBonus,
-        speedBonus,
-        perfectScoreBonus,
-        totalXP,
-        breakdown: {
-          base: `${baseXP} XP for completing test`,
-          performance: `${performanceBonus} XP for ${testAttempt?.percentage}% score`,
-          speed: speedBonus > 0 ? `${speedBonus} XP for quick completion` : null,
-          perfect: perfectScoreBonus > 0 ? `${perfectScoreBonus} XP for perfect score` : null
-        }
-      },
+            xpRewards: {
+              totalXP,
+              formula: xpFormula,
+              defaultXP,
+              percentage
+            },
       achievements: achievementsAwarded,
       nextSteps: {
         subscriptionRecommended: true,

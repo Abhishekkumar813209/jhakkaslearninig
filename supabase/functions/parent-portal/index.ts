@@ -605,12 +605,25 @@ serve(async (req) => {
           .eq('student_id', studentId)
           .in('topic_id', topicIds);
         
-        // Get topic status (includes game_completion_rate and total_games)
+        // Get topic status (includes game_completion_rate)
         const { data: statusData } = await supabase
           .from('student_topic_status')
-          .select('topic_id, game_completion_rate, total_games')
+          .select('topic_id, game_completion_rate')
           .eq('student_id', studentId)
           .in('topic_id', topicIds);
+
+        // Get ACTUAL total games from batch_question_assignments
+        const { data: batchId } = await supabase
+          .from('profiles')
+          .select('batch_id')
+          .eq('id', studentId)
+          .single();
+        
+        const { data: totalGamesData } = await supabase
+          .from('batch_question_assignments')
+          .select('roadmap_topic_id')
+          .eq('batch_id', batchId?.batch_id || '')
+          .in('roadmap_topic_id', topicIds);
 
         // Create completion map
         const completionMap = new Map(
@@ -621,6 +634,13 @@ serve(async (req) => {
         const statusMap = new Map(
           (statusData || []).map(s => [s.topic_id, s])
         );
+        
+        // Create total games count map
+        const totalGamesMap = new Map<string, number>();
+        (totalGamesData || []).forEach(assignment => {
+          const count = totalGamesMap.get(assignment.roadmap_topic_id) || 0;
+          totalGamesMap.set(assignment.roadmap_topic_id, count + 1);
+        });
 
         // Build daily progress with dates
         const roadmapStart = new Date(roadmapDetails.start_date);
@@ -632,6 +652,8 @@ serve(async (req) => {
 
           const subjectName = topic.subject || topic.chapter?.subject || 'General';
 
+          const actualTotalGames = totalGamesMap.get(topic.id) || 0;
+          
           return {
             date: scheduledDate.toISOString().split('T')[0],
             day_number: topic.day_number,
@@ -641,7 +663,7 @@ serve(async (req) => {
             is_completed: completion?.is_completed || false,
             completed_at: completion?.last_accessed_at || null,
             games_completed: completion?.completed_game_ids?.length || 0,
-            total_games: status?.total_games || 0,
+            total_games: actualTotalGames,
             game_completion_rate: status?.game_completion_rate || 0
           };
         });

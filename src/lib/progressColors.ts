@@ -4,7 +4,7 @@
  */
 
 export interface TopicColorConfig {
-  key: 'green' | 'grey' | 'red';
+  key: 'green' | 'grey' | 'red' | 'yellow';
   bg: string;
   badgeClass: string;
   label: string;
@@ -24,11 +24,11 @@ export function getTopicColor(rate: number): TopicColorConfig {
   
   if (rate >= 50) {
     return {
-      key: 'grey',
-      bg: 'bg-gray-500',
-      badgeClass: 'bg-gray-600 border-gray-400',
+      key: 'yellow',
+      bg: 'bg-yellow-500',
+      badgeClass: 'bg-yellow-600 border-yellow-400',
       label: 'In Progress',
-      icon: '⏳'
+      icon: '🟡'
     };
   }
   

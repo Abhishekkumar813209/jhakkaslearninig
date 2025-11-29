@@ -5673,7 +5673,7 @@ export type Database = {
       }
       calculate_topic_status: {
         Args: { p_student_id: string; p_topic_id: string }
-        Returns: undefined
+        Returns: Json
       }
       calculate_zone_rankings: { Args: never; Returns: undefined }
       can_see_question_answers: {

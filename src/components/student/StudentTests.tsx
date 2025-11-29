@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy, User, History } from 'lucide-react';
+import { Clock, FileText, Play, AlertCircle, CheckCircle, BookOpen, Trophy, User, History, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import SubscriptionCard from '@/components/student/SubscriptionCard';
@@ -476,7 +476,7 @@ const StudentTests: React.FC = () => {
                           {new Date(attempt.submitted_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 mb-4">
                         <div>
                           <div className="text-2xl font-bold">{attempt.score}/{attempt.total_marks}</div>
                           <div className="text-sm text-muted-foreground">Score</div>
@@ -493,6 +493,31 @@ const StudentTests: React.FC = () => {
                             <div className="text-sm text-muted-foreground">Rank</div>
                           </div>
                         )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={() => navigate(`/test/${attempt.test_id}/results`)}
+                        >
+                          <BarChart3 className="h-4 w-4 mr-1" />
+                          View Results
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => navigate(`/test/review/${attempt.id}`)}
+                        >
+                          <BookOpen className="h-4 w-4 mr-1" />
+                          Review Questions
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => navigate(`/test-analytics/${attempt.id}`)}
+                        >
+                          <History className="h-4 w-4 mr-1" />
+                          Analytics
+                        </Button>
                       </div>
                     </div>
                     <Badge variant={passed ? 'default' : 'destructive'} className="ml-4">

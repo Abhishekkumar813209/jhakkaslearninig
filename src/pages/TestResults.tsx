@@ -173,6 +173,7 @@ const TestResults: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
   const [result, setResult] = useState<TestResult | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -276,6 +277,10 @@ const TestResults: React.FC = () => {
           .limit(1)
           .maybeSingle();
         data = fallbackAttempt || null;
+      }
+
+      if (data) {
+        setAttemptId(data.id);
       }
 
       if (!data) throw new Error('No attempt found');
@@ -536,6 +541,7 @@ const TestResults: React.FC = () => {
           <div className={isBlurred ? 'filter blur-sm pointer-events-none' : ''}>
             <PostTestAnalytics 
               analyticsData={postTestAnalytics}
+              attemptId={attemptId}
               onSubscribeClick={handleSubscribeClick}
               loading={loading}
             />

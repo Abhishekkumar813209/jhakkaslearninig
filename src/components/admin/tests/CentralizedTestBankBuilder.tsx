@@ -56,6 +56,10 @@ export const CentralizedTestBankBuilder = () => {
   // Tests list
   const [tests, setTests] = useState<Test[]>([]);
 
+  // Test counts for board/class cards
+  const [centralizedCountsByBoard, setCentralizedCountsByBoard] = useState<Record<string, number>>({});
+  const [centralizedCountsByClass, setCentralizedCountsByClass] = useState<Record<string, Record<string, number>>>({});
+
   const iconMap: Record<string, any> = {
     GraduationCap: LucideIcons.GraduationCap,
     BookOpen: LucideIcons.BookOpen,
@@ -107,6 +111,54 @@ export const CentralizedTestBankBuilder = () => {
       }
     }
   }, [examTypes, searchParams]);
+
+  // Fetch test counts for board/class cards
+  useEffect(() => {
+    const fetchCentralizedCounts = async () => {
+      if (selectedDomain !== 'school') return;
+      
+      const { data } = await supabase
+        .from('tests')
+        .select(`
+          id,
+          chapter_library:chapter_library_id(class_level)
+        `)
+        .eq('is_centralized', true)
+        .eq('exam_domain', 'school');
+      
+      if (!data) return;
+      
+      // Aggregate by class_level
+      const byClass: Record<string, number> = {};
+      
+      data.forEach((test: any) => {
+        const classLevel = test.chapter_library?.class_level;
+        if (classLevel) {
+          byClass[classLevel] = (byClass[classLevel] || 0) + 1;
+        }
+      });
+      
+      // Since centralized tests aren't board-specific, show total for all boards
+      const totalTests = Object.values(byClass).reduce((a, b) => a + b, 0);
+      const boards = ['CBSE', 'ICSE', 'State Board'];
+      
+      const boardCounts = boards.reduce((acc, board) => {
+        acc[board] = totalTests;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Class counts same for all boards
+      const classCounts = boards.reduce((acc, board) => {
+        acc[board] = byClass;
+        return acc;
+      }, {} as Record<string, Record<string, number>>);
+      
+      setCentralizedCountsByBoard(boardCounts);
+      setCentralizedCountsByClass(classCounts);
+    };
+    
+    fetchCentralizedCounts();
+  }, [selectedDomain]);
 
   // Fetch subjects when domain/board/class selected
   useEffect(() => {
@@ -365,6 +417,8 @@ export const CentralizedTestBankBuilder = () => {
             onClassSelect={setClass}
             onReset={resetFromBoard}
             onResetToBoard={resetToBoard}
+            studentCounts={{ byBoard: centralizedCountsByBoard, byClass: centralizedCountsByClass }}
+            countLabel="centralized tests"
           />
           <div className="mt-4">
             <Button onClick={handleBoardClassNext} size="lg">

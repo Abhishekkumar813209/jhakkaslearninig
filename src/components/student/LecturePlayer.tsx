@@ -927,24 +927,27 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
-              <Progress 
-                value={progressPercentage} 
-                className="cursor-pointer h-2 bg-gray-700"
-                onPointerDown={() => {
+              <Slider
+                value={[progressPercentage]}
+                min={0}
+                max={100}
+                step={0.1}
+                className="cursor-pointer [&_[data-radix-slider-track]]:h-2 [&_[data-radix-slider-track]]:bg-gray-700/50 [&_[data-radix-slider-range]]:bg-blue-500 [&_[data-radix-slider-thumb]]:h-4 [&_[data-radix-slider-thumb]]:w-4 [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:border-blue-500"
+                onValueChange={(value) => {
                   setIsSeeking(true);
                   setShowControls(true);
                   if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+                  // Real-time preview while dragging
+                  const newTime = (value[0] / 100) * duration;
+                  setCurrentTime(newTime);
                 }}
-                onClick={(e) => {
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  const percentage = ((e.clientX - rect.left) / rect.width) * 100;
-                  handleSeek(percentage);
-                }}
-                onPointerUp={() => {
+                onValueCommit={(value) => {
+                  // Seek when drag ends
+                  handleSeek(value[0]);
                   setIsSeeking(false);
+                  // Auto-hide controls after seeking
                   setTimeout(() => {
                     if (isPlaying && isFullscreen) {
-                      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
                       controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
                     }
                   }, 1000);

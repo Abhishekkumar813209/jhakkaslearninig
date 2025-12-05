@@ -400,7 +400,7 @@ serve(async (req) => {
     console.log(`🎯 Action requested: ${action}, user: ${user.id}`);
 
     // Enforce admin only for specific actions
-    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'update_question', 'update_full_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed', 'insert_sample_questions'];
+    const adminActions = ['get_topic_questions', 'update_question_answer', 'finalize_and_link', 'save_draft_questions', 'delete_question', 'delete_centralized_question', 'update_question', 'update_full_question', 'get_unanswered_questions', 'get_questions_by_filter', 'bulk_mark_reviewed', 'insert_sample_questions'];
     if (adminActions.includes(action) && !isAdmin) {
       return new Response(
         JSON.stringify({ success: false, error: 'Admin role required for this operation' }),
@@ -1538,6 +1538,82 @@ serve(async (req) => {
       }
 
       console.log(`✅ Question removed from batch assignment, question_bank row preserved`);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========== delete_centralized_question ==========
+    if (action === 'delete_centralized_question') {
+      const { question_id, chapter_library_id, centralized_topic_name } = body;
+      
+      if (!question_id) {
+        throw new Error('Missing question_id');
+      }
+
+      console.log(`🗑️ Permanently deleting centralized question ${question_id}`);
+
+      // Verify question exists and is actually centralized before deleting
+      const { data: question, error: fetchError } = await serviceClient
+        .from('question_bank')
+        .select('is_centralized, chapter_library_id, centralized_topic_name')
+        .eq('id', question_id)
+        .single();
+      
+      if (fetchError) {
+        console.error('Failed to fetch question:', fetchError);
+        return new Response(JSON.stringify({ error: 'Question not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+        
+      if (!question?.is_centralized) {
+        console.warn('Question is not centralized, using batch delete instead');
+        // For non-centralized questions, just delete from batch_question_assignments
+        const { error: deleteAssignmentError } = await serviceClient
+          .from('batch_question_assignments')
+          .delete()
+          .eq('question_id', question_id);
+          
+        if (deleteAssignmentError) {
+          console.error('Delete assignment error:', deleteAssignmentError);
+        }
+        
+        return new Response(
+          JSON.stringify({ success: true, note: 'Non-centralized question - removed from assignments only' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // First, delete any batch assignments that reference this question
+      const { error: assignmentError } = await serviceClient
+        .from('batch_question_assignments')
+        .delete()
+        .eq('question_id', question_id);
+        
+      if (assignmentError) {
+        console.warn('Failed to delete batch assignments:', assignmentError);
+        // Continue with main deletion even if this fails
+      }
+
+      // Delete from question_bank permanently
+      const { error: deleteError } = await serviceClient
+        .from('question_bank')
+        .delete()
+        .eq('id', question_id);
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        return new Response(JSON.stringify({ error: 'Failed to delete centralized question' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`✅ Centralized question ${question_id} permanently deleted from question_bank`);
 
       return new Response(
         JSON.stringify({ success: true }),

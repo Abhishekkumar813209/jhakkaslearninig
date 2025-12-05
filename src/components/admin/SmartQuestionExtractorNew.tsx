@@ -929,33 +929,31 @@ export const SmartQuestionExtractorNew = ({
   };
 
   const handleClearAll = async () => {
-    const selectedQuestions = questions.filter(q => q.id && selectedIds.has(q.id));
+    // Clear ALL questions with database IDs, not just selected ones
+    const questionsToDelete = questions.filter(q => q.id);
     
-    if (selectedQuestions.length === 0) {
-      toast.error('No questions selected to delete');
-      return;
-    }
-
-    // Show confirmation dialog before deleting
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete ${selectedQuestions.length} selected question(s) from the database?`
-    );
-    
-    if (!confirmDelete) {
+    if (questionsToDelete.length === 0) {
+      toast.error('No questions to delete');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('🗑️ Deleting selected questions:', selectedQuestions.map(q => q.id));
+      console.log('🗑️ Deleting ALL questions:', questionsToDelete.length);
       
-      // Use edge function to delete from question_bank
-      const deletePromises = selectedQuestions.map(q =>
+      // Determine if we're in centralized mode
+      const isCentralizedMode = mode === 'centralized' || effectiveFetchMode === 'centralized';
+      
+      // Use appropriate edge function action based on mode
+      const deletePromises = questionsToDelete.map(q =>
         invokeWithAuth({
           name: 'topic-questions-api',
           body: { 
-            action: 'delete_question', 
-            question_id: q.id 
+            action: isCentralizedMode ? 'delete_centralized_question' : 'delete_question', 
+            question_id: q.id,
+            topic_id: selectedTopic,
+            chapter_library_id: chapterLibraryId,
+            centralized_topic_name: centralizedTopicName
           }
         })
       );
@@ -969,23 +967,24 @@ export const SmartQuestionExtractorNew = ({
       console.log(`✅ Deleted ${successful} questions, ${failed} failed`);
 
       // Remove successfully deleted questions from UI
+      const deletedIds = new Set(questionsToDelete.map(q => q.id));
       const failedIds = results
-        .map((r, i) => r.status === 'rejected' ? selectedQuestions[i].id : null)
-        .filter(Boolean);
+        .map((r, i) => r.status === 'rejected' ? questionsToDelete[i].id : null)
+        .filter(Boolean) as string[];
       
       setQuestions(prev => prev.filter(q => 
-        !q.id || !selectedIds.has(q.id) || failedIds.includes(q.id)
+        !q.id || failedIds.includes(q.id)
       ));
-      setSelectedIds(new Set(failedIds as string[]));
+      setSelectedIds(new Set());
       
       // Clear localStorage
-      if (selectedTopic && failedIds.length === 0) {
+      if (selectedTopic) {
         localStorage.removeItem(`question-selections-${selectedTopic}`);
       }
 
       // Show result toast
       if (failed === 0) {
-        toast.success(`Successfully deleted ${successful} question(s)`);
+        toast.success(`Successfully deleted ${successful} question(s) from database`);
       } else {
         toast.warning(`Deleted ${successful} question(s), ${failed} failed`);
       }
@@ -1299,14 +1298,17 @@ export const SmartQuestionExtractorNew = ({
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Clear all questions?</AlertDialogTitle>
+                      <AlertDialogTitle>Permanently delete all questions?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will remove all {totalCount} questions from this view. This action cannot be undone.
+                        This will permanently delete all {totalCount} questions from the database. 
+                        This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearAll}>Clear All</AlertDialogAction>
+                      <AlertDialogAction onClick={handleClearAll} className="bg-destructive hover:bg-destructive/90">
+                        Delete All Permanently
+                      </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

@@ -376,7 +376,7 @@ export default function ChapterLectureManager() {
                 <SelectValue placeholder="Select Class" />
               </SelectTrigger>
               <SelectContent>
-                {["9", "10", "11", "12"].map((c) => (
+                {Array.from({ length: 12 }, (_, i) => String(12 - i)).map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>

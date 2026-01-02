@@ -117,6 +117,13 @@ const App = () => (
                 <LecturePlayerPage />
               </ProtectedRoute>
             } />
+            <Route path="/student/notes" element={
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/student/NotesPage')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
         <Route path="/student/dashboard" element={
           <ProtectedRoute>
             <StudentDashboardPage />

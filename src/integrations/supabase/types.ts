@@ -478,6 +478,8 @@ export type Database = {
           description: string | null
           id: string
           is_published: boolean | null
+          lecture_notes_title: string | null
+          lecture_notes_url: string | null
           lecture_order: number
           thumbnail_url: string | null
           title: string
@@ -493,6 +495,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_published?: boolean | null
+          lecture_notes_title?: string | null
+          lecture_notes_url?: string | null
           lecture_order?: number
           thumbnail_url?: string | null
           title: string
@@ -508,6 +512,8 @@ export type Database = {
           description?: string | null
           id?: string
           is_published?: boolean | null
+          lecture_notes_title?: string | null
+          lecture_notes_url?: string | null
           lecture_order?: number
           thumbnail_url?: string | null
           title?: string
@@ -521,6 +527,9 @@ export type Database = {
       chapter_library: {
         Row: {
           chapter_name: string
+          chapter_notes_title: string | null
+          chapter_notes_updated_at: string | null
+          chapter_notes_url: string | null
           class_level: string | null
           created_at: string | null
           display_order: number | null
@@ -536,6 +545,9 @@ export type Database = {
         }
         Insert: {
           chapter_name: string
+          chapter_notes_title?: string | null
+          chapter_notes_updated_at?: string | null
+          chapter_notes_url?: string | null
           class_level?: string | null
           created_at?: string | null
           display_order?: number | null
@@ -551,6 +563,9 @@ export type Database = {
         }
         Update: {
           chapter_name?: string
+          chapter_notes_title?: string | null
+          chapter_notes_updated_at?: string | null
+          chapter_notes_url?: string | null
           class_level?: string | null
           created_at?: string | null
           display_order?: number | null

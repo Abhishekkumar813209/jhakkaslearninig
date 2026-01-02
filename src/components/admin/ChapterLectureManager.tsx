@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, PlayCircle, GripVertical } from "lucide-react";
+import { Trash2, Plus, PlayCircle, GripVertical, FileText } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useBoards } from "@/hooks/useBoards";
 import { useExamTypes } from "@/hooks/useExamTypes";
@@ -26,6 +26,7 @@ interface ChapterLecture {
   lecture_order: number;
   xp_reward: number;
   is_published: boolean;
+  lecture_notes_url: string | null;
 }
 
 export default function ChapterLectureManager() {
@@ -51,6 +52,7 @@ export default function ChapterLectureManager() {
   const [isLoading, setIsLoading] = useState(false);
   const [description, setDescription] = useState("");
   const [xpReward, setXpReward] = useState(10);
+  const [lectureNotesUrl, setLectureNotesUrl] = useState("");
 
   // Cascade reset handlers
   const handleDomainSelect = (domain: string) => {
@@ -281,7 +283,8 @@ export default function ChapterLectureManager() {
         thumbnail_url: videoDetails.thumbnail,
         lecture_order: lectures.length + 1,
         xp_reward: xpReward,
-        is_published: true
+        is_published: true,
+        lecture_notes_url: lectureNotesUrl.trim() || null
       });
 
       if (error) throw error;
@@ -319,6 +322,7 @@ export default function ChapterLectureManager() {
     setVideoDetails(null);
     setDescription("");
     setXpReward(10);
+    setLectureNotesUrl("");
   };
 
   const filteredBatches = batches.filter((b) => {
@@ -510,6 +514,18 @@ export default function ChapterLectureManager() {
                       min={0}
                     />
                   </div>
+
+                  <div>
+                    <Label>Lecture Notes URL (Google Drive - Optional)</Label>
+                    <Input
+                      value={lectureNotesUrl}
+                      onChange={(e) => setLectureNotesUrl(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Paste Google Drive link for lecture-specific notes PDF
+                    </p>
+                  </div>
                 </>
               )}
             </div>
@@ -549,6 +565,12 @@ export default function ChapterLectureManager() {
                     <div className="flex gap-2 mt-1">
                       <Badge variant="outline">{formatDuration(lecture.video_duration_seconds)}</Badge>
                       <Badge variant="secondary">{lecture.xp_reward} XP</Badge>
+                      {lecture.lecture_notes_url && (
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                          <FileText className="h-3 w-3 mr-1" />
+                          Notes
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <Button

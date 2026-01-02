@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, PlayCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, PlayCircle, CheckCircle, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
@@ -16,6 +16,7 @@ interface Lecture {
   thumbnail_url: string | null;
   lecture_order: number;
   xp_reward: number;
+  lecture_notes_url: string | null;
 }
 
 interface LectureProgress {
@@ -244,6 +245,22 @@ export default function ChapterLecturePlaylist() {
                           <span className="hidden sm:inline">•</span>
                           <span className="hidden sm:inline">{lecture.xp_reward} XP</span>
                           
+                          {lecture.lecture_notes_url && (
+                            <>
+                              <span className="hidden sm:inline">•</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(lecture.lecture_notes_url!, '_blank');
+                                }}
+                                className="hidden sm:inline-flex items-center gap-1 text-orange-600 hover:text-orange-700 dark:text-orange-400"
+                              >
+                                <FileText className="h-3 w-3" />
+                                Notes
+                              </button>
+                            </>
+                          )}
+                          
                           {lecture.title.includes('🔥') && (
                             <>
                               <span className="hidden md:inline">•</span>
@@ -253,8 +270,22 @@ export default function ChapterLecturePlaylist() {
                         </div>
                       </div>
 
-                      {/* Right: Status Badge (Desktop only) */}
-                      <div className="flex-shrink-0 hidden md:block">
+                      {/* Right: Status Badge + Notes (Desktop only) */}
+                      <div className="flex-shrink-0 hidden md:flex items-center gap-2">
+                        {lecture.lecture_notes_url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(lecture.lecture_notes_url!, '_blank');
+                            }}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Notes
+                          </Button>
+                        )}
                         {isCompleted ? (
                           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                             Completed

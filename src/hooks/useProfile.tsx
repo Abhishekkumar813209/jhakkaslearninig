@@ -12,6 +12,7 @@ interface Profile {
   exam_domain?: string;
   zone_id?: string;
   school_id?: string;
+  batch_id?: string;
 }
 
 export const useProfile = () => {

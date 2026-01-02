@@ -52,11 +52,11 @@ export const StudentHomeDashboard = () => {
     },
     {
       id: 'pdf-notes',
-      title: 'PDF Class Notes',
+      title: 'Chapterwise Notes',
       icon: FileDown,
       color: 'bg-orange-500',
-      path: '#',
-      available: false,
+      path: '/student/notes',
+      available: true,
     },
     {
       id: 'paid-test-series',

@@ -52,7 +52,7 @@ export const StudentHomeDashboard = () => {
     },
     {
       id: 'pdf-notes',
-      title: 'Chapterwise Notes',
+      title: 'Notes',
       icon: FileDown,
       color: 'bg-orange-500',
       path: '/student/notes',

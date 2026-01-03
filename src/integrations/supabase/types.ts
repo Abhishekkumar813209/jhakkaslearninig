@@ -1925,7 +1925,7 @@ export type Database = {
             foreignKeyName: "lecture_questions_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "questions"
+            referencedRelation: "question_bank"
             referencedColumns: ["id"]
           },
         ]
@@ -2508,6 +2508,7 @@ export type Database = {
           id: string
           is_approved: boolean | null
           is_centralized: boolean | null
+          is_lecture_question: boolean | null
           is_published: boolean | null
           left_column: string[] | null
           marks: number
@@ -2547,6 +2548,7 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           is_centralized?: boolean | null
+          is_lecture_question?: boolean | null
           is_published?: boolean | null
           left_column?: string[] | null
           marks?: number
@@ -2586,6 +2588,7 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           is_centralized?: boolean | null
+          is_lecture_question?: boolean | null
           is_published?: boolean | null
           left_column?: string[] | null
           marks?: number

@@ -28,6 +28,8 @@ import {
   ChevronUp,
   ChevronDown,
   HelpCircle,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Popover,
@@ -54,6 +56,8 @@ interface Lecture {
   order_num: number;
   description?: string;
   chapter: string;
+  lecture_notes_url?: string;
+  lecture_notes_title?: string;
 }
 
 interface LectureProgress {
@@ -158,6 +162,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [showNotes, setShowNotes] = useState(true);
+  const [showOfficialNotes, setShowOfficialNotes] = useState(true);
   
   // Lecture Questions states
   const [lectureQuestions, setLectureQuestions] = useState<LectureQuestion[]>([]);
@@ -1393,7 +1398,46 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             ? 'flex-1 bg-background overflow-y-auto' 
             : 'w-96 bg-background border-l flex flex-col overflow-hidden'
         }`}>
-          {/* Lecture Notes Section - Top of Sidebar (Desktop Only) */}
+          {/* Official Lecture Notes Section - Top of Sidebar (Desktop Only) */}
+          {!isMobile && lecture.lecture_notes_url && (
+            <div className="border-b">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowOfficialNotes(!showOfficialNotes)}
+                className="w-full justify-between p-4 h-auto hover:bg-muted/50"
+              >
+                <span className="font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-orange-500" />
+                  Lecture Notes
+                </span>
+                {showOfficialNotes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+              {showOfficialNotes && (
+                <div className="px-4 pb-4">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Official notes for this lecture
+                  </p>
+                  <a
+                    href={lecture.lecture_notes_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-3 rounded-lg border bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 transition-colors"
+                  >
+                    <FileText className="h-6 w-6 text-orange-600" />
+                    <div className="flex-1">
+                      <span className="font-medium text-sm">
+                        {lecture.lecture_notes_title || 'View Lecture Notes'}
+                      </span>
+                      <p className="text-xs text-muted-foreground">Opens in Google Drive</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* My Notes Section - Desktop Only */}
           {!isMobile && (
             <div className="border-b">
               <Button 

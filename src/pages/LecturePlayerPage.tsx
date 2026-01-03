@@ -10,6 +10,8 @@ interface Lecture {
   youtube_video_id: string;
   video_duration_seconds: number;
   chapter: number;
+  lecture_notes_url?: string;
+  lecture_notes_title?: string;
 }
 
 const LecturePlayerPage = () => {
@@ -47,7 +49,9 @@ const LecturePlayerPage = () => {
         title: lecture.title,
         youtube_video_id: lecture.youtube_video_id,
         video_duration_seconds: lecture.video_duration_seconds,
-        chapter: lecture.lecture_order
+        chapter: lecture.lecture_order,
+        lecture_notes_url: lecture.lecture_notes_url,
+        lecture_notes_title: lecture.lecture_notes_title
       });
     }
     setLoading(false);
@@ -68,7 +72,9 @@ const LecturePlayerPage = () => {
         title: l.title,
         youtube_video_id: l.youtube_video_id,
         video_duration_seconds: l.video_duration_seconds,
-        chapter: l.lecture_order
+        chapter: l.lecture_order,
+        lecture_notes_url: l.lecture_notes_url,
+        lecture_notes_title: l.lecture_notes_title
       })));
     }
   };
@@ -150,7 +156,9 @@ const LecturePlayerPage = () => {
         youtube_video_id: currentLecture.youtube_video_id,
         duration_seconds: currentLecture.video_duration_seconds,
         order_num: currentLecture.chapter,
-        chapter: chapterId || ""
+        chapter: chapterId || "",
+        lecture_notes_url: currentLecture.lecture_notes_url,
+        lecture_notes_title: currentLecture.lecture_notes_title
       }}
       playlistId={chapterId || ""}
       playlistTitle="Chapter Lectures"
@@ -160,7 +168,9 @@ const LecturePlayerPage = () => {
         youtube_video_id: l.youtube_video_id,
         duration_seconds: l.video_duration_seconds,
         order_num: l.chapter,
-        chapter: chapterId || ""
+        chapter: chapterId || "",
+        lecture_notes_url: l.lecture_notes_url,
+        lecture_notes_title: l.lecture_notes_title
       }))}
       onClose={handleBackToPlaylist}
       onLectureChange={(id) => navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${id}`)}

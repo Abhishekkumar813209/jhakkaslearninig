@@ -137,6 +137,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [loading, setLoading] = useState(true);
   const [player, setPlayer] = useState<any>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout>();
+  const timelineIntervalRef = useRef<NodeJS.Timeout>();
   const lastUpdateRef = useRef<number>(0);
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const lastQualityRef = useRef<string | null>(null);
@@ -375,19 +376,28 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   useEffect(() => {
     if (!isPlaying || showQuestionOverlay || lectureQuestions.length === 0) return;
     
-    // Avoid checking too frequently
     const currentSecond = Math.floor(currentTime);
-    if (currentSecond === lastCheckedTimeRef.current) return;
-    lastCheckedTimeRef.current = currentSecond;
+    const previousSecond = lastCheckedTimeRef.current;
+    
+    // Skip if we've already checked this second
+    if (currentSecond === previousSecond) return;
 
-    // Find a question that should trigger at current time
+    // Find a question that should trigger
+    // NEW: Check if question timestamp is BETWEEN previous and current time
+    // This catches questions even if video jumps (e.g., from 6:40 to 6:46)
     const triggeredQuestion = lectureQuestions.find(q => {
       const questionTime = q.timestamp_seconds;
-      // Trigger if we're within 1 second of the question timestamp
-      return currentSecond >= questionTime && 
-             currentSecond <= questionTime + 1 && 
-             !answeredQuestionIds.has(q.id);
+      
+      // Trigger if:
+      // 1. Question timestamp is between previous checked time and current time OR
+      // 2. We're exactly at the question timestamp (first few seconds of video)
+      const shouldTrigger = (previousSecond < questionTime && currentSecond >= questionTime) ||
+                            (previousSecond === 0 && currentSecond >= questionTime && currentSecond <= questionTime + 2);
+      
+      return shouldTrigger && !answeredQuestionIds.has(q.id);
     });
+
+    lastCheckedTimeRef.current = currentSecond;
 
     if (triggeredQuestion && player) {
       // Pause video and show question
@@ -548,6 +558,9 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+      if (timelineIntervalRef.current) {
+        clearInterval(timelineIntervalRef.current);
+      }
       if (autoplayTimerRef.current) {
         clearInterval(autoplayTimerRef.current);
       }
@@ -593,11 +606,18 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       setCurrentTime(progress.watch_time_seconds);
     }
     
-    // Start progress tracking
-    progressIntervalRef.current = setInterval(() => {
+    // Timeline sync - update every 1 second for smooth YouTube-like playback indicator
+    timelineIntervalRef.current = setInterval(() => {
       if (event.target && event.target.getCurrentTime) {
         const time = event.target.getCurrentTime();
         setCurrentTime(time);
+      }
+    }, 1000);
+
+    // Progress save - update every 5 seconds to DB (separate interval for efficiency)
+    progressIntervalRef.current = setInterval(() => {
+      if (event.target && event.target.getCurrentTime) {
+        const time = event.target.getCurrentTime();
         updateProgress(time);
       }
     }, 5000);

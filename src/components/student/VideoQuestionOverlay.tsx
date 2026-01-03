@@ -18,6 +18,8 @@ interface LectureQuestion {
     id: string;
     question_text: string;
     question_type: string;
+    question_data?: any;
+    answer_data?: any;
     options: any;
     correct_answer: string;
     explanation: string | null;

@@ -30,6 +30,11 @@ interface ChapterLecture {
   lecture_notes_url: string | null;
 }
 
+interface ChapterMetadata {
+  chapter_library_id: string | null;
+  subject: string;
+}
+
 export default function ChapterLectureManager() {
   const { toast } = useToast();
   const { batches } = useBatches();
@@ -57,6 +62,7 @@ export default function ChapterLectureManager() {
   
   // Question manager state
   const [managingQuestionsLecture, setManagingQuestionsLecture] = useState<ChapterLecture | null>(null);
+  const [chapterMetadata, setChapterMetadata] = useState<ChapterMetadata | null>(null);
 
   // Cascade reset handlers
   const handleDomainSelect = (domain: string) => {
@@ -121,10 +127,13 @@ export default function ChapterLectureManager() {
     }
   }, [selectedBatch, selectedSubject, batches]);
 
-  // Fetch lectures when chapter is selected
+  // Fetch lectures and chapter metadata when chapter is selected
   useEffect(() => {
     if (selectedChapter) {
       fetchLectures();
+      fetchChapterMetadata();
+    } else {
+      setChapterMetadata(null);
     }
   }, [selectedChapter]);
 
@@ -186,7 +195,7 @@ export default function ChapterLectureManager() {
 
     const { data, error } = await supabase
       .from("roadmap_chapters")
-      .select("id, chapter_name")
+      .select("id, chapter_name, chapter_library_id, subject")
       .eq("roadmap_id", roadmapId)
       .eq("subject", selectedSubject)
       .order("chapter_name");
@@ -202,6 +211,27 @@ export default function ChapterLectureManager() {
 
     if (data) {
       setChapters(data);
+    }
+  };
+
+  // Fetch chapter metadata when chapter is selected
+  const fetchChapterMetadata = async () => {
+    if (!selectedChapter) {
+      setChapterMetadata(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("roadmap_chapters")
+      .select("chapter_library_id, subject")
+      .eq("id", selectedChapter)
+      .single();
+
+    if (!error && data) {
+      setChapterMetadata({
+        chapter_library_id: data.chapter_library_id,
+        subject: data.subject
+      });
     }
   };
 
@@ -607,6 +637,8 @@ export default function ChapterLectureManager() {
               lectureId={managingQuestionsLecture.id}
               lectureDuration={managingQuestionsLecture.video_duration_seconds}
               chapterId={selectedChapter}
+              chapterLibraryId={chapterMetadata?.chapter_library_id}
+              subject={chapterMetadata?.subject || selectedSubject}
               onClose={() => setManagingQuestionsLecture(null)}
             />
           )}

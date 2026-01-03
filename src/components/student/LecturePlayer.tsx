@@ -72,6 +72,8 @@ interface LectureQuestion {
     id: string;
     question_text: string;
     question_type: string;
+    question_data: any;
+    answer_data: any;
     options: any;
     correct_answer: string;
     explanation: string | null;
@@ -296,32 +298,67 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   // Fetch lecture questions
   const fetchLectureQuestions = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch lecture questions
+      const { data: lqData, error: lqError } = await supabase
         .from("lecture_questions")
-        .select(`
-          *,
-          question:questions(id, question_text, question_type, options, correct_answer, explanation, xp_reward)
-        `)
+        .select("*")
         .eq("lecture_id", lecture.id)
         .eq("is_active", true)
         .order("timestamp_seconds");
 
-      if (!error && data) {
-        setLectureQuestions(data as LectureQuestion[]);
+      if (lqError || !lqData || lqData.length === 0) {
+        setLectureQuestions([]);
+        return;
+      }
+
+      // Fetch question details from question_bank
+      const questionIds = lqData.map(lq => lq.question_id);
+      const { data: questionsData, error: qError } = await supabase
+        .from("question_bank")
+        .select("id, question_type, question_data, answer_data, difficulty, marks")
+        .in("id", questionIds);
+
+      if (qError) {
+        console.error("Error fetching questions:", qError);
+        return;
+      }
+
+      // Map questions to lecture questions
+      const questionsMap = new Map(questionsData?.map(q => [q.id, q]) || []);
+      const enrichedQuestions: LectureQuestion[] = lqData.map(lq => {
+        const questionData = questionsMap.get(lq.question_id);
+        const qData = questionData?.question_data as Record<string, any> | null;
+        const aData = questionData?.answer_data as Record<string, any> | null;
+        return {
+          ...lq,
+          question: questionData ? {
+            id: questionData.id,
+            question_text: qData?.text || qData?.statements?.[0] || "",
+            question_type: questionData.question_type,
+            question_data: qData,
+            answer_data: aData,
+            options: qData?.options || [],
+            correct_answer: String(aData?.correctIndex ?? aData?.answers?.[0] ?? ""),
+            explanation: aData?.explanation || null,
+            xp_reward: questionData.marks || 5
+          } : null
+        };
+      }).filter(lq => lq.question !== null) as LectureQuestion[];
+
+      setLectureQuestions(enrichedQuestions);
+      
+      // Fetch already answered questions for this lecture
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user && enrichedQuestions.length > 0) {
+        const lectureQuestionIds = enrichedQuestions.map(q => q.id);
+        const { data: responses } = await supabase
+          .from("student_lecture_question_responses")
+          .select("lecture_question_id")
+          .eq("student_id", userData.user.id)
+          .in("lecture_question_id", lectureQuestionIds);
         
-        // Fetch already answered questions for this lecture
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          const questionIds = data.map(q => q.id);
-          const { data: responses } = await supabase
-            .from("student_lecture_question_responses")
-            .select("lecture_question_id")
-            .eq("student_id", userData.user.id)
-            .in("lecture_question_id", questionIds);
-          
-          if (responses) {
-            setAnsweredQuestionIds(new Set(responses.map(r => r.lecture_question_id)));
-          }
+        if (responses) {
+          setAnsweredQuestionIds(new Set(responses.map(r => r.lecture_question_id)));
         }
       }
     } catch (error) {

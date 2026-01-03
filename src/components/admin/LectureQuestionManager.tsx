@@ -9,12 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Plus, Clock, HelpCircle, GripVertical, Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Textarea } from "@/components/ui/textarea";
+import { Trash2, Plus, Clock, HelpCircle, Search, BookOpen, PenTool, CheckCircle } from "lucide-react";
 
 interface LectureQuestionManagerProps {
   lectureId: string;
   lectureDuration: number;
   chapterId: string;
+  chapterLibraryId?: string | null;
+  subject?: string;
   onClose: () => void;
 }
 
@@ -26,37 +31,38 @@ interface LectureQuestion {
   timer_seconds: number;
   order_in_group: number;
   is_active: boolean;
-  question?: {
-    id: string;
-    question_text: string;
-    question_type: string;
-    options: any;
-    correct_answer: string;
-    explanation: string | null;
-  };
+  question?: QuestionBankItem;
 }
 
-interface Question {
+interface QuestionBankItem {
   id: string;
-  question_text: string;
   question_type: string;
-  options: any;
-  correct_answer: string;
-  explanation: string | null;
+  question_data: any;
+  answer_data: any;
+  centralized_topic_name: string | null;
+  difficulty: string | null;
+  marks: number | null;
+}
+
+interface GroupedQuestions {
+  [topicName: string]: QuestionBankItem[];
 }
 
 export default function LectureQuestionManager({
   lectureId,
   lectureDuration,
   chapterId,
+  chapterLibraryId,
+  subject,
   onClose
 }: LectureQuestionManagerProps) {
   const { toast } = useToast();
   const [lectureQuestions, setLectureQuestions] = useState<LectureQuestion[]>([]);
-  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
+  const [groupedQuestions, setGroupedQuestions] = useState<GroupedQuestions>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("chapter");
 
   // New question form states
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
@@ -64,58 +70,90 @@ export default function LectureQuestionManager({
   const [timestampSeconds, setTimestampSeconds] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(15);
 
+  // Manual question creation states
+  const [newQuestionType, setNewQuestionType] = useState<"mcq" | "true_false">("mcq");
+  const [newQuestionText, setNewQuestionText] = useState("");
+  const [newOptions, setNewOptions] = useState(["", "", "", ""]);
+  const [newCorrectIndex, setNewCorrectIndex] = useState(0);
+  const [newTrueFalseAnswer, setNewTrueFalseAnswer] = useState(true);
+  const [newExplanation, setNewExplanation] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     fetchLectureQuestions();
-    fetchAvailableQuestions();
-  }, [lectureId]);
+    if (chapterLibraryId) {
+      fetchChapterQuestions();
+    }
+  }, [lectureId, chapterLibraryId]);
 
   const fetchLectureQuestions = async () => {
-    const { data, error } = await supabase
-      .from("lecture_questions")
-      .select(`
-        *,
-        question:questions(id, question_text, question_type, options, correct_answer, explanation)
-      `)
-      .eq("lecture_id", lectureId)
-      .order("timestamp_seconds");
+    try {
+      // Fetch lecture questions
+      const { data: lqData, error: lqError } = await supabase
+        .from("lecture_questions")
+        .select("*")
+        .eq("lecture_id", lectureId)
+        .order("timestamp_seconds");
 
-    if (error) {
+      if (lqError) {
+        console.error("Error fetching lecture questions:", lqError);
+        toast({ title: "Failed to fetch questions", variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
+
+      if (!lqData || lqData.length === 0) {
+        setLectureQuestions([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch question details from question_bank
+      const questionIds = lqData.map(lq => lq.question_id);
+      const { data: questionsData } = await supabase
+        .from("question_bank")
+        .select("id, question_type, question_data, answer_data, centralized_topic_name, difficulty, marks")
+        .in("id", questionIds);
+
+      // Map questions to lecture questions
+      const questionsMap = new Map(questionsData?.map(q => [q.id, q]) || []);
+      const enrichedQuestions: LectureQuestion[] = lqData.map(lq => ({
+        ...lq,
+        question: questionsMap.get(lq.question_id) || undefined
+      }));
+
+      setLectureQuestions(enrichedQuestions);
+    } catch (error) {
       console.error("Error fetching lecture questions:", error);
-      toast({ title: "Failed to fetch questions", variant: "destructive" });
-    } else {
-      setLectureQuestions(data || []);
     }
     setIsLoading(false);
   };
 
-  const fetchAvailableQuestions = async () => {
-    // Fetch questions from the questions table that could be used
-    // First try to get questions related to the chapter
-    const { data: chapterData } = await supabase
-      .from("roadmap_chapters")
-      .select("roadmap_id")
-      .eq("id", chapterId)
-      .single();
+  const fetchChapterQuestions = async () => {
+    if (!chapterLibraryId) return;
 
-    // Query questions - we'll filter MCQ type questions for video quizzes
+    // Fetch questions from question_bank for this chapter
     const { data, error } = await supabase
-      .from("questions")
-      .select("id, question_text, question_type, options, correct_answer, explanation")
-      .eq("question_type", "mcq")
-      .limit(100);
+      .from("question_bank")
+      .select("id, question_type, question_data, answer_data, centralized_topic_name, difficulty, marks")
+      .eq("chapter_library_id", chapterLibraryId)
+      .in("question_type", ["mcq", "true_false"])
+      .eq("is_published", true);
 
-    if (!error && data) {
-      setAvailableQuestions(data);
+    if (error) {
+      console.error("Error fetching chapter questions:", error);
+      return;
     }
-  };
 
-  const fetchAvailableQuestionsOld = async () => {
-    let query = supabase
-      .from("questions")
-      .select("id, question_text, question_type, options, correct_answer, explanation")
-      .limit(100);
+    // Group questions by topic
+    const grouped: GroupedQuestions = {};
+    (data || []).forEach((q) => {
+      const topicName = q.centralized_topic_name || "General";
+      if (!grouped[topicName]) grouped[topicName] = [];
+      grouped[topicName].push(q);
+    });
 
-    // This function is deprecated
+    setGroupedQuestions(grouped);
   };
 
   const formatTimestamp = (seconds: number): string => {
@@ -134,7 +172,13 @@ export default function LectureQuestionManager({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleAddQuestion = async () => {
+  const getQuestionText = (q: QuestionBankItem): string => {
+    if (q.question_data?.text) return q.question_data.text;
+    if (q.question_data?.statements?.[0]) return q.question_data.statements[0];
+    return "Question";
+  };
+
+  const handleAddExistingQuestion = async () => {
     if (!selectedQuestionId) {
       toast({ title: "Please select a question", variant: "destructive" });
       return;
@@ -176,6 +220,95 @@ export default function LectureQuestionManager({
     }
   };
 
+  const handleCreateAndAddQuestion = async () => {
+    if (!newQuestionText.trim()) {
+      toast({ title: "Please enter question text", variant: "destructive" });
+      return;
+    }
+
+    if (newQuestionType === "mcq") {
+      const filledOptions = newOptions.filter(o => o.trim());
+      if (filledOptions.length < 2) {
+        toast({ title: "Please enter at least 2 options", variant: "destructive" });
+        return;
+      }
+    }
+
+    const timestampTotal = timestampMinutes * 60 + timestampSeconds;
+    if (timestampTotal >= lectureDuration) {
+      toast({ title: "Timestamp exceeds video duration", variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      // Build question data based on type
+      let questionData: any = {};
+      let answerData: any = { explanation: newExplanation };
+
+      if (newQuestionType === "mcq") {
+        const filledOptions = newOptions.filter(o => o.trim());
+        questionData = { text: newQuestionText, options: filledOptions };
+        answerData.correctIndex = newCorrectIndex;
+      } else {
+        // true_false
+        questionData = { statements: [newQuestionText] };
+        answerData.answers = [newTrueFalseAnswer];
+      }
+
+      // Insert into question_bank
+      const { data: newQuestion, error: qError } = await supabase
+        .from("question_bank")
+        .insert({
+          question_type: newQuestionType,
+          question_data: questionData,
+          answer_data: answerData,
+          chapter_library_id: chapterLibraryId,
+          centralized_topic_name: "Lecture Questions",
+          subject: subject,
+          is_centralized: true,
+          is_lecture_question: true,
+          is_published: true,
+          admin_reviewed: true,
+          created_manually: true,
+          difficulty: "medium",
+          marks: 1
+        })
+        .select()
+        .single();
+
+      if (qError) throw qError;
+
+      // Add to lecture_questions
+      const { error: lqError } = await supabase.from("lecture_questions").insert({
+        lecture_id: lectureId,
+        question_id: newQuestion.id,
+        timestamp_seconds: timestampTotal,
+        timer_seconds: timerSeconds,
+        order_in_group: lectureQuestions.filter(q => q.timestamp_seconds === timestampTotal).length + 1,
+        is_active: true,
+        created_by: userData.user?.id
+      });
+
+      if (lqError) throw lqError;
+
+      toast({ title: "Question created and added!" });
+      setIsAddDialogOpen(false);
+      resetForm();
+      fetchLectureQuestions();
+      fetchChapterQuestions();
+
+    } catch (error: any) {
+      console.error("Error creating question:", error);
+      toast({ title: "Failed to create question", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDeleteQuestion = async (questionId: string) => {
     if (!confirm("Remove this question from the lecture?")) return;
 
@@ -211,11 +344,21 @@ export default function LectureQuestionManager({
     setTimestampSeconds(0);
     setTimerSeconds(15);
     setSearchQuery("");
+    setNewQuestionText("");
+    setNewOptions(["", "", "", ""]);
+    setNewCorrectIndex(0);
+    setNewTrueFalseAnswer(true);
+    setNewExplanation("");
+    setActiveTab("chapter");
   };
 
-  const filteredQuestions = availableQuestions.filter(q =>
-    q.question_text.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter questions by search query
+  const filterQuestions = (questions: QuestionBankItem[]) => {
+    if (!searchQuery.trim()) return questions;
+    return questions.filter(q => 
+      getQuestionText(q).toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
   // Calculate timeline markers
   const timelineMarkers = lectureQuestions.map(q => ({
@@ -224,11 +367,13 @@ export default function LectureQuestionManager({
   }));
 
   const truncateText = (text: string, maxLength: number = 80) => {
-    // Strip HTML tags for display
     const strippedText = text.replace(/<[^>]*>/g, '');
     if (strippedText.length <= maxLength) return strippedText;
     return strippedText.substring(0, maxLength) + "...";
   };
+
+  const topicNames = Object.keys(groupedQuestions);
+  const hasChapterQuestions = topicNames.length > 0;
 
   return (
     <div className="space-y-6">
@@ -237,6 +382,7 @@ export default function LectureQuestionManager({
           <h2 className="text-xl font-bold">Manage Lecture Questions</h2>
           <p className="text-sm text-muted-foreground">
             Video Duration: {formatDuration(lectureDuration)}
+            {subject && <> • Subject: {subject}</>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -247,11 +393,12 @@ export default function LectureQuestionManager({
                 Add Question
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[85vh]">
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
               <DialogHeader>
                 <DialogTitle>Add Question at Timestamp</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              
+              <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
                 {/* Timestamp Input */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -297,61 +444,242 @@ export default function LectureQuestionManager({
                   </div>
                 </div>
 
-                {/* Question Search & Selection */}
-                <div>
-                  <Label>Select Question</Label>
-                  <div className="relative mt-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search questions..."
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
+                {/* Tabs for Chapter Questions vs Create New */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="chapter" className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      Chapter Questions
+                    </TabsTrigger>
+                    <TabsTrigger value="create" className="flex items-center gap-2">
+                      <PenTool className="h-4 w-4" />
+                      Create New
+                    </TabsTrigger>
+                  </TabsList>
 
-                <ScrollArea className="h-64 border rounded-lg p-2">
-                  {filteredQuestions.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No questions found. Create questions in the Question Bank first.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {filteredQuestions.map((q) => (
-                        <Card
-                          key={q.id}
-                          className={`p-3 cursor-pointer transition-colors ${
-                            selectedQuestionId === q.id
-                              ? "border-primary bg-primary/5"
-                              : "hover:bg-muted/50"
-                          }`}
-                          onClick={() => setSelectedQuestionId(q.id)}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                              selectedQuestionId === q.id
-                                ? "bg-primary border-primary"
-                                : "border-muted-foreground"
-                            }`} />
-                            <div className="flex-1">
-                              <p className="text-sm">{truncateText(q.question_text)}</p>
-                              <div className="flex gap-2 mt-1">
-                                <Badge variant="outline" className="text-xs">
-                                  {q.question_type.replace("_", " ").toUpperCase()}
-                                </Badge>
-                              </div>
+                  {/* Chapter Questions Tab */}
+                  <TabsContent value="chapter" className="flex-1 overflow-hidden flex flex-col mt-4">
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search questions..."
+                        className="pl-10"
+                      />
+                    </div>
+
+                    <ScrollArea className="flex-1 border rounded-lg p-2">
+                      {!chapterLibraryId ? (
+                        <p className="text-center text-muted-foreground py-8">
+                          No chapter library linked. Use "Create New" tab to add questions.
+                        </p>
+                      ) : !hasChapterQuestions ? (
+                        <p className="text-center text-muted-foreground py-8">
+                          No questions found for this chapter. Use "Create New" tab to add questions.
+                        </p>
+                      ) : (
+                        <Accordion type="multiple" className="w-full">
+                          {topicNames.map((topicName) => {
+                            const topicQuestions = filterQuestions(groupedQuestions[topicName]);
+                            if (topicQuestions.length === 0) return null;
+
+                            return (
+                              <AccordionItem key={topicName} value={topicName}>
+                                <AccordionTrigger className="text-sm hover:no-underline">
+                                  <div className="flex items-center gap-2">
+                                    <span>{topicName}</span>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {topicQuestions.length}
+                                    </Badge>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-2 pl-2">
+                                    {topicQuestions.map((q) => {
+                                      const isAlreadyAdded = lectureQuestions.some(lq => lq.question_id === q.id);
+                                      return (
+                                        <Card
+                                          key={q.id}
+                                          className={`p-3 cursor-pointer transition-colors ${
+                                            isAlreadyAdded
+                                              ? "opacity-50 cursor-not-allowed"
+                                              : selectedQuestionId === q.id
+                                              ? "border-primary bg-primary/5"
+                                              : "hover:bg-muted/50"
+                                          }`}
+                                          onClick={() => !isAlreadyAdded && setSelectedQuestionId(q.id)}
+                                        >
+                                          <div className="flex items-start gap-3">
+                                            <div className={`w-4 h-4 rounded-full border-2 mt-1 flex-shrink-0 ${
+                                              isAlreadyAdded
+                                                ? "bg-green-500 border-green-500"
+                                                : selectedQuestionId === q.id
+                                                ? "bg-primary border-primary"
+                                                : "border-muted-foreground"
+                                            }`}>
+                                              {isAlreadyAdded && <CheckCircle className="h-3 w-3 text-white" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm">{truncateText(getQuestionText(q))}</p>
+                                              <div className="flex gap-2 mt-1">
+                                                <Badge variant="outline" className="text-xs">
+                                                  {q.question_type.replace("_", " ").toUpperCase()}
+                                                </Badge>
+                                                {isAlreadyAdded && (
+                                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                                    Added
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </Card>
+                                      );
+                                    })}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                        </Accordion>
+                      )}
+                    </ScrollArea>
+
+                    <Button 
+                      onClick={handleAddExistingQuestion} 
+                      className="w-full mt-3" 
+                      disabled={!selectedQuestionId}
+                    >
+                      Add Question at {formatTimestamp(timestampMinutes * 60 + timestampSeconds)}
+                    </Button>
+                  </TabsContent>
+
+                  {/* Create New Tab */}
+                  <TabsContent value="create" className="flex-1 overflow-hidden flex flex-col mt-4">
+                    <ScrollArea className="flex-1">
+                      <div className="space-y-4 pr-2">
+                        {/* Question Type */}
+                        <div>
+                          <Label>Question Type</Label>
+                          <div className="flex gap-2 mt-2">
+                            <Button
+                              type="button"
+                              variant={newQuestionType === "mcq" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setNewQuestionType("mcq")}
+                            >
+                              MCQ
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={newQuestionType === "true_false" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setNewQuestionType("true_false")}
+                            >
+                              True/False
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Question Text */}
+                        <div>
+                          <Label>Question Text</Label>
+                          <Textarea
+                            value={newQuestionText}
+                            onChange={(e) => setNewQuestionText(e.target.value)}
+                            placeholder="Enter your question here..."
+                            className="mt-1"
+                            rows={3}
+                          />
+                        </div>
+
+                        {/* MCQ Options */}
+                        {newQuestionType === "mcq" && (
+                          <div>
+                            <Label>Options</Label>
+                            <div className="space-y-2 mt-2">
+                              {newOptions.map((option, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <div
+                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                                      newCorrectIndex === idx
+                                        ? "bg-green-500 border-green-500 text-white"
+                                        : "border-muted-foreground hover:border-green-400"
+                                    }`}
+                                    onClick={() => setNewCorrectIndex(idx)}
+                                  >
+                                    {newCorrectIndex === idx && <CheckCircle className="h-4 w-4" />}
+                                  </div>
+                                  <Input
+                                    value={option}
+                                    onChange={(e) => {
+                                      const updated = [...newOptions];
+                                      updated[idx] = e.target.value;
+                                      setNewOptions(updated);
+                                    }}
+                                    placeholder={`Option ${idx + 1}`}
+                                    className="flex-1"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Click the circle to mark correct answer
+                            </p>
+                          </div>
+                        )}
+
+                        {/* True/False Answer */}
+                        {newQuestionType === "true_false" && (
+                          <div>
+                            <Label>Correct Answer</Label>
+                            <div className="flex gap-2 mt-2">
+                              <Button
+                                type="button"
+                                variant={newTrueFalseAnswer ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setNewTrueFalseAnswer(true)}
+                                className={newTrueFalseAnswer ? "bg-green-500 hover:bg-green-600" : ""}
+                              >
+                                True
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={!newTrueFalseAnswer ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setNewTrueFalseAnswer(false)}
+                                className={!newTrueFalseAnswer ? "bg-red-500 hover:bg-red-600" : ""}
+                              >
+                                False
+                              </Button>
                             </div>
                           </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
+                        )}
 
-                <Button onClick={handleAddQuestion} className="w-full" disabled={!selectedQuestionId}>
-                  Add Question at {formatTimestamp(timestampMinutes * 60 + timestampSeconds)}
-                </Button>
+                        {/* Explanation */}
+                        <div>
+                          <Label>Explanation (Optional)</Label>
+                          <Textarea
+                            value={newExplanation}
+                            onChange={(e) => setNewExplanation(e.target.value)}
+                            placeholder="Explain why this is the correct answer..."
+                            className="mt-1"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                    </ScrollArea>
+
+                    <Button 
+                      onClick={handleCreateAndAddQuestion} 
+                      className="w-full mt-3" 
+                      disabled={!newQuestionText.trim() || isSaving}
+                    >
+                      {isSaving ? "Saving..." : `Create & Add at ${formatTimestamp(timestampMinutes * 60 + timestampSeconds)}`}
+                    </Button>
+                  </TabsContent>
+                </Tabs>
               </div>
             </DialogContent>
           </Dialog>
@@ -365,10 +693,8 @@ export default function LectureQuestionManager({
       <Card className="p-4">
         <h3 className="text-sm font-semibold mb-3">Video Timeline</h3>
         <div className="relative h-12 bg-muted rounded-lg overflow-hidden">
-          {/* Progress track */}
           <div className="absolute inset-0 bg-gradient-to-r from-muted to-muted-foreground/20" />
           
-          {/* Question markers */}
           {timelineMarkers.map((marker) => (
             <div
               key={marker.id}
@@ -376,13 +702,12 @@ export default function LectureQuestionManager({
                 marker.is_active ? "bg-primary" : "bg-muted-foreground/50"
               }`}
               style={{ left: `${marker.position}%` }}
-              title={`${formatTimestamp(marker.timestamp_seconds)} - ${truncateText(marker.question?.question_text || "", 40)}`}
+              title={`${formatTimestamp(marker.timestamp_seconds)} - ${truncateText(getQuestionText(marker.question as QuestionBankItem) || "", 40)}`}
             >
               <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background" />
             </div>
           ))}
           
-          {/* Time labels */}
           <div className="absolute bottom-1 left-2 text-xs text-muted-foreground">0:00</div>
           <div className="absolute bottom-1 right-2 text-xs text-muted-foreground">{formatDuration(lectureDuration)}</div>
         </div>
@@ -421,7 +746,7 @@ export default function LectureQuestionManager({
                       <div className="flex items-start gap-2">
                         <HelpCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="text-sm">{truncateText(lq.question?.question_text || "", 120)}</p>
+                          <p className="text-sm">{truncateText(getQuestionText(lq.question as QuestionBankItem) || "", 120)}</p>
                           <Badge variant="outline" className="text-xs mt-1">
                             {lq.question?.question_type?.replace("_", " ").toUpperCase()}
                           </Badge>

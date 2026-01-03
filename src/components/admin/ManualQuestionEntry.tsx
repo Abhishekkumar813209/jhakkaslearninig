@@ -29,6 +29,13 @@ interface ManualQuestionEntryProps {
   applicableClasses?: string[];
   applicableExams?: string[];
   
+  // Lecture mode props (new)
+  lectureMode?: boolean;
+  lectureId?: string;
+  timestampSeconds?: number;
+  timerSeconds?: number;
+  onQuestionAdded?: (questionId: string) => void;
+  
   onComplete: () => void;
 }
 
@@ -46,6 +53,11 @@ export const ManualQuestionEntry = ({
   subject,
   applicableClasses = [],
   applicableExams = [],
+  lectureMode = false,
+  lectureId,
+  timestampSeconds = 0,
+  timerSeconds = 15,
+  onQuestionAdded,
   onComplete
 }: ManualQuestionEntryProps) => {
   const [selectedGameType, setSelectedGameType] = useState<GameType>("mcq");
@@ -401,7 +413,32 @@ export const ManualQuestionEntry = ({
       if (questionBankError) throw questionBankError;
 
       console.log('✅ Question saved with ID:', questionBankData.id, 'BOTH JSONB + legacy data written');
-      toast.success("✅ Question saved to Question Bank and ready for students!");
+      
+      // If in lecture mode, also add to lecture_questions
+      if (lectureMode && lectureId && timestampSeconds !== undefined) {
+        const { data: userData } = await supabase.auth.getUser();
+        
+        const { error: lectureQError } = await supabase
+          .from('lecture_questions')
+          .insert({
+            lecture_id: lectureId,
+            question_id: questionBankData.id,
+            timestamp_seconds: timestampSeconds,
+            timer_seconds: timerSeconds || 15,
+            is_active: true,
+            created_by: userData.user?.id
+          });
+        
+        if (lectureQError) {
+          console.error('Error adding to lecture_questions:', lectureQError);
+          toast.error("Question saved but failed to add to lecture");
+        } else {
+          toast.success("✅ Question created and added to lecture!");
+          onQuestionAdded?.(questionBankData.id);
+        }
+      } else {
+        toast.success("✅ Question saved to Question Bank and ready for students!");
+      }
       
       // Reset form
       setQuestionData(null);

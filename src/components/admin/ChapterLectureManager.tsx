@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, PlayCircle, GripVertical, FileText } from "lucide-react";
+import { Trash2, Plus, PlayCircle, GripVertical, FileText, HelpCircle } from "lucide-react";
 import { useBatches } from "@/hooks/useBatches";
 import { useBoards } from "@/hooks/useBoards";
 import { useExamTypes } from "@/hooks/useExamTypes";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveActiveRoadmapIdForBatch } from "@/lib/roadmapHelpers";
+import LectureQuestionManager from "./LectureQuestionManager";
 
 
 interface ChapterLecture {
@@ -53,6 +54,9 @@ export default function ChapterLectureManager() {
   const [description, setDescription] = useState("");
   const [xpReward, setXpReward] = useState(10);
   const [lectureNotesUrl, setLectureNotesUrl] = useState("");
+  
+  // Question manager state
+  const [managingQuestionsLecture, setManagingQuestionsLecture] = useState<ChapterLecture | null>(null);
 
   // Cascade reset handlers
   const handleDomainSelect = (domain: string) => {
@@ -574,6 +578,14 @@ export default function ChapterLectureManager() {
                     </div>
                   </div>
                   <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setManagingQuestionsLecture(lecture)}
+                  >
+                    <HelpCircle className="h-4 w-4 mr-1" />
+                    Questions
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDeleteLecture(lecture.id)}
@@ -586,6 +598,20 @@ export default function ChapterLectureManager() {
           </div>
         </Card>
       )}
+
+      {/* Lecture Question Manager Dialog */}
+      <Dialog open={!!managingQuestionsLecture} onOpenChange={(open) => !open && setManagingQuestionsLecture(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {managingQuestionsLecture && (
+            <LectureQuestionManager
+              lectureId={managingQuestionsLecture.id}
+              lectureDuration={managingQuestionsLecture.video_duration_seconds}
+              chapterId={selectedChapter}
+              onClose={() => setManagingQuestionsLecture(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1879,6 +1879,57 @@ export type Database = {
           },
         ]
       }
+      lecture_questions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          lecture_id: string
+          order_in_group: number | null
+          question_id: string
+          timer_seconds: number | null
+          timestamp_seconds: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          lecture_id: string
+          order_in_group?: number | null
+          question_id: string
+          timer_seconds?: number | null
+          timestamp_seconds: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          lecture_id?: string
+          order_in_group?: number | null
+          question_id?: string
+          timer_seconds?: number | null
+          timestamp_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecture_questions_lecture_id_fkey"
+            columns: ["lecture_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_lectures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecture_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lectures: {
         Row: {
           chapter: number
@@ -3790,6 +3841,47 @@ export type Database = {
             columns: ["chapter_lecture_id"]
             isOneToOne: false
             referencedRelation: "chapter_lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_lecture_question_responses: {
+        Row: {
+          answered_at: string | null
+          id: string
+          is_correct: boolean | null
+          lecture_question_id: string
+          response: Json
+          student_id: string
+          time_taken_seconds: number | null
+          xp_earned: number | null
+        }
+        Insert: {
+          answered_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          lecture_question_id: string
+          response: Json
+          student_id: string
+          time_taken_seconds?: number | null
+          xp_earned?: number | null
+        }
+        Update: {
+          answered_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          lecture_question_id?: string
+          response?: Json
+          student_id?: string
+          time_taken_seconds?: number | null
+          xp_earned?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_lecture_question_responses_lecture_question_id_fkey"
+            columns: ["lecture_question_id"]
+            isOneToOne: false
+            referencedRelation: "lecture_questions"
             referencedColumns: ["id"]
           },
         ]

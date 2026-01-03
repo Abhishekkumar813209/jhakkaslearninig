@@ -27,6 +27,7 @@ import {
   Keyboard,
   ChevronUp,
   ChevronDown,
+  HelpCircle,
 } from 'lucide-react';
 import {
   Popover,
@@ -36,6 +37,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { supabase } from '@/integrations/supabase/client';
 import LectureNotes from './LectureNotes';
+import VideoQuestionOverlay from './VideoQuestionOverlay';
 import { Check } from 'lucide-react';
 import {
   Tooltip,
@@ -58,6 +60,23 @@ interface LectureProgress {
   watch_time_seconds: number;
   is_completed: boolean;
   last_watched_at: Date;
+}
+
+interface LectureQuestion {
+  id: string;
+  lecture_id: string;
+  question_id: string;
+  timestamp_seconds: number;
+  timer_seconds: number;
+  question: {
+    id: string;
+    question_text: string;
+    question_type: string;
+    options: any;
+    correct_answer: string;
+    explanation: string | null;
+    xp_reward?: number;
+  };
 }
 
 interface LecturePlayerProps {
@@ -137,6 +156,13 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [showNotes, setShowNotes] = useState(true);
+  
+  // Lecture Questions states
+  const [lectureQuestions, setLectureQuestions] = useState<LectureQuestion[]>([]);
+  const [answeredQuestionIds, setAnsweredQuestionIds] = useState<Set<string>>(new Set());
+  const [currentLectureQuestion, setCurrentLectureQuestion] = useState<LectureQuestion | null>(null);
+  const [showQuestionOverlay, setShowQuestionOverlay] = useState(false);
+  const lastCheckedTimeRef = useRef<number>(0);
   
   // Fullscreen change listener
   useEffect(() => {
@@ -261,7 +287,101 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   // Load progress when lecture changes
   useEffect(() => {
     loadLectureProgress();
+    fetchLectureQuestions();
+    setAnsweredQuestionIds(new Set());
+    setCurrentLectureQuestion(null);
+    setShowQuestionOverlay(false);
   }, [lecture.id]);
+
+  // Fetch lecture questions
+  const fetchLectureQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("lecture_questions")
+        .select(`
+          *,
+          question:questions(id, question_text, question_type, options, correct_answer, explanation, xp_reward)
+        `)
+        .eq("lecture_id", lecture.id)
+        .eq("is_active", true)
+        .order("timestamp_seconds");
+
+      if (!error && data) {
+        setLectureQuestions(data as LectureQuestion[]);
+        
+        // Fetch already answered questions for this lecture
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const questionIds = data.map(q => q.id);
+          const { data: responses } = await supabase
+            .from("student_lecture_question_responses")
+            .select("lecture_question_id")
+            .eq("student_id", userData.user.id)
+            .in("lecture_question_id", questionIds);
+          
+          if (responses) {
+            setAnsweredQuestionIds(new Set(responses.map(r => r.lecture_question_id)));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching lecture questions:", error);
+    }
+  };
+
+  // Check for questions at current timestamp
+  useEffect(() => {
+    if (!isPlaying || showQuestionOverlay || lectureQuestions.length === 0) return;
+    
+    // Avoid checking too frequently
+    const currentSecond = Math.floor(currentTime);
+    if (currentSecond === lastCheckedTimeRef.current) return;
+    lastCheckedTimeRef.current = currentSecond;
+
+    // Find a question that should trigger at current time
+    const triggeredQuestion = lectureQuestions.find(q => {
+      const questionTime = q.timestamp_seconds;
+      // Trigger if we're within 1 second of the question timestamp
+      return currentSecond >= questionTime && 
+             currentSecond <= questionTime + 1 && 
+             !answeredQuestionIds.has(q.id);
+    });
+
+    if (triggeredQuestion && player) {
+      // Pause video and show question
+      player.pauseVideo();
+      setCurrentLectureQuestion(triggeredQuestion);
+      setShowQuestionOverlay(true);
+    }
+  }, [currentTime, isPlaying, lectureQuestions, answeredQuestionIds, showQuestionOverlay, player]);
+
+  // Handle question completion
+  const handleQuestionComplete = (isCorrect: boolean, xpEarned: number) => {
+    if (currentLectureQuestion) {
+      setAnsweredQuestionIds(prev => new Set([...prev, currentLectureQuestion.id]));
+    }
+    setShowQuestionOverlay(false);
+    setCurrentLectureQuestion(null);
+    
+    // Resume video
+    if (player) {
+      player.playVideo();
+    }
+  };
+
+  // Handle question timeout
+  const handleQuestionTimeout = () => {
+    if (currentLectureQuestion) {
+      setAnsweredQuestionIds(prev => new Set([...prev, currentLectureQuestion.id]));
+    }
+    setShowQuestionOverlay(false);
+    setCurrentLectureQuestion(null);
+    
+    // Resume video
+    if (player) {
+      player.playVideo();
+    }
+  };
 
   // Setup keyboard shortcuts when player is ready
   useEffect(() => {
@@ -916,6 +1036,15 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             )}
           </div>
 
+          {/* Question Overlay */}
+          {showQuestionOverlay && currentLectureQuestion && (
+            <VideoQuestionOverlay
+              lectureQuestion={currentLectureQuestion}
+              onComplete={handleQuestionComplete}
+              onTimeout={handleQuestionTimeout}
+            />
+          )}
+
           {/* Video Controls */}
           <div className={`p-3 md:p-4 text-white transition-all duration-300 ${
             isFullscreen ? `absolute bottom-0 left-0 right-0 z-[100] bg-gradient-to-t from-black/90 via-black/60 to-transparent pb-6 pt-16 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}` : 'bg-black/90'
@@ -925,34 +1054,64 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
             <div className="mb-3">
               <div className="flex items-center justify-between text-xs md:text-sm mb-2">
                 <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
+                <div className="flex items-center gap-2">
+                  {lectureQuestions.length > 0 && (
+                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-yellow-400 border-yellow-400/50">
+                      <HelpCircle className="h-3 w-3" />
+                      {lectureQuestions.length - answeredQuestionIds.size} questions left
+                    </Badge>
+                  )}
+                  <span>{formatTime(duration)}</span>
+                </div>
               </div>
-              <Slider
-                value={[progressPercentage]}
-                min={0}
-                max={100}
-                step={0.1}
-                className="cursor-pointer [&_[data-radix-slider-track]]:h-2 [&_[data-radix-slider-track]]:bg-gray-700/50 [&_[data-radix-slider-range]]:bg-blue-500 [&_[data-radix-slider-thumb]]:h-4 [&_[data-radix-slider-thumb]]:w-4 [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:border-blue-500"
-                onValueChange={(value) => {
-                  setIsSeeking(true);
-                  setShowControls(true);
-                  if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-                  // Real-time preview while dragging
-                  const newTime = (value[0] / 100) * duration;
-                  setCurrentTime(newTime);
-                }}
-                onValueCommit={(value) => {
-                  // Seek when drag ends
-                  handleSeek(value[0]);
-                  setIsSeeking(false);
-                  // Auto-hide controls after seeking
-                  setTimeout(() => {
-                    if (isPlaying && isFullscreen) {
-                      controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
-                    }
-                  }, 1000);
-                }}
-              />
+              
+              {/* Progress bar with question markers */}
+              <div className="relative">
+                <Slider
+                  value={[progressPercentage]}
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  className="cursor-pointer [&_[data-radix-slider-track]]:h-2 [&_[data-radix-slider-track]]:bg-gray-700/50 [&_[data-radix-slider-range]]:bg-blue-500 [&_[data-radix-slider-thumb]]:h-4 [&_[data-radix-slider-thumb]]:w-4 [&_[data-radix-slider-thumb]]:border-2 [&_[data-radix-slider-thumb]]:border-blue-500"
+                  onValueChange={(value) => {
+                    setIsSeeking(true);
+                    setShowControls(true);
+                    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+                    // Real-time preview while dragging
+                    const newTime = (value[0] / 100) * duration;
+                    setCurrentTime(newTime);
+                  }}
+                  onValueCommit={(value) => {
+                    // Seek when drag ends
+                    handleSeek(value[0]);
+                    setIsSeeking(false);
+                    // Auto-hide controls after seeking
+                    setTimeout(() => {
+                      if (isPlaying && isFullscreen) {
+                        controlsTimeoutRef.current = setTimeout(() => setShowControls(false), 3000);
+                      }
+                    }, 1000);
+                  }}
+                />
+                
+                {/* Question markers on the progress bar */}
+                {duration > 0 && lectureQuestions.map((q) => {
+                  const position = (q.timestamp_seconds / duration) * 100;
+                  const isAnswered = answeredQuestionIds.has(q.id);
+                  return (
+                    <div
+                      key={q.id}
+                      className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all pointer-events-none ${
+                        isAnswered 
+                          ? 'bg-green-500 border-2 border-green-300' 
+                          : 'bg-yellow-500 border-2 border-yellow-300 animate-pulse'
+                      }`}
+                      style={{ left: `calc(${position}% - 6px)` }}
+                      title={`Question at ${formatTime(q.timestamp_seconds)}`}
+                    />
+                  );
+                })}
+              </div>
             </div>
 
             {/* Control Buttons */}

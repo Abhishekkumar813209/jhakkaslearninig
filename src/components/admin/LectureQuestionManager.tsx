@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus, Clock, HelpCircle, Search, BookOpen, PenTool, CheckCircle } from "lucide-react";
+import { ManualQuestionEntry } from "./ManualQuestionEntry";
 
 interface LectureQuestionManagerProps {
   lectureId: string;
@@ -64,20 +64,11 @@ export default function LectureQuestionManager({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("chapter");
 
-  // New question form states
+  // For selecting existing questions
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const [timestampMinutes, setTimestampMinutes] = useState(0);
   const [timestampSeconds, setTimestampSeconds] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(15);
-
-  // Manual question creation states
-  const [newQuestionType, setNewQuestionType] = useState<"mcq" | "true_false">("mcq");
-  const [newQuestionText, setNewQuestionText] = useState("");
-  const [newOptions, setNewOptions] = useState(["", "", "", ""]);
-  const [newCorrectIndex, setNewCorrectIndex] = useState(0);
-  const [newTrueFalseAnswer, setNewTrueFalseAnswer] = useState(true);
-  const [newExplanation, setNewExplanation] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetchLectureQuestions();
@@ -220,95 +211,6 @@ export default function LectureQuestionManager({
     }
   };
 
-  const handleCreateAndAddQuestion = async () => {
-    if (!newQuestionText.trim()) {
-      toast({ title: "Please enter question text", variant: "destructive" });
-      return;
-    }
-
-    if (newQuestionType === "mcq") {
-      const filledOptions = newOptions.filter(o => o.trim());
-      if (filledOptions.length < 2) {
-        toast({ title: "Please enter at least 2 options", variant: "destructive" });
-        return;
-      }
-    }
-
-    const timestampTotal = timestampMinutes * 60 + timestampSeconds;
-    if (timestampTotal >= lectureDuration) {
-      toast({ title: "Timestamp exceeds video duration", variant: "destructive" });
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-
-      // Build question data based on type
-      let questionData: any = {};
-      let answerData: any = { explanation: newExplanation };
-
-      if (newQuestionType === "mcq") {
-        const filledOptions = newOptions.filter(o => o.trim());
-        questionData = { text: newQuestionText, options: filledOptions };
-        answerData.correctIndex = newCorrectIndex;
-      } else {
-        // true_false
-        questionData = { statements: [newQuestionText] };
-        answerData.answers = [newTrueFalseAnswer];
-      }
-
-      // Insert into question_bank
-      const { data: newQuestion, error: qError } = await supabase
-        .from("question_bank")
-        .insert({
-          question_type: newQuestionType,
-          question_data: questionData,
-          answer_data: answerData,
-          chapter_library_id: chapterLibraryId,
-          centralized_topic_name: "Lecture Questions",
-          subject: subject,
-          is_centralized: true,
-          is_lecture_question: true,
-          is_published: true,
-          admin_reviewed: true,
-          created_manually: true,
-          difficulty: "medium",
-          marks: 1
-        })
-        .select()
-        .single();
-
-      if (qError) throw qError;
-
-      // Add to lecture_questions
-      const { error: lqError } = await supabase.from("lecture_questions").insert({
-        lecture_id: lectureId,
-        question_id: newQuestion.id,
-        timestamp_seconds: timestampTotal,
-        timer_seconds: timerSeconds,
-        order_in_group: lectureQuestions.filter(q => q.timestamp_seconds === timestampTotal).length + 1,
-        is_active: true,
-        created_by: userData.user?.id
-      });
-
-      if (lqError) throw lqError;
-
-      toast({ title: "Question created and added!" });
-      setIsAddDialogOpen(false);
-      resetForm();
-      fetchLectureQuestions();
-      fetchChapterQuestions();
-
-    } catch (error: any) {
-      console.error("Error creating question:", error);
-      toast({ title: "Failed to create question", description: error.message, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleDeleteQuestion = async (questionId: string) => {
     if (!confirm("Remove this question from the lecture?")) return;
 
@@ -344,12 +246,14 @@ export default function LectureQuestionManager({
     setTimestampSeconds(0);
     setTimerSeconds(15);
     setSearchQuery("");
-    setNewQuestionText("");
-    setNewOptions(["", "", "", ""]);
-    setNewCorrectIndex(0);
-    setNewTrueFalseAnswer(true);
-    setNewExplanation("");
     setActiveTab("chapter");
+  };
+
+  const handleQuestionCreated = (questionId: string) => {
+    setIsAddDialogOpen(false);
+    resetForm();
+    fetchLectureQuestions();
+    fetchChapterQuestions();
   };
 
   // Filter questions by search query
@@ -556,128 +460,24 @@ export default function LectureQuestionManager({
                   </TabsContent>
 
                   {/* Create New Tab */}
-                  <TabsContent value="create" className="flex-1 overflow-hidden flex flex-col mt-4">
-                    <ScrollArea className="flex-1">
-                      <div className="space-y-4 pr-2">
-                        {/* Question Type */}
-                        <div>
-                          <Label>Question Type</Label>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              type="button"
-                              variant={newQuestionType === "mcq" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setNewQuestionType("mcq")}
-                            >
-                              MCQ
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={newQuestionType === "true_false" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setNewQuestionType("true_false")}
-                            >
-                              True/False
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Question Text */}
-                        <div>
-                          <Label>Question Text</Label>
-                          <Textarea
-                            value={newQuestionText}
-                            onChange={(e) => setNewQuestionText(e.target.value)}
-                            placeholder="Enter your question here..."
-                            className="mt-1"
-                            rows={3}
-                          />
-                        </div>
-
-                        {/* MCQ Options */}
-                        {newQuestionType === "mcq" && (
-                          <div>
-                            <Label>Options</Label>
-                            <div className="space-y-2 mt-2">
-                              {newOptions.map((option, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                  <div
-                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                                      newCorrectIndex === idx
-                                        ? "bg-green-500 border-green-500 text-white"
-                                        : "border-muted-foreground hover:border-green-400"
-                                    }`}
-                                    onClick={() => setNewCorrectIndex(idx)}
-                                  >
-                                    {newCorrectIndex === idx && <CheckCircle className="h-4 w-4" />}
-                                  </div>
-                                  <Input
-                                    value={option}
-                                    onChange={(e) => {
-                                      const updated = [...newOptions];
-                                      updated[idx] = e.target.value;
-                                      setNewOptions(updated);
-                                    }}
-                                    placeholder={`Option ${idx + 1}`}
-                                    className="flex-1"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Click the circle to mark correct answer
-                            </p>
-                          </div>
-                        )}
-
-                        {/* True/False Answer */}
-                        {newQuestionType === "true_false" && (
-                          <div>
-                            <Label>Correct Answer</Label>
-                            <div className="flex gap-2 mt-2">
-                              <Button
-                                type="button"
-                                variant={newTrueFalseAnswer ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setNewTrueFalseAnswer(true)}
-                                className={newTrueFalseAnswer ? "bg-green-500 hover:bg-green-600" : ""}
-                              >
-                                True
-                              </Button>
-                              <Button
-                                type="button"
-                                variant={!newTrueFalseAnswer ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setNewTrueFalseAnswer(false)}
-                                className={!newTrueFalseAnswer ? "bg-red-500 hover:bg-red-600" : ""}
-                              >
-                                False
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Explanation */}
-                        <div>
-                          <Label>Explanation (Optional)</Label>
-                          <Textarea
-                            value={newExplanation}
-                            onChange={(e) => setNewExplanation(e.target.value)}
-                            placeholder="Explain why this is the correct answer..."
-                            className="mt-1"
-                            rows={2}
-                          />
-                        </div>
-                      </div>
+                  <TabsContent value="create" className="flex-1 overflow-auto mt-4">
+                    <ScrollArea className="h-[50vh]">
+                      <ManualQuestionEntry
+                        mode="centralized"
+                        chapterLibraryId={chapterLibraryId || undefined}
+                        centralizedTopicName="Lecture Questions"
+                        subject={subject}
+                        lectureMode={true}
+                        lectureId={lectureId}
+                        timestampSeconds={timestampMinutes * 60 + timestampSeconds}
+                        timerSeconds={timerSeconds}
+                        onQuestionAdded={handleQuestionCreated}
+                        onComplete={() => {
+                          setIsAddDialogOpen(false);
+                          resetForm();
+                        }}
+                      />
                     </ScrollArea>
-
-                    <Button 
-                      onClick={handleCreateAndAddQuestion} 
-                      className="w-full mt-3" 
-                      disabled={!newQuestionText.trim() || isSaving}
-                    >
-                      {isSaving ? "Saving..." : `Create & Add at ${formatTimestamp(timestampMinutes * 60 + timestampSeconds)}`}
-                    </Button>
                   </TabsContent>
                 </Tabs>
               </div>

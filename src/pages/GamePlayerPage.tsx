@@ -62,7 +62,7 @@ const GamePlayerPage = () => {
   useEffect(() => {
     // Guard against invalid params
     if (!roadmapId || roadmapId === "undefined" || !topicId || !gameId) {
-      navigate("/student");
+      navigate("/roadmap");
       return;
     }
     loadGameData();
@@ -93,9 +93,9 @@ const GamePlayerPage = () => {
             // Try to navigate to next game, or back to topic if none available
             setTimeout(async () => {
               if (navInfo?.nextGameId) {
-                navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
+                navigate(`/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
               } else {
-                navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+                navigate(`/roadmap/${roadmapId}/topic/${topicId}`);
               }
             }, 2000);
           }
@@ -215,7 +215,7 @@ const GamePlayerPage = () => {
           });
           
           setTimeout(() => {
-            navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${assignments[0].id}`, { replace: true });
+            navigate(`/roadmap/${roadmapId}/topic/${topicId}/game/${assignments[0].id}`, { replace: true });
           }, 1500);
           return;
         }
@@ -439,7 +439,7 @@ const GamePlayerPage = () => {
       });
 
       const timeout = setTimeout(() => {
-        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
+        navigate(`/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
       }, 200);
       
       setAutoAdvanceTimeout(timeout);
@@ -461,28 +461,28 @@ const GamePlayerPage = () => {
       });
       
       setTimeout(() => {
-        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+        navigate(`/roadmap/${roadmapId}/topic/${topicId}`);
       }, 200);
     }
   };
 
   const handleNext = () => {
     if (navInfo?.nextGameId) {
-      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
+      navigate(`/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.nextGameId}`);
     }
   };
 
   const handlePrevious = () => {
     if (navInfo?.previousGameId) {
-      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.previousGameId}`);
+      navigate(`/roadmap/${roadmapId}/topic/${topicId}/game/${navInfo.previousGameId}`);
     }
   };
 
   const handleExit = () => {
     if (!roadmapId || roadmapId === "undefined") {
-      navigate("/student");
+      navigate("/roadmap");
     } else {
-      navigate(`/student/roadmap/${roadmapId}/topic/${topicId}`);
+      navigate(`/roadmap/${roadmapId}/topic/${topicId}`);
     }
   };
 

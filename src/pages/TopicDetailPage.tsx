@@ -63,9 +63,9 @@ const TopicDetailPage = () => {
 
       // Navigate based on lesson type
       if (lesson.lesson_type === 'game') {
-        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/game/${lesson.id}`);
+        navigate(`/roadmap/${roadmapId}/topic/${topicId}/game/${lesson.id}`);
       } else if (lesson.lesson_type === 'lecture') {
-        navigate(`/student/roadmap/${roadmapId}/topic/${topicId}/lecture/${lesson.id}`);
+        navigate(`/roadmap/${roadmapId}/topic/${topicId}/lecture/${lesson.id}`);
       }
     } catch (error) {
       console.error("Error opening lesson:", error);
@@ -79,9 +79,9 @@ const TopicDetailPage = () => {
 
   const handleBackClick = () => {
     if (!roadmapId || roadmapId === "undefined") {
-      navigate("/student");
+      navigate("/roadmap");
     } else {
-      navigate(`/student/roadmap/${roadmapId}`);
+      navigate(`/roadmap/${roadmapId}`);
     }
   };
 

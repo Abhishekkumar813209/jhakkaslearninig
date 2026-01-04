@@ -100,7 +100,7 @@ const Navbar = () => {
                     Dashboard
                   </Button>
                 </Link>
-                <Link to="/student">
+                <Link to="/roadmap">
                   <Button variant="nav" size="sm">
                     My Roadmap
                   </Button>
@@ -143,9 +143,9 @@ const Navbar = () => {
                     Admin Dashboard
                   </Button>
                 </Link>
-                <Link to="/student">
+                <Link to="/roadmap">
                   <Button variant="nav" size="sm">
-                    Student
+                    Roadmap
                   </Button>
                 </Link>
                 <Link to="/admin/courses">
@@ -254,7 +254,7 @@ const Navbar = () => {
                       Dashboard
                     </Button>
                   </Link>
-                  <Link to="/student" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/roadmap" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Map className="h-4 w-4 mr-2" />
                       My Roadmap
@@ -309,10 +309,10 @@ const Navbar = () => {
                       Admin Dashboard
                     </Button>
                   </Link>
-                  <Link to="/student" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/roadmap" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="nav" size="sm" className="w-full justify-start">
                       <Map className="h-4 w-4 mr-2" />
-                      Student
+                      Roadmap
                     </Button>
                   </Link>
                   <Link to="/admin/courses" onClick={() => setIsMenuOpen(false)}>

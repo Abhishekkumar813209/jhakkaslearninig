@@ -14,6 +14,7 @@ interface LectureQuestion {
   question_id: string;
   timestamp_seconds: number;
   timer_seconds: number;
+  isReattempt?: boolean; // For tracking re-attempts (no XP)
   question: {
     id: string;
     question_text: string;
@@ -49,6 +50,7 @@ export default function VideoQuestionOverlay({
 
   const question = lectureQuestion.question;
   const xpReward = question.xp_reward || 5;
+  const isReattempt = lectureQuestion.isReattempt || false;
 
   // Parse options based on question type
   const getOptions = (): string[] => {
@@ -131,8 +133,8 @@ export default function VideoQuestionOverlay({
     const correct = checkAnswer(answer);
     setIsCorrect(correct);
 
-    // Save response
-    const xpEarned = correct ? xpReward : 0;
+    // XP only awarded on first attempt, not re-attempts
+    const xpEarned = (correct && !isReattempt) ? xpReward : 0;
     await saveResponse(answer, correct, timeTaken);
 
     if (correct) {
@@ -145,8 +147,8 @@ export default function VideoQuestionOverlay({
       });
 
       toast({
-        title: `🎉 +${xpEarned} XP!`,
-        description: "Correct answer! Keep it up!",
+        title: isReattempt ? "🎉 Correct!" : `🎉 +${xpEarned} XP!`,
+        description: isReattempt ? "Great practice! (No XP for re-attempts)" : "Correct answer! Keep it up!",
       });
     } else {
       // Shake animation handled via CSS
@@ -194,19 +196,22 @@ export default function VideoQuestionOverlay({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
+      // Only award XP on first correct attempt, not re-attempts
+      const xpToAward = (correct && !isReattempt) ? xpReward : 0;
+
       await supabase.from("student_lecture_question_responses").upsert({
         student_id: userData.user.id,
         lecture_question_id: lectureQuestion.id,
         response: { selected: answer },
         is_correct: correct,
         time_taken_seconds: timeTaken,
-        xp_earned: correct ? xpReward : 0
+        xp_earned: xpToAward
       }, {
         onConflict: 'student_id,lecture_question_id'
       });
 
-      // Award XP if correct
-      if (correct) {
+      // Award XP ONLY if correct AND first attempt (not re-attempt)
+      if (correct && !isReattempt) {
         await supabase.functions.invoke("jhakkas-points-system", {
           body: {
             action: "add",
@@ -247,7 +252,7 @@ export default function VideoQuestionOverlay({
               {!isAnswered && (
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Zap className="h-3 w-3 text-yellow-500" />
-                  +{xpReward} XP
+                  {isReattempt ? 'Practice (no XP)' : `+${xpReward} XP`}
                 </Badge>
               )}
             </div>

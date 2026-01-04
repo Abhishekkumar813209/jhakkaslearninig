@@ -72,6 +72,7 @@ interface LectureQuestion {
   question_id: string;
   timestamp_seconds: number;
   timer_seconds: number;
+  isReattempt?: boolean; // For tracking re-attempts (no XP)
   question: {
     id: string;
     question_text: string;
@@ -372,7 +373,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     }
   };
 
-  // Check for questions at current timestamp
+  // Check for questions at current timestamp - improved detection with 2-second window
   useEffect(() => {
     if (!isPlaying || showQuestionOverlay || lectureQuestions.length === 0) return;
     
@@ -382,17 +383,16 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     // Skip if we've already checked this second
     if (currentSecond === previousSecond) return;
 
-    // Find a question that should trigger
-    // NEW: Check if question timestamp is BETWEEN previous and current time
-    // This catches questions even if video jumps (e.g., from 6:40 to 6:46)
+    // Find a question that should trigger (only unanswered questions)
+    // Use a 2-second detection window to catch questions even if video jumps
     const triggeredQuestion = lectureQuestions.find(q => {
       const questionTime = q.timestamp_seconds;
       
-      // Trigger if:
-      // 1. Question timestamp is between previous checked time and current time OR
-      // 2. We're exactly at the question timestamp (first few seconds of video)
-      const shouldTrigger = (previousSecond < questionTime && currentSecond >= questionTime) ||
-                            (previousSecond === 0 && currentSecond >= questionTime && currentSecond <= questionTime + 2);
+      // Trigger if question timestamp was crossed OR we're within 2 seconds of it
+      const shouldTrigger = 
+        (previousSecond < questionTime && currentSecond >= questionTime) ||
+        (previousSecond === 0 && currentSecond >= questionTime && currentSecond <= questionTime + 2) ||
+        (currentSecond >= questionTime && currentSecond <= questionTime + 2 && previousSecond < questionTime);
       
       return shouldTrigger && !answeredQuestionIds.has(q.id);
     });
@@ -400,12 +400,32 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     lastCheckedTimeRef.current = currentSecond;
 
     if (triggeredQuestion && player) {
-      // Pause video and show question
+      // Pause video and show question (first attempt, not re-attempt)
       player.pauseVideo();
-      setCurrentLectureQuestion(triggeredQuestion);
+      setCurrentLectureQuestion({ ...triggeredQuestion, isReattempt: false });
       setShowQuestionOverlay(true);
     }
   }, [currentTime, isPlaying, lectureQuestions, answeredQuestionIds, showQuestionOverlay, player]);
+
+  // Handle clicking on question marker (for re-attempts)
+  const handleQuestionMarkerClick = (question: LectureQuestion) => {
+    if (!player) return;
+    
+    // Pause video
+    player.pauseVideo();
+    
+    // Seek to 1 second before the question timestamp
+    const seekTime = Math.max(0, question.timestamp_seconds - 1);
+    player.seekTo(seekTime);
+    setCurrentTime(seekTime);
+    
+    // Check if already answered (for re-attempt, no XP)
+    const isReattempt = answeredQuestionIds.has(question.id);
+    
+    // Show question overlay
+    setCurrentLectureQuestion({ ...question, isReattempt });
+    setShowQuestionOverlay(true);
+  };
 
   // Handle question completion
   const handleQuestionComplete = (isCorrect: boolean, xpEarned: number) => {
@@ -1156,21 +1176,35 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                   }}
                 />
                 
-                {/* Question markers on the progress bar */}
+                {/* Question markers on the progress bar - CLICKABLE */}
                 {duration > 0 && lectureQuestions.map((q) => {
                   const position = (q.timestamp_seconds / duration) * 100;
                   const isAnswered = answeredQuestionIds.has(q.id);
                   return (
-                    <div
-                      key={q.id}
-                      className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all pointer-events-none ${
-                        isAnswered 
-                          ? 'bg-green-500 border-2 border-green-300' 
-                          : 'bg-yellow-500 border-2 border-yellow-300 animate-pulse'
-                      }`}
-                      style={{ left: `calc(${position}% - 6px)` }}
-                      title={`Question at ${formatTime(q.timestamp_seconds)}`}
-                    />
+                    <TooltipProvider key={q.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-all cursor-pointer z-10 hover:scale-125 focus:outline-none focus:ring-2 focus:ring-primary ${
+                              isAnswered 
+                                ? 'bg-green-500 border-2 border-green-300' 
+                                : 'bg-yellow-500 border-2 border-yellow-300 animate-pulse'
+                            }`}
+                            style={{ left: `calc(${position}% - 8px)` }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuestionMarkerClick(q);
+                            }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-center">
+                          <p className="font-medium">Question at {formatTime(q.timestamp_seconds)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isAnswered ? 'Click to re-attempt (no XP)' : 'Click to attempt'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   );
                 })}
               </div>

@@ -521,7 +521,7 @@ export const StudentBatchRoadmap = () => {
   };
 
   const handleViewLectures = (chapterId: string) => {
-    navigate(`/student/roadmap/${roadmapId}/chapter/${chapterId}/lectures`);
+    navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lectures`);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -709,7 +709,7 @@ export const StudentBatchRoadmap = () => {
         chapterName={selectedChapter.name}
         topics={selectedChapter.topics}
         onTopicClick={(topicId, topicName) => {
-          navigate(`/student/roadmap/${roadmap?.id}/topic/${topicId}`);
+          navigate(`/roadmap/${roadmap?.id}/topic/${topicId}`);
         }}
         onBack={() => {
           setSelectedChapter(null);
@@ -802,7 +802,7 @@ export const StudentBatchRoadmap = () => {
           totalDays={roadmap.total_days}
           subjectsData={roadmap.subjects}
           onTopicClick={(topicId, chapterName) => {
-            navigate(`/student/roadmap/${roadmap.id}/topic/${topicId}`);
+            navigate(`/roadmap/${roadmap.id}/topic/${topicId}`);
           }}
         />
       ) : viewMode === 'cards' ? (

@@ -87,11 +87,42 @@ const App = () => (
                 <Tests />
               </ProtectedRoute>
             } />
-            <Route path="/student" element={
+            {/* Roadmap routes - moved from /student to /roadmap */}
+            <Route path="/roadmap" element={
               <ProtectedRoute>
                 <Student />
               </ProtectedRoute>
             } />
+            <Route path="/roadmap/:roadmapId" element={
+              <ProtectedRoute>
+                <StudentRoadmapView />
+              </ProtectedRoute>
+            } />
+            <Route path="/roadmap/:roadmapId/topic/:topicId" element={
+              <ProtectedRoute>
+                <TopicDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/roadmap/:roadmapId/topic/:topicId/game/:gameId" element={
+              <ProtectedRoute>
+                <GamePlayerPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/roadmap/:roadmapId/chapter/:chapterId/lectures" element={
+              <ProtectedRoute>
+                <ChapterLecturePlaylist />
+              </ProtectedRoute>
+            } />
+            <Route path="/roadmap/:roadmapId/chapter/:chapterId/lecture/:lectureId" element={
+              <ProtectedRoute>
+                <LecturePlayerPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Redirect old /student route to /roadmap */}
+            <Route path="/student" element={<Navigate to="/roadmap" replace />} />
+            
+            {/* Paid Classes routes */}
             <Route path="/student/paid-classes" element={
               <ProtectedRoute>
                 <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
@@ -99,29 +130,18 @@ const App = () => (
                 </Suspense>
               </ProtectedRoute>
             } />
-            <Route path="/student/roadmap/:roadmapId" element={
+            <Route path="/student/paid-classes/chapter/:chapterId/lectures" element={
               <ProtectedRoute>
-                <StudentRoadmapView />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/student/PaidClassesLectures')))}
+                </Suspense>
               </ProtectedRoute>
             } />
-            <Route path="/student/roadmap/:roadmapId/topic/:topicId" element={
+            <Route path="/student/paid-classes/chapter/:chapterId/lecture/:lectureId" element={
               <ProtectedRoute>
-                <TopicDetailPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/student/roadmap/:roadmapId/topic/:topicId/game/:gameId" element={
-              <ProtectedRoute>
-                <GamePlayerPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/student/roadmap/:roadmapId/chapter/:chapterId/lectures" element={
-              <ProtectedRoute>
-                <ChapterLecturePlaylist />
-              </ProtectedRoute>
-            } />
-            <Route path="/student/roadmap/:roadmapId/chapter/:chapterId/lecture/:lectureId" element={
-              <ProtectedRoute>
-                <LecturePlayerPage />
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/student/PaidClassesLecturePlayer')))}
+                </Suspense>
               </ProtectedRoute>
             } />
             <Route path="/student/notes" element={

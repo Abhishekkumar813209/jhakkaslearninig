@@ -31,7 +31,7 @@ export const StudentHomeDashboard = () => {
       title: 'Roadmap',
       icon: BookOpen,
       color: 'bg-green-500',
-      path: '/student',
+      path: '/roadmap',
       available: true,
     },
     {

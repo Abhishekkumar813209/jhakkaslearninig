@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,10 +14,17 @@ interface Lecture {
   lecture_notes_title?: string;
 }
 
-const LecturePlayerPage = () => {
-  const { roadmapId, chapterId, lectureId } = useParams();
+interface LocationState {
+  subjectName?: string;
+  fromPaidClasses?: boolean;
+}
+
+const PaidClassesLecturePlayer = () => {
+  const { chapterId, lectureId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const state = location.state as LocationState;
   
   const [currentLecture, setCurrentLecture] = useState<Lecture | null>(null);
   const [playlist, setPlaylist] = useState<Lecture[]>([]);
@@ -83,7 +90,6 @@ const LecturePlayerPage = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !currentLecture) return;
 
-    // Update progress
     await supabase.from("student_lecture_progress" as any).upsert({
       student_id: user.id,
       chapter_lecture_id: currentLecture.id,
@@ -92,7 +98,6 @@ const LecturePlayerPage = () => {
       last_watched_at: new Date().toISOString()
     });
 
-    // Award XP if 80% complete
     if (watchTimeSeconds >= currentLecture.video_duration_seconds * 0.8) {
       const { data: lectureData } = await supabase
         .from("chapter_lectures" as any)
@@ -122,19 +127,26 @@ const LecturePlayerPage = () => {
   const handleNext = () => {
     const currentIndex = playlist.findIndex(l => l.id === lectureId);
     if (currentIndex < playlist.length - 1) {
-      navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${playlist[currentIndex + 1].id}`);
+      navigate(`/student/paid-classes/chapter/${chapterId}/lecture/${playlist[currentIndex + 1].id}`, {
+        state: { subjectName: state?.subjectName, fromPaidClasses: true }
+      });
     }
   };
 
   const handlePrevious = () => {
     const currentIndex = playlist.findIndex(l => l.id === lectureId);
     if (currentIndex > 0) {
-      navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${playlist[currentIndex - 1].id}`);
+      navigate(`/student/paid-classes/chapter/${chapterId}/lecture/${playlist[currentIndex - 1].id}`, {
+        state: { subjectName: state?.subjectName, fromPaidClasses: true }
+      });
     }
   };
 
   const handleBackToPlaylist = () => {
-    navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lectures`);
+    // Go back to paid classes lecture list
+    navigate(`/student/paid-classes/chapter/${chapterId}/lectures`, {
+      state: { subjectName: state?.subjectName }
+    });
   };
 
   if (loading || !currentLecture) {
@@ -173,9 +185,11 @@ const LecturePlayerPage = () => {
         lecture_notes_title: l.lecture_notes_title
       }))}
       onClose={handleBackToPlaylist}
-      onLectureChange={(id) => navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${id}`)}
+      onLectureChange={(id) => navigate(`/student/paid-classes/chapter/${chapterId}/lecture/${id}`, {
+        state: { subjectName: state?.subjectName, fromPaidClasses: true }
+      })}
     />
   );
 };
 
-export default LecturePlayerPage;
+export default PaidClassesLecturePlayer;

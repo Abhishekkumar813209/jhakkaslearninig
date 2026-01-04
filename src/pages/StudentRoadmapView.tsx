@@ -14,7 +14,7 @@ const StudentRoadmapView = () => {
   useEffect(() => {
     const verifyRoadmapAccess = async () => {
       if (!roadmapId || roadmapId === "undefined") {
-        navigate("/student");
+        navigate("/roadmap");
         return;
       }
 
@@ -31,11 +31,11 @@ const StudentRoadmapView = () => {
             description: "Roadmap not found",
             variant: "destructive"
           });
-          navigate("/student");
+          navigate("/roadmap");
         }
       } catch (error) {
         console.error("Error verifying roadmap:", error);
-        navigate("/student");
+        navigate("/roadmap");
       } finally {
         setLoading(false);
       }

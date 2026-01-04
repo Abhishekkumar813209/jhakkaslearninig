@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,17 @@ interface LectureProgress {
   is_completed: boolean;
 }
 
-export default function ChapterLecturePlaylist() {
+interface LocationState {
+  subjectName?: string;
+  roadmapId?: string;
+}
+
+export default function PaidClassesLectures() {
   const navigate = useNavigate();
-  const { roadmapId, chapterId } = useParams();
+  const { chapterId } = useParams();
+  const location = useLocation();
+  const state = location.state as LocationState;
+  
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [progress, setProgress] = useState<Map<string, LectureProgress>>(new Map());
   const [chapterName, setChapterName] = useState("");
@@ -121,7 +129,15 @@ export default function ChapterLecturePlaylist() {
   };
 
   const handleLectureClick = (lectureId: string) => {
-    navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${lectureId}`);
+    // Navigate to lecture player with paid-classes context
+    navigate(`/student/paid-classes/chapter/${chapterId}/lecture/${lectureId}`, {
+      state: { subjectName: state?.subjectName, fromPaidClasses: true }
+    });
+  };
+
+  const handleBack = () => {
+    // Go back to paid classes page (chapter selection)
+    navigate('/student/paid-classes');
   };
 
   // Calculate totals for summary
@@ -146,16 +162,19 @@ export default function ChapterLecturePlaylist() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/roadmap/${roadmapId}`)}
+            onClick={handleBack}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{chapterName}</h1>
+            {state?.subjectName && (
+              <p className="text-sm text-muted-foreground">{state.subjectName}</p>
+            )}
           </div>
         </div>
 
-        {/* Summary Stats Card - Udemy Style */}
+        {/* Summary Stats Card */}
         <Card className="p-4">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-3 md:gap-4 flex-wrap">
@@ -179,7 +198,7 @@ export default function ChapterLecturePlaylist() {
           )}
         </Card>
 
-        {/* Compact Lecture List */}
+        {/* Lecture List */}
         <div className="space-y-3">
           {lectures.length === 0 ? (
             <Card className="p-8 text-center">
@@ -200,9 +219,7 @@ export default function ChapterLecturePlaylist() {
                     className="group hover:bg-muted/50 transition-colors cursor-pointer"
                     onClick={() => handleLectureClick(lecture.id)}
                   >
-                    {/* Main Row */}
                     <div className="flex items-center gap-3 p-3 md:p-4">
-                      {/* Left: Icon */}
                       <div className="flex-shrink-0 flex items-center justify-center">
                         <div className={`
                           relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold
@@ -219,7 +236,6 @@ export default function ChapterLecturePlaylist() {
                         </div>
                       </div>
 
-                      {/* Middle: Title + Metadata */}
                       <div className="flex-1 min-w-0">
                         <h3 className={`
                           font-medium text-sm md:text-base line-clamp-1
@@ -228,7 +244,6 @@ export default function ChapterLecturePlaylist() {
                           {index + 1}. {mainTitle}
                         </h3>
                         
-                        {/* Inline Metadata */}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
                           <span className="flex items-center gap-1">
                             <PlayCircle className="h-3 w-3" />
@@ -260,17 +275,9 @@ export default function ChapterLecturePlaylist() {
                               </button>
                             </>
                           )}
-                          
-                          {lecture.title.includes('🔥') && (
-                            <>
-                              <span className="hidden md:inline">•</span>
-                              <span className="text-orange-500 hidden md:inline">🔥 Hot</span>
-                            </>
-                          )}
                         </div>
                       </div>
 
-                      {/* Right: Status Badge + Notes (Desktop only) */}
                       <div className="flex-shrink-0 hidden md:flex items-center gap-2">
                         {lecture.lecture_notes_url && (
                           <Button
@@ -298,7 +305,6 @@ export default function ChapterLecturePlaylist() {
                       </div>
                     </div>
 
-                    {/* Progress Bar (only if in progress and not completed) */}
                     {progressPercent > 0 && !isCompleted && (
                       <div className="px-3 pb-2 md:px-4">
                         <Progress value={progressPercent} className="h-1" />

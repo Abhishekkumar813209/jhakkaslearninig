@@ -92,10 +92,10 @@ const PaidClassesPage = () => {
     }
   };
 
-  const handleChapterClick = (chapterId: string) => {
-    if (roadmap) {
-      navigate(`/student/roadmap/${roadmap.roadmap_id}/chapter/${chapterId}/lectures`);
-    }
+  const handleChapterClick = (chapterId: string, subjectName: string) => {
+    navigate(`/student/paid-classes/chapter/${chapterId}/lectures`, {
+      state: { subjectName }
+    });
   };
 
   const getSubjectProgress = (subject: Subject) => {
@@ -166,7 +166,7 @@ const PaidClassesPage = () => {
                 <Card
                   key={chapter.id}
                   className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleChapterClick(chapter.id)}
+                  onClick={() => handleChapterClick(chapter.id, selectedSubject.name)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-3">

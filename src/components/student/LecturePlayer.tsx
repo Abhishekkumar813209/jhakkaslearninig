@@ -30,6 +30,8 @@ import {
   HelpCircle,
   FileText,
   ExternalLink,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import {
   Popover,
@@ -172,6 +174,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
   const [currentLectureQuestion, setCurrentLectureQuestion] = useState<LectureQuestion | null>(null);
   const [showQuestionOverlay, setShowQuestionOverlay] = useState(false);
   const lastCheckedTimeRef = useRef<number>(0);
+  const [autoFlashQuestions, setAutoFlashQuestions] = useState(true); // Toggle for auto-flash questions
   
   // Fullscreen change listener
   useEffect(() => {
@@ -373,8 +376,10 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     }
   };
 
-  // Check for questions at current timestamp - improved detection with 2-second window
+  // Check for questions at current timestamp - improved detection
   useEffect(() => {
+    // Check if auto-flash is disabled by student
+    if (!autoFlashQuestions) return;
     if (!isPlaying || showQuestionOverlay || lectureQuestions.length === 0) return;
     
     const currentSecond = Math.floor(currentTime);
@@ -384,17 +389,30 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
     if (currentSecond === previousSecond) return;
 
     // Find a question that should trigger (only unanswered questions)
-    // Use a 2-second detection window to catch questions even if video jumps
     const triggeredQuestion = lectureQuestions.find(q => {
       const questionTime = q.timestamp_seconds;
       
-      // Trigger if question timestamp was crossed OR we're within 2 seconds of it
-      const shouldTrigger = 
-        (previousSecond < questionTime && currentSecond >= questionTime) ||
-        (previousSecond === 0 && currentSecond >= questionTime && currentSecond <= questionTime + 2) ||
-        (currentSecond >= questionTime && currentSecond <= questionTime + 2 && previousSecond < questionTime);
+      // Skip already answered questions
+      if (answeredQuestionIds.has(q.id)) return false;
       
-      return shouldTrigger && !answeredQuestionIds.has(q.id);
+      // Case 1: Normal crossing - video crossed the question timestamp
+      if (previousSecond < questionTime && currentSecond >= questionTime) {
+        return true;
+      }
+      
+      // Case 2: Just started playing (previousSecond was 0 or very low) 
+      // and question is within current time window
+      if (previousSecond <= 1 && questionTime <= currentSecond && questionTime >= currentSecond - 3) {
+        return true;
+      }
+      
+      // Case 3: Seeking happened - large jump detected, check if question is in between
+      const jumpSize = Math.abs(currentSecond - previousSecond);
+      if (jumpSize > 2 && questionTime > previousSecond && questionTime <= currentSecond) {
+        return true;
+      }
+      
+      return false;
     });
 
     lastCheckedTimeRef.current = currentSecond;
@@ -405,7 +423,7 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       setCurrentLectureQuestion({ ...triggeredQuestion, isReattempt: false });
       setShowQuestionOverlay(true);
     }
-  }, [currentTime, isPlaying, lectureQuestions, answeredQuestionIds, showQuestionOverlay, player]);
+  }, [currentTime, isPlaying, lectureQuestions, answeredQuestionIds, showQuestionOverlay, player, autoFlashQuestions]);
 
   // Handle clicking on question marker (for re-attempts)
   const handleQuestionMarkerClick = (question: LectureQuestion) => {
@@ -788,6 +806,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       player.seekTo(newTime);
       setCurrentTime(newTime);
       updateProgress(newTime);
+      // Reset question check ref so questions can trigger after seek
+      lastCheckedTimeRef.current = Math.floor(newTime);
     }
   };
 
@@ -1138,10 +1158,35 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
                 <span>{formatTime(currentTime)}</span>
                 <div className="flex items-center gap-2">
                   {lectureQuestions.length > 0 && (
-                    <Badge variant="outline" className="text-xs flex items-center gap-1 text-yellow-400 border-yellow-400/50">
-                      <HelpCircle className="h-3 w-3" />
-                      {lectureQuestions.length - answeredQuestionIds.size} questions left
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 w-7 p-0 ${autoFlashQuestions ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-400 hover:text-gray-300'}`}
+                              onClick={() => setAutoFlashQuestions(!autoFlashQuestions)}
+                            >
+                              {autoFlashQuestions ? (
+                                <Bell className="h-4 w-4" />
+                              ) : (
+                                <BellOff className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{autoFlashQuestions ? 'Auto questions ON' : 'Auto questions OFF'}</p>
+                            <p className="text-xs text-muted-foreground">Click to toggle</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      
+                      <Badge variant="outline" className="text-xs flex items-center gap-1 text-yellow-400 border-yellow-400/50">
+                        <HelpCircle className="h-3 w-3" />
+                        {lectureQuestions.length - answeredQuestionIds.size} left
+                      </Badge>
+                    </div>
                   )}
                   <span>{formatTime(duration)}</span>
                 </div>

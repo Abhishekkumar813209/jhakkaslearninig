@@ -92,6 +92,13 @@ const App = () => (
                 <Student />
               </ProtectedRoute>
             } />
+            <Route path="/student/paid-classes" element={
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/student/PaidClassesPage')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
             <Route path="/student/roadmap/:roadmapId" element={
               <ProtectedRoute>
                 <StudentRoadmapView />

@@ -227,18 +227,7 @@ export default function LectureQuestionManager({
     }
   };
 
-  const handleToggleActive = async (questionId: string, currentState: boolean) => {
-    const { error } = await supabase
-      .from("lecture_questions")
-      .update({ is_active: !currentState })
-      .eq("id", questionId);
-
-    if (error) {
-      toast({ title: "Failed to update", variant: "destructive" });
-    } else {
-      fetchLectureQuestions();
-    }
-  };
+  // Questions are always active - no toggle needed
 
   const resetForm = () => {
     setSelectedQuestionId("");
@@ -498,9 +487,7 @@ export default function LectureQuestionManager({
           {timelineMarkers.map((marker) => (
             <div
               key={marker.id}
-              className={`absolute top-0 bottom-0 w-1 cursor-pointer transition-all ${
-                marker.is_active ? "bg-primary" : "bg-muted-foreground/50"
-              }`}
+              className="absolute top-0 bottom-0 w-1 cursor-pointer transition-all bg-primary"
               style={{ left: `${marker.position}%` }}
               title={`${formatTimestamp(marker.timestamp_seconds)} - ${truncateText(getQuestionText(marker.question as QuestionBankItem) || "", 40)}`}
             >
@@ -531,7 +518,7 @@ export default function LectureQuestionManager({
           ) : (
             <div className="space-y-3">
               {lectureQuestions.map((lq) => (
-                <Card key={lq.id} className={`p-4 ${!lq.is_active ? "opacity-50" : ""}`}>
+                <Card key={lq.id} className="p-4">
                   <div className="flex items-start gap-4">
                     <div className="flex flex-col items-center gap-1">
                       <Badge variant="secondary" className="font-mono">
@@ -553,22 +540,13 @@ export default function LectureQuestionManager({
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={lq.is_active ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => handleToggleActive(lq.id, lq.is_active)}
-                      >
-                        {lq.is_active ? "Active" : "Inactive"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteQuestion(lq.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteQuestion(lq.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </div>
                 </Card>
               ))}

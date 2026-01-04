@@ -340,7 +340,7 @@ export default function VideoQuestionOverlay({
                 variant={isCorrect ? "default" : "destructive"} 
                 className={`text-lg py-2 px-6 ${isCorrect ? 'bg-green-500' : ''}`}
               >
-                {isCorrect ? `🎉 +${xpReward} XP!` : "Try again next time!"}
+                {isCorrect ? (isReattempt ? "🎉 Correct!" : `🎉 +${xpReward} XP!`) : "Try again next time!"}
               </Badge>
             </div>
           )}

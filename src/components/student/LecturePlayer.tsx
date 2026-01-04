@@ -378,52 +378,55 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
 
   // Check for questions at current timestamp - improved detection
   useEffect(() => {
-    // Check if auto-flash is disabled by student
     if (!autoFlashQuestions) return;
+    if (isSeeking) return;
     if (!isPlaying || showQuestionOverlay || lectureQuestions.length === 0) return;
-    
+
     const currentSecond = Math.floor(currentTime);
     const previousSecond = lastCheckedTimeRef.current;
-    
+
     // Skip if we've already checked this second
     if (currentSecond === previousSecond) return;
 
-    // Find a question that should trigger (only unanswered questions)
-    const triggeredQuestion = lectureQuestions.find(q => {
+    const triggeredQuestion = lectureQuestions.find((q) => {
       const questionTime = q.timestamp_seconds;
-      
-      // Skip already answered questions
-      if (answeredQuestionIds.has(q.id)) return false;
-      
+
       // Case 1: Normal crossing - video crossed the question timestamp
-      if (previousSecond < questionTime && currentSecond >= questionTime) {
-        return true;
-      }
-      
-      // Case 2: Just started playing (previousSecond was 0 or very low) 
+      if (previousSecond < questionTime && currentSecond >= questionTime) return true;
+
+      // Case 2: Just started playing (previousSecond was 0 or very low)
       // and question is within current time window
-      if (previousSecond <= 1 && questionTime <= currentSecond && questionTime >= currentSecond - 3) {
-        return true;
-      }
-      
+      if (previousSecond <= 1 && questionTime <= currentSecond && questionTime >= currentSecond - 3) return true;
+
       // Case 3: Seeking happened - large jump detected, check if question is in between
       const jumpSize = Math.abs(currentSecond - previousSecond);
-      if (jumpSize > 2 && questionTime > previousSecond && questionTime <= currentSecond) {
-        return true;
-      }
-      
+      if (jumpSize > 2 && questionTime > previousSecond && questionTime <= currentSecond) return true;
+
       return false;
     });
 
     lastCheckedTimeRef.current = currentSecond;
 
     if (triggeredQuestion && player) {
-      // Pause video and show question (first attempt, not re-attempt)
+      // Pause video and show question
       player.pauseVideo();
-      setCurrentLectureQuestion({ ...triggeredQuestion, isReattempt: false });
+
+      const isReattempt = answeredQuestionIds.has(triggeredQuestion.id);
+      setCurrentLectureQuestion({ ...triggeredQuestion, isReattempt });
       setShowQuestionOverlay(true);
     }
-  }, [currentTime, isPlaying, lectureQuestions, answeredQuestionIds, showQuestionOverlay, player, autoFlashQuestions]);
+  }, [
+    currentTime,
+    isPlaying,
+    isSeeking,
+    lectureQuestions,
+    answeredQuestionIds,
+    showQuestionOverlay,
+    player,
+    autoFlashQuestions,
+  ]);
+
+
 
   // Handle clicking on question marker (for re-attempts)
   const handleQuestionMarkerClick = (question: LectureQuestion) => {
@@ -806,8 +809,8 @@ const LecturePlayer: React.FC<LecturePlayerProps> = ({
       player.seekTo(newTime);
       setCurrentTime(newTime);
       updateProgress(newTime);
-      // Reset question check ref so questions can trigger after seek
-      lastCheckedTimeRef.current = Math.floor(newTime);
+      // Allow auto-flash to still catch questions very close to the seek target (e.g., 6:45 → 6:46)
+      lastCheckedTimeRef.current = Math.max(0, Math.floor(newTime) - 2);
     }
   };
 

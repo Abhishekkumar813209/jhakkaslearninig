@@ -234,9 +234,11 @@ export default function NotesPage() {
 
   if (loading && !subjects.length) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <StudentAppLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </StudentAppLayout>
     );
   }
 

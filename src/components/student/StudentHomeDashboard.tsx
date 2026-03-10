@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/useProfile';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -18,6 +17,7 @@ import {
   Zap,
   GraduationCap,
 } from 'lucide-react';
+import { ThreeBackground } from './ThreeBackground';
 import { FloatingParticles } from './FloatingParticles';
 import { ScrollStorySection } from './ScrollStorySection';
 import {
@@ -27,42 +27,6 @@ import {
   SuccessIllustration,
   ProudParentsIllustration,
 } from './StoryIllustrations';
-
-const primaryFeatures = [
-  {
-    id: 'paid-classes',
-    title: 'Paid Classes',
-    description: 'Live & recorded sessions from expert teachers',
-    icon: Users,
-    path: '/student/paid-classes',
-    gradient: 'from-primary to-primary/80',
-  },
-  {
-    id: 'roadmap',
-    title: 'My Roadmap',
-    description: 'Your personalized learning path',
-    icon: BookOpen,
-    path: '/roadmap',
-    gradient: 'from-success to-success/80',
-  },
-  {
-    id: 'daily-quiz',
-    title: 'Daily Quiz',
-    description: 'Race against time, earn XP daily',
-    icon: Brain,
-    path: '/racing',
-    gradient: 'from-warning to-warning/80',
-  },
-];
-
-const secondaryFeatures = [
-  { id: 'free-test', title: 'Free Test', icon: FileText, path: '/tests', available: true },
-  { id: 'pdf-notes', title: 'Notes', icon: FileDown, path: '/student/notes', available: true },
-  { id: 'paid-test-series', title: 'Paid Test Series', icon: Trophy, path: '/tests', available: true },
-  { id: 'books', title: 'Books', icon: Book, path: '#', available: false },
-  { id: 'syllabus-pyq', title: 'Syllabus + PYQs', icon: ClipboardList, path: '#', available: false },
-  { id: 'create-test', title: 'Create Test', icon: PenTool, path: '#', available: false },
-];
 
 const staggerContainer = {
   hidden: {},
@@ -87,12 +51,10 @@ export const StudentHomeDashboard = () => {
     return 'Good evening';
   };
 
-  const handleNav = (path: string, available = true) => {
-    if (available && path !== '#') navigate(path);
-  };
-
   return (
     <div className="relative">
+      <ThreeBackground />
+
       {/* ===== HERO SECTION ===== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/30 py-10 px-4 md:px-8">
         <FloatingParticles />
@@ -121,7 +83,7 @@ export const StudentHomeDashboard = () => {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm"
+                className="flex items-center gap-2 rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-2.5 shadow-sm"
               >
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 <span className="text-sm font-semibold text-foreground">{stat.value}</span>
@@ -131,8 +93,12 @@ export const StudentHomeDashboard = () => {
           </motion.div>
 
           {/* Primary Feature Tiles */}
-          <motion.div variants={fadeUp} className="grid md:grid-cols-3 gap-4 mb-6">
-            {primaryFeatures.map((f) => {
+          <motion.div variants={fadeUp} className="grid md:grid-cols-3 gap-4">
+            {[
+              { id: 'paid-classes', title: 'Paid Classes', description: 'Live & recorded sessions from expert teachers', icon: Users, path: '/student/paid-classes', gradient: 'from-primary to-primary/80' },
+              { id: 'roadmap', title: 'My Roadmap', description: 'Your personalized learning path', icon: BookOpen, path: '/roadmap', gradient: 'from-success to-success/80' },
+              { id: 'daily-quiz', title: 'Daily Quiz', description: 'Race against time, earn XP daily', icon: Brain, path: '/racing', gradient: 'from-warning to-warning/80' },
+            ].map((f) => {
               const Icon = f.icon;
               return (
                 <motion.div
@@ -156,40 +122,10 @@ export const StudentHomeDashboard = () => {
               );
             })}
           </motion.div>
-
-          {/* Secondary Feature Grid */}
-          <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {secondaryFeatures.map((f) => {
-              const Icon = f.icon;
-              return (
-                <motion.div
-                  key={f.id}
-                  whileHover={f.available ? { scale: 1.02, y: -1 } : {}}
-                  whileTap={f.available ? { scale: 0.98 } : {}}
-                  onClick={() => handleNav(f.path, f.available)}
-                  className={f.available ? 'cursor-pointer' : 'cursor-not-allowed'}
-                >
-                  <Card className={`relative p-4 border border-border transition-shadow hover:shadow-md ${!f.available ? 'opacity-50' : ''}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <span className="text-sm font-semibold text-foreground">{f.title}</span>
-                    </div>
-                    {!f.available && (
-                      <Badge variant="secondary" className="absolute top-2 right-2 text-[10px] px-1.5 py-0">
-                        Soon
-                      </Badge>
-                    )}
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </motion.div>
         </motion.div>
       </section>
 
-      {/* ===== STORYTELLING SECTIONS ===== */}
+      {/* ===== STORYTELLING SECTIONS WITH FEATURES ===== */}
       <ScrollStorySection
         title="Studying always felt confusing and boring."
         description="Scattered notes, endless chapters, no clear direction. Every student has felt this — sitting with a pile of books, not knowing where to start."
@@ -204,6 +140,10 @@ export const StudentHomeDashboard = () => {
         illustration={<DiscoveryIllustration />}
         direction="right"
         bgClass="bg-accent/20"
+        features={[
+          { title: 'Paid Classes', description: 'Expert-led video sessions', icon: Users, path: '/student/paid-classes', available: true },
+          { title: 'My Roadmap', description: 'Personalized learning path', icon: BookOpen, path: '/roadmap', available: true },
+        ]}
       />
 
       <ScrollStorySection
@@ -212,6 +152,11 @@ export const StudentHomeDashboard = () => {
         illustration={<ProgressIllustration />}
         direction="left"
         bgClass="bg-background"
+        features={[
+          { title: 'Daily Quiz', description: 'Race against time, earn XP', icon: Brain, path: '/racing', available: true },
+          { title: 'Paid Test Series', description: 'Premium test practice', icon: Trophy, path: '/tests', available: true },
+          { title: 'Free Test', description: 'Practice anytime', icon: FileText, path: '/tests', available: true },
+        ]}
       />
 
       <ScrollStorySection
@@ -220,6 +165,12 @@ export const StudentHomeDashboard = () => {
         illustration={<SuccessIllustration />}
         direction="right"
         bgClass="bg-accent/20"
+        features={[
+          { title: 'Notes', description: 'Smart study notes', icon: FileDown, path: '/student/notes', available: true },
+          { title: 'Books', description: 'Reference materials', icon: Book, path: '#', available: false },
+          { title: 'Syllabus + PYQs', description: 'Exam preparation', icon: ClipboardList, path: '#', available: false },
+          { title: 'Create Test', description: 'Custom test builder', icon: PenTool, path: '#', available: false },
+        ]}
       />
 
       <ScrollStorySection

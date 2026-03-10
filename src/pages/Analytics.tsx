@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import ProgressCard from "@/components/ProgressCard";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
 import { useDashboard } from "@/hooks/useDashboard";

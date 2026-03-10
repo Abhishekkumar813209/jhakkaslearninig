@@ -18,12 +18,12 @@ export const ScrollStorySection = ({
 }: ScrollStorySectionProps) => {
   const textVariants = {
     hidden: { opacity: 0, x: direction === 'left' ? -60 : direction === 'right' ? 60 : 0, y: direction === 'center' ? 40 : 0 },
-    visible: { opacity: 1, x: 0, y: 0, transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] } },
+    visible: { opacity: 1, x: 0, y: 0, transition: { duration: 0.7, ease: 'easeOut' as const } },
   };
 
   const illustrationVariants = {
     hidden: { opacity: 0, x: direction === 'left' ? 60 : direction === 'right' ? -60 : 0, scale: 0.9 },
-    visible: { opacity: 1, x: 0, scale: 1, transition: { duration: 0.7, delay: 0.15, ease: [0.25, 0.46, 0.45, 0.94] } },
+    visible: { opacity: 1, x: 0, scale: 1, transition: { duration: 0.7, delay: 0.15, ease: 'easeOut' as const } },
   };
 
   if (direction === 'center') {

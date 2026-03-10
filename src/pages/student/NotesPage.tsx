@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -233,13 +234,16 @@ export default function NotesPage() {
 
   if (loading && !subjects.length) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <StudentAppLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </StudentAppLayout>
     );
   }
 
   return (
+    <StudentAppLayout>
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-4">
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Header */}
@@ -437,5 +441,6 @@ export default function NotesPage() {
         </Tabs>
       </div>
     </div>
+    </StudentAppLayout>
   );
 }

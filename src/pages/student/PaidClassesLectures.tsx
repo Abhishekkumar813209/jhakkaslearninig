@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -148,13 +149,16 @@ export default function PaidClassesLectures() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <StudentAppLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </StudentAppLayout>
     );
   }
 
   return (
+    <StudentAppLayout>
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-4">
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Header */}
@@ -318,5 +322,6 @@ export default function PaidClassesLectures() {
         </div>
       </div>
     </div>
+    </StudentAppLayout>
   );
 }

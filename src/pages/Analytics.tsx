@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import ProgressCard from "@/components/ProgressCard";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -100,9 +100,11 @@ const Analytics = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
+      <StudentAppLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
+        </div>
+      </StudentAppLayout>
     );
   }
 
@@ -111,8 +113,7 @@ const Analytics = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
       
       <section className="bg-muted/30 py-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -555,7 +556,7 @@ const Analytics = () => {
           </div>
         )}
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

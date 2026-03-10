@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -166,8 +166,7 @@ const Quiz = () => {
     ).length;
 
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className="max-w-2xl mx-auto shadow-large">
             <CardHeader className="text-center">
@@ -225,7 +224,7 @@ const Quiz = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
@@ -234,11 +233,9 @@ const Quiz = () => {
     const progress = ((currentQuestion + 1) / sampleQuestions.length) * 100;
 
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="max-w-4xl mx-auto">
-            {/* Quiz Header */}
             <Card className="mb-6 shadow-soft">
               <CardContent className="p-6">
                 <div className="flex justify-between items-center mb-4">
@@ -258,7 +255,6 @@ const Quiz = () => {
               </CardContent>
             </Card>
 
-            {/* Question */}
             <Card className="shadow-medium">
               <CardHeader>
                 <CardTitle className="text-lg">{question.question}</CardTitle>
@@ -309,14 +305,12 @@ const Quiz = () => {
             </Card>
           </div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
+    <StudentAppLayout>
       {/* Header */}
       <section className="bg-muted/30 py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -331,7 +325,6 @@ const Quiz = () => {
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-4 gap-8">
-          {/* Quiz List */}
           <div className="lg:col-span-3">
             <div className="grid md:grid-cols-2 gap-6">
               {quizzes.map(quiz => (
@@ -381,9 +374,7 @@ const Quiz = () => {
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            {/* Quiz Stats */}
             <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center">
@@ -409,7 +400,6 @@ const Quiz = () => {
               </CardContent>
             </Card>
 
-            {/* Recent Results */}
             <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle className="text-lg">Recent Results</CardTitle>
@@ -432,7 +422,6 @@ const Quiz = () => {
               </CardContent>
             </Card>
 
-            {/* Study Recommendations */}
             <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center">
@@ -456,7 +445,7 @@ const Quiz = () => {
           </div>
         </div>
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

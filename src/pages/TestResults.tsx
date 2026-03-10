@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useParams, useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
+import { StudentAppLayout } from '@/components/student/StudentAppLayout';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { PostTestAnalytics } from '@/components/student/PostTestAnalytics';
@@ -512,31 +512,29 @@ const TestResults: React.FC = () => {
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+      <StudentAppLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
           <motion.div 
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center text-white"
+            className="text-center"
           >
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full mx-auto mb-4"
+              className="w-16 h-16 border-4 border-muted border-t-primary rounded-full mx-auto mb-4"
             />
             <p className="text-xl">Loading your race results...</p>
           </motion.div>
         </div>
-      </>
+      </StudentAppLayout>
     );
   }
 
   // Show PostTestAnalytics if available
   if (showDetailedAnalytics && postTestAnalytics) {
     return (
-      <>
-        <Navbar />
+      <StudentAppLayout>
         <div className="relative">
           <div className={isBlurred ? 'filter blur-sm pointer-events-none' : ''}>
             <PostTestAnalytics 
@@ -564,33 +562,31 @@ const TestResults: React.FC = () => {
             description="Get comprehensive performance insights, rankings, and personalized improvement suggestions with Premium!"
           />
         </div>
-      </>
+      </StudentAppLayout>
     );
   }
 
   
   if (!result) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center text-white">
+      <StudentAppLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-3xl font-bold mb-4">Results not found</h2>
-            <Button onClick={() => navigate('/student')} className="bg-white text-black hover:bg-gray-200">
+            <Button onClick={() => navigate('/student')}>
               <Home className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
           </div>
         </div>
-      </>
+      </StudentAppLayout>
     );
   }
 
   // If PostTestAnalytics not ready, show basic results
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-background p-6">
+    <StudentAppLayout>
+      <div className="p-6">
         <Card>
           <CardHeader>
             <CardTitle>Test Results Loading...</CardTitle>
@@ -602,7 +598,7 @@ const TestResults: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </StudentAppLayout>
   );
 };
 

@@ -53,6 +53,10 @@ const UserRoleManagement = () => {
   };
 
   const initiateRoleChange = (user: UserSearchResult, role: string) => {
+    if (isReadOnly) {
+      showReadOnlyToast();
+      return;
+    }
     if (user.role === role) {
       toast({ title: "Info", description: "User already has this role" });
       return;

@@ -512,23 +512,22 @@ const TestResults: React.FC = () => {
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+      <StudentAppLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
           <motion.div 
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center text-white"
+            className="text-center"
           >
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full mx-auto mb-4"
+              className="w-16 h-16 border-4 border-muted border-t-primary rounded-full mx-auto mb-4"
             />
             <p className="text-xl">Loading your race results...</p>
           </motion.div>
         </div>
-      </>
+      </StudentAppLayout>
     );
   }
 

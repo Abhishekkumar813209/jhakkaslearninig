@@ -326,7 +326,7 @@ export default function ParentDashboard() {
 
               {/* ── Section 3: Chapter Test Progress ── */}
               {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} >
                   <Card className="border border-border/50 bg-card/80 backdrop-blur-sm">
                     <CardHeader>
                       <CardTitle>Chapter-wise Test Progress</CardTitle>
@@ -341,7 +341,7 @@ export default function ParentDashboard() {
 
               {/* ── Section 4: Roadmap Calendar ── */}
               {roadmapCalendar && (
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} >
                   <ParentRoadmapCalendar
                     startDate={new Date(roadmapCalendar.startDate)}
                     totalDays={roadmapCalendar.totalDays}
@@ -354,7 +354,7 @@ export default function ParentDashboard() {
 
               {/* ── Section 5: Topic Breakdown ── */}
               {Object.keys(topicsBySubject).length > 0 && (
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }} >
                   <TopicWiseBreakdown topicsBySubject={topicsBySubject} />
                 </motion.div>
               )}

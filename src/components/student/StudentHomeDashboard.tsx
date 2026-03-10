@@ -125,6 +125,10 @@ export const StudentHomeDashboard = () => {
         </motion.div>
       </section>
 
+      {/* ===== 3D BACKGROUND — lazy-loaded on scroll ===== */}
+      <div className="relative">
+        <ThreeBackground />
+
       {/* ===== STORYTELLING SECTIONS WITH FEATURES ===== */}
       <ScrollStorySection
         title="Studying always felt confusing and boring."

@@ -55,8 +55,6 @@ export const StudentHomeDashboard = () => {
 
   return (
     <div className="relative">
-      <ThreeBackground />
-
       {/* ===== HERO SECTION ===== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/30 py-10 px-4 md:px-8">
         <FloatingParticles />

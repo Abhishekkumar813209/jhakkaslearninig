@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import {
+  Home,
   BookOpen,
   FileText,
   Trophy,
@@ -36,6 +37,7 @@ export const ParentAppSidebar = ({ onNavigate }: ParentAppSidebarProps) => {
   };
 
   const menuItems = [
+    { icon: Home, label: 'Home', path: '/parent' },
     { icon: BookOpen, label: 'Studies', path: '/parent/studies' },
     { icon: FileText, label: 'Tests', path: '/parent/tests' },
     { icon: Trophy, label: 'Ranking', path: '/parent/rankings' },

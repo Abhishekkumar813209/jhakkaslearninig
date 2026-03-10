@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { MCQGame } from "@/components/student/games/MCQGame";
 import { MatchPairsGame } from "@/components/student/games/MatchPairsGame";
 import { LineMatchingGame } from "@/components/student/games/LineMatchingGame";
@@ -954,32 +954,29 @@ const GamePlayerPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container py-8">
           <div>Loading game...</div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
   if (!gameData) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container py-8 text-center">
           <div className="animate-pulse">
             <p className="text-lg mb-4">Game not found. Searching for next available game...</p>
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container px-3 py-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate("/student")}>
@@ -1059,7 +1056,7 @@ const GamePlayerPage = () => {
           />
         )}
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { DuolingoLessonPath } from "@/components/student/DuolingoLessonPath";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -87,21 +87,19 @@ const TopicDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container py-8 flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading topic...</p>
           </div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container py-6">
         {/* Header */}
         <div className="mb-6">
@@ -131,7 +129,7 @@ const TopicDetailPage = () => {
           />
         )}
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

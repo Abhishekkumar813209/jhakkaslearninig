@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { StudentBatchRoadmap } from "@/components/student/StudentBatchRoadmap";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,22 +46,20 @@ const StudentRoadmapView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container py-8">
           <div>Loading roadmap...</div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container py-8">
         <StudentBatchRoadmap />
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

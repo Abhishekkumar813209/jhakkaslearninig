@@ -42,7 +42,7 @@ import ChapterLectureManager from "@/components/admin/ChapterLectureManager";
 import TopicZoneAnalytics from "@/components/admin/TopicZoneAnalytics";
 
 const AdminDashboard = () => {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, isReadOnly, loading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
 

@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, UserCog, Loader2, Shield, User, GraduationCap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useReadOnly } from "@/hooks/useReadOnly";
 import { usersAPI } from "@/services/api";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -26,6 +27,7 @@ const UserRoleManagement = () => {
   const [newRole, setNewRole] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { toast } = useToast();
+  const { isReadOnly, showReadOnlyToast } = useReadOnly();
 
   const handleSearch = async () => {
     if (!searchEmail.trim()) {
@@ -51,6 +53,10 @@ const UserRoleManagement = () => {
   };
 
   const initiateRoleChange = (user: UserSearchResult, role: string) => {
+    if (isReadOnly) {
+      showReadOnlyToast();
+      return;
+    }
     if (user.role === role) {
       toast({ title: "Info", description: "User already has this role" });
       return;
@@ -187,7 +193,7 @@ const UserRoleManagement = () => {
                         <Select
                           value={user.role}
                           onValueChange={(role) => initiateRoleChange(user, role)}
-                          disabled={loading}
+                          disabled={loading || isReadOnly}
                         >
                           <SelectTrigger className="w-32">
                             <SelectValue />

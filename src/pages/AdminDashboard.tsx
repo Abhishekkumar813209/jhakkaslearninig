@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminQuickNav } from "@/components/admin/AdminQuickNav";
+import { ReadOnlyBanner } from "@/components/admin/ReadOnlyBanner";
+import { ReadOnlyWrapper } from "@/components/admin/ReadOnlyWrapper";
 
 // Import dashboard components
 import OverviewSection from "@/components/admin/OverviewSection";
@@ -40,7 +42,7 @@ import ChapterLectureManager from "@/components/admin/ChapterLectureManager";
 import TopicZoneAnalytics from "@/components/admin/TopicZoneAnalytics";
 
 const AdminDashboard = () => {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, isReadOnly, loading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
 
@@ -109,6 +111,7 @@ const AdminDashboard = () => {
         <main className="flex-1 flex flex-col">
           {/* Top Header Bar with Quick Navigation */}
           <header className="border-b border-border bg-card sticky top-0 z-40 backdrop-blur-sm bg-card/80">
+            {isReadOnly && <ReadOnlyBanner />}
             {/* Title Row */}
             <div className="h-16 flex items-center px-6">
               <SidebarTrigger className="mr-4" />
@@ -126,9 +129,11 @@ const AdminDashboard = () => {
           </header>
           
           {/* Main Content Area */}
-          <div className="flex-1 p-6 overflow-auto">
-            <ActiveComponent />
-          </div>
+          <ReadOnlyWrapper>
+            <div className="flex-1 p-6 overflow-auto">
+              <ActiveComponent />
+            </div>
+          </ReadOnlyWrapper>
         </main>
       </div>
     </SidebarProvider>

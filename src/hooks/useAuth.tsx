@@ -2,6 +2,9 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
+// Demo/read-only admin emails — can view admin dashboard but cannot modify data
+const READONLY_ADMIN_EMAILS = ['reviewer@jhakkas.app', 'demo@jhakkas.app'];
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -9,6 +12,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isAdmin: boolean;
   isStudent: boolean;
+  isReadOnly: boolean;
   userRole: string | null;
 }
 
@@ -19,6 +23,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   isAdmin: false,
   isStudent: false,
+  isReadOnly: false,
   userRole: null,
 });
 
@@ -138,6 +143,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Real role logic based on database
   const isAdmin = userRole === 'admin';
   const isStudent = userRole === 'student';
+  const isReadOnly = READONLY_ADMIN_EMAILS.includes(user?.email?.toLowerCase() ?? '');
 
   const value = {
     user,
@@ -146,6 +152,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signOut,
     isAdmin,
     isStudent,
+    isReadOnly,
     userRole,
   };
 

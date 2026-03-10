@@ -155,7 +155,7 @@ export const StudentHomeDashboard = () => {
         direction="left"
         bgClass="bg-background"
         features={[
-          { title: 'Daily Quiz', description: 'Race against time, earn XP', icon: Brain, path: '/racing', available: true },
+          { title: 'Racing Leaderboard', description: 'Race against time, earn XP', icon: Brain, path: '/racing', available: true },
           { title: 'Paid Test Series', description: 'Premium test practice', icon: Trophy, path: '/tests', available: true },
           { title: 'Free Test', description: 'Practice anytime', icon: FileText, path: '/tests', available: true },
         ]}

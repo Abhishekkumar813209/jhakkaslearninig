@@ -144,6 +144,13 @@ const App = () => (
                 </Suspense>
               </ProtectedRoute>
             } />
+            <Route path="/student/school-aura" element={
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                  {React.createElement(lazy(() => import('./pages/student/SchoolAuraPage')))}
+                </Suspense>
+              </ProtectedRoute>
+            } />
             <Route path="/student/notes" element={
               <ProtectedRoute>
                 <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>

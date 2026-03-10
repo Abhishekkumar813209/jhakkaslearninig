@@ -534,8 +534,7 @@ const TestResults: React.FC = () => {
   // Show PostTestAnalytics if available
   if (showDetailedAnalytics && postTestAnalytics) {
     return (
-      <>
-        <Navbar />
+      <StudentAppLayout>
         <div className="relative">
           <div className={isBlurred ? 'filter blur-sm pointer-events-none' : ''}>
             <PostTestAnalytics 
@@ -563,7 +562,7 @@ const TestResults: React.FC = () => {
             description="Get comprehensive performance insights, rankings, and personalized improvement suggestions with Premium!"
           />
         </div>
-      </>
+      </StudentAppLayout>
     );
   }
 

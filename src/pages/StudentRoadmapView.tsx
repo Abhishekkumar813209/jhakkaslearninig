@@ -46,12 +46,11 @@ const StudentRoadmapView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container py-8">
           <div>Loading roadmap...</div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 

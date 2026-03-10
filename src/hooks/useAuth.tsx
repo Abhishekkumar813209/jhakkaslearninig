@@ -143,6 +143,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Real role logic based on database
   const isAdmin = userRole === 'admin';
   const isStudent = userRole === 'student';
+  const isReadOnly = READONLY_ADMIN_EMAILS.includes(user?.email?.toLowerCase() ?? '');
 
   const value = {
     user,
@@ -151,6 +152,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signOut,
     isAdmin,
     isStudent,
+    isReadOnly,
     userRole,
   };
 

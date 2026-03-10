@@ -32,9 +32,8 @@ const menuItems = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Users, label: 'Paid Classes', path: '/student/paid-classes' },
   { icon: BookOpen, label: 'Roadmap', path: '/roadmap' },
-  { icon: FileText, label: 'Free Test', path: '/tests' },
+  { icon: FileText, label: 'Tests', path: '/tests' },
   { icon: Download, label: 'Notes', path: '/student/notes' },
-  { icon: Trophy, label: 'Paid Test Series', path: '/tests' },
   { icon: Brain, label: 'Racing Leaderboard', path: '/racing' },
   { icon: MapPin, label: 'School Aura', path: '/student/school-aura' },
 ];

@@ -6,7 +6,6 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminQuickNav } from "@/components/admin/AdminQuickNav";
 import { ReadOnlyBanner } from "@/components/admin/ReadOnlyBanner";
 import { ReadOnlyWrapper } from "@/components/admin/ReadOnlyWrapper";
-import { useAuth } from "@/hooks/useAuth";
 
 // Import dashboard components
 import OverviewSection from "@/components/admin/OverviewSection";

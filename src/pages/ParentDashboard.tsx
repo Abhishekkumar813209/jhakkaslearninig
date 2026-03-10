@@ -326,7 +326,7 @@ export default function ParentDashboard() {
 
               {/* ── Section 3: Chapter Test Progress ── */}
               {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} >
                   <Card className="border border-border/50 bg-card/80 backdrop-blur-sm">
                     <CardHeader>
                       <CardTitle>Chapter-wise Test Progress</CardTitle>

@@ -40,7 +40,7 @@ const menuItems = [
 ];
 
 const comingSoonItems = [
-  { icon: Book, label: 'Books' },
+  { icon: Book, label: 'Animated Books' },
   { icon: ClipboardList, label: 'Syllabus + PYQs' },
   { icon: PenTool, label: 'Create Test' },
 ];

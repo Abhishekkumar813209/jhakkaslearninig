@@ -531,3 +531,252 @@ export const ProudParentsIllustration = () => (
     />
   </div>
 );
+
+// Section 6: Trophy Ceremony — student receiving cup at school with parents watching
+export const TrophyCeremonyIllustration = () => (
+  <div className="relative w-96 h-80 mx-auto">
+    <svg viewBox="0 0 400 320" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <SvgDefs />
+      {/* Stage / Podium */}
+      <rect x="80" y="250" width="240" height="20" rx="4" fill="#8b5cf6" opacity="0.8" />
+      <rect x="100" y="245" width="200" height="8" rx="3" fill="#a78bfa" />
+      {/* Stage front decoration */}
+      <rect x="130" y="255" width="40" height="3" rx="1" fill="#fbbf24" opacity="0.6" />
+      <rect x="230" y="255" width="40" height="3" rx="1" fill="#fbbf24" opacity="0.6" />
+      
+      {/* School banner */}
+      <rect x="140" y="30" width="120" height="40" rx="5" fill="#3b82f6" opacity="0.8" />
+      <rect x="155" y="38" width="90" height="5" rx="2" fill="white" opacity="0.6" />
+      <rect x="165" y="48" width="70" height="4" rx="2" fill="white" opacity="0.4" />
+      <path d="M140 70 L200 80 L260 70" stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.4" />
+      
+      {/* Curtains */}
+      <path d="M20 20 C25 80, 30 150, 35 250" stroke="#ef4444" strokeWidth="20" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M380 20 C375 80, 370 150, 365 250" stroke="#ef4444" strokeWidth="20" strokeLinecap="round" fill="none" opacity="0.3" />
+      
+      {/* Teacher/Principal — left on stage, handing trophy */}
+      {/* Legs */}
+      <rect x="115" y="220" width="12" height="28" rx="4" fill="url(#pantsGrad)" />
+      <rect x="133" y="220" width="12" height="28" rx="4" fill="url(#pantsGrad)" />
+      {/* Torso */}
+      <path d="M112 160 C112 160, 110 210, 115 222 L146 222 C151 210, 149 160, 149 160 Z" fill="#1e40af" />
+      {/* Tie */}
+      <path d="M130 160 L127 180 L130 200 L133 180 Z" fill="#ef4444" opacity="0.8" />
+      {/* Arms — extending trophy */}
+      <path d="M149 175 C165 178, 178 175, 185 168" stroke="url(#skinGrad)" strokeWidth="11" strokeLinecap="round" fill="none" />
+      <path d="M112 175 C100 185, 95 195, 95 205" stroke="url(#skinGrad)" strokeWidth="11" strokeLinecap="round" fill="none" />
+      {/* Head */}
+      <circle cx="130" cy="135" r="22" fill="url(#skinGrad)" />
+      <path d="M108 128 C108 108, 120 100, 130 100 C140 100, 152 108, 152 128 C152 120, 144 112, 130 112 C116 112, 108 120, 108 128 Z" fill="#6b7280" />
+      {/* Glasses */}
+      <circle cx="123" cy="133" r="6" stroke="#374151" strokeWidth="1.5" fill="none" />
+      <circle cx="137" cy="133" r="6" stroke="#374151" strokeWidth="1.5" fill="none" />
+      <line x1="129" y1="133" x2="131" y2="133" stroke="#374151" strokeWidth="1" />
+      {/* Smile */}
+      <path d="M124 145 Q130 150, 136 145" stroke="#c08060" strokeWidth="1.5" fill="none" />
+      
+      {/* Trophy being handed */}
+      <rect x="183" y="155" width="12" height="18" rx="2" fill="#fbbf24" />
+      <rect x="178" y="148" width="22" height="10" rx="4" fill="#fbbf24" />
+      <circle cx="189" cy="143" r="7" fill="#fbbf24" />
+      <circle cx="189" cy="143" r="4.5" fill="#fde68a" />
+      {/* Trophy handles */}
+      <path d="M178 155 C172 158, 172 163, 178 166" stroke="#fbbf24" strokeWidth="2.5" fill="none" />
+      <path d="M200 155 C206 158, 206 163, 200 166" stroke="#fbbf24" strokeWidth="2.5" fill="none" />
+      
+      {/* Student — center on stage, receiving trophy */}
+      {/* Legs */}
+      <rect x="210" y="218" width="14" height="30" rx="5" fill="url(#pantsGrad)" />
+      <rect x="230" y="218" width="14" height="30" rx="5" fill="url(#pantsGrad)" />
+      {/* Torso */}
+      <path d="M207 158 C207 158, 205 205, 210 220 L245 220 C250 205, 248 158, 248 158 Z" fill="url(#shirtBlue)" />
+      {/* Arms — reaching for trophy */}
+      <path d="M207 172 C198 170, 193 168, 190 168" stroke="url(#skinGrad)" strokeWidth="11" strokeLinecap="round" fill="none" />
+      <path d="M248 172 C258 180, 262 190, 260 200" stroke="url(#skinGrad)" strokeWidth="11" strokeLinecap="round" fill="none" />
+      {/* Head */}
+      <circle cx="228" cy="130" r="25" fill="url(#skinGrad)" />
+      <path d="M203 122 C203 100, 216 92, 228 92 C240 92, 253 100, 253 122 C253 112, 244 104, 228 104 C212 104, 203 112, 203 122 Z" fill="url(#hairGrad)" />
+      <ellipse cx="204" cy="132" rx="4" ry="6" fill="url(#skinGrad)" />
+      <ellipse cx="252" cy="132" rx="4" ry="6" fill="url(#skinGrad)" />
+      {/* Big happy eyes */}
+      <circle cx="220" cy="128" r="4" fill="white" />
+      <circle cx="220" cy="128" r="2.5" fill="#1e293b" />
+      <circle cx="219" cy="127" r="1" fill="white" />
+      <circle cx="236" cy="128" r="4" fill="white" />
+      <circle cx="236" cy="128" r="2.5" fill="#1e293b" />
+      <circle cx="235" cy="127" r="1" fill="white" />
+      {/* Big grin */}
+      <path d="M220 143 Q228 152, 236 143" stroke="#c08060" strokeWidth="2" fill="none" />
+      {/* Blush */}
+      <circle cx="212" cy="138" r="5" fill="#fca5a5" opacity="0.3" />
+      <circle cx="244" cy="138" r="5" fill="#fca5a5" opacity="0.3" />
+      
+      {/* Audience — parents sitting in front row */}
+      {/* Parent 1 (Dad) — bottom left */}
+      <circle cx="70" cy="290" r="12" fill="url(#skinGrad)" />
+      <path d="M58 285 C58 275, 65 270, 70 270 C75 270, 82 275, 82 285" fill="url(#hairGrad)" />
+      <rect x="60" y="300" width="20" height="15" rx="3" fill="url(#dadShirt)" />
+      {/* Clapping hands */}
+      <circle cx="55" cy="305" r="4" fill="url(#skinGrad)" />
+      <circle cx="85" cy="305" r="4" fill="url(#skinGrad)" />
+      {/* Smile */}
+      <path d="M65 294 Q70 298, 75 294" stroke="#c08060" strokeWidth="1" fill="none" />
+      
+      {/* Parent 2 (Mom) — bottom right */}
+      <circle cx="330" cy="290" r="12" fill="url(#skinGrad)" />
+      <path d="M318 285 C318 275, 324 270, 330 270 C336 270, 342 275, 342 285" fill="#2c1810" />
+      <path d="M318 285 C316 295, 316 300, 318 302" stroke="#2c1810" strokeWidth="4" fill="none" />
+      <path d="M342 285 C344 295, 344 300, 342 302" stroke="#2c1810" strokeWidth="4" fill="none" />
+      <circle cx="330" cy="280" r="1.5" fill="#ef4444" />
+      <rect x="320" y="300" width="20" height="15" rx="3" fill="url(#parentShirt)" />
+      {/* Clapping hands */}
+      <circle cx="315" cy="305" r="4" fill="url(#skinGrad)" />
+      <circle cx="345" cy="305" r="4" fill="url(#skinGrad)" />
+      {/* Smile */}
+      <path d="M325 294 Q330 298, 335 294" stroke="#c08060" strokeWidth="1" fill="none" />
+    </svg>
+    
+    {/* Confetti particles */}
+    {[
+      { color: 'bg-primary', left: '15%', delay: 0 },
+      { color: 'bg-warning', left: '30%', delay: 0.3 },
+      { color: 'bg-success', left: '50%', delay: 0.6 },
+      { color: 'bg-destructive', left: '70%', delay: 0.9 },
+      { color: 'bg-accent', left: '85%', delay: 1.2 },
+    ].map((c, i) => (
+      <motion.div
+        key={i}
+        animate={{ y: [-10, 60, -10], rotate: [0, 360, 0], opacity: [0, 1, 0] }}
+        transition={{ duration: 3, delay: c.delay, repeat: Infinity }}
+        className={`absolute top-0 w-2 h-2 rounded-sm ${c.color}`}
+        style={{ left: c.left }}
+      />
+    ))}
+    
+    {/* Clap text */}
+    <motion.div
+      animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.4, 0.8, 0.4] }}
+      transition={{ duration: 2, repeat: Infinity }}
+      className="absolute bottom-2 left-1/2 -translate-x-1/2 text-sm font-semibold text-muted-foreground"
+    >👏👏👏</motion.div>
+  </div>
+);
+
+// Section 7: School Map Aura — bird's eye map view with glowing school auras
+export const SchoolMapAuraIllustration = () => (
+  <div className="relative w-96 h-80 mx-auto">
+    <svg viewBox="0 0 400 320" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <defs>
+        <radialGradient id="auraGold" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.5" />
+          <stop offset="40%" stopColor="#fbbf24" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="auraBlue" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
+          <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="auraPurple" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
+          <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="auraGreen" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
+          <stop offset="50%" stopColor="#22c55e" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="auraRed" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ef4444" stopOpacity="0.2" />
+          <stop offset="50%" stopColor="#ef4444" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      
+      {/* Map background — roads grid */}
+      <rect x="0" y="0" width="400" height="320" rx="12" fill="#f1f5f9" />
+      {/* Horizontal roads */}
+      <rect x="0" y="80" width="400" height="6" rx="1" fill="#e2e8f0" />
+      <rect x="0" y="180" width="400" height="6" rx="1" fill="#e2e8f0" />
+      <rect x="0" y="260" width="400" height="4" rx="1" fill="#e2e8f0" />
+      {/* Vertical roads */}
+      <rect x="100" y="0" width="5" height="320" rx="1" fill="#e2e8f0" />
+      <rect x="200" y="0" width="5" height="320" rx="1" fill="#e2e8f0" />
+      <rect x="300" y="0" width="5" height="320" rx="1" fill="#e2e8f0" />
+      {/* Green patches (parks) */}
+      <rect x="15" y="15" width="60" height="45" rx="5" fill="#bbf7d0" opacity="0.5" />
+      <rect x="320" y="200" width="55" height="40" rx="5" fill="#bbf7d0" opacity="0.4" />
+      <rect x="15" y="200" width="50" height="35" rx="5" fill="#bbf7d0" opacity="0.3" />
+      
+      {/* School 1: YOUR SCHOOL — center, brightest golden aura */}
+      <circle cx="200" cy="140" r="65" fill="url(#auraGold)" />
+      <rect x="185" y="122" width="30" height="25" rx="3" fill="#f59e0b" />
+      <rect x="192" y="115" width="16" height="10" rx="2" fill="#fbbf24" />
+      {/* School roof */}
+      <polygon points="183,122 200,105 217,122" fill="#d97706" />
+      {/* Door */}
+      <rect x="196" y="135" width="8" height="12" rx="1" fill="#92400e" />
+      {/* Windows */}
+      <rect x="188" y="127" width="5" height="5" rx="1" fill="#fef3c7" />
+      <rect x="207" y="127" width="5" height="5" rx="1" fill="#fef3c7" />
+      {/* Flag */}
+      <line x1="200" y1="105" x2="200" y2="90" stroke="#374151" strokeWidth="1.5" />
+      <rect x="200" y="90" width="12" height="8" rx="1" fill="#ef4444" />
+      {/* "Your School" label */}
+      <rect x="174" y="150" width="52" height="14" rx="4" fill="#fbbf24" />
+      <text x="200" y="160" textAnchor="middle" fontSize="8" fill="#92400e" fontWeight="bold">Your School</text>
+      
+      {/* School 2: Top-left, blue aura (medium) */}
+      <circle cx="70" cy="100" r="40" fill="url(#auraBlue)" />
+      <rect x="58" y="88" width="24" height="20" rx="2" fill="#60a5fa" />
+      <polygon points="56,88 70,78 84,88" fill="#3b82f6" />
+      <rect x="66" y="98" width="6" height="10" rx="1" fill="#1e3a5f" />
+      <rect x="61" y="92" width="4" height="4" rx="1" fill="#dbeafe" />
+      <rect x="73" y="92" width="4" height="4" rx="1" fill="#dbeafe" />
+      
+      {/* School 3: Top-right, purple aura (small) */}
+      <circle cx="330" cy="70" r="32" fill="url(#auraPurple)" />
+      <rect x="320" y="58" width="20" height="18" rx="2" fill="#a78bfa" />
+      <polygon points="318,58 330,50 342,58" fill="#8b5cf6" />
+      <rect x="327" y="67" width="5" height="9" rx="1" fill="#4c1d95" />
+      <rect x="322" y="62" width="4" height="4" rx="1" fill="#ede9fe" />
+      <rect x="334" y="62" width="4" height="4" rx="1" fill="#ede9fe" />
+      
+      {/* School 4: Bottom-left, green aura (medium-small) */}
+      <circle cx="60" cy="250" r="35" fill="url(#auraGreen)" />
+      <rect x="48" y="238" width="22" height="18" rx="2" fill="#4ade80" />
+      <polygon points="46,238 60,229 74,238" fill="#22c55e" />
+      <rect x="57" y="247" width="5" height="9" rx="1" fill="#14532d" />
+      <rect x="51" y="242" width="4" height="4" rx="1" fill="#dcfce7" />
+      <rect x="63" y="242" width="4" height="4" rx="1" fill="#dcfce7" />
+      
+      {/* School 5: Bottom-right, red aura (smallest) */}
+      <circle cx="340" cy="270" r="28" fill="url(#auraRed)" />
+      <rect x="330" y="260" width="18" height="15" rx="2" fill="#f87171" />
+      <polygon points="328,260 340,252 352,260" fill="#ef4444" />
+      <rect x="337" y="268" width="5" height="7" rx="1" fill="#7f1d1d" />
+      <rect x="332" y="263" width="3" height="3" rx="1" fill="#fecaca" />
+      <rect x="343" y="263" width="3" height="3" rx="1" fill="#fecaca" />
+      
+      {/* Map pin for your school */}
+      <circle cx="200" cy="88" r="4" fill="#ef4444" />
+      <path d="M196 88 L200 78 L204 88" fill="#ef4444" />
+    </svg>
+    
+    {/* Pulsing aura effect on "Your School" */}
+    <motion.div
+      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }}
+      transition={{ duration: 3, repeat: Infinity }}
+      className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-36 h-36 rounded-full bg-warning/20 blur-2xl"
+    />
+    
+    {/* Floating location pins */}
+    <motion.div
+      animate={{ y: [-3, 3, -3] }}
+      transition={{ duration: 2, repeat: Infinity }}
+      className="absolute top-[22%] left-[47%] text-lg"
+    >📍</motion.div>
+  </div>
+);
+

@@ -226,6 +226,7 @@ export const StudentHomeDashboard = () => {
           </motion.button>
         </motion.div>
       </section>
+      </div>
     </div>
   );
 };

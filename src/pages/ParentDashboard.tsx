@@ -1,27 +1,47 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ParentAppLayout } from "@/components/parent/ParentAppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2, Users, TrendingUp, Trophy, Flame, Target, AlertOctagon, AlertTriangle, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-// Removed ParentNavbar import - using ParentAppLayout now
 import { StudentZoneAnalysis } from "@/components/parent/StudentZoneAnalysis";
 import { TopicWiseBreakdown } from "@/components/parent/TopicWiseBreakdown";
 import { ParentRoadmapCalendar } from "@/components/parent/ParentRoadmapCalendar";
 import { ChapterTestProgress } from "@/components/parent/ChapterTestProgress";
-import { RoadmapCardView } from "@/components/RoadmapCardView";
 import { TopRacersSection } from "@/components/student/racing/TopRacersSection";
 import { UserPositionSection } from "@/components/student/racing/UserPositionSection";
 import { RaceTypeSelector } from "@/components/student/racing/RaceTypeSelector";
 import { RaceType } from "@/pages/LiveRacing";
+import { ParentHeroSection } from "@/components/parent/ParentHeroSection";
+import { ThreeBackground } from "@/components/student/ThreeBackground";
+import {
+  ParentWatchingIllustration,
+  ReportCardIllustration,
+  TrophyMomentIllustration,
+} from "@/components/parent/ParentStoryIllustrations";
 
+// --- Animation helpers ---
+const sectionFadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" as const } },
+};
+
+const staggerGrid = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+
+const cardPop = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" as const } },
+};
+
+// --- Types ---
 interface LinkedStudent {
   student_id: string;
   relationship: string;
@@ -36,22 +56,9 @@ interface LinkedStudent {
   };
 }
 
-interface StudentProgress {
-  analytics: any;
-  subjectAnalytics: any[];
-  recentTests: any[];
-}
-
-interface StudentActivity {
-  attendance: any[];
-  gamification: any;
-  achievements: any[];
-}
-
-interface FeeSummary {
-  feeRecords: any[];
-  pendingFees: any[];
-}
+interface StudentProgress { analytics: any; subjectAnalytics: any[]; recentTests: any[]; }
+interface StudentActivity { attendance: any[]; gamification: any; achievements: any[]; }
+interface FeeSummary { feeRecords: any[]; pendingFees: any[]; }
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -71,144 +78,62 @@ export default function ParentDashboard() {
   const [manualZone, setManualZone] = useState<'red' | 'yellow' | 'green'>('red');
   const [currentDataStudentId, setCurrentDataStudentId] = useState<string | null>(null);
 
-  useEffect(() => {
-    checkParentRole();
-    fetchLinkedStudents();
-  }, []);
+  // ========== DATA FETCHING (unchanged logic) ==========
+  useEffect(() => { checkParentRole(); fetchLinkedStudents(); }, []);
 
   useEffect(() => {
     if (selectedStudent) {
-      // Clear all state immediately when switching students
-      setProgress(null);
-      setActivity(null);
-      setFees(null);
-      setZoneData(null);
-      setTopicsBySubject({});
-      setRacingData(null);
-      setTestAnalysis({});
-      setRoadmapCalendar(null);
-      setChapterStatuses({});
-      setCurrentDataStudentId(null);
+      setProgress(null); setActivity(null); setFees(null); setZoneData(null);
+      setTopicsBySubject({}); setRacingData(null); setTestAnalysis({});
+      setRoadmapCalendar(null); setChapterStatuses({}); setCurrentDataStudentId(null);
       setLoading(true);
-      
-      // Fetch fresh data for selected student
       fetchStudentData(selectedStudent);
     }
   }, [selectedStudent, selectedRace]);
 
   const checkParentRole = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/login');
-      return;
-    }
-
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', session.user.id)
-      .single();
-
-    if (roleData?.role !== 'parent') {
-      toast.error("Access denied. Parent role required.");
-      navigate('/');
-    }
+    if (!session) { navigate('/login'); return; }
+    const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id).single();
+    if (roleData?.role !== 'parent') { toast.error("Access denied. Parent role required."); navigate('/'); }
   };
 
   const fetchLinkedStudents = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
       const { data, error } = await supabase.functions.invoke('parent-portal', {
         body: { action: 'getLinkedStudents' },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
-
       if (error) throw error;
-
       setLinkedStudents(data.students || []);
-      if (data.students?.length > 0) {
-        setSelectedStudent(data.students[0].student_id);
-      }
+      if (data.students?.length > 0) setSelectedStudent(data.students[0].student_id);
     } catch (error) {
       console.error('Error fetching linked students:', error);
       toast.error("Failed to load linked students");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const fetchStudentData = async (studentId: string) => {
-    // Mark that we're fetching for this specific student (before try block for scope)
     const fetchingForStudent = studentId;
-    
     setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
-      console.log('[ParentDashboard] Fetching data for student:', studentId);
-
       const [progressData, activityData, feesData, zoneStatusData, topicsData, racingResult, testAnalysisData, calendarData, chapterProgressData] = await Promise.all([
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getStudentProgress', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getStudentActivity', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getFeeSummary', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getZoneStatus', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        supabase
-          .from('student_topic_analytics')
-          .select('*')
-          .eq('student_id', studentId),
-        supabase.functions.invoke('live-racing', {
-          body: {
-            race_type: selectedRace,
-            user_id: studentId,
-          },
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
-        }),
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getSubjectChapterTestAnalysis', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getRoadmapCalendarView', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        }),
-        supabase.functions.invoke('parent-portal', {
-          body: { action: 'getChapterTestProgress', studentId },
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        })
+        supabase.functions.invoke('parent-portal', { body: { action: 'getStudentProgress', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.functions.invoke('parent-portal', { body: { action: 'getStudentActivity', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.functions.invoke('parent-portal', { body: { action: 'getFeeSummary', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.functions.invoke('parent-portal', { body: { action: 'getZoneStatus', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.from('student_topic_analytics').select('*').eq('student_id', studentId),
+        supabase.functions.invoke('live-racing', { body: { race_type: selectedRace, user_id: studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.functions.invoke('parent-portal', { body: { action: 'getSubjectChapterTestAnalysis', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.functions.invoke('parent-portal', { body: { action: 'getRoadmapCalendarView', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
+        supabase.functions.invoke('parent-portal', { body: { action: 'getChapterTestProgress', studentId }, headers: { Authorization: `Bearer ${session.access_token}` } }),
       ]);
 
-      console.log('[ParentDashboard] Progress:', progressData);
-      console.log('[ParentDashboard] Activity:', activityData);
-      console.log('[ParentDashboard] Fees:', feesData);
-      console.log('[ParentDashboard] Zone:', zoneStatusData);
-
-      console.log('[ParentDashboard] Racing API response:', racingResult);
-
-      // CRITICAL: Only update state if we're still viewing the same student
-      // This prevents race conditions where data from Child A appears for Child B
-      if (selectedStudent !== fetchingForStudent) {
-        console.warn('[ParentDashboard] Discarding stale data for student:', fetchingForStudent, 'current:', selectedStudent);
-        return;
-      }
+      if (selectedStudent !== fetchingForStudent) return;
 
       setProgress(progressData.data);
       setActivity(activityData.data);
@@ -218,72 +143,36 @@ export default function ParentDashboard() {
       setRoadmapCalendar(calendarData.data || null);
       setChapterStatuses(chapterProgressData.data?.chapterStatuses || {});
       setCurrentDataStudentId(fetchingForStudent);
-      
-      // Handle racing data with proper fallback
+
       if (racingResult.data?.success) {
-        console.log('[ParentDashboard] Racing data:', racingResult.data.data);
         setRacingData(racingResult.data.data);
       } else {
-        console.error('[ParentDashboard] Racing fetch failed:', racingResult.data?.error || racingResult.error);
-        setRacingData({
-          topRacers: [],
-          userPosition: null,
-          nearbyRacers: [],
-          totalRacers: 0,
-          gapFromLeader: 0,
-          leaderXP: 0,
-          title: 'Live Racing',
-          description: 'No racing data available'
-        });
+        setRacingData({ topRacers: [], userPosition: null, nearbyRacers: [], totalRacers: 0, gapFromLeader: 0, leaderXP: 0, title: 'Live Racing', description: 'No racing data available' });
       }
-      
-      // Group topics by subject
+
       const grouped = (topicsData.data || []).reduce((acc: any, topic: any) => {
-        if (!acc[topic.subject]) {
-          acc[topic.subject] = [];
-        }
-        acc[topic.subject].push({
-          topic_name: topic.topic_name,
-          times_practiced: topic.practice_count || 0,
-          average_score: topic.average_score || 0,
-          total_xp_earned: topic.xp_earned || 0,
-          time_spent_minutes: topic.time_spent_minutes || 0,
-          mastery_level: topic.mastery_level || 'beginner',
-          last_practiced_at: topic.last_practiced_at
-        });
+        if (!acc[topic.subject]) acc[topic.subject] = [];
+        acc[topic.subject].push({ topic_name: topic.topic_name, times_practiced: topic.practice_count || 0, average_score: topic.average_score || 0, total_xp_earned: topic.xp_earned || 0, time_spent_minutes: topic.time_spent_minutes || 0, mastery_level: topic.mastery_level || 'beginner', last_practiced_at: topic.last_practiced_at });
         return acc;
       }, {});
-      
-      // Final check before setting topics
-      if (selectedStudent === fetchingForStudent) {
-        setTopicsBySubject(grouped);
-      }
+      if (selectedStudent === fetchingForStudent) setTopicsBySubject(grouped);
     } catch (error) {
       console.error('Error fetching student data:', error);
       toast.error("Failed to load student data");
     } finally {
-      // Only clear loading if we're still on the same student
-      if (selectedStudent === fetchingForStudent) {
-        setLoading(false);
-      }
+      if (selectedStudent === fetchingForStudent) setLoading(false);
     }
   };
 
   const toggleZone = (zone: 'red' | 'yellow' | 'green') => {
     setManualZone(zone);
-    const zoneNames = {
-      red: 'RED ZONE - Urgent Attention Needed',
-      yellow: 'YELLOW ZONE - Needs Improvement',
-      green: 'GREEN ZONE - Excellent Progress'
-    };
-    toast.success(`Zone Updated`, {
-      description: zoneNames[zone],
-      duration: 2000,
-    });
+    const zoneNames = { red: 'RED ZONE - Urgent Attention Needed', yellow: 'YELLOW ZONE - Needs Improvement', green: 'GREEN ZONE - Excellent Progress' };
+    toast.success('Zone Updated', { description: zoneNames[zone], duration: 2000 });
   };
 
   const currentStudent = linkedStudents.find(s => s.student_id === selectedStudent);
 
+  // ========== LOADING / EMPTY STATES ==========
   if (loading && linkedStudents.length === 0) {
     return (
       <ParentAppLayout>
@@ -302,9 +191,7 @@ export default function ParentDashboard() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Users className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Students Linked</h3>
-              <p className="text-muted-foreground text-center">
-                Contact the administrator to link your children to your account.
-              </p>
+              <p className="text-muted-foreground text-center">Contact the administrator to link your children to your account.</p>
             </CardContent>
           </Card>
         </div>
@@ -312,325 +199,232 @@ export default function ParentDashboard() {
     );
   }
 
+  // ========== MAIN RENDER ==========
   return (
     <ParentAppLayout>
-      
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Child Selector */}
-        <div className="mb-6">
-          <h2 className="text-lg font-medium mb-3">Select Child</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {linkedStudents.map((student) => (
-              <Card
-                key={student.student_id}
-                className={`cursor-pointer transition-all ${
-                  selectedStudent === student.student_id
-                    ? 'ring-2 ring-primary'
-                    : 'hover:bg-accent'
-                }`}
-                onClick={() => setSelectedStudent(student.student_id)}
-              >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={student.profiles.avatar_url || undefined} />
-                    <AvatarFallback>
-                      {student.profiles.full_name?.charAt(0) || 'S'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{student.profiles.full_name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Class {student.profiles.student_class}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+      {/* Animated Hero Section */}
+      <ParentHeroSection
+        linkedStudents={linkedStudents}
+        selectedStudent={selectedStudent}
+        onSelectStudent={setSelectedStudent}
+        activity={activity}
+        progress={progress}
+      />
 
-        {currentStudent && !loading && currentDataStudentId === selectedStudent && (
-          <div className="space-y-6">
-            {/* Manual Zone Toggle - Top Section */}
-            <Card className="border-2">
-              <CardHeader>
-                <CardTitle>Student Performance Zone</CardTitle>
-                <CardDescription>Double-click any zone to mark student's current status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 3D Background (desktop only, lazy-loaded) */}
+      <div className="relative">
+        <ThreeBackground />
+
+        <div className="container mx-auto px-4 py-6 max-w-6xl relative z-10">
+          {/* Loading state */}
+          {loading && currentStudent && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+
+          {currentStudent && !loading && currentDataStudentId === selectedStudent && (
+            <div className="space-y-8">
+
+              {/* ── Section 1: Performance Zone ── */}
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <div className="flex items-center gap-4 mb-4">
+                  <ParentWatchingIllustration />
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold text-foreground">Performance Zone</h2>
+                    <p className="text-sm text-muted-foreground">Double-click any zone to mark student's current status</p>
+                  </div>
+                </div>
+                <motion.div variants={staggerGrid} initial="hidden" whileInView="visible" viewport={{ once: true }} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Red Zone */}
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onDoubleClick={() => toggleZone('red')}
-                    className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
-                      manualZone === 'red' 
-                        ? 'bg-red-600 text-white border-red-700 shadow-lg' 
-                        : 'bg-red-100 text-red-900 border-red-300 hover:bg-red-200'
-                    }`}
-                  >
-                    <AlertOctagon className={`h-12 w-12 mx-auto mb-3 ${manualZone === 'red' ? 'text-white' : 'text-red-600'}`} />
+                  <motion.div variants={cardPop} whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.95 }} onDoubleClick={() => toggleZone('red')}
+                    className={`cursor-pointer p-6 rounded-2xl border-2 transition-all ${manualZone === 'red' ? 'bg-destructive text-destructive-foreground border-destructive shadow-lg shadow-destructive/20' : 'bg-destructive/10 text-foreground border-destructive/30 hover:bg-destructive/20'}`}>
+                    <AlertOctagon className={`h-10 w-10 mx-auto mb-3 ${manualZone === 'red' ? 'text-destructive-foreground' : 'text-destructive'}`} />
                     <h3 className="text-center font-bold text-lg">Red Zone</h3>
-                    <p className="text-center text-sm mt-2">Urgent Attention Needed</p>
-                    {manualZone === 'red' && (
-                      <Badge className="w-full mt-3 justify-center bg-white text-red-600 hover:bg-white">Active</Badge>
-                    )}
+                    <p className="text-center text-sm mt-1 opacity-80">Urgent Attention Needed</p>
+                    {manualZone === 'red' && <Badge className="w-full mt-3 justify-center bg-card text-destructive hover:bg-card">Active</Badge>}
                   </motion.div>
 
                   {/* Yellow Zone */}
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onDoubleClick={() => toggleZone('yellow')}
-                    className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
-                      manualZone === 'yellow' 
-                        ? 'bg-yellow-600 text-white border-yellow-700 shadow-lg' 
-                        : 'bg-yellow-100 text-yellow-900 border-yellow-300 hover:bg-yellow-200'
-                    }`}
-                  >
-                    <AlertTriangle className={`h-12 w-12 mx-auto mb-3 ${manualZone === 'yellow' ? 'text-white' : 'text-yellow-600'}`} />
+                  <motion.div variants={cardPop} whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.95 }} onDoubleClick={() => toggleZone('yellow')}
+                    className={`cursor-pointer p-6 rounded-2xl border-2 transition-all ${manualZone === 'yellow' ? 'bg-warning text-warning-foreground border-warning shadow-lg shadow-warning/20' : 'bg-warning/10 text-foreground border-warning/30 hover:bg-warning/20'}`}>
+                    <AlertTriangle className={`h-10 w-10 mx-auto mb-3 ${manualZone === 'yellow' ? 'text-warning-foreground' : 'text-warning'}`} />
                     <h3 className="text-center font-bold text-lg">Yellow Zone</h3>
-                    <p className="text-center text-sm mt-2">Needs Improvement</p>
-                    {manualZone === 'yellow' && (
-                      <Badge className="w-full mt-3 justify-center bg-white text-yellow-600 hover:bg-white">Active</Badge>
-                    )}
+                    <p className="text-center text-sm mt-1 opacity-80">Needs Improvement</p>
+                    {manualZone === 'yellow' && <Badge className="w-full mt-3 justify-center bg-card text-warning hover:bg-card">Active</Badge>}
                   </motion.div>
 
                   {/* Green Zone */}
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onDoubleClick={() => toggleZone('green')}
-                    className={`cursor-pointer p-6 rounded-lg border-2 transition-all ${
-                      manualZone === 'green' 
-                        ? 'bg-green-600 text-white border-green-700 shadow-lg' 
-                        : 'bg-green-100 text-green-900 border-green-300 hover:bg-green-200'
-                    }`}
-                  >
-                    <ShieldCheck className={`h-12 w-12 mx-auto mb-3 ${manualZone === 'green' ? 'text-white' : 'text-green-600'}`} />
+                  <motion.div variants={cardPop} whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.95 }} onDoubleClick={() => toggleZone('green')}
+                    className={`cursor-pointer p-6 rounded-2xl border-2 transition-all ${manualZone === 'green' ? 'bg-success text-success-foreground border-success shadow-lg shadow-success/20' : 'bg-success/10 text-foreground border-success/30 hover:bg-success/20'}`}>
+                    <ShieldCheck className={`h-10 w-10 mx-auto mb-3 ${manualZone === 'green' ? 'text-success-foreground' : 'text-success'}`} />
                     <h3 className="text-center font-bold text-lg">Green Zone</h3>
-                    <p className="text-center text-sm mt-2">Excellent Progress</p>
-                    {manualZone === 'green' && (
-                      <Badge className="w-full mt-3 justify-center bg-white text-green-600 hover:bg-white">Active</Badge>
-                    )}
+                    <p className="text-center text-sm mt-1 opacity-80">Excellent Progress</p>
+                    {manualZone === 'green' && <Badge className="w-full mt-3 justify-center bg-card text-success hover:bg-card">Active</Badge>}
                   </motion.div>
+                </motion.div>
+              </motion.div>
+
+              {/* Zone Analysis */}
+              {zoneData && (
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                  <StudentZoneAnalysis zoneStatus={zoneData} />
+                </motion.div>
+              )}
+
+              {/* ── Section 2: Rankings ── */}
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <div className="flex items-center gap-4 mb-4">
+                  <ReportCardIllustration />
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground">Rankings & Performance</h2>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Zone Status */}
-            {zoneData && <StudentZoneAnalysis zoneStatus={zoneData} />}
-
-            {/* Rankings */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Rankings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Overall</p>
-                    <p className="text-3xl font-bold text-primary">
-                      #{progress?.analytics?.overall_rank ?? 'Not Ranked'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {progress?.analytics?.overall_percentile ? `${progress.analytics.overall_percentile}th percentile` : 'Insufficient data'}
-                    </p>
-                  </div>
-                  <div className="text-center border-x">
-                    <p className="text-sm text-muted-foreground mb-1">Zone</p>
-                    <p className="text-3xl font-bold text-primary">
-                      #{progress?.analytics?.zone_rank ?? 'Not Ranked'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {progress?.analytics?.zone_percentile ? `${progress.analytics.zone_percentile}th percentile` : 'Insufficient data'}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">School</p>
-                    <p className="text-3xl font-bold text-primary">
-                      #{progress?.analytics?.school_rank ?? 'Not Ranked'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {progress?.analytics?.school_percentile ? `${progress.analytics.school_percentile}th percentile` : 'Insufficient data'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Performance Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-yellow-500" />
-                    Total XP
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{activity?.gamification?.total_xp || 0}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    Streak
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{activity?.gamification?.streak_days || 0} days</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-blue-500" />
-                    Tests
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{progress?.analytics?.tests_attempted || 0}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Target className="h-4 w-4 text-green-500" />
-                    Avg Score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">
-                    {progress?.analytics?.average_score?.toFixed(1) || 0}%
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Chapter-wise Test Progress - Red/Green Zones */}
-            {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Chapter-wise Test Progress</CardTitle>
-                  <CardDescription>
-                    Double-click any chapter to toggle completion status. 
-                    Green = Tests completed, Red = No tests completed
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ChapterTestProgress
-                    roadmapData={roadmapCalendar.subjectsData}
-                    testAnalysis={testAnalysis}
-                    chapterStatuses={chapterStatuses}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Student Roadmap Calendar with Toggle */}
-            {roadmapCalendar && (
-              <ParentRoadmapCalendar
-                startDate={new Date(roadmapCalendar.startDate)}
-                totalDays={roadmapCalendar.totalDays}
-                subjectsData={roadmapCalendar.subjectsData}
-                chapterStatuses={chapterStatuses}
-                testAnalysis={testAnalysis}
-              />
-            )}
-
-            {/* Topic-wise Breakdown */}
-            {Object.keys(topicsBySubject).length > 0 && (
-              <TopicWiseBreakdown topicsBySubject={topicsBySubject} />
-            )}
-
-            {/* Racing Charts */}
-            <div>
-              <RaceTypeSelector selectedRace={selectedRace} onRaceChange={setSelectedRace} />
-              {racingData && (
-                <Card className="mt-4">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      🏁 {racingData.title || 'Live Racing Position'}
-                    </CardTitle>
-                    <CardDescription>
-                      {racingData.description} • {racingData.totalRacers || 0} racers
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {racingData.topRacers?.length > 0 ? (
-                      <div className="space-y-4">
-                        <TopRacersSection racers={racingData.topRacers} />
-                        
-                        {racingData.userPosition && racingData.userPosition.position > 15 && (
-                          <UserPositionSection
-                            userPosition={racingData.userPosition}
-                            nearbyRacers={racingData.nearbyRacers || []}
-                            gapFromLeader={racingData.gapFromLeader || 0}
-                            leaderXP={racingData.leaderXP || 0}
-                          />
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                        <p className="text-muted-foreground">
-                          No racing data available yet.
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Racing data will appear once the student participates in activities.
-                        </p>
-                      </div>
-                    )}
+                <Card className="border border-border/50 bg-card/80 backdrop-blur-sm">
+                  <CardContent className="pt-6">
+                    <motion.div variants={staggerGrid} initial="hidden" whileInView="visible" viewport={{ once: true }} className="grid grid-cols-3 gap-4">
+                      {[
+                        { label: 'Overall', rank: progress?.analytics?.overall_rank, percentile: progress?.analytics?.overall_percentile },
+                        { label: 'Zone', rank: progress?.analytics?.zone_rank, percentile: progress?.analytics?.zone_percentile },
+                        { label: 'School', rank: progress?.analytics?.school_rank, percentile: progress?.analytics?.school_percentile },
+                      ].map((r) => (
+                        <motion.div key={r.label} variants={cardPop} className="text-center">
+                          <p className="text-sm text-muted-foreground mb-1">{r.label}</p>
+                          <p className="text-3xl font-bold text-primary">#{r.rank ?? 'N/A'}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {r.percentile ? `${r.percentile}th percentile` : 'Insufficient data'}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </motion.div>
                   </CardContent>
                 </Card>
+
+                {/* Performance Stats */}
+                <motion.div variants={staggerGrid} initial="hidden" whileInView="visible" viewport={{ once: true }} className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  {[
+                    { icon: Trophy, label: 'Total XP', value: activity?.gamification?.total_xp || 0, iconColor: 'text-warning' },
+                    { icon: Flame, label: 'Streak', value: `${activity?.gamification?.streak_days || 0} days`, iconColor: 'text-destructive' },
+                    { icon: TrendingUp, label: 'Tests', value: progress?.analytics?.tests_attempted || 0, iconColor: 'text-primary' },
+                    { icon: Target, label: 'Avg Score', value: `${(progress?.analytics?.average_score || 0).toFixed(1)}%`, iconColor: 'text-success' },
+                  ].map((stat) => (
+                    <motion.div key={stat.label} variants={cardPop}>
+                      <Card className="border border-border/50 bg-card/80 backdrop-blur-sm hover:shadow-md transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
+                            {stat.label}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </motion.div>
+
+              {/* ── Section 3: Chapter Test Progress ── */}
+              {roadmapCalendar?.subjectsData && roadmapCalendar.subjectsData.length > 0 && (
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                  <Card className="border border-border/50 bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle>Chapter-wise Test Progress</CardTitle>
+                      <CardDescription>Double-click any chapter to toggle completion. Green = Tests completed, Red = No tests completed</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ChapterTestProgress roadmapData={roadmapCalendar.subjectsData} testAnalysis={testAnalysis} chapterStatuses={chapterStatuses} />
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
-            </div>
 
-            {/* Pending Fees (if any) */}
-            {fees?.pendingFees?.length > 0 && (
-              <Card className="border-destructive/50">
-                <CardHeader>
-                  <CardTitle className="text-destructive">Pending Fees</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {fees.pendingFees.map((fee: any) => (
-                      <div key={fee.id} className="flex items-center justify-between p-3 border rounded-lg bg-destructive/5">
-                        <div>
-                          <p className="font-medium">
-                            {new Date(fee.year, fee.month - 1).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Due: {new Date(fee.due_date).toLocaleDateString()}
-                          </p>
+              {/* ── Section 4: Roadmap Calendar ── */}
+              {roadmapCalendar && (
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                  <ParentRoadmapCalendar
+                    startDate={new Date(roadmapCalendar.startDate)}
+                    totalDays={roadmapCalendar.totalDays}
+                    subjectsData={roadmapCalendar.subjectsData}
+                    chapterStatuses={chapterStatuses}
+                    testAnalysis={testAnalysis}
+                  />
+                </motion.div>
+              )}
+
+              {/* ── Section 5: Topic Breakdown ── */}
+              {Object.keys(topicsBySubject).length > 0 && (
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                  <TopicWiseBreakdown topicsBySubject={topicsBySubject} />
+                </motion.div>
+              )}
+
+              {/* ── Section 6: Racing ── */}
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <div className="flex items-center gap-4 mb-4">
+                  <TrophyMomentIllustration />
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground">Racing & Leaderboard</h2>
+                </div>
+                <RaceTypeSelector selectedRace={selectedRace} onRaceChange={setSelectedRace} />
+                {racingData && (
+                  <Card className="mt-4 border border-border/50 bg-card/80 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">🏁 {racingData.title || 'Live Racing Position'}</CardTitle>
+                      <CardDescription>{racingData.description} • {racingData.totalRacers || 0} racers</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {racingData.topRacers?.length > 0 ? (
+                        <div className="space-y-4">
+                          <TopRacersSection racers={racingData.topRacers} />
+                          {racingData.userPosition && racingData.userPosition.position > 15 && (
+                            <UserPositionSection userPosition={racingData.userPosition} nearbyRacers={racingData.nearbyRacers || []} gapFromLeader={racingData.gapFromLeader || 0} leaderXP={racingData.leaderXP || 0} />
+                          )}
                         </div>
-                        <div className="text-right">
-                          <p className="text-xl font-bold">₹{fee.amount}</p>
-                          <div className="flex items-center gap-2">
-                            <Progress value={fee.battery_level} className="w-20 h-2" />
-                            <span className="text-sm">{fee.battery_level}%</span>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-muted-foreground">No racing data available yet.</p>
+                          <p className="text-sm text-muted-foreground mt-2">Racing data will appear once the student participates in activities.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </motion.div>
+
+              {/* ── Section 7: Pending Fees ── */}
+              {fees?.pendingFees && fees.pendingFees.length > 0 && (
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                  <Card className="border-destructive/50">
+                    <CardHeader>
+                      <CardTitle className="text-destructive">Pending Fees</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {fees.pendingFees.map((fee: any) => (
+                          <div key={fee.id} className="flex items-center justify-between p-3 border rounded-lg bg-destructive/5">
+                            <div>
+                              <p className="font-medium">{new Date(fee.year, fee.month - 1).toLocaleDateString('default', { month: 'long', year: 'numeric' })}</p>
+                              <p className="text-sm text-muted-foreground">Due: {new Date(fee.due_date).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xl font-bold">₹{fee.amount}</p>
+                              <div className="flex items-center gap-2">
+                                <Progress value={fee.battery_level} className="w-20 h-2" />
+                                <span className="text-sm">{fee.battery_level}%</span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
 
-        {loading && currentStudent && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </ParentAppLayout>
   );

@@ -27,13 +27,13 @@ export const StudentAppLayout = ({ children }: StudentAppLayoutProps) => {
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar — always visible on lg+ */}
       {!isMobile && (
-        <aside className="hidden lg:flex w-64 shrink-0 sticky top-0 h-screen border-r border-border bg-card overflow-y-auto">
+        <aside className="hidden lg:flex w-64 shrink-0 fixed left-0 top-0 z-30 h-screen border-r border-border bg-card overflow-y-auto">
           <StudentAppSidebar />
         </aside>
       )}
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         {/* Top App Bar */}
         <header className="sticky top-0 z-40 w-full border-b bg-card/80 backdrop-blur-md shadow-sm">
           <div className="flex h-14 items-center justify-between px-4">

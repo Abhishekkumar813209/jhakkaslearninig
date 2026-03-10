@@ -26,6 +26,8 @@ import {
   ProgressIllustration,
   SuccessIllustration,
   ProudParentsIllustration,
+  TrophyCeremonyIllustration,
+  SchoolMapAuraIllustration,
 } from './StoryIllustrations';
 
 const staggerContainer = {

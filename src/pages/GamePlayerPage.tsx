@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { MCQGame } from "@/components/student/games/MCQGame";
 import { MatchPairsGame } from "@/components/student/games/MatchPairsGame";
 import { LineMatchingGame } from "@/components/student/games/LineMatchingGame";

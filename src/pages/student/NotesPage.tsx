@@ -243,6 +243,7 @@ export default function NotesPage() {
   }
 
   return (
+    <StudentAppLayout>
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-4">
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Header */}

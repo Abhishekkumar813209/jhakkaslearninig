@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import LecturePlayer from "@/components/student/LecturePlayer";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 
 interface Lecture {
   id: string;

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
@@ -42,9 +43,19 @@ const fadeUp = {
 
 export const StudentHomeDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { profile } = useProfile();
+  const isGuest = !user;
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Student';
+
+  const handleFeatureClick = (path: string) => {
+    if (isGuest) {
+      navigate('/login');
+    } else {
+      navigate(path);
+    }
+  };
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -67,14 +78,21 @@ export const StudentHomeDashboard = () => {
           {/* Greeting */}
           <motion.div variants={fadeUp} className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              {getGreeting()}, <span className="text-primary">{firstName}</span> 👋
+              {isGuest ? (
+                <>Welcome to <span className="text-primary">Jhakkas Learning</span> 🚀</>
+              ) : (
+                <>{getGreeting()}, <span className="text-primary">{firstName}</span> 👋</>
+              )}
             </h1>
             <p className="text-muted-foreground mt-2 text-base">
-              Continue your learning journey — every step counts.
+              {isGuest
+                ? 'Your journey to academic excellence starts here.'
+                : 'Continue your learning journey — every step counts.'}
             </p>
           </motion.div>
 
-          {/* Quick Stats */}
+          {/* Quick Stats — only for logged-in users */}
+          {!isGuest && (
           <motion.div variants={fadeUp} className="flex gap-3 mb-10 flex-wrap">
             {[
               { icon: Flame, label: 'Streak', value: '0 days', color: 'text-destructive' },
@@ -91,6 +109,7 @@ export const StudentHomeDashboard = () => {
               </div>
             ))}
           </motion.div>
+          )}
 
           {/* Primary Feature Tiles */}
           <motion.div variants={fadeUp} className="grid md:grid-cols-3 gap-4">
@@ -105,7 +124,7 @@ export const StudentHomeDashboard = () => {
                   key={f.id}
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate(f.path)}
+                  onClick={() => handleFeatureClick(f.path)}
                   className="cursor-pointer"
                 >
                   <Card className={`relative overflow-hidden border-0 bg-gradient-to-br ${f.gradient} text-primary-foreground p-5 h-full`}>
@@ -218,7 +237,7 @@ export const StudentHomeDashboard = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/roadmap')}
+            onClick={() => handleFeatureClick('/roadmap')}
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md hover:bg-primary-hover transition-colors"
           >
             Explore Your Roadmap <ArrowRight className="h-4 w-4" />

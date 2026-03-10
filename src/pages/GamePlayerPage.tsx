@@ -976,8 +976,7 @@ const GamePlayerPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container px-3 py-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate("/student")}>

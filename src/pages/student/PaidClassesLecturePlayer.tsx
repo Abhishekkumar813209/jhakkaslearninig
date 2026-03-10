@@ -193,6 +193,7 @@ const PaidClassesLecturePlayer = () => {
         state: { subjectName: state?.subjectName, fromPaidClasses: true }
       })}
     />
+    </StudentAppLayout>
   );
 };
 

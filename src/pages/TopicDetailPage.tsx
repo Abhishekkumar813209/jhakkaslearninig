@@ -129,7 +129,7 @@ const TopicDetailPage = () => {
           />
         )}
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

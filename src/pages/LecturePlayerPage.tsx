@@ -179,6 +179,7 @@ const LecturePlayerPage = () => {
       onClose={handleBackToPlaylist}
       onLectureChange={(id) => navigate(`/roadmap/${roadmapId}/chapter/${chapterId}/lecture/${id}`)}
     />
+    </StudentAppLayout>
   );
 };
 

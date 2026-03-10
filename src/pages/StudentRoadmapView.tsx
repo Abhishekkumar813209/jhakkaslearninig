@@ -55,12 +55,11 @@ const StudentRoadmapView = () => {
   }
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container py-8">
         <StudentBatchRoadmap />
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

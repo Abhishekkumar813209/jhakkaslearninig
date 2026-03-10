@@ -1056,7 +1056,7 @@ const GamePlayerPage = () => {
           />
         )}
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

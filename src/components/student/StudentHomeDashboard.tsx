@@ -176,11 +176,27 @@ export const StudentHomeDashboard = () => {
       />
 
       <ScrollStorySection
+        title="The moment that made it all worth it."
+        description="Standing on stage, holding that trophy — with your parents watching from the audience. Hard work finally paid off."
+        illustration={<TrophyCeremonyIllustration />}
+        direction="right"
+        bgClass="bg-gradient-to-b from-accent/10 to-background"
+      />
+
+      <ScrollStorySection
         title="Success is even sweeter when your family sees your growth."
         description="Your parents can track your journey, celebrate your streaks, and see the transformation. Their pride is your greatest reward."
         illustration={<ProudParentsIllustration />}
         direction="center"
         bgClass="bg-gradient-to-b from-background to-accent/20"
+      />
+
+      <ScrollStorySection
+        title="Every school in your area has its own story."
+        description="On the map, each school glows with its own aura — built by students like you. Your school's aura grows brighter with every achievement."
+        illustration={<SchoolMapAuraIllustration />}
+        direction="left"
+        bgClass="bg-gradient-to-b from-accent/20 to-background"
       />
 
       {/* CTA Section */}

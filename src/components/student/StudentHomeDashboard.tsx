@@ -124,7 +124,7 @@ export const StudentHomeDashboard = () => {
                   key={f.id}
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate(f.path)}
+                  onClick={() => handleFeatureClick(f.path)}
                   className="cursor-pointer"
                 >
                   <Card className={`relative overflow-hidden border-0 bg-gradient-to-br ${f.gradient} text-primary-foreground p-5 h-full`}>

@@ -152,6 +152,7 @@ const LecturePlayerPage = () => {
   }
 
   return (
+    <StudentAppLayout>
     <LecturePlayer
       lecture={{
         id: currentLecture.id,

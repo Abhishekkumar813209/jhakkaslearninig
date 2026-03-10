@@ -354,7 +354,7 @@ export default function ParentDashboard() {
 
               {/* ── Section 5: Topic Breakdown ── */}
               {Object.keys(topicsBySubject).length > 0 && (
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={sectionFadeUp}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.15 }} >
                   <TopicWiseBreakdown topicsBySubject={topicsBySubject} />
                 </motion.div>
               )}

@@ -237,7 +237,7 @@ export const StudentHomeDashboard = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/roadmap')}
+            onClick={() => handleFeatureClick('/roadmap')}
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md hover:bg-primary-hover transition-colors"
           >
             Explore Your Roadmap <ArrowRight className="h-4 w-4" />

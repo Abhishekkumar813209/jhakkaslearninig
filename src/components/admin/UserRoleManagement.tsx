@@ -193,7 +193,7 @@ const UserRoleManagement = () => {
                         <Select
                           value={user.role}
                           onValueChange={(role) => initiateRoleChange(user, role)}
-                          disabled={loading}
+                          disabled={loading || isReadOnly}
                         >
                           <SelectTrigger className="w-32">
                             <SelectValue />

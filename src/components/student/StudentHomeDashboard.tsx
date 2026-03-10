@@ -78,14 +78,21 @@ export const StudentHomeDashboard = () => {
           {/* Greeting */}
           <motion.div variants={fadeUp} className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-              {getGreeting()}, <span className="text-primary">{firstName}</span> 👋
+              {isGuest ? (
+                <>Welcome to <span className="text-primary">Jhakkas Learning</span> 🚀</>
+              ) : (
+                <>{getGreeting()}, <span className="text-primary">{firstName}</span> 👋</>
+              )}
             </h1>
             <p className="text-muted-foreground mt-2 text-base">
-              Continue your learning journey — every step counts.
+              {isGuest
+                ? 'Your journey to academic excellence starts here.'
+                : 'Continue your learning journey — every step counts.'}
             </p>
           </motion.div>
 
-          {/* Quick Stats */}
+          {/* Quick Stats — only for logged-in users */}
+          {!isGuest && (
           <motion.div variants={fadeUp} className="flex gap-3 mb-10 flex-wrap">
             {[
               { icon: Flame, label: 'Streak', value: '0 days', color: 'text-destructive' },
@@ -102,6 +109,7 @@ export const StudentHomeDashboard = () => {
               </div>
             ))}
           </motion.div>
+          )}
 
           {/* Primary Feature Tiles */}
           <motion.div variants={fadeUp} className="grid md:grid-cols-3 gap-4">

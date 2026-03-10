@@ -585,9 +585,8 @@ const TestResults: React.FC = () => {
 
   // If PostTestAnalytics not ready, show basic results
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-background p-6">
+    <StudentAppLayout>
+      <div className="p-6">
         <Card>
           <CardHeader>
             <CardTitle>Test Results Loading...</CardTitle>
@@ -599,7 +598,7 @@ const TestResults: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </StudentAppLayout>
   );
 };
 

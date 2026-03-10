@@ -113,8 +113,7 @@ const Analytics = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
       
       <section className="bg-muted/30 py-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">

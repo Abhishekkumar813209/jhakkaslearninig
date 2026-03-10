@@ -233,11 +233,9 @@ const Quiz = () => {
     const progress = ((currentQuestion + 1) / sampleQuestions.length) * 100;
 
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="max-w-4xl mx-auto">
-            {/* Quiz Header */}
             <Card className="mb-6 shadow-soft">
               <CardContent className="p-6">
                 <div className="flex justify-between items-center mb-4">
@@ -257,7 +255,6 @@ const Quiz = () => {
               </CardContent>
             </Card>
 
-            {/* Question */}
             <Card className="shadow-medium">
               <CardHeader>
                 <CardTitle className="text-lg">{question.question}</CardTitle>
@@ -308,7 +305,7 @@ const Quiz = () => {
             </Card>
           </div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 

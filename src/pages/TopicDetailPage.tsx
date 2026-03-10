@@ -99,8 +99,7 @@ const TopicDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <StudentAppLayout>
       <div className="container py-6">
         {/* Header */}
         <div className="mb-6">

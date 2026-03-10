@@ -55,8 +55,6 @@ export const StudentHomeDashboard = () => {
 
   return (
     <div className="relative">
-      <ThreeBackground />
-
       {/* ===== HERO SECTION ===== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/30 py-10 px-4 md:px-8">
         <FloatingParticles />
@@ -126,6 +124,10 @@ export const StudentHomeDashboard = () => {
           </motion.div>
         </motion.div>
       </section>
+
+      {/* ===== 3D BACKGROUND — lazy-loaded on scroll ===== */}
+      <div className="relative">
+        <ThreeBackground />
 
       {/* ===== STORYTELLING SECTIONS WITH FEATURES ===== */}
       <ScrollStorySection
@@ -224,6 +226,7 @@ export const StudentHomeDashboard = () => {
           </motion.button>
         </motion.div>
       </section>
+      </div>
     </div>
   );
 };

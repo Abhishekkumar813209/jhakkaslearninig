@@ -556,7 +556,7 @@ const Analytics = () => {
           </div>
         )}
       </div>
-    </div>
+    </StudentAppLayout>
   );
 };
 

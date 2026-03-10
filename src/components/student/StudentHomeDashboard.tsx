@@ -43,9 +43,19 @@ const fadeUp = {
 
 export const StudentHomeDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { profile } = useProfile();
+  const isGuest = !user;
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Student';
+
+  const handleFeatureClick = (path: string) => {
+    if (isGuest) {
+      navigate('/login');
+    } else {
+      navigate(path);
+    }
+  };
 
   const getGreeting = () => {
     const h = new Date().getHours();

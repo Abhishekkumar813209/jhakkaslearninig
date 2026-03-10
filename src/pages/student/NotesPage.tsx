@@ -441,5 +441,6 @@ export default function NotesPage() {
         </Tabs>
       </div>
     </div>
+    </StudentAppLayout>
   );
 }

@@ -322,5 +322,6 @@ export default function PaidClassesLectures() {
         </div>
       </div>
     </div>
+    </StudentAppLayout>
   );
 }

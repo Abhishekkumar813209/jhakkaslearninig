@@ -27,6 +27,7 @@ const UserRoleManagement = () => {
   const [newRole, setNewRole] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { toast } = useToast();
+  const { isReadOnly, showReadOnlyToast } = useReadOnly();
 
   const handleSearch = async () => {
     if (!searchEmail.trim()) {

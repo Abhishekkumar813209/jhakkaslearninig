@@ -164,6 +164,7 @@ const PaidClassesLecturePlayer = () => {
   }
 
   return (
+    <StudentAppLayout>
     <LecturePlayer
       lecture={{
         id: currentLecture.id,

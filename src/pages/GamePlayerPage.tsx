@@ -964,15 +964,14 @@ const GamePlayerPage = () => {
 
   if (!gameData) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
+      <StudentAppLayout>
         <div className="container py-8 text-center">
           <div className="animate-pulse">
             <p className="text-lg mb-4">Game not found. Searching for next available game...</p>
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         </div>
-      </div>
+      </StudentAppLayout>
     );
   }
 

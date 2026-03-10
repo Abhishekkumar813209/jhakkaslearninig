@@ -518,13 +518,88 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-large">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-          <p className="text-muted-foreground">Sign in to your account</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row">
+      {/* Left: Illustration Panel */}
+      <motion.div
+        initial={{ opacity: 0, x: -40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.7, ease: 'easeOut' }}
+        className="relative lg:w-1/2 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-accent/20 to-primary/5 p-8 lg:p-12 overflow-hidden"
+      >
+        {/* Floating decorative elements */}
+        <motion.div
+          animate={{ y: [-8, 8, -8] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-10 left-10 text-primary/30"
+        >
+          <Star className="h-8 w-8 fill-current" />
+        </motion.div>
+        <motion.div
+          animate={{ y: [6, -6, 6] }}
+          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-20 right-16 text-warning/40"
+        >
+          <Sparkles className="h-6 w-6" />
+        </motion.div>
+        <motion.div
+          animate={{ y: [-5, 10, -5] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-24 left-16 text-success/30"
+        >
+          <Star className="h-5 w-5 fill-current" />
+        </motion.div>
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-16 right-10 text-primary/20"
+        >
+          <Sparkles className="h-10 w-10" />
+        </motion.div>
+
+        {/* Trophy boy image */}
+        <motion.img
+          src={trophyBoy}
+          alt="Student celebrating with trophy"
+          initial={{ scale: 0.8, opacity: 0, y: 30 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
+          className="w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 object-contain drop-shadow-lg"
+        />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+          className="text-center mt-6 space-y-2"
+        >
+          <h2 className="text-2xl lg:text-3xl font-bold text-foreground">
+            Your Success Story <span className="text-primary">Starts Here</span>
+          </h2>
+          <p className="text-muted-foreground text-sm lg:text-base max-w-sm mx-auto">
+            Join thousands of students acing their exams with Jhakkas Learning
+          </p>
+        </motion.div>
+      </motion.div>
+
+      {/* Right: Login Form */}
+      <motion.div
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.7, ease: 'easeOut', delay: 0.2 }}
+        className="flex-1 flex items-center justify-center p-4 lg:p-8"
+      >
+        <Card className="w-full max-w-md shadow-large border-border/50">
+          <CardHeader className="text-center">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+              <p className="text-muted-foreground">Sign in to your account</p>
+            </motion.div>
+          </CardHeader>
+          <CardContent className="space-y-4">
           {forgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
@@ -737,8 +812,9 @@ const Login = () => {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 };

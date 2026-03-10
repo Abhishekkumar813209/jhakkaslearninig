@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import Navbar from "@/components/Navbar";
+import { StudentAppLayout } from "@/components/student/StudentAppLayout";
 import { DuolingoLessonPath } from "@/components/student/DuolingoLessonPath";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";

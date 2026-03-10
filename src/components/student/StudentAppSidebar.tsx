@@ -16,6 +16,7 @@ import {
   PenTool,
   Brain,
   Lock,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -34,7 +35,8 @@ const menuItems = [
   { icon: FileText, label: 'Free Test', path: '/tests' },
   { icon: Download, label: 'Notes', path: '/student/notes' },
   { icon: Trophy, label: 'Paid Test Series', path: '/tests' },
-  { icon: Brain, label: 'Daily Quiz', path: '/racing' },
+  { icon: Brain, label: 'Racing Leaderboard', path: '/racing' },
+  { icon: MapPin, label: 'School Aura', path: '/student/school-aura' },
 ];
 
 const comingSoonItems = [

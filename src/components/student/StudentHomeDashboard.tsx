@@ -99,7 +99,7 @@ export const StudentHomeDashboard = () => {
             {[
               { id: 'paid-classes', title: 'Paid Classes', description: 'Live & recorded sessions from expert teachers', icon: Users, path: '/student/paid-classes', gradient: 'from-primary to-primary/80' },
               { id: 'roadmap', title: 'My Roadmap', description: 'Your personalized learning path', icon: BookOpen, path: '/roadmap', gradient: 'from-success to-success/80' },
-              { id: 'daily-quiz', title: 'Daily Quiz', description: 'Race against time, earn XP daily', icon: Brain, path: '/racing', gradient: 'from-warning to-warning/80' },
+              { id: 'racing-leaderboard', title: 'Racing Leaderboard', description: 'Race against time, earn XP daily', icon: Brain, path: '/racing', gradient: 'from-warning to-warning/80' },
             ].map((f) => {
               const Icon = f.icon;
               return (
@@ -155,7 +155,7 @@ export const StudentHomeDashboard = () => {
         direction="left"
         bgClass="bg-background"
         features={[
-          { title: 'Daily Quiz', description: 'Race against time, earn XP', icon: Brain, path: '/racing', available: true },
+          { title: 'Racing Leaderboard', description: 'Race against time, earn XP', icon: Brain, path: '/racing', available: true },
           { title: 'Paid Test Series', description: 'Premium test practice', icon: Trophy, path: '/tests', available: true },
           { title: 'Free Test', description: 'Practice anytime', icon: FileText, path: '/tests', available: true },
         ]}

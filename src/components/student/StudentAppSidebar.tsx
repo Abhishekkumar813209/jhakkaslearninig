@@ -36,6 +36,7 @@ const menuItems = [
   { icon: Download, label: 'Notes', path: '/student/notes' },
   { icon: Brain, label: 'Racing Leaderboard', path: '/racing' },
   { icon: MapPin, label: 'School Aura', path: '/student/school-aura' },
+  { icon: Trophy, label: 'Daily Rewards', path: '/student/dashboard' },
 ];
 
 const comingSoonItems = [

@@ -78,7 +78,8 @@ export const StudentAppLayout = ({ children }: StudentAppLayoutProps) => {
                   </Button>
                 </>
               ) : (
-                <>
+              <>
+                  <XPDisplay compact />
                   <Button variant="ghost" size="icon" className="hover:bg-muted">
                     <Bell className="h-5 w-5" />
                   </Button>
